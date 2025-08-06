@@ -4,13 +4,22 @@ using UnityEngine.UI; // UIを使うために必要
 
 public class PlayerController : MonoBehaviour
 {
+    public enum MoveMode
+    {
+        Vertical,
+        Horizonal
+    }
+
     public float moveSpeed = 5f; // 移動速度
     public Text scoreText; // スコア表示用のText
+    public MoveMode currentMoveMode { get; set; }
+    public Digger digger; // Diggerへの参照
 
     private int score = 0;
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
+    private Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
 
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
@@ -20,6 +29,8 @@ public class PlayerController : MonoBehaviour
         {
             rb.useGravity = false; // Rigidbodyの重力を無効にする
         }
+        // 子オブジェクトからDiggerコンポーネントを取得
+        digger = GetComponentInChildren<Digger>();
         controls = new InputSystem_Actions();
 
         // "Move" アクションが実行された時(キーが押された/離された時)に呼ばれる処理を登録
@@ -46,9 +57,48 @@ public class PlayerController : MonoBehaviour
     // 物理演算の更新タイミングで呼ばれる
     void FixedUpdate()
     {
-        // 左右(x)と上下(y)の入力を使って移動ベクトルを作成
-        Vector3 newVelocity = new Vector3(moveInput.x * moveSpeed, moveInput.y * moveSpeed, 0f);
+        Vector3 moveDirection;
+        switch (currentMoveMode)
+        {
+            case MoveMode.Vertical:
+                moveDirection = new Vector3(moveInput.x, moveInput.y, 0f);
+                break;
+            case MoveMode.Horizonal:
+                moveDirection = new Vector3(moveInput.x, 0f, moveInput.y);
+                break;
+            default:
+                moveDirection = Vector3.zero;
+                break;
+        }
+
+        // 移動ベクトルを計算
+        Vector3 newVelocity = moveDirection.normalized * moveSpeed;
         rb.linearVelocity = newVelocity;
+
+        // 移動入力がある場合、その方向を保存
+        if (moveDirection.sqrMagnitude > 0.1f)
+        {
+            lastMoveDirection = moveDirection.normalized;
+        }
+
+        // Playerの向きとDiggerの位置を更新
+        if (lastMoveDirection.sqrMagnitude > 0.1f)
+        {
+            Quaternion targetRotation;
+            if (currentMoveMode == MoveMode.Horizonal)
+            {
+                // 進行方向を向く回転を計算
+                targetRotation = Quaternion.LookRotation(lastMoveDirection);
+            }
+            else // Vertical
+            {
+                // XY平面での2Dの回転。オブジェクトの「上」が進行方向を向くようにする
+                float angle = Mathf.Atan2(lastMoveDirection.y, lastMoveDirection.x) * Mathf.Rad2Deg;
+                targetRotation = Quaternion.AngleAxis(angle - 90f, Vector3.forward);
+            }
+            // Rigidbodyを使って回転させる
+            rb.MoveRotation(targetRotation);
+        }
     }
 
     void OnCollisionEnter(Collision collision)
