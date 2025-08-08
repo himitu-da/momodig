@@ -314,6 +314,15 @@ public class VoxelChunk : MonoBehaviour
         item.AddComponent<Rigidbody>();
         item.AddComponent<DroppedItem>();
         item.tag = "DroppedItem";
+
+        // URP用のマテリアルを動的に作成して割り当てる
+        var itemRenderer = item.GetComponent<Renderer>();
+        if (itemRenderer != null)
+        {
+            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            material.color = Color.gray; // 色を灰色に設定
+            itemRenderer.material = material;
+        }
     }
 
 }

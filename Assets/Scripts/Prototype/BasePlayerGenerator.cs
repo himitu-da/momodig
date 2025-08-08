@@ -28,6 +28,15 @@ public abstract class BasePlayerGenerator : MonoBehaviour
         GameObject sphereVisuals = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         sphereVisuals.transform.parent = player.transform;
         sphereVisuals.transform.localPosition = Vector3.zero;
+
+        // URP用のマテリアルを動的に作成して割り当てる
+        var sphereRenderer = sphereVisuals.GetComponent<Renderer>();
+        if (sphereRenderer != null)
+        {
+            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            material.color = Color.red; // 例として色を赤に設定
+            sphereRenderer.material = material;
+        }
         
         // 4. 掘削範囲用のオブジェクトを作成し、Playerの子にする
         GameObject diggingAreaObject = new GameObject("DiggingArea");
