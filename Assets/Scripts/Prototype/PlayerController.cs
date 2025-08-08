@@ -6,15 +6,24 @@ public class PlayerController : MonoBehaviour
 {
     public enum MoveMode
     {
-        Vertical,
-        Horizonal
+        SideScroller,
+        TopDown
     }
 
     public float moveSpeed = 5f; // 移動速度
     public Text scoreText; // スコア表示用のText
-    public MoveMode currentMoveMode { get; set; }
     public Digger digger; // Diggerへの参照
+    public MoveMode currentMoveMode
+    {
+        get => _currentMoveMode;
+        set
+        {
+            _currentMoveMode = value;
+            UpdateConstraints();
+        }
+    }
 
+    private MoveMode _currentMoveMode;
     private int score = 0;
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
@@ -40,6 +49,9 @@ public class PlayerController : MonoBehaviour
         // Textコンポーネントを探して、それをscoreTextに追加
         scoreText = GameObject.Find("ScoreText").GetComponent<Text>();
         UpdateScoreText();
+
+        // Rigidbodyの制約を更新
+        UpdateConstraints();
     }
 
     // オブジェクトが有効になったときに呼ばれる
@@ -60,10 +72,10 @@ public class PlayerController : MonoBehaviour
         Vector3 moveDirection;
         switch (currentMoveMode)
         {
-            case MoveMode.Vertical:
+            case MoveMode.SideScroller:
                 moveDirection = new Vector3(moveInput.x, moveInput.y, 0f);
                 break;
-            case MoveMode.Horizonal:
+            case MoveMode.TopDown:
                 moveDirection = new Vector3(moveInput.x, 0f, moveInput.y);
                 break;
             default:
@@ -85,12 +97,12 @@ public class PlayerController : MonoBehaviour
         if (lastMoveDirection.sqrMagnitude > 0.1f)
         {
             Quaternion targetRotation;
-            if (currentMoveMode == MoveMode.Horizonal)
+            if (currentMoveMode == MoveMode.TopDown)
             {
                 // 進行方向を向く回転を計算
                 targetRotation = Quaternion.LookRotation(lastMoveDirection);
             }
-            else // Vertical
+            else // SideScroller
             {
                 // XY平面での2Dの回転。オブジェクトの「上」が進行方向を向くようにする
                 float angle = Mathf.Atan2(lastMoveDirection.y, lastMoveDirection.x) * Mathf.Rad2Deg;
@@ -98,6 +110,25 @@ public class PlayerController : MonoBehaviour
             }
             // Rigidbodyを使って回転させる
             rb.MoveRotation(targetRotation);
+        }
+
+        // Diggerの掘削エリアのtransformを更新
+        if (digger != null)
+        {
+            Vector3 offset;
+            switch (currentMoveMode)
+            {
+                case MoveMode.SideScroller:
+                    offset = new Vector3(0, -1, 0); // SideScrollerモードでは下方向にオフセット（例: 掘削範囲を足元や前方に調整）
+                    break;
+                case MoveMode.TopDown:
+                    offset = new Vector3(0, 0, 1); // TopDownモードでは前方にオフセット
+                    break;
+                default:
+                    offset = Vector3.zero;
+                    break;
+            }
+            digger.UpdateDiggingAreaTransform(offset, Quaternion.identity);
         }
     }
 
@@ -119,6 +150,26 @@ public class PlayerController : MonoBehaviour
         if (scoreText != null)
         {
             scoreText.text = "Score: " + score;
+        }
+    }
+
+    private void UpdateConstraints()
+    {
+        if (rb == null) return;
+
+        // すべての物理的な回転を凍結
+        rb.freezeRotation = true;
+
+        // MoveModeに応じてRigidbodyのConstraintsを設定
+        if (_currentMoveMode == MoveMode.SideScroller)
+        {
+            // Z位置を固定
+            rb.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
+        }
+        else // TopDown
+        {
+            // Y位置を固定
+            rb.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
         }
     }
 }

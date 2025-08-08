@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class Digger : MonoBehaviour
 {
@@ -22,6 +23,7 @@ public class Digger : MonoBehaviour
         }
     }
 
+
     void Update()
     {
         // 左クリックされたら
@@ -42,41 +44,44 @@ public class Digger : MonoBehaviour
             return;
         }
 
-        // OverlapBoxで範囲内のすべてのコライダーを取得
+        // diggingAreaのワールド中心を計算
+        Vector3 worldCenter = diggingArea.transform.TransformPoint(diggingArea.center);
+
+        // OverlapBoxで範囲内のすべてのコライダーを取得（中心を正しく使用）
         Collider[] hitColliders = Physics.OverlapBox(
-            diggingArea.transform.position, 
-            diggingArea.size / 2, 
+            worldCenter,
+            diggingArea.size / 2,
             diggingArea.transform.rotation
         );
 
-        // 取得したコライダーをループ
+        // ユニークなチャンクを収集（複数ヒット回避）
+        HashSet<VoxelChunk> hitChunks = new HashSet<VoxelChunk>();
         foreach (var hitCollider in hitColliders)
         {
-            // "Block"タグが付いているオブジェクトを破壊
-            if (hitCollider.CompareTag("Block"))
-            {
-                // アイテムをドロップ
-                DropItem(hitCollider.transform.position);
-                Destroy(hitCollider.gameObject);
-            }
+            VoxelChunk chunk = hitCollider.GetComponent<VoxelChunk>();
+            if (chunk != null)
+                hitChunks.Add(chunk);
         }
-    }
 
-    void DropItem(Vector3 position)
-    {
-        // Cubeを生成してアイテムとする
-        GameObject item = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        item.transform.position = position;
-        item.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+        // BoxColliderのワールド空間での8つの頂点を計算し、それらを完全に含むAABB (Axis-Aligned Bounding Box) を作成します。
+        // これにより、回転したBoxColliderも正確に表現できます。
+        var points = new Vector3[8];
+        var center = diggingArea.center;
+        var size = diggingArea.size / 2;
+        points[0] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, -size.y, -size.z));
+        points[1] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, -size.y, -size.z));
+        points[2] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, -size.y, size.z));
+        points[3] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, -size.y, size.z));
+        points[4] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, size.y, -size.z));
+        points[5] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, size.y, -size.z));
+        points[6] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, size.y, size.z));
+        points[7] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, size.y, size.z));
 
-        // Rigidbodyを追加
-        item.AddComponent<Rigidbody>();
-
-        // 回転スクリプトを追加
-        item.AddComponent<DroppedItem>();
-
-        // タグを設定
-        item.tag = "DroppedItem";
+        foreach (var chunk in hitChunks)
+        {
+            // BoxCollider自体を渡して、より正確な判定をチャンク側で行う
+            chunk.DigVoxels(diggingArea);
+        }
     }
 
     // Gizmoを描画する
