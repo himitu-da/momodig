@@ -31,12 +31,12 @@ public class CubeTopDownPlacer : BaseCubePlacer
                 Vector3Int chunkPos = new Vector3Int(x, 0, z);
 
                 // 全てが埋まったチャンクパターンを作成
-                bool[,,] pattern = new bool[VoxelChunk.ChunkSize, VoxelChunk.ChunkSize, VoxelChunk.ChunkSize];
-                for (int lx = 0; lx < VoxelChunk.ChunkSize; lx++)
+                bool[,,] pattern = new bool[voxelSize, voxelSize, voxelSize];
+                for (int lx = 0; lx < voxelSize; lx++)
                 {
-                    for (int ly = 0; ly < VoxelChunk.ChunkSize; ly++)
+                    for (int ly = 0; ly < voxelSize; ly++)
                     {
-                        for (int lz = 0; lz < VoxelChunk.ChunkSize; lz++)
+                        for (int lz = 0; lz < voxelSize; lz++)
                         {
                             pattern[lx, ly, lz] = true;
                         }

@@ -6,6 +6,7 @@ public abstract class BaseCubePlacer : MonoBehaviour
     [SerializeField] protected Texture2D texture1;
     [SerializeField] protected Texture2D texture2;
     [SerializeField] protected int voxelHp = 3;
+    [SerializeField] protected int voxelSize = 4;
 
     protected virtual void Start()
     {
@@ -32,8 +33,8 @@ public abstract class BaseCubePlacer : MonoBehaviour
         chunkObj.transform.localPosition = (Vector3)chunkPos * chunkSize;
 
         // チャンクの表示サイズがchunkSizeになるようにスケールを調整する
-        // VoxelChunkは内部的にVoxelChunk.ChunkSizeの大きさでメッシュを生成するため
-        float scale = chunkSize / VoxelChunk.ChunkSize;
+        // VoxelChunkは内部的に自身のChunkSizeの大きさでメッシュを生成するため
+        float scale = chunkSize / voxelSize;
         chunkObj.transform.localScale = new Vector3(scale, scale, scale);
 
         VoxelChunk chunk = chunkObj.AddComponent<VoxelChunk>();
@@ -46,8 +47,7 @@ public abstract class BaseCubePlacer : MonoBehaviour
         mat.mainTexture = texture1; // デフォルトテクスチャ（拡張でパターン対応）
         renderer.material = mat;
 
-        // VoxelChunkにはボクセルごとのサイズを渡す
-        float voxelSize = chunkSize / VoxelChunk.ChunkSize;
-        chunk.Initialize(pattern, voxelSize, voxelHp);
+        // VoxelChunkを初期化
+        chunk.Initialize(pattern, voxelSize, chunkSize, voxelHp);
     }
 }

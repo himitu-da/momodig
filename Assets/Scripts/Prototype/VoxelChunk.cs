@@ -6,7 +6,7 @@ using System.Collections.Generic;
 [RequireComponent(typeof(MeshCollider))]
 public class VoxelChunk : MonoBehaviour
 {
-    public const int ChunkSize = 4; // 16ドット単位の塊
+    public int ChunkSize { get; private set; } = 4; // 16ドット単位の塊　この変数いらない説
     private byte[,,] voxelTypes; // 0: 空気, 1: 固体
     private int[,,] voxelHPs; // HP
     private int maxHP = 3;
@@ -21,10 +21,6 @@ public class VoxelChunk : MonoBehaviour
 
     void Awake()
     {
-        voxelTypes = new byte[ChunkSize, ChunkSize, ChunkSize];
-        voxelHPs = new int[ChunkSize, ChunkSize, ChunkSize];
-        useTexture1Pattern = new bool[ChunkSize, ChunkSize, ChunkSize];
-
         meshFilter = GetComponent<MeshFilter>();
         collider = GetComponent<MeshCollider>();
 
@@ -32,11 +28,17 @@ public class VoxelChunk : MonoBehaviour
         meshFilter.mesh = mesh;
     }
 
-    public void Initialize(bool[,,] pattern, float newVoxelSize, int hp)
+    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp)
     {
-        useTexture1Pattern = pattern ?? new bool[ChunkSize, ChunkSize, ChunkSize];
-        voxelSize = newVoxelSize;
+        ChunkSize = newChunkSize;
+        voxelSize = worldChunkSize / ChunkSize;
         maxHP = hp;
+
+        // 配列を初期化
+        voxelTypes = new byte[ChunkSize, ChunkSize, ChunkSize];
+        voxelHPs = new int[ChunkSize, ChunkSize, ChunkSize];
+        useTexture1Pattern = pattern ?? new bool[ChunkSize, ChunkSize, ChunkSize];
+
         for (int x = 0; x < ChunkSize; x++)
             for (int y = 0; y < ChunkSize; y++)
                 for (int z = 0; z < ChunkSize; z++)
