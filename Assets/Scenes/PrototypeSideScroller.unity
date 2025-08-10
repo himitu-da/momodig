@@ -788,7 +788,7 @@ MonoBehaviour:
   texture1: {fileID: 2800000, guid: 51bb216a1409b5e4aa2e926a5610270b, type: 3}
   texture2: {fileID: 2800000, guid: ab4f7764cc2f9de489de30c02ca89a16, type: 3}
   voxelHp: 2
-  voxelSize: 16
+  voxelSize: 4
   center: {x: 0, y: -2, z: 0}
   chankCount: {x: 2, y: 1}
 --- !u!4 &1266763346

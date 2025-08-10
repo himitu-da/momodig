@@ -10,6 +10,8 @@ public class VoxelChunk : MonoBehaviour
     private byte[,,] voxelTypes; // 0: 空気, 1: 固体
     private int[,,] voxelHPs; // HP
     private int maxHP = 3;
+    [Range(0.01f, 1.0f)]
+    public float diggingThreshold = 0.1f; // 掘削判定の閾値（ボクセルとの重複率）
     private Color initialColor = Color.white;
     [SerializeField] private Texture2D texture1, texture2;
     private bool[,,] useTexture1Pattern; // テクスチャパターン
@@ -43,8 +45,17 @@ public class VoxelChunk : MonoBehaviour
             for (int y = 0; y < ChunkSize; y++)
                 for (int z = 0; z < ChunkSize; z++)
                 {
-                    voxelTypes[x, y, z] = 1; // 初期固体
-                    voxelHPs[x, y, z] = maxHP;
+                    // patternに基づいてボクセルの種類を決定
+                    if (useTexture1Pattern[x, y, z])
+                    {
+                        voxelTypes[x, y, z] = 1; // 固体
+                        voxelHPs[x, y, z] = maxHP;
+                    }
+                    else
+                    {
+                        voxelTypes[x, y, z] = 0; // 空気
+                        voxelHPs[x, y, z] = 0;
+                    }
                 }
         GenerateMesh();
     }
@@ -68,7 +79,13 @@ public class VoxelChunk : MonoBehaviour
     public void DigVoxels(BoxCollider diggingArea)
     {
         bool needsMeshUpdate = false;
-        // Bounds worldBounds = diggingArea.bounds; // AABBではなく、回転を考慮した判定が必要
+        const int sampleResolution = 3; // 各軸のサンプル解像度
+        const int totalSamples = sampleResolution * sampleResolution * sampleResolution;
+
+        // diggingAreaの判定用情報を事前に計算
+        Matrix4x4 worldToLocalMatrix = diggingArea.transform.worldToLocalMatrix;
+        Vector3 halfSize = diggingArea.size * 0.5f;
+        Vector3 center = diggingArea.center;
 
         for (int x = 0; x < ChunkSize; x++)
         {
@@ -78,16 +95,43 @@ public class VoxelChunk : MonoBehaviour
                 {
                     if (voxelTypes[x, y, z] == 0) continue;
 
-                    // ボクセルのワールド座標を計算
-                    Vector3 voxelCenterPos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
-                    Vector3 voxelWorldPos = transform.TransformPoint(voxelCenterPos);
+                    int containedSamples = 0;
+                    // ボクセルのローカル座標でのバウンディングボックスの最小点を計算
+                    Vector3 voxelMin = new Vector3(x - ChunkSize / 2.0f, y - ChunkSize / 2.0f, z - ChunkSize / 2.0f);
 
-                    // ボクセルのワールド座標をdiggingAreaのローカル座標に変換
-                    Vector3 localPosInDiggingArea = diggingArea.transform.InverseTransformPoint(voxelWorldPos);
+                    // ボクセル内をサンプリングして、diggingAreaとの重複をチェック
+                    for (int sx = 0; sx < sampleResolution; sx++)
+                    {
+                        for (int sy = 0; sy < sampleResolution; sy++)
+                        {
+                            for (int sz = 0; sz < sampleResolution; sz++)
+                            {
+                                // サンプル点のチャンク内ローカル座標を計算 (ボクセルサイズは1x1x1と仮定)
+                                float sampleX = voxelMin.x + (sx + 0.5f) / sampleResolution;
+                                float sampleY = voxelMin.y + (sy + 0.5f) / sampleResolution;
+                                float sampleZ = voxelMin.z + (sz + 0.5f) / sampleResolution;
+                                Vector3 sampleLocalPos = new Vector3(sampleX, sampleY, sampleZ);
 
-                    // diggingAreaのローカル座標系でバウンダリチェック
-                    Bounds localBounds = new Bounds(diggingArea.center, diggingArea.size);
-                    if (localBounds.Contains(localPosInDiggingArea))
+                                // ワールド座標に変換
+                                Vector3 sampleWorldPos = transform.TransformPoint(sampleLocalPos);
+
+                                // diggingAreaのローカル座標に変換
+                                Vector3 localPosInDiggingArea = worldToLocalMatrix.MultiplyPoint3x4(sampleWorldPos);
+
+                                // diggingAreaの中心を考慮して、AABBの内外判定
+                                if (Mathf.Abs(localPosInDiggingArea.x - center.x) <= halfSize.x &&
+                                    Mathf.Abs(localPosInDiggingArea.y - center.y) <= halfSize.y &&
+                                    Mathf.Abs(localPosInDiggingArea.z - center.z) <= halfSize.z)
+                                {
+                                    containedSamples++;
+                                }
+                            }
+                        }
+                    }
+
+                    // 重複率が閾値を超えていればダメージを与える
+                    float overlapRatio = (float)containedSamples / totalSamples;
+                    if (overlapRatio >= diggingThreshold)
                     {
                         voxelHPs[x, y, z]--;
                         needsMeshUpdate = true;
@@ -95,6 +139,8 @@ public class VoxelChunk : MonoBehaviour
                         if (voxelHPs[x, y, z] <= 0)
                         {
                             voxelTypes[x, y, z] = 0;
+                            Vector3 voxelCenterPos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
+                            Vector3 voxelWorldPos = transform.TransformPoint(voxelCenterPos);
                             DropItem(voxelWorldPos);
                         }
                     }

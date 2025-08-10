@@ -19,6 +19,7 @@ public class CubeSideScrollerPlacer : BaseCubePlacer
             center.z
         );
 
+        // TODO: いい感じにZ軸の調整を行い、チャンクが少なくとも1つは生成されるようにする
         // 元々のGameObjectの位置をオフセットとして加算
         transform.position = startPosition;
 
@@ -30,15 +31,25 @@ public class CubeSideScrollerPlacer : BaseCubePlacer
                 // チャンクの論理的な座標
                 Vector3Int chunkPos = new Vector3Int(x, y, 0);
 
-                // 全てが埋まったチャンクパターンを作成
+                // 条件に基づいてチャンクパターンを作成
                 bool[,,] pattern = new bool[voxelSize, voxelSize, voxelSize];
+                float cubeSize = chunkSize / voxelSize;
                 for (int lx = 0; lx < voxelSize; lx++)
                 {
                     for (int ly = 0; ly < voxelSize; ly++)
                     {
                         for (int lz = 0; lz < voxelSize; lz++)
                         {
-                            pattern[lx, ly, lz] = true;
+                            // Z軸の絶対値が0.5以下のボクセルのみ生成
+                            float zPos = (lz - (voxelSize - 1) / 2.0f) * cubeSize;
+                            if (Mathf.Abs(zPos) <= 0.5f)
+                            {
+                                pattern[lx, ly, lz] = true;
+                            }
+                            else
+                            {
+                                pattern[lx, ly, lz] = false;
+                            }
                         }
                     }
                 }

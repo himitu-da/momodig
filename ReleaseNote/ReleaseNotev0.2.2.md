@@ -1,4 +1,4 @@
-# Release Note v0.2.1
+# Release Note v0.2.2
 
 ## 新機能
 - Voxel SizeをCubePlacerから設定できるようにした。
