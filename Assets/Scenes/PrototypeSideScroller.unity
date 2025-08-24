@@ -1108,6 +1108,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+<<<<<<< HEAD
 --- !u!1 &2018520422
 GameObject:
   m_ObjectHideFlags: 0
@@ -1174,6 +1175,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8315cefdc30ab1408059adc83a843e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+=======
+>>>>>>> parent of a3affe8 (積載関係の定義)
 --- !u!1 &2128910253
 GameObject:
   m_ObjectHideFlags: 0
@@ -1263,4 +1266,7 @@ SceneRoots:
   - {fileID: 1266763346}
   - {fileID: 421652223}
   - {fileID: 1317042596}
+<<<<<<< HEAD
   - {fileID: 672003891}
+=======
+>>>>>>> parent of a3affe8 (積載関係の定義)
