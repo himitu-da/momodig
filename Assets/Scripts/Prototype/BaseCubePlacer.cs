@@ -53,7 +53,7 @@ public abstract class BaseCubePlacer : MonoBehaviour
         mat.mainTexture = texture1; // デフォルトテクスチャ（拡張でパターン対応）
         renderer.material = mat;
 
-        // VoxelChunkを初期化
-        chunk.Initialize(pattern, voxelSize, chunkSize, voxelHp, droppedItemPrefab, disableRotation, autoScale, scaleMultiplier);
+        // VoxelChunkを初期化（テクスチャも一緒に渡す）
+        chunk.Initialize(pattern, voxelSize, chunkSize, voxelHp, droppedItemPrefab, disableRotation, autoScale, scaleMultiplier, texture1, texture2);
     }
 }
