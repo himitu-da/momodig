@@ -16,6 +16,12 @@ public class VoxelChunk : MonoBehaviour
     [SerializeField] private Texture2D texture1, texture2;
     private bool[,,] useTexture1Pattern; // テクスチャパターン
     private float voxelSize; // BaseCubePlacerから受け取る
+    
+    [Header("Dropped Item Settings")]
+    private GameObject droppedItemPrefab; // ドロップアイテムのPrefab（オプション）
+    private bool disableRotation = true; // 回転を無効化するかどうか
+    private bool autoScale = true; // Prefabのスケールを自動調整するかどうか
+    private float scaleMultiplier = 0.8f; // スケール倍率（voxelSizeに対する倍率）
 
     private Mesh mesh;
     private MeshFilter meshFilter;
@@ -32,9 +38,23 @@ public class VoxelChunk : MonoBehaviour
 
     public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp)
     {
+        Initialize(pattern, newChunkSize, worldChunkSize, hp, null, true, true, 0.8f);
+    }
+
+    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp, GameObject itemPrefab, bool disableItemRotation)
+    {
+        Initialize(pattern, newChunkSize, worldChunkSize, hp, itemPrefab, disableItemRotation, true, 0.8f);
+    }
+
+    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp, GameObject itemPrefab, bool disableItemRotation, bool autoScaleItems, float itemScaleMultiplier)
+    {
         ChunkSize = newChunkSize;
         voxelSize = worldChunkSize / ChunkSize;
         maxHP = hp;
+        droppedItemPrefab = itemPrefab;
+        disableRotation = disableItemRotation;
+        autoScale = autoScaleItems;
+        scaleMultiplier = itemScaleMultiplier;
 
         // 配列を初期化
         voxelTypes = new byte[ChunkSize, ChunkSize, ChunkSize];
@@ -356,20 +376,60 @@ public class VoxelChunk : MonoBehaviour
 
     private void DropItem(Vector3 position) // エラー解決: メソッド追加（Block.csから移行）
     {
-        GameObject item = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        item.transform.position = position;
-        item.transform.localScale = Vector3.one * voxelSize;
-        item.AddComponent<Rigidbody>();
-        item.AddComponent<DroppedItem>();
-        item.tag = "DroppedItem";
-
-        // URP用のマテリアルを動的に作成して割り当てる
-        var itemRenderer = item.GetComponent<Renderer>();
-        if (itemRenderer != null)
+        GameObject item;
+        
+        // Prefabが指定されている場合はそれを使用、されていない場合はデフォルトのCubeを作成
+        if (droppedItemPrefab != null)
         {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            material.color = Color.gray; // 色を灰色に設定
-            itemRenderer.material = material;
+            item = Instantiate(droppedItemPrefab, position, Quaternion.identity);
+            
+            // 自動スケール調整が有効な場合
+            if (autoScale)
+            {
+                float targetScale = voxelSize * scaleMultiplier;
+                item.transform.localScale = Vector3.one * targetScale;
+            }
+        }
+        else
+        {
+            // デフォルト処理：Cubeを作成
+            item = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            item.transform.position = position;
+            item.transform.localScale = Vector3.one * voxelSize;
+            
+            // URP用のマテリアルを動的に作成して割り当てる
+            var itemRenderer = item.GetComponent<Renderer>();
+            if (itemRenderer != null)
+            {
+                var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                material.color = Color.gray; // 色を灰色に設定
+                itemRenderer.material = material;
+            }
+        }
+
+        // Rigidbodyが無い場合は追加
+        if (item.GetComponent<Rigidbody>() == null)
+        {
+            item.AddComponent<Rigidbody>();
+        }
+
+        // DroppedItemコンポーネントの処理
+        DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
+        if (droppedItemComponent == null)
+        {
+            droppedItemComponent = item.AddComponent<DroppedItem>();
+        }
+
+        // 回転を無効化する場合の処理
+        if (disableRotation)
+        {
+            droppedItemComponent.enabled = false; // DroppedItemコンポーネントを無効化して回転を停止
+        }
+
+        // タグが設定されていない場合は設定
+        if (!item.CompareTag("DroppedItem"))
+        {
+            item.tag = "DroppedItem";
         }
     }
 

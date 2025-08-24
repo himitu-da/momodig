@@ -7,6 +7,12 @@ public abstract class BaseCubePlacer : MonoBehaviour
     [SerializeField] protected Texture2D texture2;
     [SerializeField] protected int voxelHp = 3;
     [SerializeField] protected int voxelSize = 4;
+    
+    [Header("Dropped Item Settings")]
+    [SerializeField] protected GameObject droppedItemPrefab; // ドロップアイテムのPrefab（オプション）
+    [SerializeField] protected bool disableRotation = true; // 回転を無効化するかどうか
+    [SerializeField] protected bool autoScale = true; // Prefabのスケールを自動調整するかどうか
+    [SerializeField] protected float scaleMultiplier = 0.8f; // スケール倍率（voxelSizeに対する倍率）
 
     protected virtual void Start()
     {
@@ -48,6 +54,6 @@ public abstract class BaseCubePlacer : MonoBehaviour
         renderer.material = mat;
 
         // VoxelChunkを初期化
-        chunk.Initialize(pattern, voxelSize, chunkSize, voxelHp);
+        chunk.Initialize(pattern, voxelSize, chunkSize, voxelHp, droppedItemPrefab, disableRotation, autoScale, scaleMultiplier);
     }
 }
