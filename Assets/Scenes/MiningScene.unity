@@ -1228,7 +1228,7 @@ MonoBehaviour:
   blockDataManager: {fileID: 11400000, guid: fdb69d72c9e5daa4db34ab04514653a1, type: 2}
   settings:
     center: {x: 0, y: 0, z: 0}
-    worldSizeInChunks: {x: 3, y: 1}
+    worldSizeInChunks: {x: 2, y: 5}
     chunkSizeInBlocks: {x: 10, y: 10}
     blockSize: 1
     voxelSize: 4

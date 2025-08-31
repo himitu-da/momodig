@@ -178,6 +178,17 @@ public class PlayerController : MonoBehaviour
         // 衝突したオブジェクトが "DroppedItem" タグを持っているか確認
         if (collision.gameObject.CompareTag("DroppedItem"))
         {
+            // アイテム回収時に周辺のアイテムを起床させる
+            if (DroppedItemManager.Instance != null)
+            {
+                var itemCollider = collision.gameObject.GetComponent<Collider>();
+                if (itemCollider != null)
+                {
+                    float radius = itemCollider.bounds.extents.magnitude;
+                    DroppedItemManager.Instance.WakeUpItemsNearPosition(collision.transform.position, radius * DroppedItemManager.Instance.WakeUpRadiusMultiplier);
+                }
+            }
+
             // アイテムをプールに返却
             DroppedItemManager.Instance.ReturnItem(collision.gameObject);
             // スコアを更新

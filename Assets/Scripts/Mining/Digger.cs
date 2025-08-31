@@ -82,6 +82,13 @@ public class Digger : MonoBehaviour
             // BoxCollider自体を渡して、より正確な判定をチャンク側で行う
             chunk.DigVoxels(diggingArea);
         }
+
+        // 掘削範囲内のドロップアイテムを起床させる
+        if (DroppedItemManager.Instance != null)
+        {
+            Vector3 expandedSize = diggingArea.size + new Vector3(2, 2, 2);
+            DroppedItemManager.Instance.WakeUpItemsInRadius(worldCenter, expandedSize, diggingArea.transform.rotation);
+        }
     }
 
     // Gizmoを描画する
