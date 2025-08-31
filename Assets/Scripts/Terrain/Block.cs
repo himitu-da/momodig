@@ -137,46 +137,51 @@ public class Block : MonoBehaviour
     public void DigVoxels(BoxCollider diggingArea)
     {
         bool needsMeshUpdate = false;
-        const int sampleResolution = 3; // 各軸のサンプル解像度
+        const int sampleResolution = 3;
         const int totalSamples = sampleResolution * sampleResolution * sampleResolution;
 
-        // diggingAreaの判定用情報を事前に計算
-        Matrix4x4 worldToLocalMatrix = diggingArea.transform.worldToLocalMatrix;
+        Matrix4x4 worldToLocalMatrix = transform.worldToLocalMatrix;
+        Matrix4x4 diggingAreaWorldToLocal = diggingArea.transform.worldToLocalMatrix;
         Vector3 halfSize = diggingArea.size * 0.5f;
         Vector3 center = diggingArea.center;
 
-        for (int x = 0; x < ChunkSize; x++)
+        // diggingAreaのバウンディングボックスをこのブロックのローカル座標に変換
+        Bounds diggingBounds = diggingArea.bounds;
+        Vector3 localMin = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.min);
+        Vector3 localMax = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.max);
+
+        // 走査範囲を計算（ボクセル座標）
+        int startX = Mathf.Max(0, Mathf.FloorToInt(localMin.x + ChunkSize / 2.0f));
+        int endX = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.x + ChunkSize / 2.0f));
+        int startY = Mathf.Max(0, Mathf.FloorToInt(localMin.y + ChunkSize / 2.0f));
+        int endY = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.y + ChunkSize / 2.0f));
+        int startZ = Mathf.Max(0, Mathf.FloorToInt(localMin.z + ChunkSize / 2.0f));
+        int endZ = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.z + ChunkSize / 2.0f));
+
+        for (int x = startX; x <= endX; x++)
         {
-            for (int y = 0; y < ChunkSize; y++)
+            for (int y = startY; y <= endY; y++)
             {
-                for (int z = 0; z < ChunkSize; z++)
+                for (int z = startZ; z <= endZ; z++)
                 {
                     if (voxelTypes[x, y, z] == 0) continue;
 
                     int containedSamples = 0;
-                    // ボクセルのローカル座標でのバウンディングボックスの最小点を計算
                     Vector3 voxelMin = new Vector3(x - ChunkSize / 2.0f, y - ChunkSize / 2.0f, z - ChunkSize / 2.0f);
 
-                    // ボクセル内をサンプリングして、diggingAreaとの重複をチェック
                     for (int sx = 0; sx < sampleResolution; sx++)
                     {
                         for (int sy = 0; sy < sampleResolution; sy++)
                         {
                             for (int sz = 0; sz < sampleResolution; sz++)
                             {
-                                // サンプル点のチャンク内ローカル座標を計算 (ボクセルサイズは1x1x1と仮定)
                                 float sampleX = voxelMin.x + (sx + 0.5f) / sampleResolution;
                                 float sampleY = voxelMin.y + (sy + 0.5f) / sampleResolution;
                                 float sampleZ = voxelMin.z + (sz + 0.5f) / sampleResolution;
                                 Vector3 sampleLocalPos = new Vector3(sampleX, sampleY, sampleZ);
-
-                                // ワールド座標に変換
                                 Vector3 sampleWorldPos = transform.TransformPoint(sampleLocalPos);
+                                Vector3 localPosInDiggingArea = diggingAreaWorldToLocal.MultiplyPoint3x4(sampleWorldPos);
 
-                                // diggingAreaのローカル座標に変換
-                                Vector3 localPosInDiggingArea = worldToLocalMatrix.MultiplyPoint3x4(sampleWorldPos);
-
-                                // diggingAreaの中心を考慮して、AABBの内外判定
                                 if (Mathf.Abs(localPosInDiggingArea.x - center.x) <= halfSize.x &&
                                     Mathf.Abs(localPosInDiggingArea.y - center.y) <= halfSize.y &&
                                     Mathf.Abs(localPosInDiggingArea.z - center.z) <= halfSize.z)
@@ -187,19 +192,18 @@ public class Block : MonoBehaviour
                         }
                     }
 
-                    // 重複率が閾値を超えていればダメージを与える
                     float overlapRatio = (float)containedSamples / totalSamples;
                     if (overlapRatio >= diggingThreshold)
                     {
                         voxelHPs[x, y, z]--;
-                        needsMeshUpdate = true;
 
                         if (voxelHPs[x, y, z] <= 0)
                         {
                             voxelTypes[x, y, z] = 0;
+                            needsMeshUpdate = true; // メッシュ更新は破壊時のみ
                             Vector3 voxelCenterPos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
                             Vector3 voxelWorldPos = transform.TransformPoint(voxelCenterPos);
-                            DropItem(voxelWorldPos, x, y, z); // ボクセル座標も渡す
+                            DropItem(voxelWorldPos, x, y, z);
                         }
                     }
                 }
