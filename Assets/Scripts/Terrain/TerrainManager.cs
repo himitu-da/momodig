@@ -224,22 +224,23 @@ public class TerrainManager : MonoBehaviour
     private void GenerateSideScrollerTerrainHierarchical()
     {
         float totalWorldSizeX = settings.chunkCount.x * settings.chunkSize;
-        float totalWorldSizeY = settings.chunkCount.y * settings.chunkSize;
+        float offsetX = settings.center.x - totalWorldSizeX / 2.0f;
 
-        Vector3 startPosition = new Vector3(
-            settings.center.x - totalWorldSizeX / 2.0f + settings.chunkSize / 2.0f,
-            settings.center.y - totalWorldSizeY / 2.0f + settings.chunkSize / 2.0f,
-            settings.center.z
-        );
-
-        transform.position = startPosition;
+        // ワールド座標の原点を基準に配置
+        transform.position = Vector3.zero;
 
         for (int x = 0; x < settings.chunkCount.x; x++)
         {
             for (int y = 0; y < settings.chunkCount.y; y++)
             {
                 Vector3Int chunkPos = new Vector3Int(x, y, 0);
-                Vector3 worldPos = new Vector3(x * settings.chunkSize, y * settings.chunkSize, 0);
+                
+                // チャンクの中心座標を計算
+                // X: 中央揃え
+                // Y: 最も浅いものが-chunkSize/2となり、yが増えるごとに深くなる
+                float worldX = offsetX + x * settings.chunkSize + settings.chunkSize / 2.0f;
+                float worldY = settings.center.y - (y * settings.chunkSize) - settings.chunkSize / 2.0f;
+                Vector3 worldPos = new Vector3(worldX, worldY, settings.center.z);
                 
                 // BlockGeneratorでパターンを生成
                 var blockData = new BlockGenerator.BlockGenerationData(
@@ -317,12 +318,11 @@ public class TerrainManager : MonoBehaviour
     {
         // チャンク全体のワールドサイズを計算
         float totalWorldSizeX = settings.chunkCount.x * settings.chunkSize;
-        float totalWorldSizeY = settings.chunkCount.y * settings.chunkSize;
 
-        // チャンク群の左下奥にあるチャンクの中心座標を計算
+        // チャンク群の左上（最も浅い）にあるチャンクの中心座標を計算
         Vector3 startPosition = new Vector3(
             settings.center.x - totalWorldSizeX / 2.0f + settings.chunkSize / 2.0f,
-            settings.center.y - totalWorldSizeY / 2.0f + settings.chunkSize / 2.0f,
+            settings.center.y - settings.chunkSize / 2.0f,
             settings.center.z
         );
 
@@ -333,7 +333,8 @@ public class TerrainManager : MonoBehaviour
         {
             for (int y = 0; y < settings.chunkCount.y; y++)
             {
-                Vector3Int chunkPos = new Vector3Int(x, y, 0);
+                // Y座標が深くなるように、chunkPos.yをマイナスにする
+                Vector3Int chunkPos = new Vector3Int(x, -y, 0);
                 bool[,,] pattern = GenerateSideScrollerPattern();
                 CreateChunk(chunkPos, pattern);
             }
