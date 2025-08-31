@@ -51,7 +51,7 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// ブロックを作成
     /// </summary>
-    public BlockData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, TerrainSettings settings)
+    public BlockData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, TerrainSettings settings, Transform parent)
     {
         if (showBlockDebugInfo)
         {
@@ -63,7 +63,7 @@ public class BlockManager : MonoBehaviour
         
         // GameObjectとBlockを作成
         GameObject blockObj = new GameObject($"Block_{blockPos.x}_{blockPos.y}_{blockPos.z}");
-        blockObj.transform.parent = transform;
+        blockObj.transform.parent = parent;
         blockObj.transform.position = worldPos;
         
         // スケール調整

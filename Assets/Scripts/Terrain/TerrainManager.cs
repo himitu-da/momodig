@@ -165,6 +165,12 @@ public class TerrainManager : MonoBehaviour
     /// </summary>
     private void GenerateChunk(Vector3Int chunkPos)
     {
+        // チャンクGameObjectを作成
+        GameObject chunkObj = new GameObject($"Chunk_{chunkPos.x}_{chunkPos.y}");
+        chunkObj.transform.parent = transform;
+        Chunk chunk = chunkObj.AddComponent<Chunk>();
+        chunk.Initialize(chunkPos);
+        
         // チャンクのワールド座標オフセットを計算
         float chunkOffsetX = chunkPos.x * settings.chunkSizeInBlocks.x * settings.blockSize;
         float chunkOffsetY = chunkPos.y * settings.chunkSizeInBlocks.y * settings.blockSize;
@@ -200,7 +206,7 @@ public class TerrainManager : MonoBehaviour
                 bool[,,] pattern = blockGenerator.GenerateBlockPattern(blockData);
 
                 // BlockManagerでブロックを作成
-                blockManager.CreateBlock(blockPos, worldPos, pattern, settings);
+                blockManager.CreateBlock(blockPos, worldPos, pattern, settings, chunkObj.transform);
 
                 // VoxelManagerにボクセルデータを登録
                 voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, settings);
