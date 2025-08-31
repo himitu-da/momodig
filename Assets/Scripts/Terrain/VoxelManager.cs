@@ -70,7 +70,7 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ボクセルパターンからボクセルデータを作成
     /// </summary>
-    public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, TerrainSettings settings)
+    public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, Vector3 blockWorldPos, TerrainSettings settings)
     {
         if (showVoxelDebugInfo)
         {
@@ -86,9 +86,7 @@ public class VoxelManager : MonoBehaviour
                     if (pattern[x, y, z])
                     {
                         Vector3Int localPos = new Vector3Int(x, y, z);
-                        // ワールド座標の計算はTerrainManagerに任せ、ここではVoxelManagerが管理するデータを作成することに集中する
-                        // worldPosは別途正しい値を設定する必要があるが、一旦仮で計算する
-                        Vector3 worldPos = CalculateWorldPosition(blockPos, localPos, settings);
+                        Vector3 worldPos = CalculateWorldPosition(blockWorldPos, localPos, settings);
                         
                         VoxelData voxelData = new VoxelData(
                             blockPos, 
@@ -113,22 +111,17 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ワールド座標を計算
     /// </summary>
-    private Vector3 CalculateWorldPosition(Vector3Int blockPos, Vector3Int localPos, TerrainSettings settings)
+    private Vector3 CalculateWorldPosition(Vector3 blockWorldPos, Vector3Int localPos, TerrainSettings settings)
     {
-        Vector3 blockWorldPos = new Vector3(
-            blockPos.x * settings.blockSize,
-            blockPos.y * settings.blockSize,
-            blockPos.z * settings.blockSize
-        );
-        
         float voxelUnit = settings.blockSize / settings.voxelSize;
-        Vector3 localWorldPos = new Vector3(
-            localPos.x * voxelUnit,
-            localPos.y * voxelUnit,
-            localPos.z * voxelUnit
+        // ブロックの中心からのオフセットとしてボクセルのローカル座標を計算
+        Vector3 localOffset = new Vector3(
+            (localPos.x - settings.voxelSize / 2f + 0.5f) * voxelUnit,
+            (localPos.y - settings.voxelSize / 2f + 0.5f) * voxelUnit,
+            (localPos.z - settings.voxelSize / 2f + 0.5f) * voxelUnit
         );
         
-        return blockWorldPos + localWorldPos;
+        return blockWorldPos + localOffset;
     }
     
     /// <summary>

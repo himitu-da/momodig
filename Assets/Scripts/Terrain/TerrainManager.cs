@@ -179,9 +179,15 @@ public class TerrainManager : MonoBehaviour
                     0
                 );
 
+                // ワールド全体の幅を計算し、中心を0にするためのオフセットを算出
+                float totalBlocksX = settings.worldSizeInChunks.x * settings.chunkSizeInBlocks.x;
+                float worldWidth = totalBlocksX * settings.blockSize;
+                float offsetX = -worldWidth / 2f + settings.blockSize / 2f; // ブロック半個分をオフセットに追加
+
                 // ワールド座標を計算
-                float worldX = settings.center.x + chunkOffsetX + bx * settings.blockSize;
-                float worldY = settings.center.y - chunkOffsetY - by * settings.blockSize;
+                float worldX = settings.center.x + offsetX + (chunkPos.x * settings.chunkSizeInBlocks.x + bx) * settings.blockSize;
+                // 最も浅いブロックの中心が-blockSize/2になるように調整
+                float worldY = settings.center.y - (chunkPos.y * settings.chunkSizeInBlocks.y + by) * settings.blockSize - (settings.blockSize / 2f);
                 Vector3 worldPos = new Vector3(worldX, worldY, settings.center.z);
 
                 // BlockGeneratorでパターンを生成
@@ -197,7 +203,7 @@ public class TerrainManager : MonoBehaviour
                 blockManager.CreateBlock(blockPos, worldPos, pattern, settings);
 
                 // VoxelManagerにボクセルデータを登録
-                voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, settings);
+                voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, settings);
             }
         }
     }
