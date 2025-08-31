@@ -55,10 +55,10 @@ public class Digger : MonoBehaviour
         );
 
         // ユニークなチャンクを収集（複数ヒット回避）
-        HashSet<VoxelChunk> hitChunks = new HashSet<VoxelChunk>();
+        HashSet<Block> hitChunks = new HashSet<Block>();
         foreach (var hitCollider in hitColliders)
         {
-            VoxelChunk chunk = hitCollider.GetComponent<VoxelChunk>();
+            Block chunk = hitCollider.GetComponent<Block>();
             if (chunk != null)
                 hitChunks.Add(chunk);
         }

@@ -26,7 +26,7 @@ public struct VoxelFaceTextureInfo
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
 [RequireComponent(typeof(MeshCollider))]
-public class VoxelChunk : MonoBehaviour
+public class Block : MonoBehaviour
 {
     public int ChunkSize { get; private set; } = 4; // 16ドット単位の塊　この変数いらない説
     private byte[,,] voxelTypes; // 0: 空気, 1: 固体
