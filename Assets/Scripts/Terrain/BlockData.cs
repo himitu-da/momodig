@@ -8,9 +8,6 @@ using System.Collections.Generic;
 [CreateAssetMenu(fileName = "New BlockData", menuName = "Momodig/Block Data")]
 public class BlockData : ScriptableObject
 {
-    [Header("Block Identity")]
-    public ResourceType resourceType; // Stone, Ironなど
-
     [Header("Block Properties")]
     public int voxelHp = 2;
     

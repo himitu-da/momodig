@@ -221,7 +221,7 @@ public class TerrainManager : MonoBehaviour
                 bool[,,] pattern = blockGenerator.GenerateBlockPattern(generationData);
 
                 // BlockManagerでブロックを作成
-                var newBlockInstance = blockManager.CreateBlock(blockPos, worldPos, pattern, blockTypeData, settings.blockSize, settings.voxelSize, chunkObj.transform);
+                var newBlockInstance = blockManager.CreateBlock(blockPos, worldPos, pattern, currentResourceType, blockTypeData, settings.blockSize, settings.voxelSize, chunkObj.transform);
 
                 // VoxelManagerにボクセルデータを登録
                 voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, blockTypeData, settings.blockSize, settings.voxelSize);
