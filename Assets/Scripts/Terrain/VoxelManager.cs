@@ -9,7 +9,10 @@ public class VoxelManager : MonoBehaviour
 {
     [Header("Voxel Management Configuration")]
     [SerializeField] private bool showVoxelDebugInfo = false;
-    [SerializeField] private List<VoxelData> trackedVoxels = new List<VoxelData>();
+    
+    // データ構造をListからDictionaryに変更し、ブロック座標とローカル座標でボクセルデータを管理
+    // これにより、O(n)の検索がO(1)になり、パフォーマンスが大幅に向上
+    private Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelData>> trackedVoxels = new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelData>>();
     
     /// <summary>
     /// ボクセルデータ構造
@@ -95,8 +98,11 @@ public class VoxelManager : MonoBehaviour
                             settings.voxelHp, 
                             DetermineVoxelType(blockPos, localPos)
                         );
-                        
-                        trackedVoxels.Add(voxelData);
+                        if (!trackedVoxels.ContainsKey(blockPos))
+                        {
+                            trackedVoxels[blockPos] = new Dictionary<Vector3Int, VoxelData>();
+                        }
+                        trackedVoxels[blockPos][localPos] = voxelData;
                     }
                 }
             }
@@ -139,12 +145,9 @@ public class VoxelManager : MonoBehaviour
     /// </summary>
     public VoxelData GetVoxelAt(Vector3Int blockPos, Vector3Int localPos)
     {
-        foreach (var voxel in trackedVoxels)
+        if (trackedVoxels.TryGetValue(blockPos, out var block) && block.TryGetValue(localPos, out var voxel))
         {
-            if (voxel.blockPosition == blockPos && voxel.localPosition == localPos && voxel.isActive)
-            {
-                return voxel;
-            }
+            return voxel.isActive ? voxel : null;
         }
         return null;
     }
@@ -154,15 +157,19 @@ public class VoxelManager : MonoBehaviour
     /// </summary>
     public int CountVoxelsInBlock(Vector3Int blockPos)
     {
-        int count = 0;
-        foreach (var voxel in trackedVoxels)
+        if (trackedVoxels.TryGetValue(blockPos, out var block))
         {
-            if (voxel.blockPosition == blockPos && voxel.isActive)
+            int count = 0;
+            foreach (var voxel in block.Values)
             {
-                count++;
+                if (voxel.isActive)
+                {
+                    count++;
+                }
             }
+            return count;
         }
-        return count;
+        return 0;
     }
     
     /// <summary>
@@ -240,17 +247,11 @@ public class VoxelManager : MonoBehaviour
     /// </summary>
     public List<VoxelData> GetVoxelsInBlock(Vector3Int blockPos)
     {
-        List<VoxelData> blockVoxels = new List<VoxelData>();
-        
-        foreach (var voxel in trackedVoxels)
+        if (trackedVoxels.TryGetValue(blockPos, out var block))
         {
-            if (voxel.blockPosition == blockPos)
-            {
-                blockVoxels.Add(voxel);
-            }
+            return new List<VoxelData>(block.Values);
         }
-        
-        return blockVoxels;
+        return new List<VoxelData>();
     }
     
     /// <summary>
@@ -259,9 +260,12 @@ public class VoxelManager : MonoBehaviour
     public int GetActiveVoxelCount()
     {
         int count = 0;
-        foreach (var voxel in trackedVoxels)
+        foreach (var block in trackedVoxels.Values)
         {
-            if (voxel.isActive) count++;
+            foreach (var voxel in block.Values)
+            {
+                if (voxel.isActive) count++;
+            }
         }
         return count;
     }
@@ -278,11 +282,14 @@ public class VoxelManager : MonoBehaviour
             stats[type] = 0;
         }
         
-        foreach (var voxel in trackedVoxels)
+        foreach (var block in trackedVoxels.Values)
         {
-            if (voxel.isActive)
+            foreach (var voxel in block.Values)
             {
-                stats[voxel.voxelType]++;
+                if (voxel.isActive)
+                {
+                    stats[voxel.voxelType]++;
+                }
             }
         }
         
@@ -294,11 +301,13 @@ public class VoxelManager : MonoBehaviour
     /// </summary>
     public void ClearVoxelsInBlock(Vector3Int blockPos)
     {
-        trackedVoxels.RemoveAll(v => v.blockPosition == blockPos);
-        
-        if (showVoxelDebugInfo)
+        if (trackedVoxels.ContainsKey(blockPos))
         {
-            Debug.Log($"VoxelManager: Cleared voxels for block {blockPos}");
+            trackedVoxels.Remove(blockPos);
+            if (showVoxelDebugInfo)
+            {
+                Debug.Log($"VoxelManager: Cleared voxels for block {blockPos}");
+            }
         }
     }
     
@@ -307,9 +316,15 @@ public class VoxelManager : MonoBehaviour
     /// </summary>
     public void ClearAllVoxels()
     {
+        int totalVoxels = 0;
+        foreach (var block in trackedVoxels.Values)
+        {
+            totalVoxels += block.Count;
+        }
+
         if (showVoxelDebugInfo)
         {
-            Debug.Log($"VoxelManager: Clearing all {trackedVoxels.Count} voxels");
+            Debug.Log($"VoxelManager: Clearing all {totalVoxels} voxels from {trackedVoxels.Count} blocks");
         }
         
         trackedVoxels.Clear();
@@ -322,8 +337,13 @@ public class VoxelManager : MonoBehaviour
     {
         var stats = GetVoxelTypeStatistics();
         int activeCount = GetActiveVoxelCount();
+        int totalVoxels = 0;
+        foreach (var block in trackedVoxels.Values)
+        {
+            totalVoxels += block.Count;
+        }
         
-        return $"VoxelManager - Total: {trackedVoxels.Count}, Active: {activeCount}, Types: " +
+        return $"VoxelManager - Total Blocks: {trackedVoxels.Count}, Total Voxels: {totalVoxels}, Active: {activeCount}, Types: " +
                $"Standard:{stats[VoxelType.Standard]}, Reinforced:{stats[VoxelType.Reinforced]}, " +
                $"Fragile:{stats[VoxelType.Fragile]}, Unbreakable:{stats[VoxelType.Unbreakable]}, " +
                $"Special:{stats[VoxelType.Special]}";

@@ -79,6 +79,8 @@ public class BlockManager : MonoBehaviour
         
         // Blockを初期化
         block.Initialize(
+            terrainManager.VoxelManager, // VoxelManagerの参照を渡す
+            blockPos,                    // ブロックの座標を渡す
             pattern, 
             settings.voxelSize, 
             settings.blockSize, 

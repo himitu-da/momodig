@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI; // UIコンポーネントを使用するために追加
 
 /// <summary>
 /// 地形生成タイプ列挙型
@@ -58,6 +59,7 @@ public class TerrainManager : MonoBehaviour
     
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = false;
+    [SerializeField] private Text voxelCountText; // ボクセル数を表示するUIテキスト
 
     /// <summary>
     /// 地形設定の取得
@@ -75,6 +77,16 @@ public class TerrainManager : MonoBehaviour
     {
         InitializeHierarchicalSystem();
         GenerateTerrain();
+    }
+
+    void Update()
+    {
+        // UIテキストが設定されていれば、未回収のアイテム数を表示
+        if (voxelCountText != null)
+        {
+            int droppedItemCount = GameObject.FindGameObjectsWithTag("DroppedItem").Length;
+            voxelCountText.text = $"Dropped Items: {droppedItemCount}";
+        }
     }
     
     /// <summary>
@@ -206,10 +218,16 @@ public class TerrainManager : MonoBehaviour
                 bool[,,] pattern = blockGenerator.GenerateBlockPattern(blockData);
 
                 // BlockManagerでブロックを作成
-                blockManager.CreateBlock(blockPos, worldPos, pattern, settings, chunkObj.transform);
+                var newBlockData = blockManager.CreateBlock(blockPos, worldPos, pattern, settings, chunkObj.transform);
 
                 // VoxelManagerにボクセルデータを登録
                 voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, settings);
+
+                // ボクセルデータ登録後にメッシュを生成
+                if (newBlockData != null && newBlockData.block != null)
+                {
+                    newBlockData.block.GenerateMesh();
+                }
             }
         }
     }

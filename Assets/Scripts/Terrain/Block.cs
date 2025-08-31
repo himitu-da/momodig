@@ -28,9 +28,14 @@ public struct VoxelFaceTextureInfo
 [RequireComponent(typeof(MeshCollider))]
 public class Block : MonoBehaviour
 {
+    // VoxelManagerへの参照を追加
+    private VoxelManager voxelManager;
+    private Vector3Int blockPosition; // このブロックの座標を保持
+
     public int ChunkSize { get; private set; } = 4; // 16ドット単位の塊　この変数いらない説
-    private byte[,,] voxelTypes; // 0: 空気, 1: 固体
-    private int[,,] voxelHPs; // HP
+    // voxelTypesとvoxelHPsはVoxelManagerで管理するため削除
+    // private byte[,,] voxelTypes; // 0: 空気, 1: 固体
+    // private int[,,] voxelHPs; // HP
     private int maxHP = 3;
     [Range(0.01f, 1.0f)]
     public float diggingThreshold = 0.1f; // 掘削判定の閾値（ボクセルとの重複率）
@@ -62,26 +67,17 @@ public class Block : MonoBehaviour
         meshFilter.mesh = mesh;
     }
 
-    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp)
-    {
-        Initialize(pattern, newChunkSize, worldChunkSize, hp, null, true, true, 0.8f);
-    }
-
-    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp, GameObject itemPrefab, bool disableItemRotation)
-    {
-        Initialize(pattern, newChunkSize, worldChunkSize, hp, itemPrefab, disableItemRotation, true, 0.8f);
-    }
-
-    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp, GameObject itemPrefab, bool disableItemRotation, bool autoScaleItems, float itemScaleMultiplier)
-    {
-        Initialize(pattern, newChunkSize, worldChunkSize, hp, itemPrefab, disableItemRotation, autoScaleItems, itemScaleMultiplier, null, null);
-    }
-
+    // Initializeメソッドをオーバーロードではなく、オプション引数を持つ単一のメソッドに統合
     /// <summary>
-    /// テクスチャを含む完全な初期化
+    /// ブロックを初期化
     /// </summary>
-    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp, GameObject itemPrefab, bool disableItemRotation, bool autoScaleItems, float itemScaleMultiplier, Texture2D tex1, Texture2D tex2)
+    public void Initialize(
+        VoxelManager manager, Vector3Int position, bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp,
+        GameObject itemPrefab = null, bool disableItemRotation = true, bool autoScaleItems = true, float itemScaleMultiplier = 0.8f,
+        Texture2D tex1 = null, Texture2D tex2 = null)
     {
+        voxelManager = manager;
+        blockPosition = position;
         ChunkSize = newChunkSize;
         voxelSize = worldChunkSize / ChunkSize;
         maxHP = hp;
@@ -94,28 +90,11 @@ public class Block : MonoBehaviour
         texture1 = tex1;
         texture2 = tex2;
 
-        // 配列を初期化
-        voxelTypes = new byte[ChunkSize, ChunkSize, ChunkSize];
-        voxelHPs = new int[ChunkSize, ChunkSize, ChunkSize];
+        // テクスチャパターンを設定
         useTexture1Pattern = pattern ?? new bool[ChunkSize, ChunkSize, ChunkSize];
 
-        for (int x = 0; x < ChunkSize; x++)
-            for (int y = 0; y < ChunkSize; y++)
-                for (int z = 0; z < ChunkSize; z++)
-                {
-                    // patternに基づいてボクセルの種類を決定
-                    if (useTexture1Pattern[x, y, z])
-                    {
-                        voxelTypes[x, y, z] = 1; // 固体
-                        voxelHPs[x, y, z] = maxHP;
-                    }
-                    else
-                    {
-                        voxelTypes[x, y, z] = 0; // 空気
-                        voxelHPs[x, y, z] = 0;
-                    }
-                }
-        GenerateMesh();
+        // メッシュ生成はVoxelManagerへのデータ登録後に外部から呼び出す
+        // GenerateMesh();
     }
 
     public void TakeDamage(Vector3 localPos, int damage)
@@ -123,15 +102,20 @@ public class Block : MonoBehaviour
         int x = Mathf.FloorToInt(localPos.x + ChunkSize / 2.0f);
         int y = Mathf.FloorToInt(localPos.y + ChunkSize / 2.0f);
         int z = Mathf.FloorToInt(localPos.z + ChunkSize / 2.0f);
-        if (x < 0 || x >= ChunkSize || y < 0 || y >= ChunkSize || z < 0 || z >= ChunkSize || voxelTypes[x, y, z] == 0) return;
+        
+        Vector3Int localVoxelPos = new Vector3Int(x, y, z);
 
-        voxelHPs[x, y, z] -= damage;
-        if (voxelHPs[x, y, z] <= 0)
+        // VoxelManagerにダメージ処理を移管
+        if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, damage))
         {
-            voxelTypes[x, y, z] = 0;
-            DropItem(transform.position + localPos, x, y, z); // ボクセル座標も渡す
+            // Voxelが破壊された場合
+            var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
+            if (voxelData != null)
+            {
+                 DropItem(voxelData.worldPosition, x, y, z);
+            }
+            GenerateMesh(); // メッシュを更新
         }
-        GenerateMesh(); // 破壊後更新
     }
 
     public void DigVoxels(BoxCollider diggingArea)
@@ -145,12 +129,10 @@ public class Block : MonoBehaviour
         Vector3 halfSize = diggingArea.size * 0.5f;
         Vector3 center = diggingArea.center;
 
-        // diggingAreaのバウンディングボックスをこのブロックのローカル座標に変換
         Bounds diggingBounds = diggingArea.bounds;
         Vector3 localMin = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.min);
         Vector3 localMax = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.max);
 
-        // 走査範囲を計算（ボクセル座標）
         int startX = Mathf.Max(0, Mathf.FloorToInt(localMin.x + ChunkSize / 2.0f));
         int endX = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.x + ChunkSize / 2.0f));
         int startY = Mathf.Max(0, Mathf.FloorToInt(localMin.y + ChunkSize / 2.0f));
@@ -164,7 +146,9 @@ public class Block : MonoBehaviour
             {
                 for (int z = startZ; z <= endZ; z++)
                 {
-                    if (voxelTypes[x, y, z] == 0) continue;
+                    Vector3Int localVoxelPos = new Vector3Int(x, y, z);
+                    var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
+                    if (voxelData == null || !voxelData.isActive) continue;
 
                     int containedSamples = 0;
                     Vector3 voxelMin = new Vector3(x - ChunkSize / 2.0f, y - ChunkSize / 2.0f, z - ChunkSize / 2.0f);
@@ -195,15 +179,10 @@ public class Block : MonoBehaviour
                     float overlapRatio = (float)containedSamples / totalSamples;
                     if (overlapRatio >= diggingThreshold)
                     {
-                        voxelHPs[x, y, z]--;
-
-                        if (voxelHPs[x, y, z] <= 0)
+                        if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, 1))
                         {
-                            voxelTypes[x, y, z] = 0;
-                            needsMeshUpdate = true; // メッシュ更新は破壊時のみ
-                            Vector3 voxelCenterPos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
-                            Vector3 voxelWorldPos = transform.TransformPoint(voxelCenterPos);
-                            DropItem(voxelWorldPos, x, y, z);
+                            needsMeshUpdate = true;
+                            DropItem(voxelData.worldPosition, x, y, z);
                         }
                     }
                 }
@@ -216,7 +195,7 @@ public class Block : MonoBehaviour
         }
     }
 
-    private void GenerateMesh()
+    public void GenerateMesh()
     {
         mesh.Clear();
         List<Vector3> vertices = new List<Vector3>();
@@ -224,34 +203,37 @@ public class Block : MonoBehaviour
         List<Vector2> uvs = new List<Vector2>();
         List<Color> colors = new List<Color>();
 
-        // 各ボクセルをループ
-        for (int x = 0; x < ChunkSize; x++)
-            for (int y = 0; y < ChunkSize; y++)
-                for (int z = 0; z < ChunkSize; z++)
-                {
-                    if (voxelTypes[x, y, z] == 0) continue;
+        // VoxelManagerからこのブロックのボクセルリストを取得
+        var voxelsInBlock = voxelManager.GetVoxelsInBlock(blockPosition);
 
-                    float healthPercentage = (float)voxelHPs[x, y, z] / maxHP;
-                    Color healthColor = Color.Lerp(Color.black, initialColor, healthPercentage);
-                    healthColor.a = healthPercentage; // ドット透過
+        foreach (var voxelData in voxelsInBlock)
+        {
+            if (!voxelData.isActive) continue;
 
-                    Vector3 pos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
+            int x = voxelData.localPosition.x;
+            int y = voxelData.localPosition.y;
+            int z = voxelData.localPosition.z;
 
-                    // 6面追加（露出チェック）
-                    // X, Y方向はそのまま、Z方向の面のみ巻き順を反転させる
-                    if (x == ChunkSize - 1 || voxelTypes[x + 1, y, z] == 0)
-                        AddFace(pos, Vector3.right, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-                    if (x == 0 || voxelTypes[x - 1, y, z] == 0)
-                        AddFace(pos, Vector3.left, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-                    if (y == ChunkSize - 1 || voxelTypes[x, y + 1, z] == 0)
-                        AddFace(pos, Vector3.up, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-                    if (y == 0 || voxelTypes[x, y - 1, z] == 0)
-                        AddFace(pos, Vector3.down, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-                    if (z == ChunkSize - 1 || voxelTypes[x, y, z + 1] == 0)
-                        AddFace(pos, Vector3.forward, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
-                    if (z == 0 || voxelTypes[x, y, z - 1] == 0)
-                        AddFace(pos, Vector3.back, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
-                }
+            float healthPercentage = (float)voxelData.health / maxHP;
+            Color healthColor = Color.Lerp(Color.black, initialColor, healthPercentage);
+            healthColor.a = healthPercentage; // ドット透過
+
+            Vector3 pos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
+
+            // 6面追加（露出チェック）
+            if (IsVoxelFaceExposed(x + 1, y, z))
+                AddFace(pos, Vector3.right, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
+            if (IsVoxelFaceExposed(x - 1, y, z))
+                AddFace(pos, Vector3.left, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
+            if (IsVoxelFaceExposed(x, y + 1, z))
+                AddFace(pos, Vector3.up, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
+            if (IsVoxelFaceExposed(x, y - 1, z))
+                AddFace(pos, Vector3.down, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
+            if (IsVoxelFaceExposed(x, y, z + 1))
+                AddFace(pos, Vector3.forward, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
+            if (IsVoxelFaceExposed(x, y, z - 1))
+                AddFace(pos, Vector3.back, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
+        }
 
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
@@ -266,6 +248,22 @@ public class Block : MonoBehaviour
         }
 
         collider.sharedMesh = mesh;
+    }
+
+    /// <summary>
+    /// 指定されたローカル座標のボクセルの面が露出しているかチェック
+    /// </summary>
+    private bool IsVoxelFaceExposed(int x, int y, int z)
+    {
+        // 座標がブロックの範囲外なら、その面は露出している
+        if (x < 0 || x >= ChunkSize || y < 0 || y >= ChunkSize || z < 0 || z >= ChunkSize)
+        {
+            return true;
+        }
+
+        // VoxelManagerに問い合わせて、隣接ボクセルが存在しないか非アクティブなら露出している
+        var neighborVoxel = voxelManager.GetVoxelAt(blockPosition, new Vector3Int(x, y, z));
+        return neighborVoxel == null || !neighborVoxel.isActive;
     }
 
     private void AddFace(Vector3 pos, Vector3 normal, List<Vector3> verts, List<int> tris, List<Vector2> uvs, List<Color> colors, Color faceColor, bool reverse, int voxelX, int voxelY, int voxelZ)
