@@ -17,17 +17,17 @@ public class VoxelManager : MonoBehaviour
     [System.Serializable]
     public class VoxelData
     {
-        public Vector3Int chunkPosition;     // 所属チャンク座標
-        public Vector3Int localPosition;    // チャンク内でのローカル座標
+        public Vector3Int blockPosition;     // 所属ブロック座標
+        public Vector3Int localPosition;    // ブロック内でのローカル座標
         public Vector3 worldPosition;       // ワールド座標
         public bool isActive;               // ボクセルがアクティブかどうか
         public int health;                  // ボクセルの耐久値
         public VoxelType voxelType;         // ボクセルタイプ
         public float lastModifiedTime;      // 最後に変更された時間
         
-        public VoxelData(Vector3Int chunkPos, Vector3Int localPos, Vector3 worldPos, int hp, VoxelType type)
+        public VoxelData(Vector3Int blockPos, Vector3Int localPos, Vector3 worldPos, int hp, VoxelType type)
         {
-            chunkPosition = chunkPos;
+            blockPosition = blockPos;
             localPosition = localPos;
             worldPosition = worldPos;
             isActive = true;
@@ -70,11 +70,11 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ボクセルパターンからボクセルデータを作成
     /// </summary>
-    public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int chunkPos, TerrainSettings settings)
+    public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, TerrainSettings settings)
     {
         if (showVoxelDebugInfo)
         {
-            Debug.Log($"VoxelManager: Registering voxels for chunk {chunkPos}");
+            Debug.Log($"VoxelManager: Registering voxels for block {blockPos}");
         }
         
         for (int x = 0; x < pattern.GetLength(0); x++)
@@ -86,14 +86,16 @@ public class VoxelManager : MonoBehaviour
                     if (pattern[x, y, z])
                     {
                         Vector3Int localPos = new Vector3Int(x, y, z);
-                        Vector3 worldPos = CalculateWorldPosition(chunkPos, localPos, settings);
+                        // ワールド座標の計算はTerrainManagerに任せ、ここではVoxelManagerが管理するデータを作成することに集中する
+                        // worldPosは別途正しい値を設定する必要があるが、一旦仮で計算する
+                        Vector3 worldPos = CalculateWorldPosition(blockPos, localPos, settings);
                         
                         VoxelData voxelData = new VoxelData(
-                            chunkPos, 
+                            blockPos, 
                             localPos, 
                             worldPos, 
                             settings.voxelHp, 
-                            DetermineVoxelType(chunkPos, localPos)
+                            DetermineVoxelType(blockPos, localPos)
                         );
                         
                         trackedVoxels.Add(voxelData);
@@ -104,35 +106,35 @@ public class VoxelManager : MonoBehaviour
         
         if (showVoxelDebugInfo)
         {
-            Debug.Log($"VoxelManager: Registered {CountVoxelsInChunk(chunkPos)} voxels for chunk {chunkPos}");
+            Debug.Log($"VoxelManager: Registered {CountVoxelsInBlock(blockPos)} voxels for block {blockPos}");
         }
     }
     
     /// <summary>
     /// ワールド座標を計算
     /// </summary>
-    private Vector3 CalculateWorldPosition(Vector3Int chunkPos, Vector3Int localPos, TerrainSettings settings)
+    private Vector3 CalculateWorldPosition(Vector3Int blockPos, Vector3Int localPos, TerrainSettings settings)
     {
-        Vector3 chunkWorldPos = new Vector3(
-            chunkPos.x * settings.chunkSize,
-            chunkPos.y * settings.chunkSize,
-            chunkPos.z * settings.chunkSize
+        Vector3 blockWorldPos = new Vector3(
+            blockPos.x * settings.blockSize,
+            blockPos.y * settings.blockSize,
+            blockPos.z * settings.blockSize
         );
         
-        float voxelUnit = settings.chunkSize / settings.voxelSize;
+        float voxelUnit = settings.blockSize / settings.voxelSize;
         Vector3 localWorldPos = new Vector3(
             localPos.x * voxelUnit,
             localPos.y * voxelUnit,
             localPos.z * voxelUnit
         );
         
-        return chunkWorldPos + localWorldPos;
+        return blockWorldPos + localWorldPos;
     }
     
     /// <summary>
     /// ボクセルタイプを決定
     /// </summary>
-    private VoxelType DetermineVoxelType(Vector3Int chunkPos, Vector3Int localPos)
+    private VoxelType DetermineVoxelType(Vector3Int blockPos, Vector3Int localPos)
     {
         // デフォルトは標準タイプ
         // 将来的に位置やランダム要素に基づいてタイプを決定
@@ -142,11 +144,11 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// 指定座標のボクセルデータを取得
     /// </summary>
-    public VoxelData GetVoxelAt(Vector3Int chunkPos, Vector3Int localPos)
+    public VoxelData GetVoxelAt(Vector3Int blockPos, Vector3Int localPos)
     {
         foreach (var voxel in trackedVoxels)
         {
-            if (voxel.chunkPosition == chunkPos && voxel.localPosition == localPos && voxel.isActive)
+            if (voxel.blockPosition == blockPos && voxel.localPosition == localPos && voxel.isActive)
             {
                 return voxel;
             }
@@ -155,14 +157,14 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 指定チャンク内のボクセル数を取得
+    /// 指定ブロック内のボクセル数を取得
     /// </summary>
-    public int CountVoxelsInChunk(Vector3Int chunkPos)
+    public int CountVoxelsInBlock(Vector3Int blockPos)
     {
         int count = 0;
         foreach (var voxel in trackedVoxels)
         {
-            if (voxel.chunkPosition == chunkPos && voxel.isActive)
+            if (voxel.blockPosition == blockPos && voxel.isActive)
             {
                 count++;
             }
@@ -173,9 +175,9 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ボクセルにダメージを与える
     /// </summary>
-    public bool DamageVoxel(Vector3Int chunkPos, Vector3Int localPos, int damage = 1)
+    public bool DamageVoxel(Vector3Int blockPos, Vector3Int localPos, int damage = 1)
     {
-        VoxelData voxel = GetVoxelAt(chunkPos, localPos);
+        VoxelData voxel = GetVoxelAt(blockPos, localPos);
         if (voxel != null)
         {
             voxel.health -= damage;
@@ -183,12 +185,12 @@ public class VoxelManager : MonoBehaviour
             
             if (showVoxelDebugInfo)
             {
-                Debug.Log($"VoxelManager: Damaged voxel at {chunkPos},{localPos} - Health: {voxel.health}");
+                Debug.Log($"VoxelManager: Damaged voxel at {blockPos},{localPos} - Health: {voxel.health}");
             }
             
             if (voxel.health <= 0)
             {
-                return DestroyVoxel(chunkPos, localPos);
+                return DestroyVoxel(blockPos, localPos);
             }
         }
         
@@ -198,9 +200,9 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ボクセルを破壊
     /// </summary>
-    public bool DestroyVoxel(Vector3Int chunkPos, Vector3Int localPos)
+    public bool DestroyVoxel(Vector3Int blockPos, Vector3Int localPos)
     {
-        VoxelData voxel = GetVoxelAt(chunkPos, localPos);
+        VoxelData voxel = GetVoxelAt(blockPos, localPos);
         if (voxel != null && voxel.voxelType != VoxelType.Unbreakable)
         {
             voxel.isActive = false;
@@ -208,7 +210,7 @@ public class VoxelManager : MonoBehaviour
             
             if (showVoxelDebugInfo)
             {
-                Debug.Log($"VoxelManager: Destroyed voxel at {chunkPos},{localPos}");
+                Debug.Log($"VoxelManager: Destroyed voxel at {blockPos},{localPos}");
             }
             
             return true;
@@ -220,9 +222,9 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ボクセルを復元
     /// </summary>
-    public bool RestoreVoxel(Vector3Int chunkPos, Vector3Int localPos)
+    public bool RestoreVoxel(Vector3Int blockPos, Vector3Int localPos)
     {
-        VoxelData voxel = GetVoxelAt(chunkPos, localPos);
+        VoxelData voxel = GetVoxelAt(blockPos, localPos);
         if (voxel != null && !voxel.isActive)
         {
             voxel.isActive = true;
@@ -231,7 +233,7 @@ public class VoxelManager : MonoBehaviour
             
             if (showVoxelDebugInfo)
             {
-                Debug.Log($"VoxelManager: Restored voxel at {chunkPos},{localPos}");
+                Debug.Log($"VoxelManager: Restored voxel at {blockPos},{localPos}");
             }
             
             return true;
@@ -241,21 +243,21 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 指定チャンクのボクセルをすべて取得
+    /// 指定ブロックのボクセルをすべて取得
     /// </summary>
-    public List<VoxelData> GetVoxelsInChunk(Vector3Int chunkPos)
+    public List<VoxelData> GetVoxelsInBlock(Vector3Int blockPos)
     {
-        List<VoxelData> chunkVoxels = new List<VoxelData>();
+        List<VoxelData> blockVoxels = new List<VoxelData>();
         
         foreach (var voxel in trackedVoxels)
         {
-            if (voxel.chunkPosition == chunkPos)
+            if (voxel.blockPosition == blockPos)
             {
-                chunkVoxels.Add(voxel);
+                blockVoxels.Add(voxel);
             }
         }
         
-        return chunkVoxels;
+        return blockVoxels;
     }
     
     /// <summary>
@@ -295,15 +297,15 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 指定チャンクのボクセルをクリア
+    /// 指定ブロックのボクセルをクリア
     /// </summary>
-    public void ClearVoxelsInChunk(Vector3Int chunkPos)
+    public void ClearVoxelsInBlock(Vector3Int blockPos)
     {
-        trackedVoxels.RemoveAll(v => v.chunkPosition == chunkPos);
+        trackedVoxels.RemoveAll(v => v.blockPosition == blockPos);
         
         if (showVoxelDebugInfo)
         {
-            Debug.Log($"VoxelManager: Cleared voxels for chunk {chunkPos}");
+            Debug.Log($"VoxelManager: Cleared voxels for block {blockPos}");
         }
     }
     
