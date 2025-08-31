@@ -8,14 +8,14 @@ using System.Collections.Generic;
 public class BlockManager : MonoBehaviour
 {
     [Header("Block Configuration")]
-    [SerializeField] private List<BlockData> blocks = new List<BlockData>();
+    [SerializeField] private List<BlockInstanceData> blocks = new List<BlockInstanceData>();
     [SerializeField] private bool showBlockDebugInfo = false;
     
     /// <summary>
-    /// ブロックデータ構造
+    /// ブロックのインスタンスデータ構造
     /// </summary>
     [System.Serializable]
-    public class BlockData
+    public class BlockInstanceData
     {
         public Vector3Int position;          // ブロックの論理座標
         public Vector3 worldPosition;       // ワールド座標
@@ -23,7 +23,7 @@ public class BlockManager : MonoBehaviour
         public bool isActive = true;        // ブロックがアクティブかどうか
         public int voxelCount;              // このブロック内のボクセル数
         
-        public BlockData(Vector3Int pos, Vector3 worldPos)
+        public BlockInstanceData(Vector3Int pos, Vector3 worldPos)
         {
             position = pos;
             worldPosition = worldPos;
@@ -51,66 +51,60 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// ブロックを作成
     /// </summary>
-    public BlockData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, TerrainSettings settings, Transform parent)
+    public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, global::BlockData data, float blockSize, int voxelSize, Transform parent)
     {
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockManager: Creating block at {blockPos}");
+            Debug.Log($"BlockManager: Creating block at {blockPos} with type {data.resourceType}");
         }
         
         // ブロックデータを作成
-        BlockData blockData = new BlockData(blockPos, worldPos);
+        BlockInstanceData blockInstance = new BlockInstanceData(blockPos, worldPos);
         
         // GameObjectとBlockを作成
-        GameObject blockObj = new GameObject($"Block_{blockPos.x}_{blockPos.y}_{blockPos.z}");
+        GameObject blockObj = new GameObject($"Block_{data.resourceType}_{blockPos.x}_{blockPos.y}");
         blockObj.transform.parent = parent;
         blockObj.transform.position = worldPos;
         
         // スケール調整
-        float scale = settings.blockSize / settings.voxelSize;
+        float scale = blockSize / voxelSize;
         blockObj.transform.localScale = new Vector3(scale, scale, scale);
         
         // Blockコンポーネントを追加
         Block block = blockObj.AddComponent<Block>();
-        blockData.block = block;
+        blockInstance.block = block;
         
         // マテリアル設定
-        CreateBlockMaterial(blockObj, settings);
+        CreateBlockMaterial(blockObj, data);
         
         // Blockを初期化
         block.Initialize(
-            terrainManager.VoxelManager, // VoxelManagerの参照を渡す
-            blockPos,                    // ブロックの座標を渡す
-            pattern, 
-            settings.voxelSize, 
-            settings.blockSize, 
-            settings.voxelHp,
-            settings.droppedItemPrefab,
-            settings.disableRotation,
-            settings.autoScale,
-            settings.scaleMultiplier,
-            settings.texture1,
-            settings.texture2
+            terrainManager.VoxelManager,
+            blockPos,
+            pattern,
+            voxelSize,
+            blockSize,
+            data
         );
         
         // ボクセル数を計算
-        blockData.voxelCount = CalculateVoxelCount(pattern);
+        blockInstance.voxelCount = CalculateVoxelCount(pattern);
         
         // リストに追加
-        blocks.Add(blockData);
+        blocks.Add(blockInstance);
         
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockManager: Created block with {blockData.voxelCount} voxels");
+            Debug.Log($"BlockManager: Created block with {blockInstance.voxelCount} voxels");
         }
         
-        return blockData;
+        return blockInstance;
     }
     
     /// <summary>
     /// ブロック用マテリアルを作成
     /// </summary>
-    private void CreateBlockMaterial(GameObject blockObj, TerrainSettings settings)
+    private void CreateBlockMaterial(GameObject blockObj, global::BlockData data)
     {
         var renderer = blockObj.GetComponent<MeshRenderer>();
         if (renderer == null)
@@ -122,7 +116,12 @@ public class BlockManager : MonoBehaviour
         Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         mat.SetFloat("_Surface", 1); // Transparent
         mat.SetFloat("_AlphaClip", 1); // Alpha Clipping
-        mat.mainTexture = settings.texture1; // デフォルトテクスチャ
+        
+        // BlockDataにテクスチャが設定されていれば使用
+        if (data.textures != null && data.textures.Count > 0)
+        {
+            mat.mainTexture = data.textures[0]; // 最初のテクスチャをデフォルトとして使用
+        }
         
         renderer.material = mat;
     }
@@ -149,7 +148,7 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// 指定座標のブロックを取得
     /// </summary>
-    public BlockData GetBlockAt(Vector3Int position)
+    public BlockInstanceData GetBlockAt(Vector3Int position)
     {
         foreach (var block in blocks)
         {
@@ -164,9 +163,9 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// すべてのブロックを取得
     /// </summary>
-    public List<BlockData> GetAllBlocks()
+    public List<BlockInstanceData> GetAllBlocks()
     {
-        return new List<BlockData>(blocks);
+        return new List<BlockInstanceData>(blocks);
     }
     
     /// <summary>
@@ -187,7 +186,7 @@ public class BlockManager : MonoBehaviour
     /// </summary>
     public void SetBlockActive(Vector3Int position, bool active)
     {
-        BlockData block = GetBlockAt(position);
+        BlockInstanceData block = GetBlockAt(position);
         if (block != null && block.block != null)
         {
             block.isActive = active;

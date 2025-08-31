@@ -25,6 +25,7 @@ public class VoxelManager : MonoBehaviour
         public Vector3 worldPosition;       // ワールド座標
         public bool isActive;               // ボクセルがアクティブかどうか
         public int health;                  // ボクセルの耐久値
+        public int maxHealth;               // ボクセルの最大耐久値
         public VoxelType voxelType;         // ボクセルタイプ
         public float lastModifiedTime;      // 最後に変更された時間
         
@@ -35,6 +36,7 @@ public class VoxelManager : MonoBehaviour
             worldPosition = worldPos;
             isActive = true;
             health = hp;
+            maxHealth = hp; // 最大HPも初期HPと同じに設定
             voxelType = type;
             lastModifiedTime = Time.time;
         }
@@ -73,7 +75,7 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ボクセルパターンからボクセルデータを作成
     /// </summary>
-    public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, Vector3 blockWorldPos, TerrainSettings settings)
+    public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, Vector3 blockWorldPos, BlockData data, float blockSize, int voxelSize)
     {
         if (showVoxelDebugInfo)
         {
@@ -89,13 +91,13 @@ public class VoxelManager : MonoBehaviour
                     if (pattern[x, y, z])
                     {
                         Vector3Int localPos = new Vector3Int(x, y, z);
-                        Vector3 worldPos = CalculateWorldPosition(blockWorldPos, localPos, settings);
+                        Vector3 worldPos = CalculateWorldPosition(blockWorldPos, localPos, blockSize, voxelSize);
                         
                         VoxelData voxelData = new VoxelData(
                             blockPos, 
                             localPos, 
                             worldPos, 
-                            settings.voxelHp, 
+                            data.voxelHp, 
                             DetermineVoxelType(blockPos, localPos)
                         );
                         if (!trackedVoxels.ContainsKey(blockPos))
@@ -117,14 +119,14 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ワールド座標を計算
     /// </summary>
-    private Vector3 CalculateWorldPosition(Vector3 blockWorldPos, Vector3Int localPos, TerrainSettings settings)
+    private Vector3 CalculateWorldPosition(Vector3 blockWorldPos, Vector3Int localPos, float blockSize, int voxelSize)
     {
-        float voxelUnit = settings.blockSize / settings.voxelSize;
+        float voxelUnit = blockSize / voxelSize;
         // ブロックの中心からのオフセットとしてボクセルのローカル座標を計算
         Vector3 localOffset = new Vector3(
-            (localPos.x - settings.voxelSize / 2f + 0.5f) * voxelUnit,
-            (localPos.y - settings.voxelSize / 2f + 0.5f) * voxelUnit,
-            (localPos.z - settings.voxelSize / 2f + 0.5f) * voxelUnit
+            (localPos.x - voxelSize / 2f + 0.5f) * voxelUnit,
+            (localPos.y - voxelSize / 2f + 0.5f) * voxelUnit,
+            (localPos.z - voxelSize / 2f + 0.5f) * voxelUnit
         );
         
         return blockWorldPos + localOffset;
@@ -228,7 +230,7 @@ public class VoxelManager : MonoBehaviour
         if (voxel != null && !voxel.isActive)
         {
             voxel.isActive = true;
-            voxel.health = terrainManager.Settings.voxelHp; // デフォルト体力に復元
+            voxel.health = voxel.maxHealth; // 最大体力に復元
             voxel.lastModifiedTime = Time.time;
             
             if (showVoxelDebugInfo)

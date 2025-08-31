@@ -67,28 +67,31 @@ public class Block : MonoBehaviour
         meshFilter.mesh = mesh;
     }
 
+    private BlockData blockData; // このブロックの種類を定義するデータ
+
     // Initializeメソッドをオーバーロードではなく、オプション引数を持つ単一のメソッドに統合
     /// <summary>
     /// ブロックを初期化
     /// </summary>
     public void Initialize(
-        VoxelManager manager, Vector3Int position, bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp,
-        GameObject itemPrefab = null, bool disableItemRotation = true, bool autoScaleItems = true, float itemScaleMultiplier = 0.8f,
-        Texture2D tex1 = null, Texture2D tex2 = null)
+        VoxelManager manager, Vector3Int position, bool[,,] pattern, int newChunkSize, float worldChunkSize, BlockData data)
     {
         voxelManager = manager;
         blockPosition = position;
         ChunkSize = newChunkSize;
         voxelSize = worldChunkSize / ChunkSize;
-        maxHP = hp;
-        droppedItemPrefab = itemPrefab;
-        disableRotation = disableItemRotation;
-        autoScale = autoScaleItems;
-        scaleMultiplier = itemScaleMultiplier;
+        blockData = data; // BlockDataアセットを保持
+
+        // BlockDataから各種設定を読み込む
+        maxHP = blockData.voxelHp;
+        droppedItemPrefab = blockData.droppedItemPrefab;
+        disableRotation = blockData.disableRotation;
+        autoScale = blockData.autoScale;
+        scaleMultiplier = blockData.scaleMultiplier;
         
-        // テクスチャを設定
-        texture1 = tex1;
-        texture2 = tex2;
+        // テクスチャを設定 (最初のテクスチャをtexture1, 2番目をtexture2とする)
+        texture1 = (blockData.textures != null && blockData.textures.Count > 0) ? blockData.textures[0] : null;
+        texture2 = (blockData.textures != null && blockData.textures.Count > 1) ? blockData.textures[1] : null;
 
         // テクスチャパターンを設定
         useTexture1Pattern = pattern ?? new bool[ChunkSize, ChunkSize, ChunkSize];
@@ -705,26 +708,34 @@ public class Block : MonoBehaviour
 
     private void DropItem(Vector3 position, int voxelX, int voxelY, int voxelZ) // ボクセル座標を受け取る新しいオーバーロード
     {
-        GameObject item;
-        
-        // Prefabが指定されている場合はそれを使用、されていない場合はデフォルトのCubeを作成
-        if (droppedItemPrefab != null)
+        if (DroppedItemManager.Instance == null)
         {
-            item = Instantiate(droppedItemPrefab, position, Quaternion.identity);
-            
-            // 自動スケール調整が有効な場合
-            if (autoScale)
-            {
-                float targetScale = voxelSize * scaleMultiplier;
-                item.transform.localScale = Vector3.one * targetScale;
-            }
+            Debug.LogError("DroppedItemManager.Instance is null. Please ensure a DroppedItemManager exists in the scene.");
+            return;
         }
-        else
+        if (blockData == null)
         {
-            // デフォルト処理：Cubeを作成
-            item = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            item.transform.position = position;
-            item.transform.localScale = Vector3.one * voxelSize;
+            Debug.LogError($"Block at {blockPosition} has no BlockData assigned. Check TerrainManager setup.", this.gameObject);
+            return;
+        }
+        if (blockData.droppedItemPrefab == null)
+        {
+            Debug.LogError($"BlockData '{blockData.name}' has no droppedItemPrefab assigned.", blockData);
+            return;
+        }
+
+        // DroppedItemManagerから正しいPrefabのアイテムを取得
+        GameObject item = DroppedItemManager.Instance.GetItem(blockData.droppedItemPrefab);
+        if (item == null) return;
+
+        item.transform.position = position;
+        item.transform.rotation = Quaternion.identity;
+
+        // 自動スケール調整が有効な場合
+        if (blockData.autoScale)
+        {
+            float targetScale = voxelSize * blockData.scaleMultiplier;
+            item.transform.localScale = Vector3.one * targetScale;
         }
 
         // ボクセル座標が有効な場合、テクスチャ抽出を実行
@@ -757,15 +768,9 @@ public class Block : MonoBehaviour
 
         // DroppedItemコンポーネントの処理
         DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
-        if (droppedItemComponent == null)
+        if (droppedItemComponent != null)
         {
-            droppedItemComponent = item.AddComponent<DroppedItem>();
-        }
-
-        // 回転を無効化する場合の処理
-        if (disableRotation)
-        {
-            droppedItemComponent.enabled = false; // DroppedItemコンポーネントを無効化して回転を停止
+            droppedItemComponent.enabled = !blockData.disableRotation;
         }
 
         // タグが設定されていない場合は設定

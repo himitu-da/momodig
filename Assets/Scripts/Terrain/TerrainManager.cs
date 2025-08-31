@@ -24,18 +24,7 @@ public class TerrainSettings
     public Vector2Int chunkSizeInBlocks = new Vector2Int(1, 5); // チャンクあたりのブロック数
     public float blockSize = 1.0f; // ブロックのサイズ
     public int voxelSize = 4;
-    public int voxelHp = 2;
-    
-    [Header("Texture Settings")]
-    public Texture2D texture1;
-    public Texture2D texture2;
-    
-    [Header("Dropped Item Settings")]
-    public GameObject droppedItemPrefab;
-    public bool disableRotation = true;
-    public bool autoScale = true;
-    public float scaleMultiplier = 1.0f;
-    
+
     [Header("Generation Type")]
     public TerrainGenerationType generationType = TerrainGenerationType.SideScroller;
 }
@@ -49,6 +38,9 @@ public class TerrainSettings
 /// </summary>
 public class TerrainManager : MonoBehaviour
 {
+    [Header("Data Managers")]
+    [SerializeField] private BlockDataManager blockDataManager;
+
     [Header("Terrain Configuration")]
     [SerializeField] private TerrainSettings settings = new TerrainSettings();
     
@@ -69,6 +61,7 @@ public class TerrainManager : MonoBehaviour
     /// <summary>
     /// 階層マネージャーへのアクセス
     /// </summary>
+    public BlockDataManager BlockDataManager => blockDataManager;
     public BlockManager BlockManager => blockManager;
     public BlockGenerator BlockGenerator => blockGenerator;
     public VoxelManager VoxelManager => voxelManager;
@@ -208,25 +201,35 @@ public class TerrainManager : MonoBehaviour
                 float worldY = settings.center.y - (chunkPos.y * settings.chunkSizeInBlocks.y + by) * settings.blockSize - (settings.blockSize / 2f);
                 Vector3 worldPos = new Vector3(worldX, worldY, settings.center.z);
 
+                // TODO: 将来的にはBlockGeneratorがResourceTypeを決定するようにする
+                ResourceType currentResourceType = ResourceType.Stone;
+                BlockData blockTypeData = blockDataManager.GetBlockData(currentResourceType);
+
+                if (blockTypeData == null)
+                {
+                    Debug.LogError($"BlockData for {currentResourceType} is not assigned in BlockDataManager.");
+                    continue;
+                }
+
                 // BlockGeneratorでパターンを生成
-                var blockData = new BlockGenerator.BlockGenerationData(
+                var generationData = new BlockGenerator.BlockGenerationData(
                     settings.generationType,
                     settings.voxelSize,
                     settings.blockSize,
                     blockPos
                 );
-                bool[,,] pattern = blockGenerator.GenerateBlockPattern(blockData);
+                bool[,,] pattern = blockGenerator.GenerateBlockPattern(generationData);
 
                 // BlockManagerでブロックを作成
-                var newBlockData = blockManager.CreateBlock(blockPos, worldPos, pattern, settings, chunkObj.transform);
+                var newBlockInstance = blockManager.CreateBlock(blockPos, worldPos, pattern, blockTypeData, settings.blockSize, settings.voxelSize, chunkObj.transform);
 
                 // VoxelManagerにボクセルデータを登録
-                voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, settings);
+                voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, blockTypeData, settings.blockSize, settings.voxelSize);
 
                 // ボクセルデータ登録後にメッシュを生成
-                if (newBlockData != null && newBlockData.block != null)
+                if (newBlockInstance != null && newBlockInstance.block != null)
                 {
-                    newBlockData.block.GenerateMesh();
+                    newBlockInstance.block.GenerateMesh();
                 }
             }
         }
@@ -287,8 +290,6 @@ public class TerrainManager : MonoBehaviour
         settings.chunkSizeInBlocks.y = Mathf.Max(1, settings.chunkSizeInBlocks.y);
         settings.blockSize = Mathf.Max(0.1f, settings.blockSize);
         settings.voxelSize = Mathf.Max(1, settings.voxelSize);
-        settings.voxelHp = Mathf.Max(1, settings.voxelHp);
-        settings.scaleMultiplier = Mathf.Max(0.1f, settings.scaleMultiplier);
     }
 #endif
 }

@@ -178,8 +178,8 @@ public class PlayerController : MonoBehaviour
         // 衝突したオブジェクトが "DroppedItem" タグを持っているか確認
         if (collision.gameObject.CompareTag("DroppedItem"))
         {
-            // アイテムを破壊
-            Destroy(collision.gameObject);
+            // アイテムをプールに返却
+            DroppedItemManager.Instance.ReturnItem(collision.gameObject);
             // スコアを更新
             score++;
             UpdateScoreText();
