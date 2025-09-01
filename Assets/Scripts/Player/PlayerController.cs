@@ -12,6 +12,7 @@ public class PlayerController : MonoBehaviour
 
     [Header("移動設定")]
     public float moveSpeed = 5f; // 移動速度
+    public float fallSpeedMultiplier = 0.5f; // 無操作時の落下速度の倍率
     [SerializeField] private MoveMode _currentMoveMode;
     public MoveMode currentMoveMode
     {
@@ -124,21 +125,40 @@ public class PlayerController : MonoBehaviour
     void FixedUpdate()
     {
         Vector3 moveDirection;
+        Vector3 newVelocity;
+
         switch (currentMoveMode)
         {
             case MoveMode.SideScroller:
                 moveDirection = new Vector3(moveInput.x, moveInput.y, 0f);
+
+                if (moveInput == Vector2.zero)
+                {
+                    // 無操作時はゆっくり落下
+                    newVelocity = new Vector3(0, -moveSpeed * fallSpeedMultiplier, 0);
+                }
+                else if (moveInput.x != 0 && moveInput.y == 0)
+                {
+                    // 左右のみの入力の場合は落下しない
+                    newVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed;
+                }
+                else
+                {
+                    // それ以外の入力（上下含む）
+                    newVelocity = moveDirection.normalized * moveSpeed;
+                }
                 break;
             case MoveMode.TopDown:
                 moveDirection = new Vector3(moveInput.x, 0f, moveInput.y);
+                newVelocity = moveDirection.normalized * moveSpeed;
                 break;
             default:
                 moveDirection = Vector3.zero;
+                newVelocity = Vector3.zero;
                 break;
         }
 
         // 移動ベクトルを計算
-        Vector3 newVelocity = moveDirection.normalized * moveSpeed;
         rb.linearVelocity = newVelocity;
 
         // 移動入力がある場合、その方向を保存
