@@ -30,15 +30,15 @@ public class DroppedItemManager : MonoBehaviour
     private Queue<DroppedItem> wakeUpRequestQueue = new Queue<DroppedItem>();
     private HashSet<DroppedItem> itemsInWakeUpQueue = new HashSet<DroppedItem>();
 
-    private const float SleepCheckInterval = 0.1f; // 0.1秒ごとにチェック
-    private const float SleepVelocityThreshold = 0.3f;
+    private const float SleepCheckInterval = 0.2f; // 0.1秒ごとにチェック
+    private const float SleepVelocityThreshold = 0.1f;
     public float WakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
     public int MaxWakeUpPerStep = 12; // 1ステップで起床させる最大数
-    public float WakeUpStepDelay = 0.06f; // 次のステップまでの待機時間
+    public float WakeUpStepDelay = 0.1f; // 次のステップまでの待機時間
     public int MaxDownwardChain = 7; // 下方向への連鎖回数の上限
     private const int VelocityHistorySize = 1;
     private const int WakeUpCheckCount = 1;
-    private const float SleepCooldownDuration = 3.0f; // 3秒のクールダウン
+    private const float SleepCooldownDuration = 5.0f; // 5秒のクールダウン
 
     private float sleepCheckTimer = 0f;
 
