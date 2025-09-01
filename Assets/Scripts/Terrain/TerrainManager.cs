@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI; // UIコンポーネントを使用するために追加
 
@@ -28,6 +30,10 @@ public class TerrainSettings
 
     [Header("Generation Type")]
     public TerrainGenerationType generationType = TerrainGenerationType.SideScroller;
+    
+    [Header("Performance")]
+    public int blocksPerFrame = 16; // 1フレームあたりのブロック生成数
+    public float sortInterval = 0.5f; // 生成キューをソートする間隔
 }
 
 /// <summary>
@@ -52,6 +58,8 @@ public class TerrainManager : MonoBehaviour
     private float timeSinceLastChunkUpdate = 0f;
     private Vector3Int currentPlayerChunk;
     private Dictionary<Vector3Int, Chunk> activeChunks = new Dictionary<Vector3Int, Chunk>();
+    private readonly List<Vector3Int> _blockGenerationList = new List<Vector3Int>();
+    private readonly HashSet<Vector3Int> _processedBlocks = new HashSet<Vector3Int>(); // 生成済み or キュー済みのブロック
     
     [Header("Hierarchical Managers")]
     [SerializeField] private BlockManager blockManager;
@@ -78,6 +86,7 @@ public class TerrainManager : MonoBehaviour
     void Start()
     {
         InitializeHierarchicalSystem();
+        StartCoroutine(ProcessBlockGenerationQueue());
         // GenerateTerrain(); // 初期の一括生成をコメントアウト
     }
 
@@ -148,17 +157,8 @@ public class TerrainManager : MonoBehaviour
             Debug.Log($"TerrainManager: Generating terrain with type {settings.generationType}");
         }
         
-        ClearExistingTerrain();
-        GenerateWorld();
-    }
-    
-    /// <summary>
-    /// 既存の地形をクリア
-    /// </summary>
-    private void ClearExistingTerrain()
-    {
-        blockManager?.ClearAllBlocks();
-        voxelManager?.ClearAllVoxels();
+        ClearTerrain();
+        EnqueueInitialWorldGeneration();
     }
     
     /// <summary>
@@ -173,6 +173,8 @@ public class TerrainManager : MonoBehaviour
         
         currentPlayerChunk = playerChunkPos;
 
+        List<Vector3Int> newBlockPositions = new List<Vector3Int>();
+
         for (int x = -renderDistanceInChunks; x <= renderDistanceInChunks; x++)
         {
             for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
@@ -182,14 +184,45 @@ public class TerrainManager : MonoBehaviour
                 // 地下(y<=0)のみチャンクを生成
                 if (chunkPos.y > 0) continue;
                 
+                // チャンクがまだ生成されていない場合、そのチャンク内のブロックをキューに追加
                 if (!activeChunks.ContainsKey(chunkPos))
                 {
-                    GenerateChunk(chunkPos);
+                    for (int bx = 0; bx < settings.chunkSizeInBlocks.x; bx++)
+                    {
+                        for (int by = 0; by < settings.chunkSizeInBlocks.y; by++)
+                        {
+                            newBlockPositions.Add(new Vector3Int(
+                                chunkPos.x * settings.chunkSizeInBlocks.x + bx,
+                                chunkPos.y * settings.chunkSizeInBlocks.y + by,
+                                0
+                            ));
+                        }
+                    }
                 }
             }
         }
         
+        // プレイヤー位置に近い順にソート
+        Vector3Int playerBlockPos = GetBlockPositionFromWorld(playerTransform.position);
+        newBlockPositions = newBlockPositions.OrderBy(pos => (pos - playerBlockPos).sqrMagnitude).ToList();
+        
+        // リストの先頭に追加して優先度を上げる
+        _blockGenerationList.InsertRange(0, newBlockPositions.Where(pos => _processedBlocks.Add(pos)));
+        
         // TODO: 将来的には、描画範囲外のチャンクを削除する処理も追加する
+    }
+
+    /// <summary>
+    /// ワールド座標からチャンク座標を取得
+    /// </summary>
+    private Vector3Int GetBlockPositionFromWorld(Vector3 worldPosition)
+    {
+        // このメソッドはチャンク座標ではなく、最も近いブロックの整数座標を返すようにする
+        // worldPositionをblockSizeで割り、最も近い整数に丸める
+        int x = Mathf.RoundToInt(worldPosition.x / settings.blockSize);
+        int y = Mathf.RoundToInt(worldPosition.y / settings.blockSize);
+        int z = Mathf.RoundToInt(worldPosition.z / settings.blockSize);
+        return new Vector3Int(x, y, z);
     }
 
     /// <summary>
@@ -213,105 +246,157 @@ public class TerrainManager : MonoBehaviour
         return new Vector3Int(chunkX, chunkY, 0);
     }
 
-    /// <summary>
-    /// ワールド全体を生成 (チャンクの生成ループ)
-    /// </summary>
-    private void GenerateWorld()
+    private void EnqueueInitialWorldGeneration()
     {
         if (showDebugInfo)
         {
-            Debug.Log("TerrainManager: Generating world...");
+            Debug.Log("TerrainManager: Enqueueing initial world generation...");
         }
 
         transform.position = Vector3.zero;
 
+        // 全ブロック座標をリストアップ
+        List<Vector3Int> allBlockPositions = new List<Vector3Int>();
         for (int cx = 0; cx < settings.worldSizeInChunks.x; cx++)
         {
             for (int cy = 0; cy < settings.worldSizeInChunks.y; cy++)
             {
-                Vector3Int chunkPos = new Vector3Int(cx, cy, 0);
-                GenerateChunk(chunkPos);
+                for (int bx = 0; bx < settings.chunkSizeInBlocks.x; bx++)
+                {
+                    for (int by = 0; by < settings.chunkSizeInBlocks.y; by++)
+                    {
+                        allBlockPositions.Add(new Vector3Int(
+                            cx * settings.chunkSizeInBlocks.x + bx,
+                            cy * settings.chunkSizeInBlocks.y + by,
+                            0
+                        ));
+                    }
+                }
+            }
+        }
+
+        // プレイヤー位置に近い順にソート
+        Vector3Int playerBlockPos = GetBlockPositionFromWorld(playerTransform.position);
+        allBlockPositions = allBlockPositions.OrderBy(pos => (pos - playerBlockPos).sqrMagnitude).ToList();
+
+        // リストに追加
+        foreach (var pos in allBlockPositions)
+        {
+            if (_processedBlocks.Add(pos))
+            {
+                _blockGenerationList.Add(pos);
             }
         }
     }
 
-    /// <summary>
-    /// 1つのチャンクを生成 (ブロックの生成ループ)
-    /// </summary>
-    private void GenerateChunk(Vector3Int chunkPos)
+    private IEnumerator ProcessBlockGenerationQueue()
     {
-        if (activeChunks.ContainsKey(chunkPos)) return;
+        float timeSinceLastSort = 0f;
 
-        // チャンクGameObjectを作成
-        GameObject chunkObj = new GameObject($"Chunk_{chunkPos.x}_{chunkPos.y}");
-        chunkObj.transform.parent = transform;
-        Chunk chunk = chunkObj.AddComponent<Chunk>();
-        chunk.Initialize(chunkPos);
-        activeChunks.Add(chunkPos, chunk);
-        
-        // チャンクのワールド座標オフセットを計算
-        float chunkOffsetX = chunkPos.x * settings.chunkSizeInBlocks.x * settings.blockSize;
-        float chunkOffsetY = chunkPos.y * settings.chunkSizeInBlocks.y * settings.blockSize;
-
-        for (int bx = 0; bx < settings.chunkSizeInBlocks.x; bx++)
+        while (true)
         {
-            for (int by = 0; by < settings.chunkSizeInBlocks.y; by++)
+            timeSinceLastSort += Time.deltaTime;
+
+            // 一定間隔でプレイヤー位置を基準にソート
+            if (timeSinceLastSort >= settings.sortInterval && _blockGenerationList.Count > 0)
             {
-                Vector3Int blockPos = new Vector3Int(
-                    chunkPos.x * settings.chunkSizeInBlocks.x + bx,
-                    chunkPos.y * settings.chunkSizeInBlocks.y + by,
-                    0
-                );
-
-                // w=tux, z = tu(2y-1)/2
-                float t = settings.blockSize;
-                float u_x = settings.chunkSizeInBlocks.x;
-                float u_y = settings.chunkSizeInBlocks.y;
-
-                // チャンクの中心がx=0になるようにオフセットを調整
-                float chunkCenterX = chunkPos.x * u_x * t;
-                float relativeBlockX = (bx - (u_x - 1) / 2f) * t;
-                float worldX = chunkCenterX + relativeBlockX;
-
-                float chunkCenterY = t * u_y * (2 * chunkPos.y - 1) / 2f;
-                // チャンク中心からの相対座標を計算
-                float relativeBlockY = (by - (u_y - 1) / 2f) * t;
-                float worldY = chunkCenterY + relativeBlockY;
-
-                Vector3 worldPos = new Vector3(worldX, worldY, settings.center.z);
-
-                // TODO: 将来的にはBlockGeneratorがResourceTypeを決定するようにする
-                ResourceType currentResourceType = ResourceType.Stone;
-                BlockData blockTypeData = blockDataManager.GetBlockData(currentResourceType);
-
-                if (blockTypeData == null)
+                Vector3Int playerBlockPos = GetBlockPositionFromWorld(playerTransform.position);
+                _blockGenerationList.Sort((a, b) => (a - playerBlockPos).sqrMagnitude.CompareTo((b - playerBlockPos).sqrMagnitude));
+                timeSinceLastSort = 0f;
+            }
+            
+            int blocksToProcess = Mathf.Min(_blockGenerationList.Count, settings.blocksPerFrame);
+            for (int i = 0; i < blocksToProcess; i++)
+            {
+                if (_blockGenerationList.Count > 0)
                 {
-                    Debug.LogError($"BlockData for {currentResourceType} is not assigned in BlockDataManager.");
-                    continue;
-                }
-
-                // BlockGeneratorでパターンを生成
-                var generationData = new BlockGenerator.BlockGenerationData(
-                    settings.generationType,
-                    settings.voxelSize,
-                    settings.blockSize,
-                    blockPos
-                );
-                bool[,,] pattern = blockGenerator.GenerateBlockPattern(generationData);
-
-                // BlockManagerでブロックを作成
-                var newBlockInstance = blockManager.CreateBlock(blockPos, worldPos, pattern, currentResourceType, blockTypeData, settings.blockSize, settings.voxelSize, chunkObj.transform);
-
-                // VoxelManagerにボクセルデータを登録
-                voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, blockTypeData, settings.blockSize, settings.voxelSize);
-
-                // ボクセルデータ登録後にメッシュを生成
-                if (newBlockInstance != null && newBlockInstance.block != null)
-                {
-                    newBlockInstance.block.GenerateMesh();
+                    Vector3Int blockPos = _blockGenerationList[0];
+                    _blockGenerationList.RemoveAt(0);
+                    GenerateSingleBlock(blockPos);
                 }
             }
+            yield return null;
         }
+    }
+
+    private void GenerateSingleBlock(Vector3Int blockPos)
+    {
+        Chunk chunk = GetOrCreateChunk(blockPos);
+
+        // w=tux, z = tu(2y-1)/2
+        float t = settings.blockSize;
+        float u_x = settings.chunkSizeInBlocks.x;
+        float u_y = settings.chunkSizeInBlocks.y;
+        
+        int chunkCoordX = chunk.chunkPosition.x;
+        int chunkCoordY = chunk.chunkPosition.y;
+        
+        int bx = blockPos.x - chunkCoordX * (int)u_x;
+        int by = blockPos.y - chunkCoordY * (int)u_y;
+
+        // チャンクの中心がx=0になるようにオフセットを調整
+        float chunkCenterX = chunkCoordX * u_x * t;
+        float relativeBlockX = (bx - (u_x - 1) / 2f) * t;
+        float worldX = chunkCenterX + relativeBlockX;
+
+        float chunkCenterY = t * u_y * (2 * chunkCoordY - 1) / 2f;
+        // チャンク中心からの相対座標を計算
+        float relativeBlockY = (by - (u_y - 1) / 2f) * t;
+        float worldY = chunkCenterY + relativeBlockY;
+
+        Vector3 worldPos = new Vector3(worldX, worldY, settings.center.z);
+
+        // TODO: 将来的にはBlockGeneratorがResourceTypeを決定するようにする
+        ResourceType currentResourceType = ResourceType.Stone;
+        BlockData blockTypeData = blockDataManager.GetBlockData(currentResourceType);
+
+        if (blockTypeData == null)
+        {
+            Debug.LogError($"BlockData for {currentResourceType} is not assigned in BlockDataManager.");
+            return;
+        }
+
+        // BlockGeneratorでパターンを生成
+        var generationData = new BlockGenerator.BlockGenerationData(
+            settings.generationType,
+            settings.voxelSize,
+            settings.blockSize,
+            blockPos
+        );
+        bool[,,] pattern = blockGenerator.GenerateBlockPattern(generationData);
+
+        // BlockManagerでブロックを作成
+        var newBlockInstance = blockManager.CreateBlock(blockPos, worldPos, pattern, currentResourceType, blockTypeData, settings.blockSize, settings.voxelSize, chunk.transform);
+
+        // VoxelManagerにボクセルデータを登録
+        voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, blockTypeData, settings.blockSize, settings.voxelSize);
+
+        // ボクセルデータ登録後にメッシュを生成
+        if (newBlockInstance != null && newBlockInstance.block != null)
+        {
+            newBlockInstance.block.GenerateMesh();
+        }
+    }
+
+    private Chunk GetOrCreateChunk(Vector3Int blockPos)
+    {
+        Vector3Int chunkPos = new Vector3Int(
+            Mathf.FloorToInt((float)blockPos.x / settings.chunkSizeInBlocks.x),
+            Mathf.FloorToInt((float)blockPos.y / settings.chunkSizeInBlocks.y),
+            0
+        );
+
+        if (activeChunks.TryGetValue(chunkPos, out Chunk chunk))
+        {
+            return chunk;
+        }
+
+        GameObject chunkObj = new GameObject($"Chunk_{chunkPos.x}_{chunkPos.y}");
+        chunkObj.transform.parent = transform;
+        Chunk newChunk = chunkObj.AddComponent<Chunk>();
+        newChunk.Initialize(chunkPos);
+        activeChunks.Add(chunkPos, newChunk);
+        return newChunk;
     }
 
     /// <summary>
@@ -319,6 +404,9 @@ public class TerrainManager : MonoBehaviour
     /// </summary>
     public void ClearTerrain()
     {
+        StopAllCoroutines();
+        StartCoroutine(ProcessBlockGenerationQueue()); // StopAllCoroutinesで止まるので再開
+        
         // 子オブジェクトを全て削除
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
@@ -331,6 +419,12 @@ public class TerrainManager : MonoBehaviour
                 DestroyImmediate(transform.GetChild(i).gameObject);
             }
         }
+        
+        activeChunks.Clear();
+        _blockGenerationList.Clear();
+        _processedBlocks.Clear();
+        blockManager?.ClearAllBlocks();
+        voxelManager?.ClearAllVoxels();
     }
 
     /// <summary>

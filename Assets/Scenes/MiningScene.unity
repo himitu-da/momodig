@@ -1233,10 +1233,12 @@ MonoBehaviour:
   settings:
     center: {x: 0, y: 0, z: 0}
     worldSizeInChunks: {x: 2, y: 5}
-    chunkSizeInBlocks: {x: 10, y: 10}
+    chunkSizeInBlocks: {x: 5, y: 5}
     blockSize: 1
     voxelSize: 4
     generationType: 0
+    blocksPerFrame: 16
+    sortInterval: 0.5
   playerTransform: {fileID: 672003891}
   renderDistanceInChunks: 2
   blockManager: {fileID: 0}
