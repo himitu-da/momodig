@@ -26,6 +26,10 @@ public class DroppedItemManager : MonoBehaviour
     private Dictionary<DroppedItem, ItemState> itemStates = new Dictionary<DroppedItem, ItemState>();
 
     // 静止・起床ロジックの定数
+    public int maxWakeUpsPerUpdate = 10; // 1フレームあたりに起床させる最大数
+    private Queue<DroppedItem> wakeUpRequestQueue = new Queue<DroppedItem>();
+    private HashSet<DroppedItem> itemsInWakeUpQueue = new HashSet<DroppedItem>();
+
     private const float SleepCheckInterval = 0.1f; // 0.1秒ごとにチェック
     private const float SleepVelocityThreshold = 0.3f;
     public float WakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
@@ -34,7 +38,7 @@ public class DroppedItemManager : MonoBehaviour
     public int MaxDownwardChain = 7; // 下方向への連鎖回数の上限
     private const int VelocityHistorySize = 1;
     private const int WakeUpCheckCount = 1;
-    private const float SleepCooldownDuration = 5.0f; // 5秒のクールダウン
+    private const float SleepCooldownDuration = 3.0f; // 3秒のクールダウン
 
     private float sleepCheckTimer = 0f;
 
@@ -52,6 +56,8 @@ public class DroppedItemManager : MonoBehaviour
 
     void Update()
     {
+        ProcessWakeUpRequests();
+
         sleepCheckTimer += Time.deltaTime;
         if (sleepCheckTimer < SleepCheckInterval)
         {
@@ -132,6 +138,29 @@ public class DroppedItemManager : MonoBehaviour
         }
     }
 
+    void ProcessWakeUpRequests()
+    {
+        int processedCount = 0;
+        while (processedCount < maxWakeUpsPerUpdate && wakeUpRequestQueue.Count > 0)
+        {
+            DroppedItem itemToWakeUp = wakeUpRequestQueue.Dequeue();
+            itemsInWakeUpQueue.Remove(itemToWakeUp);
+
+            if (itemToWakeUp != null && itemToWakeUp.gameObject.activeInHierarchy && itemStates.ContainsKey(itemToWakeUp))
+            {
+                ItemState state = itemStates[itemToWakeUp];
+                if (state.isSleeping)
+                {
+                    itemToWakeUp.rb.isKinematic = false;
+                    state.isSleeping = false;
+                    state.sleepCooldownTimer = SleepCooldownDuration;
+                    state.velocityHistory.Clear();
+                    processedCount++;
+                }
+            }
+        }
+    }
+
     public void WakeUpItemsInRadius(Vector3 center, Vector3 size, Quaternion rotation)
     {
         Collider[] hitColliders = Physics.OverlapBox(center, size / 2, rotation);
@@ -170,12 +199,16 @@ public class DroppedItemManager : MonoBehaviour
         {
             // キューにはタプル(アイテム, 下方向への連鎖回数)を格納
             Queue<Tuple<DroppedItem, int>> processingQueue = new Queue<Tuple<DroppedItem, int>>();
-            HashSet<DroppedItem> processedItems = new HashSet<DroppedItem>(initialItems);
+            HashSet<DroppedItem> processedItems = new HashSet<DroppedItem>();
             
             // 初期アイテムをキューに追加
             foreach (var item in initialItems)
             {
-                processingQueue.Enqueue(new Tuple<DroppedItem, int>(item, 0));
+                if (item != null && itemStates.ContainsKey(item) && itemStates[item].isSleeping && !itemsInWakeUpQueue.Contains(item))
+                {
+                    processingQueue.Enqueue(new Tuple<DroppedItem, int>(item, 0));
+                    processedItems.Add(item); // Coroutine内で重複して処理しないように
+                }
             }
 
             int processedCountInStep = 0;
@@ -186,12 +219,12 @@ public class DroppedItemManager : MonoBehaviour
                 DroppedItem currentItem = queueElement.Item1;
                 int downwardChainCount = queueElement.Item2;
 
-                // 起床させる
-                ItemState state = itemStates[currentItem];
-                currentItem.rb.isKinematic = false;
-                state.isSleeping = false;
-                state.sleepCooldownTimer = SleepCooldownDuration;
-                state.velocityHistory.Clear();
+                // 起床リクエストのキューに追加
+                if (!itemsInWakeUpQueue.Contains(currentItem))
+                {
+                    wakeUpRequestQueue.Enqueue(currentItem);
+                    itemsInWakeUpQueue.Add(currentItem);
+                }
 
                 processedCountInStep++;
 
@@ -204,7 +237,7 @@ public class DroppedItemManager : MonoBehaviour
                     foreach (var surroundingCollider in surroundingColliders)
                     {
                         DroppedItem nearbyItem = surroundingCollider.GetComponent<DroppedItem>();
-                        if (nearbyItem != null && itemStates.ContainsKey(nearbyItem) && itemStates[nearbyItem].isSleeping && !processedItems.Contains(nearbyItem))
+                        if (nearbyItem != null && itemStates.ContainsKey(nearbyItem) && itemStates[nearbyItem].isSleeping && !processedItems.Contains(nearbyItem) && !itemsInWakeUpQueue.Contains(nearbyItem))
                         {
                             // 上方向か同じ高さの場合
                             if (nearbyItem.transform.position.y >= currentItem.transform.position.y)

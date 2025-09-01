@@ -1114,6 +1114,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c094062e6106c9a48997e6d6051cbd3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  maxWakeUpsPerUpdate: 8
   WakeUpRadiusMultiplier: 2
   MaxWakeUpPerStep: 10
   WakeUpStepDelay: 0.1
