@@ -33,7 +33,6 @@ public class TerrainSettings
     
     [Header("Performance")]
     public int blocksPerFrame = 16; // 1フレームあたりのブロック生成数
-    public float sortInterval = 0.5f; // 生成キューをソートする間隔
 }
 
 /// <summary>
@@ -54,7 +53,7 @@ public class TerrainManager : MonoBehaviour
     [Header("Dynamic Generation")]
     [SerializeField] private Transform playerTransform; // プレイヤーのTransform
     [SerializeField] private int renderDistanceInChunks = 5; // チャンクの描画距離
-    private float chunkUpdateInterval = 1.0f; // チャンクの更新間隔
+    private float chunkUpdateInterval = 0.3f; // チャンクの更新間隔
     private float timeSinceLastChunkUpdate = 0f;
     private Vector3Int currentPlayerChunk;
     private Dictionary<Vector3Int, Chunk> activeChunks = new Dictionary<Vector3Int, Chunk>();
@@ -87,7 +86,7 @@ public class TerrainManager : MonoBehaviour
     {
         InitializeHierarchicalSystem();
         StartCoroutine(ProcessBlockGenerationQueue());
-        // GenerateTerrain(); // 初期の一括生成をコメントアウト
+        GenerateTerrain(); // 初期の一括生成をコメントアウト
     }
 
     void Update()
@@ -154,13 +153,97 @@ public class TerrainManager : MonoBehaviour
     {
         if (showDebugInfo)
         {
-            Debug.Log($"TerrainManager: Generating terrain with type {settings.generationType}");
+            Debug.Log($"TerrainManager: Generating initial terrain with type {settings.generationType}");
         }
         
         ClearTerrain();
-        EnqueueInitialWorldGeneration();
+        
+        Vector3Int playerChunkPos = GetChunkPositionFromWorld(playerTransform.position);
+        currentPlayerChunk = playerChunkPos;
+        Vector3 playerWorldPos = playerTransform.position;
+
+        // プレイヤーから近いチャンク順にソート
+        List<Vector3Int> sortedChunks = new List<Vector3Int>();
+        
+        for (int x = -renderDistanceInChunks; x <= renderDistanceInChunks; x++)
+        {
+            for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
+            {
+                Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
+                
+                // 地下(y<=0)のみチャンクを生成
+                if (chunkPos.y > 0) continue;
+                
+                sortedChunks.Add(chunkPos);
+            }
+        }
+        
+        // チャンクをプレイヤーからの距離でソート
+        sortedChunks.Sort((a, b) => 
+        {
+            Vector3 aCenterWorld = GetChunkCenterWorldPosition(a);
+            Vector3 bCenterWorld = GetChunkCenterWorldPosition(b);
+            float distA = Vector3.Distance(playerWorldPos, aCenterWorld);
+            float distB = Vector3.Distance(playerWorldPos, bCenterWorld);
+            return distA.CompareTo(distB);
+        });
+
+        // 距離順でソートされた各ブロックを生成キューに追加
+        foreach (var chunkPos in sortedChunks)
+        {
+            if (!activeChunks.ContainsKey(chunkPos))
+            {
+                List<Vector3Int> chunkBlocks = new List<Vector3Int>();
+                
+                for (int bx = 0; bx < settings.chunkSizeInBlocks.x; bx++)
+                {
+                    for (int by = 0; by < settings.chunkSizeInBlocks.y; by++)
+                    {
+                        Vector3Int blockPos = new Vector3Int(
+                            chunkPos.x * settings.chunkSizeInBlocks.x + bx,
+                            chunkPos.y * settings.chunkSizeInBlocks.y + by,
+                            0
+                        );
+                        chunkBlocks.Add(blockPos);
+                    }
+                }
+                
+                // チャンク内のブロックもプレイヤーからの距離でソート
+                chunkBlocks.Sort((a, b) => 
+                {
+                    Vector3 aWorldPos = GetBlockWorldPosition(a);
+                    Vector3 bWorldPos = GetBlockWorldPosition(b);
+                    float distA = Vector3.Distance(playerWorldPos, aWorldPos);
+                    float distB = Vector3.Distance(playerWorldPos, bWorldPos);
+                    return distA.CompareTo(distB);
+                });
+                
+                // 距離順でキューに追加
+                foreach (var blockPos in chunkBlocks)
+                {
+                    if (_processedBlocks.Add(blockPos))
+                    {
+                        _blockGenerationList.Add(blockPos);
+                    }
+                }
+            }
+        }
+        
+        if (showDebugInfo)
+        {
+            Debug.Log($"[GenerateTerrain] Queued {_blockGenerationList.Count} blocks in distance order.");
+            if (_blockGenerationList.Count > 0)
+            {
+                for (int i = 0; i < Mathf.Min(10, _blockGenerationList.Count); i++)
+                {
+                    Vector3 blockWorldPos = GetBlockWorldPosition(_blockGenerationList[i]);
+                    float distance = Vector3.Distance(playerWorldPos, blockWorldPos);
+                    Debug.Log($"[GenerateTerrain] Block #{i}: {_blockGenerationList[i]} at world {blockWorldPos} (distance: {distance:F2})");
+                }
+            }
+        }
     }
-    
+
     /// <summary>
     /// プレイヤーの周囲のチャンクを更新
     /// </summary>
@@ -172,44 +255,69 @@ public class TerrainManager : MonoBehaviour
         if (playerChunkPos == currentPlayerChunk && activeChunks.Count > 0) return;
         
         currentPlayerChunk = playerChunkPos;
+        Vector3 playerWorldPos = playerTransform.position;
 
-        List<Vector3Int> newBlockPositions = new List<Vector3Int>();
-
+        // 同様に距離順でソートして追加
+        List<Vector3Int> newChunks = new List<Vector3Int>();
+        
         for (int x = -renderDistanceInChunks; x <= renderDistanceInChunks; x++)
         {
             for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
             {
                 Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
-
-                // 地下(y<=0)のみチャンクを生成
-                if (chunkPos.y > 0) continue;
                 
-                // チャンクがまだ生成されていない場合、そのチャンク内のブロックをキューに追加
-                if (!activeChunks.ContainsKey(chunkPos))
-                {
-                    for (int bx = 0; bx < settings.chunkSizeInBlocks.x; bx++)
-                    {
-                        for (int by = 0; by < settings.chunkSizeInBlocks.y; by++)
-                        {
-                            newBlockPositions.Add(new Vector3Int(
-                                chunkPos.x * settings.chunkSizeInBlocks.x + bx,
-                                chunkPos.y * settings.chunkSizeInBlocks.y + by,
-                                0
-                            ));
-                        }
-                    }
-                }
+                if (chunkPos.y > 0) continue;
+                if (activeChunks.ContainsKey(chunkPos)) continue;
+                
+                newChunks.Add(chunkPos);
             }
         }
         
-        // プレイヤー位置に近い順にソート
-        Vector3Int playerBlockPos = GetBlockPositionFromWorld(playerTransform.position);
-        newBlockPositions = newBlockPositions.OrderBy(pos => (pos - playerBlockPos).sqrMagnitude).ToList();
+        // 距離順でソート
+        newChunks.Sort((a, b) => 
+        {
+            Vector3 aCenterWorld = GetChunkCenterWorldPosition(a);
+            Vector3 bCenterWorld = GetChunkCenterWorldPosition(b);
+            float distA = Vector3.Distance(playerWorldPos, aCenterWorld);
+            float distB = Vector3.Distance(playerWorldPos, bCenterWorld);
+            return distA.CompareTo(distB);
+        });
         
-        // リストの先頭に追加して優先度を上げる
-        _blockGenerationList.InsertRange(0, newBlockPositions.Where(pos => _processedBlocks.Add(pos)));
-        
-        // TODO: 将来的には、描画範囲外のチャンクを削除する処理も追加する
+        // 各チャンクのブロックを距離順で追加
+        foreach (var chunkPos in newChunks)
+        {
+            List<Vector3Int> chunkBlocks = new List<Vector3Int>();
+            
+            for (int bx = 0; bx < settings.chunkSizeInBlocks.x; bx++)
+            {
+                for (int by = 0; by < settings.chunkSizeInBlocks.y; by++)
+                {
+                    Vector3Int blockPos = new Vector3Int(
+                        chunkPos.x * settings.chunkSizeInBlocks.x + bx,
+                        chunkPos.y * settings.chunkSizeInBlocks.y + by,
+                        0
+                    );
+                    chunkBlocks.Add(blockPos);
+                }
+            }
+            
+            chunkBlocks.Sort((a, b) => 
+            {
+                Vector3 aWorldPos = GetBlockWorldPosition(a);
+                Vector3 bWorldPos = GetBlockWorldPosition(b);
+                float distA = Vector3.Distance(playerWorldPos, aWorldPos);
+                float distB = Vector3.Distance(playerWorldPos, bWorldPos);
+                return distA.CompareTo(distB);
+            });
+            
+            foreach (var blockPos in chunkBlocks)
+            {
+                if (_processedBlocks.Add(blockPos))
+                {
+                    _blockGenerationList.Add(blockPos);
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -246,64 +354,12 @@ public class TerrainManager : MonoBehaviour
         return new Vector3Int(chunkX, chunkY, 0);
     }
 
-    private void EnqueueInitialWorldGeneration()
-    {
-        if (showDebugInfo)
-        {
-            Debug.Log("TerrainManager: Enqueueing initial world generation...");
-        }
-
-        transform.position = Vector3.zero;
-
-        // 全ブロック座標をリストアップ
-        List<Vector3Int> allBlockPositions = new List<Vector3Int>();
-        for (int cx = 0; cx < settings.worldSizeInChunks.x; cx++)
-        {
-            for (int cy = 0; cy < settings.worldSizeInChunks.y; cy++)
-            {
-                for (int bx = 0; bx < settings.chunkSizeInBlocks.x; bx++)
-                {
-                    for (int by = 0; by < settings.chunkSizeInBlocks.y; by++)
-                    {
-                        allBlockPositions.Add(new Vector3Int(
-                            cx * settings.chunkSizeInBlocks.x + bx,
-                            cy * settings.chunkSizeInBlocks.y + by,
-                            0
-                        ));
-                    }
-                }
-            }
-        }
-
-        // プレイヤー位置に近い順にソート
-        Vector3Int playerBlockPos = GetBlockPositionFromWorld(playerTransform.position);
-        allBlockPositions = allBlockPositions.OrderBy(pos => (pos - playerBlockPos).sqrMagnitude).ToList();
-
-        // リストに追加
-        foreach (var pos in allBlockPositions)
-        {
-            if (_processedBlocks.Add(pos))
-            {
-                _blockGenerationList.Add(pos);
-            }
-        }
-    }
 
     private IEnumerator ProcessBlockGenerationQueue()
     {
-        float timeSinceLastSort = 0f;
-
         while (true)
         {
-            timeSinceLastSort += Time.deltaTime;
-
-            // 一定間隔でプレイヤー位置を基準にソート
-            if (timeSinceLastSort >= settings.sortInterval && _blockGenerationList.Count > 0)
-            {
-                Vector3Int playerBlockPos = GetBlockPositionFromWorld(playerTransform.position);
-                _blockGenerationList.Sort((a, b) => (a - playerBlockPos).sqrMagnitude.CompareTo((b - playerBlockPos).sqrMagnitude));
-                timeSinceLastSort = 0f;
-            }
+            // キューは既に距離順でソートされているのでソート処理を削除
             
             int blocksToProcess = Mathf.Min(_blockGenerationList.Count, settings.blocksPerFrame);
             for (int i = 0; i < blocksToProcess; i++)
@@ -312,6 +368,14 @@ public class TerrainManager : MonoBehaviour
                 {
                     Vector3Int blockPos = _blockGenerationList[0];
                     _blockGenerationList.RemoveAt(0);
+                    
+                    if (showDebugInfo)
+                    {
+                        Vector3 blockWorldPos = GetBlockWorldPosition(blockPos);
+                        float distance = Vector3.Distance(playerTransform.position, blockWorldPos);
+                        Debug.Log($"[ProcessQueue] Generating block {blockPos} at world {blockWorldPos} (distance: {distance:F2})");
+                    }
+                    
                     GenerateSingleBlock(blockPos);
                 }
             }
@@ -451,6 +515,50 @@ public class TerrainManager : MonoBehaviour
             Debug.Log(voxelManager.GetDebugInfo());
             Debug.Log(blockGenerator.GetDebugInfo());
         }
+    }
+
+    /// <summary>
+    /// チャンクの中心ワールド座標を取得
+    /// </summary>
+    private Vector3 GetChunkCenterWorldPosition(Vector3Int chunkPos)
+    {
+        float t = settings.blockSize;
+        float u_x = settings.chunkSizeInBlocks.x;
+        float u_y = settings.chunkSizeInBlocks.y;
+        
+        float centerX = chunkPos.x * u_x * t;
+        float centerY = t * u_y * (2 * chunkPos.y - 1) / 2f;
+        
+        return new Vector3(centerX, centerY, settings.center.z);
+    }
+
+    /// <summary>
+    /// ブロックのワールド座標を取得
+    /// </summary>
+    private Vector3 GetBlockWorldPosition(Vector3Int blockPos)
+    {
+        Vector3Int chunkPos = new Vector3Int(
+            Mathf.FloorToInt((float)blockPos.x / settings.chunkSizeInBlocks.x),
+            Mathf.FloorToInt((float)blockPos.y / settings.chunkSizeInBlocks.y),
+            0
+        );
+        
+        float t = settings.blockSize;
+        float u_x = settings.chunkSizeInBlocks.x;
+        float u_y = settings.chunkSizeInBlocks.y;
+        
+        int bx = blockPos.x - chunkPos.x * (int)u_x;
+        int by = blockPos.y - chunkPos.y * (int)u_y;
+
+        float chunkCenterX = chunkPos.x * u_x * t;
+        float relativeBlockX = (bx - (u_x - 1) / 2f) * t;
+        float worldX = chunkCenterX + relativeBlockX;
+
+        float chunkCenterY = t * u_y * (2 * chunkPos.y - 1) / 2f;
+        float relativeBlockY = (by - (u_y - 1) / 2f) * t;
+        float worldY = chunkCenterY + relativeBlockY;
+
+        return new Vector3(worldX, worldY, settings.center.z);
     }
 
 #if UNITY_EDITOR
