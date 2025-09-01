@@ -40,9 +40,12 @@ public class CubeSideScrollerPlacer : BaseCubePlacer
                     {
                         for (int lz = 0; lz < voxelSize; lz++)
                         {
-                            // Z軸の絶対値が0.5以下のボクセルのみ生成
+                            // Z軸のローカル座標を計算
                             float zPos = (lz - (voxelSize - 1) / 2.0f) * cubeSize;
-                            if (Mathf.Abs(zPos) <= 0.5f)
+                            // ワールド座標系でのZ座標を計算
+                            float worldZPos = center.z + zPos;
+                            // ボクセルの頂点がZ軸の±0.5の境界をはみ出さないように条件を変更
+                            if (Mathf.Abs(worldZPos) + cubeSize / 2.0f <= 0.5f)
                             {
                                 pattern[lx, ly, lz] = true;
                             }
