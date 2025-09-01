@@ -12,7 +12,8 @@ public class PlayerController : MonoBehaviour
 
     [Header("移動設定")]
     public float moveSpeed = 5f; // 移動速度
-    public float fallSpeedMultiplier = 0.5f; // 無操作時の落下速度の倍率
+    public float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
+    public float fallAcceleration = 1f; // 落下加速度
     [SerializeField] private MoveMode _currentMoveMode;
     public MoveMode currentMoveMode
     {
@@ -26,6 +27,7 @@ public class PlayerController : MonoBehaviour
 
     [Header("UI設定")]
     public Text scoreText; // スコア表示用のText
+    public Text depthText; // 深度表示用のText
     
     [Header("参照")]
     public Digger digger; // Diggerへの参照
@@ -33,6 +35,7 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
+    private float currentFallSpeed = 0f; // 現在の落下速度
     private Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
 
     // スクリプトがロードされたときに一度だけ呼ばれる
@@ -90,6 +93,16 @@ public class PlayerController : MonoBehaviour
         }
         UpdateScoreText();
 
+        // depthTextを探して設定
+        if (depthText == null)
+        {
+            var depthTextObject = GameObject.Find("DepthText");
+            if (depthTextObject != null)
+            {
+                depthText = depthTextObject.GetComponent<Text>();
+            }
+        }
+
         // Rigidbodyの制約を更新
         UpdateConstraints();
     }
@@ -121,6 +134,12 @@ public class PlayerController : MonoBehaviour
         controls.Player.Disable();
     }
 
+    // フレームごとに呼ばれる
+    void Update()
+    {
+        UpdateDepthText();
+    }
+
     // 物理演算の更新タイミングで呼ばれる
     void FixedUpdate()
     {
@@ -134,18 +153,25 @@ public class PlayerController : MonoBehaviour
 
                 if (moveInput == Vector2.zero)
                 {
-                    // 無操作時はゆっくり落下
-                    newVelocity = new Vector3(0, -moveSpeed * fallSpeedMultiplier, 0);
-                }
-                else if (moveInput.x != 0 && moveInput.y == 0)
-                {
-                    // 左右のみの入力の場合は落下しない
-                    newVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed;
+                    // 無操作時は徐々に落下速度を上げる
+                    currentFallSpeed += fallAcceleration * Time.fixedDeltaTime;
+                    float maxFallSpeed = moveSpeed * fallSpeedMultiplier;
+                    currentFallSpeed = Mathf.Min(currentFallSpeed, maxFallSpeed);
+                    newVelocity = new Vector3(0, -currentFallSpeed, 0);
                 }
                 else
                 {
-                    // それ以外の入力（上下含む）
-                    newVelocity = moveDirection.normalized * moveSpeed;
+                    currentFallSpeed = 0f; // 操作中は落下速度をリセット
+                    if (moveInput.x != 0 && moveInput.y == 0)
+                    {
+                        // 左右のみの入力の場合は落下しない
+                        newVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed;
+                    }
+                    else
+                    {
+                        // それ以外の入力（上下含む）
+                        newVelocity = moveDirection.normalized * moveSpeed;
+                    }
                 }
                 break;
             case MoveMode.TopDown:
@@ -222,6 +248,16 @@ public class PlayerController : MonoBehaviour
         if (scoreText != null)
         {
             scoreText.text = "Score: " + score;
+        }
+    }
+
+    void UpdateDepthText()
+    {
+        if (depthText != null)
+        {
+            // プレイヤーのY座標を整数に変換して深度として表示
+            int depth = Mathf.FloorToInt(transform.position.y);
+            depthText.text = "Depth: " + depth;
         }
     }
 
