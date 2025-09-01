@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI; // UIコンポーネントを使用するために追加
 
@@ -43,6 +44,14 @@ public class TerrainManager : MonoBehaviour
 
     [Header("Terrain Configuration")]
     [SerializeField] private TerrainSettings settings = new TerrainSettings();
+
+    [Header("Dynamic Generation")]
+    [SerializeField] private Transform playerTransform; // プレイヤーのTransform
+    [SerializeField] private int renderDistanceInChunks = 5; // チャンクの描画距離
+    private float chunkUpdateInterval = 1.0f; // チャンクの更新間隔
+    private float timeSinceLastChunkUpdate = 0f;
+    private Vector3Int currentPlayerChunk;
+    private Dictionary<Vector3Int, Chunk> activeChunks = new Dictionary<Vector3Int, Chunk>();
     
     [Header("Hierarchical Managers")]
     [SerializeField] private BlockManager blockManager;
@@ -69,7 +78,7 @@ public class TerrainManager : MonoBehaviour
     void Start()
     {
         InitializeHierarchicalSystem();
-        GenerateTerrain();
+        // GenerateTerrain(); // 初期の一括生成をコメントアウト
     }
 
     void Update()
@@ -79,6 +88,15 @@ public class TerrainManager : MonoBehaviour
         {
             int droppedItemCount = GameObject.FindGameObjectsWithTag("DroppedItem").Length;
             voxelCountText.text = $"Dropped Items: {droppedItemCount}";
+        }
+
+        if (playerTransform == null) return;
+
+        timeSinceLastChunkUpdate += Time.deltaTime;
+        if (timeSinceLastChunkUpdate >= chunkUpdateInterval)
+        {
+            UpdateChunks();
+            timeSinceLastChunkUpdate = 0f;
         }
     }
     
@@ -144,6 +162,58 @@ public class TerrainManager : MonoBehaviour
     }
     
     /// <summary>
+    /// プレイヤーの周囲のチャンクを更新
+    /// </summary>
+    private void UpdateChunks()
+    {
+        Vector3Int playerChunkPos = GetChunkPositionFromWorld(playerTransform.position);
+
+        // プレイヤーがチャンクをまたいだ場合のみ更新
+        if (playerChunkPos == currentPlayerChunk && activeChunks.Count > 0) return;
+        
+        currentPlayerChunk = playerChunkPos;
+
+        for (int x = -renderDistanceInChunks; x <= renderDistanceInChunks; x++)
+        {
+            for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
+            {
+                Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
+
+                // 地下(y<=0)のみチャンクを生成
+                if (chunkPos.y > 0) continue;
+                
+                if (!activeChunks.ContainsKey(chunkPos))
+                {
+                    GenerateChunk(chunkPos);
+                }
+            }
+        }
+        
+        // TODO: 将来的には、描画範囲外のチャンクを削除する処理も追加する
+    }
+
+    /// <summary>
+    /// ワールド座標からチャンク座標を取得
+    /// </summary>
+    private Vector3Int GetChunkPositionFromWorld(Vector3 worldPosition)
+    {
+        float t = settings.blockSize;
+        float u_x = settings.chunkSizeInBlocks.x;
+        float u_y = settings.chunkSizeInBlocks.y;
+        float tu_y = t * u_y;
+
+        // チャンク中心からのオフセットを考慮してx座標を計算
+        float x_offset = worldPosition.x + (u_x - 1) / 2f * t;
+        int chunkX = Mathf.FloorToInt(x_offset / (t * u_x));
+        
+        // z = tu(2y-1)/2  =>  y = (2z/tu + 1)/2
+        float y_float = (2 * worldPosition.y / tu_y + 1) / 2;
+        int chunkY = Mathf.FloorToInt(y_float);
+
+        return new Vector3Int(chunkX, chunkY, 0);
+    }
+
+    /// <summary>
     /// ワールド全体を生成 (チャンクの生成ループ)
     /// </summary>
     private void GenerateWorld()
@@ -170,11 +240,14 @@ public class TerrainManager : MonoBehaviour
     /// </summary>
     private void GenerateChunk(Vector3Int chunkPos)
     {
+        if (activeChunks.ContainsKey(chunkPos)) return;
+
         // チャンクGameObjectを作成
         GameObject chunkObj = new GameObject($"Chunk_{chunkPos.x}_{chunkPos.y}");
         chunkObj.transform.parent = transform;
         Chunk chunk = chunkObj.AddComponent<Chunk>();
         chunk.Initialize(chunkPos);
+        activeChunks.Add(chunkPos, chunk);
         
         // チャンクのワールド座標オフセットを計算
         float chunkOffsetX = chunkPos.x * settings.chunkSizeInBlocks.x * settings.blockSize;
@@ -190,15 +263,21 @@ public class TerrainManager : MonoBehaviour
                     0
                 );
 
-                // ワールド全体の幅を計算し、中心を0にするためのオフセットを算出
-                float totalBlocksX = settings.worldSizeInChunks.x * settings.chunkSizeInBlocks.x;
-                float worldWidth = totalBlocksX * settings.blockSize;
-                float offsetX = -worldWidth / 2f + settings.blockSize / 2f; // ブロック半個分をオフセットに追加
+                // w=tux, z = tu(2y-1)/2
+                float t = settings.blockSize;
+                float u_x = settings.chunkSizeInBlocks.x;
+                float u_y = settings.chunkSizeInBlocks.y;
 
-                // ワールド座標を計算
-                float worldX = settings.center.x + offsetX + (chunkPos.x * settings.chunkSizeInBlocks.x + bx) * settings.blockSize;
-                // 最も浅いブロックの中心が-blockSize/2になるように調整
-                float worldY = settings.center.y - (chunkPos.y * settings.chunkSizeInBlocks.y + by) * settings.blockSize - (settings.blockSize / 2f);
+                // チャンクの中心がx=0になるようにオフセットを調整
+                float chunkCenterX = chunkPos.x * u_x * t;
+                float relativeBlockX = (bx - (u_x - 1) / 2f) * t;
+                float worldX = chunkCenterX + relativeBlockX;
+
+                float chunkCenterY = t * u_y * (2 * chunkPos.y - 1) / 2f;
+                // チャンク中心からの相対座標を計算
+                float relativeBlockY = (by - (u_y - 1) / 2f) * t;
+                float worldY = chunkCenterY + relativeBlockY;
+
                 Vector3 worldPos = new Vector3(worldX, worldY, settings.center.z);
 
                 // TODO: 将来的にはBlockGeneratorがResourceTypeを決定するようにする

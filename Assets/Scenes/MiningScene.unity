@@ -1237,6 +1237,8 @@ MonoBehaviour:
     blockSize: 1
     voxelSize: 4
     generationType: 0
+  playerTransform: {fileID: 672003891}
+  renderDistanceInChunks: 2
   blockManager: {fileID: 0}
   blockGenerator: {fileID: 0}
   voxelManager: {fileID: 0}
