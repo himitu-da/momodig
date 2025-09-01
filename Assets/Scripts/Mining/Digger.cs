@@ -80,7 +80,7 @@ public class Digger : MonoBehaviour
         foreach (var chunk in hitChunks)
         {
             // BoxCollider自体を渡して、より正確な判定をチャンク側で行う
-            chunk.DigVoxels(diggingArea);
+            StartCoroutine(chunk.DigVoxels(diggingArea));
         }
 
         // 掘削範囲内のドロップアイテムを起床させる

@@ -39,6 +39,8 @@ public class Block : MonoBehaviour
     private int maxHP = 3;
     [Range(0.01f, 1.0f)]
     public float diggingThreshold = 0.1f; // 掘削判定の閾値（ボクセルとの重複率）
+    [Tooltip("掘削処理の各レイヤー間の待機フレーム数。0にするとフリーズする可能性があります。")]
+    [SerializeField] private int diggingFrameDelay = 1;
     private Color initialColor = Color.white;
     [SerializeField] private Texture2D texture1, texture2;
     private bool[,,] useTexture1Pattern; // テクスチャパターン
@@ -121,9 +123,8 @@ public class Block : MonoBehaviour
         }
     }
 
-    public void DigVoxels(BoxCollider diggingArea)
+    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea)
     {
-        bool needsMeshUpdate = false;
         const int sampleResolution = 3;
         const int totalSamples = sampleResolution * sampleResolution * sampleResolution;
 
@@ -143,59 +144,114 @@ public class Block : MonoBehaviour
         int startZ = Mathf.Max(0, Mathf.FloorToInt(localMin.z + ChunkSize / 2.0f));
         int endZ = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.z + ChunkSize / 2.0f));
 
-        for (int x = startX; x <= endX; x++)
+        PlayerController.MoveMode moveMode = GetCurrentMoveMode();
+
+        if (moveMode == PlayerController.MoveMode.SideScroller)
         {
-            for (int y = startY; y <= endY; y++)
+            for (int z = startZ; z <= endZ; z++)
             {
-                for (int z = startZ; z <= endZ; z++)
+                bool layerModified = false;
+                List<System.Action> dropActions = new List<System.Action>();
+
+                for (int x = startX; x <= endX; x++)
                 {
-                    Vector3Int localVoxelPos = new Vector3Int(x, y, z);
-                    var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
-                    if (voxelData == null || !voxelData.isActive) continue;
-
-                    int containedSamples = 0;
-                    Vector3 voxelMin = new Vector3(x - ChunkSize / 2.0f, y - ChunkSize / 2.0f, z - ChunkSize / 2.0f);
-
-                    for (int sx = 0; sx < sampleResolution; sx++)
+                    for (int y = startY; y <= endY; y++)
                     {
-                        for (int sy = 0; sy < sampleResolution; sy++)
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions))
                         {
-                            for (int sz = 0; sz < sampleResolution; sz++)
-                            {
-                                float sampleX = voxelMin.x + (sx + 0.5f) / sampleResolution;
-                                float sampleY = voxelMin.y + (sy + 0.5f) / sampleResolution;
-                                float sampleZ = voxelMin.z + (sz + 0.5f) / sampleResolution;
-                                Vector3 sampleLocalPos = new Vector3(sampleX, sampleY, sampleZ);
-                                Vector3 sampleWorldPos = transform.TransformPoint(sampleLocalPos);
-                                Vector3 localPosInDiggingArea = diggingAreaWorldToLocal.MultiplyPoint3x4(sampleWorldPos);
-
-                                if (Mathf.Abs(localPosInDiggingArea.x - center.x) <= halfSize.x &&
-                                    Mathf.Abs(localPosInDiggingArea.y - center.y) <= halfSize.y &&
-                                    Mathf.Abs(localPosInDiggingArea.z - center.z) <= halfSize.z)
-                                {
-                                    containedSamples++;
-                                }
-                            }
+                            layerModified = true;
                         }
                     }
+                }
 
-                    float overlapRatio = (float)containedSamples / totalSamples;
-                    if (overlapRatio >= diggingThreshold)
+                if (layerModified)
+                {
+                    foreach (var action in dropActions) action.Invoke();
+                    GenerateMesh();
+                }
+
+                int delay = Mathf.Max(1, diggingFrameDelay);
+                for (int i = 0; i < delay; i++)
+                {
+                    yield return null;
+                }
+            }
+        }
+        else // TopDown or other modes
+        {
+            for (int y = endY; y >= startY; y--)
+            {
+                bool layerModified = false;
+                List<System.Action> dropActions = new List<System.Action>();
+
+                for (int x = startX; x <= endX; x++)
+                {
+                    for (int z = startZ; z <= endZ; z++)
                     {
-                        if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, 1))
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions))
                         {
-                            needsMeshUpdate = true;
-                            DropItem(voxelData.worldPosition, x, y, z);
+                            layerModified = true;
                         }
+                    }
+                }
+
+                if (layerModified)
+                {
+                    foreach (var action in dropActions) action.Invoke();
+                    GenerateMesh();
+                }
+
+                int delay = Mathf.Max(1, diggingFrameDelay);
+                for (int i = 0; i < delay; i++)
+                {
+                    yield return null;
+                }
+            }
+        }
+    }
+
+    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions)
+    {
+        Vector3Int localVoxelPos = new Vector3Int(x, y, z);
+        var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
+        if (voxelData == null || !voxelData.isActive) return false;
+
+        int containedSamples = 0;
+        Vector3 voxelMin = new Vector3(x - ChunkSize / 2.0f, y - ChunkSize / 2.0f, z - ChunkSize / 2.0f);
+
+        for (int sx = 0; sx < sampleResolution; sx++)
+        {
+            for (int sy = 0; sy < sampleResolution; sy++)
+            {
+                for (int sz = 0; sz < sampleResolution; sz++)
+                {
+                    float sampleX = voxelMin.x + (sx + 0.5f) / sampleResolution;
+                    float sampleY = voxelMin.y + (sy + 0.5f) / sampleResolution;
+                    float sampleZ = voxelMin.z + (sz + 0.5f) / sampleResolution;
+                    Vector3 sampleLocalPos = new Vector3(sampleX, sampleY, sampleZ);
+                    Vector3 sampleWorldPos = transform.TransformPoint(sampleLocalPos);
+                    Vector3 localPosInDiggingArea = diggingAreaWorldToLocal.MultiplyPoint3x4(sampleWorldPos);
+
+                    if (Mathf.Abs(localPosInDiggingArea.x - center.x) <= halfSize.x &&
+                        Mathf.Abs(localPosInDiggingArea.y - center.y) <= halfSize.y &&
+                        Mathf.Abs(localPosInDiggingArea.z - center.z) <= halfSize.z)
+                    {
+                        containedSamples++;
                     }
                 }
             }
         }
 
-        if (needsMeshUpdate)
+        float overlapRatio = (float)containedSamples / totalSamples;
+        if (overlapRatio >= diggingThreshold)
         {
-            GenerateMesh();
+            if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, 1))
+            {
+                dropActions.Add(() => DropItem(voxelData.worldPosition, x, y, z));
+                return true;
+            }
         }
+        return false;
     }
 
     public void GenerateMesh()
