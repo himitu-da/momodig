@@ -789,8 +789,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 5
+  acceleration: 0.05
+  deceleration: 0.2
   fallSpeedMultiplier: 0.5
-  fallAcceleration: 0.5
+  fallAcceleration: 1
   _currentMoveMode: 0
   scoreText: {fileID: 479779840}
   depthText: {fileID: 291085690}
@@ -803,7 +805,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 672003887}
   serializedVersion: 5
-  m_Mass: 1
+  m_Mass: 3
   m_LinearDamping: 0
   m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
