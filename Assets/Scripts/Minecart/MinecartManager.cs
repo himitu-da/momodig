@@ -53,15 +53,42 @@ public class MinecartManager : MonoBehaviour
         }
     }
 
-    // minecartnum番目のトロッコの指定資源をvalueだけ追加
+    // キューの先頭トロッコの指定資源をvalueだけ追加
     public void updatevalue(int minecartnum, ResourceType type, int value)
     {
-        minecarts[minecartnum].resources[type] += value;
+        // 常に現在の利用トロッコ（キューの先頭）を対象とする
+        int currentCart = 0; // 先頭のトロッコを使用
+        minecarts[currentCart].resources[type] += value;
+        // 容量チェック
+        if (minecarts[currentCart].CurrentLoad >= CartCapacity)
+        {
+            SendCartToHome(currentCart);
+        }
     }
     // minecartnum番目のトロッコをcartcooltime間送信する、cartcooltime>0fならばトロッコは使用しているものとみなし、利用不可
     public void settime(int minecartnum, float cartcooltime)
     {
         minecarts[minecartnum].time += cartcooltime;
+    }
+
+    // トロッコを地上(0,0,0)に送り、キューを進める
+    private void SendCartToHome(int minecartnum)
+    {
+        Minecart cart = minecarts[minecartnum];
+        if (cart.gameObject != null && minecartnum == 0) // 先頭のトロッコのみ処理
+        {
+            cart.isGoingToGround = true; // 地上に行く途中で追従を停止
+            cart.movement.targetPosition = Vector3.zero; // 地上に移動
+            cart.time = cartcooltime; // 送出時間を設定
+
+            // 使用済みのトロッコをリストの末尾に移動（キューの末尾へ）
+            Minecart movedCart = minecarts[0];
+            minecarts.RemoveAt(0);
+            minecarts.Add(movedCart);
+
+            // 次のトロッコ（新しい先頭）がすぐに利用可能
+            digable = true;
+        }
     }
 
     // トロッコの位置を更新する
@@ -70,8 +97,9 @@ public class MinecartManager : MonoBehaviour
         for (int i = 0; i < minecarts.Count; i++)
         {
             Minecart cart = minecarts[i];
-            if (cart.gameObject != null && cart.movement != null)
+            if (cart.gameObject != null && cart.movement != null && !cart.isGoingToGround)
             {
+                // 地上に行く途中は追従しない
                 // プレイヤーの後ろに追従するようなオフセットを計算
                 Vector3 targetPosition = playerPosition - playerLastMoveDirection * (offset * (i + 1));
                 cart.movement.targetPosition = targetPosition;
@@ -90,8 +118,21 @@ public class MinecartManager : MonoBehaviour
                 cart.time -= Time.deltaTime;
             }
         }
-        //利用中のトロッコはusingcart番目のトロッコ、minecarts[usingcart].time <= 0fならば、このカートは積載可能とみなす
-        if (minecarts[usingcart].time <= 0f)
+        // 地上到着チェック
+        for (int i = 0; i < minecarts.Count; i++)
+        {
+            Minecart cart = minecarts[i];
+            if (cart.isGoingToGround && Vector3.Distance(cart.gameObject.transform.position, Vector3.zero) < 1f)
+            {
+                // 地上に到着したら中身を空にして追従に戻す
+                cart.ClearResources();
+                cart.isGoingToGround = false; // 追従可能に
+            }
+        }
+
+        //利用中のトロッコはキューの先頭（index 0）、minecarts[0].time <= 0fならば、このカートは積載可能とみなす
+        usingcart = 0; // 常に先頭のトロッコを使用
+        if (minecarts.Count > 0 && minecarts[usingcart].time <= 0f)
         {
             if (!digable)   //もし、digable=falseなのにminecarts[usingcart].time <= 0fであるならばtrueにする
             {
@@ -99,17 +140,9 @@ public class MinecartManager : MonoBehaviour
             }
             //ここに資材を追加する適当なプログラムを入力する
         }
-        else    //timeが設定された=利用不可である時を考える
+        else    // キューが空の場合や利用不可である時を考える
         {
             digable = false;    //トロッコは使えないものとする
-            for (int i = 0; i < minecarts.Count; i++)
-            {
-                if (minecarts[i].time <= 0f)    //0からtime<=0fのトロッコを探す
-                {
-                    usingcart = i;          //存在するならば、利用するトロッコを更新する
-                    digable = true;         //使えるトロッコが存在するため、掘ることができる
-                }
-            }
         }
     }
 }
