@@ -3,9 +3,95 @@ using UnityEngine.InputSystem; // Input Systemを使うために必要
 using UnityEngine.UI; // UIを使うために必要
 using System.Collections.Generic; // MinecartManager用
 using System.Collections; // Coroutine用
+using System; // Serializable用
 
 public class PlayerController : MonoBehaviour
 {
+    [System.Serializable]
+    public class PlayerInventory
+    {
+        [Header("インベントリ設定")]
+        public int maxCapacity = 200; // プレイヤーが持てる最大数
+        
+        private Dictionary<ResourceType, int> resources = new Dictionary<ResourceType, int>();
+        
+        public PlayerInventory()
+        {
+            // 全リソースタイプを初期化
+            foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
+            {
+                resources[type] = 0;
+            }
+        }
+        
+        /// <summary>
+        /// リソースを追加できるかチェック
+        /// </summary>
+        public bool CanAddResource(ResourceType type, int amount = 1)
+        {
+            return GetTotalItemCount() + amount <= maxCapacity;
+        }
+        
+        /// <summary>
+        /// リソースを追加
+        /// </summary>
+        public bool AddResource(ResourceType type, int amount = 1)
+        {
+            if (!CanAddResource(type, amount)) return false;
+            
+            resources[type] += amount;
+            return true;
+        }
+        
+        /// <summary>
+        /// リソースを削除（戻り値は実際に削除した数）
+        /// </summary>
+        public int RemoveResource(ResourceType type, int amount = 1)
+        {
+            int currentAmount = resources[type];
+            int removeAmount = Mathf.Min(currentAmount, amount);
+            resources[type] -= removeAmount;
+            return removeAmount;
+        }
+        
+        /// <summary>
+        /// 総アイテム数を取得
+        /// </summary>
+        public int GetTotalItemCount()
+        {
+            int total = 0;
+            foreach (var kvp in resources)
+            {
+                total += kvp.Value;
+            }
+            return total;
+        }
+        
+        /// <summary>
+        /// 特定リソースの数を取得
+        /// </summary>
+        public int GetResourceCount(ResourceType type)
+        {
+            return resources.ContainsKey(type) ? resources[type] : 0;
+        }
+        
+        /// <summary>
+        /// 全リソース情報を取得
+        /// </summary>
+        public Dictionary<ResourceType, int> GetAllResources()
+        {
+            return new Dictionary<ResourceType, int>(resources);
+        }
+        
+        /// <summary>
+        /// インベントリが空かチェック
+        /// </summary>
+        public bool IsEmpty()
+        {
+            return GetTotalItemCount() == 0;
+        }
+    }
+
     public enum MoveMode
     {
         SideScroller,
@@ -32,6 +118,7 @@ public class PlayerController : MonoBehaviour
     [Header("UI設定")]
     public Text scoreText; // スコア表示用のText
     public Text depthText; // 深度表示用のText
+    public Text inventoryText; // インベントリ表示用UI
     
     [Header("参照")]
     public Digger digger; // Diggerへの参照
@@ -39,9 +126,21 @@ public class PlayerController : MonoBehaviour
     public GameObject minecartPrefab; // マインカードプレハブ
     private List<GameObject> spawnedMinecarts = new List<GameObject>(); // 生成したトロッコのリスト
 
+    [Header("インベントリ設定")]
+    public PlayerInventory playerInventory = new PlayerInventory();
+
+    [Header("近接システム設定")]
+    public float minecartDetectionRange = 3f; // トロッコ検出範囲
+    public float itemTransferSpeed = 2f; // アイテム転送速度（個/秒）
+    private bool isTransferringItems = false; // アイテム転送中フラグ
+
     [Header("アニメーション設定")]
     public float itemMoveSpeed = 5f; // アイテムの移動速度
     public AnimationCurve movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f); // 移動カーブ
+    
+    [Header("アイテム回収設定")]
+    public float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
+    
     private int score = 0;
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
@@ -49,6 +148,10 @@ public class PlayerController : MonoBehaviour
     private float currentFallSpeed = 0f; // 現在の落下速度
     private Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
+    
+    // 接触中のアイテム管理用
+    private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
+    private Coroutine pickupRetryCoroutine; // リトライコルーチン
 
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
@@ -115,6 +218,17 @@ public class PlayerController : MonoBehaviour
             }
         }
 
+        // inventoryTextを探して設定
+        if (inventoryText == null)
+        {
+            var inventoryTextObject = GameObject.Find("InventoryText");
+            if (inventoryTextObject != null)
+            {
+                inventoryText = inventoryTextObject.GetComponent<Text>();
+            }
+        }
+        UpdateInventoryUI(); // 初期化
+
         // Rigidbodyの制約を更新
         UpdateConstraints();
 
@@ -172,6 +286,7 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         UpdateDepthText();
+        CheckMinecartProximity(); // トロッコとの近接チェック
     }
 
     // 物理演算の更新タイミングで呼ばれる
@@ -261,56 +376,116 @@ public class PlayerController : MonoBehaviour
         // 衝突したオブジェクトが "DroppedItem" タグを持っているか確認
         if (collision.gameObject.CompareTag("DroppedItem"))
         {
-            // アイテム回収時に周辺のアイテムを起床させる
-            if (DroppedItemManager.Instance != null)
+            // 接触中のアイテムリストに追加
+            if (!contactItems.Contains(collision.gameObject))
             {
-                var itemCollider = collision.gameObject.GetComponent<Collider>();
-                if (itemCollider != null)
+                contactItems.Add(collision.gameObject);
+            }
+            
+            // アイテム回収を試行
+            TryPickupItem(collision.gameObject);
+            
+            // リトライコルーチンが実行されていない場合は開始
+            if (pickupRetryCoroutine == null)
+            {
+                pickupRetryCoroutine = StartCoroutine(PickupRetryCoroutine());
+            }
+        }
+    }
+    
+    void OnCollisionExit(Collision collision)
+    {
+        // 衝突したオブジェクトが "DroppedItem" タグを持っているか確認
+        if (collision.gameObject.CompareTag("DroppedItem"))
+        {
+            // 接触中のアイテムリストから削除
+            contactItems.Remove(collision.gameObject);
+            
+            // 接触中のアイテムがなくなったらリトライコルーチンを停止
+            if (contactItems.Count == 0 && pickupRetryCoroutine != null)
+            {
+                StopCoroutine(pickupRetryCoroutine);
+                pickupRetryCoroutine = null;
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 定期的に接触中のアイテムの回収を再試行する
+    /// </summary>
+    private IEnumerator PickupRetryCoroutine()
+    {
+        while (contactItems.Count > 0)
+        {
+            yield return new WaitForSeconds(itemPickupRetryInterval);
+            
+            // 接触中の全てのアイテムに対して回収を試行
+            for (int i = contactItems.Count - 1; i >= 0; i--)
+            {
+                if (i < contactItems.Count && contactItems[i] != null)
                 {
-                    float radius = itemCollider.bounds.extents.magnitude;
-                    DroppedItemManager.Instance.WakeUpItemsNearPosition(collision.transform.position, radius * DroppedItemManager.Instance.WakeUpRadiusMultiplier);
+                    TryPickupItem(contactItems[i]);
                 }
             }
-
-            // アイテムをプールに返却
-            DroppedItemManager.Instance.ReturnItem(collision.gameObject);
-            // スコアを更新
-            score++;
-            UpdateScoreText();
-
-            // 資源情報を取得
-            DroppedItem itemComponent = collision.gameObject.GetComponent<DroppedItem>();
-            ResourceType resourceType = itemComponent != null ? itemComponent.resourceType : ResourceType.Stone;
-
-            // アニメーション付きでトロッコに移動
-            if (spawnedMinecarts.Count > 0)
+        }
+        
+        pickupRetryCoroutine = null;
+    }
+    
+    /// <summary>
+    /// アイテムの回収を試行する
+    /// </summary>
+    private void TryPickupItem(GameObject itemObject)
+    {
+        // 周辺アイテムを起床させる（既存処理）
+        if (DroppedItemManager.Instance != null)
+        {
+            var itemCollider = itemObject.GetComponent<Collider>();
+            if (itemCollider != null)
             {
-                StartCoroutine(AnimateItemToMinecart(collision.transform.position, resourceType, collision.gameObject));
+                float radius = itemCollider.bounds.extents.magnitude;
+                DroppedItemManager.Instance.WakeUpItemsNearPosition(itemObject.transform.position, radius * DroppedItemManager.Instance.WakeUpRadiusMultiplier);
             }
-            else
-            {
-                // トロッコが存在しない場合は直接追加
-                AddResourceToMinecart(resourceType);
-            }
+        }
 
-            // 追加: 資源をトロッコに積載
-            if (minecartManager != null && minecartManager.digable)
+        // 資源情報を取得
+        DroppedItem itemComponent = itemObject.GetComponent<DroppedItem>();
+        ResourceType resourceType = itemComponent != null ? itemComponent.resourceType : ResourceType.Stone;
+
+        // プレイヤーインベントリに追加を試行
+        if (playerInventory.CanAddResource(resourceType))
+        {
+            if (playerInventory.AddResource(resourceType))
             {
-                DroppedItem droppedItem = collision.gameObject.GetComponent<DroppedItem>();
-                if (droppedItem != null)
+                // アイテムをプールに返却
+                DroppedItemManager.Instance.ReturnItem(itemObject);
+                
+                // 接触リストからも削除
+                contactItems.Remove(itemObject);
+                
+                // スコアを更新
+                score++;
+                UpdateScoreText();
+                
+                // インベントリUI更新
+                UpdateInventoryUI();
+                
+                Debug.Log($"プレイヤーが{resourceType}を回収しました。持ち物: {playerInventory.GetTotalItemCount()}/{playerInventory.maxCapacity}");
+                
+                // インベントリの詳細を出力
+                var allRes = playerInventory.GetAllResources();
+                string detailInfo = "インベントリ詳細: ";
+                foreach (var kvp in allRes)
                 {
-                    ResourceType type = droppedItem.resourceType;
-                    minecartManager.updatevalue(0, type, 1); // 0番目のトロッコに1つ追加
-                    Debug.Log($"資源 {type} をトロッコに積載");
-
-                    // 満載チェック
-                    if (minecartManager.minecarts[0].resources[type] >= minecartManager.CartCapacity)
-                    {
-                        minecartManager.settime(0, minecartManager.cartcooltime);
-                        Debug.Log("トロッコが満載、送信開始");
-                    }
+                    if (kvp.Value > 0) detailInfo += $"{kvp.Key}:{kvp.Value} ";
                 }
+                Debug.Log(detailInfo);
             }
+        }
+        else
+        {
+            Debug.Log("インベントリが満杯です！");
+            // TODO: 満杯時のフィードバック（UI表示、音声など）
         }
     }
 
@@ -332,6 +507,25 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    void UpdateInventoryUI()
+    {
+        if (inventoryText != null)
+        {
+            var resources = playerInventory.GetAllResources();
+            string inventoryInfo = $"持ち物 ({playerInventory.GetTotalItemCount()}/{playerInventory.maxCapacity}):\n";
+            
+            foreach (var kvp in resources)
+            {
+                if (kvp.Value > 0)
+                {
+                    inventoryInfo += $"{kvp.Key}: {kvp.Value}個 ";
+                }
+            }
+            
+            inventoryText.text = inventoryInfo;
+        }
+    }
+
     private void UpdateConstraints()
     {
         if (rb == null) return;
@@ -350,6 +544,247 @@ public class PlayerController : MonoBehaviour
             // Y位置を固定
             rb.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
         }
+    }
+
+    /// <summary>
+    /// トロッコとの近接をチェックしてアイテム転送開始
+    /// </summary>
+    void CheckMinecartProximity()
+    {
+        if (isTransferringItems || playerInventory.IsEmpty()) return;
+        
+        // 最も近いトロッコを検索
+        GameObject nearestMinecart = GetNearestMinecart();
+        if (nearestMinecart != null)
+        {
+            float distance = Vector3.Distance(transform.position, nearestMinecart.transform.position);
+            
+            // 範囲内に入った時だけログを出力
+            if (distance <= minecartDetectionRange)
+            {
+                Debug.Log($"最寄りトロッコとの距離: {distance:F2}m (検出範囲: {minecartDetectionRange}m)");
+                Debug.Log("トロッコが検出範囲内に入りました！");
+                
+                // MinecartManagerの状態をデバッグ
+                if (minecartManager != null)
+                {
+                    Debug.Log($"MinecartManager状態 - digable: {minecartManager.digable}, トロッコ数: {minecartManager.minecarts.Count}");
+                    if (minecartManager.minecarts.Count > 0)
+                    {
+                        var cart = minecartManager.minecarts[0];
+                        Debug.Log($"トロッコ0の資源状況 - Stone:{cart.resources[ResourceType.Stone]}, Iron:{cart.resources[ResourceType.Iron]}, Gold:{cart.resources[ResourceType.Gold]}, Diamond:{cart.resources[ResourceType.Diamond]}");
+                    }
+                }
+                else
+                {
+                    Debug.LogError("MinecartManagerがnullです！");
+                }
+                
+                // アイテム転送開始
+                Debug.Log("アイテム転送を開始しようとしています...");
+                StartCoroutine(TransferItemsToMinecart(nearestMinecart));
+            }
+        }
+        else
+        {
+            Debug.Log("近くにトロッコが見つかりません");
+        }
+    }
+
+    /// <summary>
+    /// 最も近いトロッコを取得
+    /// </summary>
+    GameObject GetNearestMinecart()
+    {
+        GameObject nearest = null;
+        float nearestDistance = float.MaxValue;
+        
+        foreach (GameObject minecart in spawnedMinecarts)
+        {
+            if (minecart != null)
+            {
+                float distance = Vector3.Distance(transform.position, minecart.transform.position);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    nearest = minecart;
+                }
+            }
+        }
+        
+        return nearest;
+    }
+
+    /// <summary>
+    /// プレイヤーからトロッコにアイテムを転送
+    /// </summary>
+    private IEnumerator TransferItemsToMinecart(GameObject targetMinecart)
+    {
+        isTransferringItems = true;
+        Debug.Log("アイテム転送開始");
+        
+        // 初期状態をログ出力
+        Debug.Log($"プレイヤーインベントリ総数: {playerInventory.GetTotalItemCount()}");
+        
+        while (!playerInventory.IsEmpty())
+        {
+            // トロッコが離れた場合は中断
+            float currentDistance = Vector3.Distance(transform.position, targetMinecart.transform.position);
+            if (currentDistance > minecartDetectionRange)
+            {
+                Debug.Log($"トロッコが離れたため転送中断 (距離: {currentDistance:F2}m)");
+                break;
+            }
+            
+            // MinecartManagerが利用可能かチェック
+            if (minecartManager == null)
+            {
+                Debug.LogError("MinecartManagerがnullです");
+                break;
+            }
+            
+            if (!minecartManager.digable)
+            {
+                Debug.Log($"トロッコが利用できません (digable: {minecartManager.digable})");
+                break;
+            }
+            
+            if (minecartManager.minecarts.Count == 0)
+            {
+                Debug.LogError("利用可能なトロッコがありません");
+                break;
+            }
+            
+            // 転送するリソースタイプを選択（最初に見つかったもの）
+            ResourceType transferType = ResourceType.Stone;
+            bool foundResource = false;
+            
+            var allResources = playerInventory.GetAllResources();
+            foreach (var kvp in allResources)
+            {
+                if (kvp.Value > 0)
+                {
+                    transferType = kvp.Key;
+                    foundResource = true;
+                    Debug.Log($"転送予定リソース: {transferType} (持ち数: {kvp.Value})");
+                    break;
+                }
+            }
+            
+            if (!foundResource) 
+            {
+                Debug.Log("転送可能なリソースが見つかりません");
+                break;
+            }
+            
+            // トロッコの容量チェックを改善
+            var targetCart = minecartManager.minecarts[0];
+            int currentAmount = targetCart.resources[transferType];
+            int capacity = minecartManager.CartCapacity;
+            
+            Debug.Log($"トロッコ容量チェック - {transferType}: {currentAmount}/{capacity}");
+            
+            if (currentAmount >= capacity)
+            {
+                Debug.Log($"トロッコの{transferType}が満載です ({currentAmount}/{capacity})");
+                // 他のリソースタイプをチェック
+                bool canTransferOther = false;
+                foreach (ResourceType otherType in System.Enum.GetValues(typeof(ResourceType)))
+                {
+                    if (otherType != transferType && 
+                        playerInventory.GetResourceCount(otherType) > 0 && 
+                        targetCart.resources[otherType] < capacity)
+                    {
+                        transferType = otherType;
+                        canTransferOther = true;
+                        Debug.Log($"別のリソースタイプに切り替え: {transferType}");
+                        break;
+                    }
+                }
+                
+                if (!canTransferOther)
+                {
+                    Debug.Log("全てのリソースタイプで満載のため転送終了");
+                    break;
+                }
+            }
+            
+            // プレイヤーから1つ削除
+            int removedAmount = playerInventory.RemoveResource(transferType, 1);
+            if (removedAmount > 0)
+            {
+                Debug.Log($"プレイヤーから{transferType}を{removedAmount}個削除");
+                
+                // アニメーション付きでトロッコに移動
+                StartCoroutine(AnimateItemTransfer(transform.position, targetMinecart.transform.position, transferType));
+                
+                // トロッコに追加
+                minecartManager.updatevalue(0, transferType, removedAmount);
+                Debug.Log($"{transferType}をトロッコに{removedAmount}個転送完了");
+                
+                // UI更新
+                UpdateInventoryUI();
+                
+                // 満載チェック
+                int newAmount = minecartManager.minecarts[0].resources[transferType];
+                if (newAmount >= minecartManager.CartCapacity)
+                {
+                    minecartManager.settime(0, minecartManager.cartcooltime);
+                    Debug.Log($"トロッコの{transferType}が満載、送信開始 ({newAmount}/{minecartManager.CartCapacity})");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"プレイヤーから{transferType}の削除に失敗");
+            }
+            
+            // 転送速度に応じて待機
+            yield return new WaitForSeconds(1f / itemTransferSpeed);
+        }
+        
+        isTransferringItems = false;
+        Debug.Log("アイテム転送終了");
+    }
+
+    /// <summary>
+    /// アイテム転送のアニメーション
+    /// </summary>
+    private IEnumerator AnimateItemTransfer(Vector3 startPos, Vector3 endPos, ResourceType resourceType)
+    {
+        // 簡単なキューブを作成
+        GameObject animItem = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        animItem.transform.position = startPos;
+        animItem.transform.localScale = Vector3.one * 0.3f;
+        
+        // 当たり判定無効化
+        var collider = animItem.GetComponent<Collider>();
+        if (collider != null) collider.enabled = false;
+        
+        // 色を資源タイプに応じて変更（オプション）
+        var renderer = animItem.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            switch (resourceType)
+            {
+                case ResourceType.Stone: renderer.material.color = Color.gray; break;
+                case ResourceType.Iron: renderer.material.color = new Color(0.8f, 0.4f, 0.2f); break;
+                case ResourceType.Gold: renderer.material.color = Color.yellow; break;
+                case ResourceType.Diamond: renderer.material.color = Color.cyan; break;
+            }
+        }
+        
+        // トロッコの中央にランダムなバラツキを追加
+        Vector3 randomOffset = new Vector3(
+            UnityEngine.Random.Range(-0.5f, 0.5f), // X軸方向のバラツキ
+            UnityEngine.Random.Range(0.2f, 0.8f),  // Y軸方向のバラツキ（トロッコの中に入るように）
+            UnityEngine.Random.Range(-0.5f, 0.5f)  // Z軸方向のバラツキ
+        );
+        Vector3 targetPos = endPos + randomOffset;
+        
+        yield return StartCoroutine(MoveItemCoroutine(animItem, startPos, targetPos));
+        
+        // 完了後削除
+        Destroy(animItem);
     }
 
     /// <summary>
@@ -464,14 +899,22 @@ public class PlayerController : MonoBehaviour
     {
         if (minecartManager != null && minecartManager.digable)
         {
-            minecartManager.updatevalue(0, resourceType, 1); // 0番目のトロッコに1つ追加
-            Debug.Log($"資源 {resourceType} をトロッコに積載");
-
-            // 満載チェック
-            if (minecartManager.minecarts[0].resources[resourceType] >= minecartManager.CartCapacity)
+            // トロッコの収容制限をチェック
+            if (minecartManager.minecarts[0].resources[resourceType] < minecartManager.CartCapacity)
             {
-                minecartManager.settime(0, minecartManager.cartcooltime);
-                Debug.Log("トロッコが満載、送信開始");
+                minecartManager.updatevalue(0, resourceType, 1); // 0番目のトロッコに1つ追加
+                Debug.Log($"資源 {resourceType} をトロッコに積載");
+
+                // 満載チェック
+                if (minecartManager.minecarts[0].resources[resourceType] >= minecartManager.CartCapacity)
+                {
+                    minecartManager.settime(0, minecartManager.cartcooltime);
+                    Debug.Log("トロッコが満載、送信開始");
+                }
+            }
+            else
+            {
+                Debug.Log($"トロッコの{resourceType}が満載です");
             }
         }
     }
