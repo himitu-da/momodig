@@ -63,12 +63,12 @@ public class MinecartManager : MonoBehaviour
     }
 
     // minecartnum番目のトロッコの指定資源をvalueだけ追加
-    void updatevalue(int minecartnum, ResourceType type, int value)
+    public void updatevalue(int minecartnum, ResourceType type, int value)
     {
         minecarts[minecartnum].resources[type] += value;
     }
     // minecartnum番目のトロッコをcartcooltime間送信する、cartcooltime>0fならばトロッコは使用しているものとみなし、利用不可
-    void settime(int minecartnum, float cartcooltime)
+    public void settime(int minecartnum, float cartcooltime)
     {
         minecarts[minecartnum].time += cartcooltime;
     }
@@ -80,7 +80,7 @@ public class MinecartManager : MonoBehaviour
         {
             if (0f < cart.time)
             {
-                cart.time -= DeltaTime;
+                cart.time -= Time.deltaTime;
             }
         }
         //利用中のトロッコはusingcart番目のトロッコ、minecarts[usingcart].time <= 0fならば、このカートは積載可能とみなす

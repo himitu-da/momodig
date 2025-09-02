@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem; // Input Systemを使うために必要
 using UnityEngine.UI; // UIを使うために必要
+using System.Collections.Generic; // MinecartManager用
+using System.Collections; // Coroutine用
 
 public class PlayerController : MonoBehaviour
 {
@@ -33,6 +35,13 @@ public class PlayerController : MonoBehaviour
     
     [Header("参照")]
     public Digger digger; // Diggerへの参照
+    public MinecartManager minecartManager; // MinecartManagerへの参照
+    public GameObject minecartPrefab; // マインカードプレハブ
+    private List<GameObject> spawnedMinecarts = new List<GameObject>(); // 生成したトロッコのリスト
+
+    [Header("アニメーション設定")]
+    public float itemMoveSpeed = 5f; // アイテムの移動速度
+    public AnimationCurve movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f); // 移動カーブ
     private int score = 0;
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
@@ -108,6 +117,28 @@ public class PlayerController : MonoBehaviour
 
         // Rigidbodyの制約を更新
         UpdateConstraints();
+
+        // テスト用: 1つプレハブを生成（シーンに配置）
+        if (minecartPrefab != null)
+        {
+            GameObject testMinecart = Instantiate(minecartPrefab, new Vector3(0, 0, 0), Quaternion.identity);
+            spawnedMinecarts.Add(testMinecart);
+            Debug.Log("テスト用マインカード生成完了");
+        }
+        else
+        {
+            Debug.LogWarning("minecartPrefabがアタッチされていません");
+        }
+
+        // MinecartManagerの初期化確認
+        if (minecartManager != null)
+        {
+            Debug.Log("MinecartManagerが参照されています");
+        }
+        else
+        {
+            Debug.LogWarning("MinecartManagerがアタッチされていません");
+        }
     }
 
     // インスペクターで値が変更されたときに呼ばれる（エディタのみ）
@@ -246,6 +277,40 @@ public class PlayerController : MonoBehaviour
             // スコアを更新
             score++;
             UpdateScoreText();
+
+            // 資源情報を取得
+            DroppedItem itemComponent = collision.gameObject.GetComponent<DroppedItem>();
+            ResourceType resourceType = itemComponent != null ? itemComponent.resourceType : ResourceType.Stone;
+
+            // アニメーション付きでトロッコに移動
+            if (spawnedMinecarts.Count > 0)
+            {
+                StartCoroutine(AnimateItemToMinecart(collision.transform.position, resourceType, collision.gameObject));
+            }
+            else
+            {
+                // トロッコが存在しない場合は直接追加
+                AddResourceToMinecart(resourceType);
+            }
+
+            // 追加: 資源をトロッコに積載
+            if (minecartManager != null && minecartManager.digable)
+            {
+                DroppedItem droppedItem = collision.gameObject.GetComponent<DroppedItem>();
+                if (droppedItem != null)
+                {
+                    ResourceType type = droppedItem.resourceType;
+                    minecartManager.updatevalue(0, type, 1); // 0番目のトロッコに1つ追加
+                    Debug.Log($"資源 {type} をトロッコに積載");
+
+                    // 満載チェック
+                    if (minecartManager.minecarts[0].resources[type] >= minecartManager.CartCapacity)
+                    {
+                        minecartManager.settime(0, minecartManager.cartcooltime);
+                        Debug.Log("トロッコが満載、送信開始");
+                    }
+                }
+            }
         }
     }
 
@@ -284,6 +349,130 @@ public class PlayerController : MonoBehaviour
         {
             // Y位置を固定
             rb.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
+        }
+    }
+
+    /// <summary>
+    /// アイテムをアニメーション付きでトロッコに移動
+    /// </summary>
+    private IEnumerator AnimateItemToMinecart(Vector3 startPosition, ResourceType resourceType, GameObject originalItem)
+    {
+        // ターゲットトロッコ（最初のトロッコ）
+        GameObject targetMinecart = spawnedMinecarts[0];
+        if (targetMinecart == null)
+        {
+            AddResourceToMinecart(resourceType);
+            yield break;
+        }
+
+        // アニメーション用のアイテムコピーを作成
+        GameObject animItem = CreateAnimationItem(originalItem, startPosition);
+        if (animItem == null)
+        {
+            AddResourceToMinecart(resourceType);
+            yield break;
+        }
+
+        // アニメーション実行
+        Vector3 targetPosition = targetMinecart.transform.position + Vector3.up * 1f; // トロッコの少し上
+        yield return StartCoroutine(MoveItemCoroutine(animItem, startPosition, targetPosition));
+
+        // アニメーション完了後、アイテムを削除してトロッコに格納
+        Destroy(animItem);
+        AddResourceToMinecart(resourceType);
+    }
+
+    /// <summary>
+    /// アニメーション用のアイテムコピーを作成
+    /// </summary>
+    private GameObject CreateAnimationItem(GameObject original, Vector3 position)
+    {
+        if (original == null) return null;
+
+        // シンプルなキューブを作成（または元のアイテムをコピー）
+        GameObject animItem = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        animItem.transform.position = position;
+        animItem.transform.localScale = Vector3.one * 0.5f; // 小さめに
+
+        // 当たり判定を無効化
+        Collider collider = animItem.GetComponent<Collider>();
+        if (collider != null)
+        {
+            collider.enabled = false;
+        }
+
+        // 物理挙動を無効化
+        Rigidbody rb = animItem.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+        }
+
+        // マテリアルやテクスチャを元のアイテムから取得（オプション）
+        Renderer originalRenderer = original.GetComponent<Renderer>();
+        Renderer animRenderer = animItem.GetComponent<Renderer>();
+        if (originalRenderer != null && animRenderer != null)
+        {
+            animRenderer.material = originalRenderer.material;
+        }
+
+        return animItem;
+    }
+
+    /// <summary>
+    /// アイテムを指定位置に移動させるコルーチン
+    /// </summary>
+    private IEnumerator MoveItemCoroutine(GameObject item, Vector3 startPos, Vector3 endPos)
+    {
+        float elapsedTime = 0f;
+        float duration = Vector3.Distance(startPos, endPos) / itemMoveSpeed;
+
+        while (elapsedTime < duration)
+        {
+            elapsedTime += Time.deltaTime;
+            float progress = elapsedTime / duration;
+            
+            // AnimationCurveを使用してスムーズな移動
+            float curveValue = movementCurve.Evaluate(progress);
+            Vector3 currentPosition = Vector3.Lerp(startPos, endPos, curveValue);
+            
+            if (item != null)
+            {
+                item.transform.position = currentPosition;
+                // 回転アニメーション（オプション）
+                item.transform.Rotate(0, 360f * Time.deltaTime, 0);
+            }
+            else
+            {
+                break; // アイテムが破棄された場合
+            }
+
+            yield return null;
+        }
+
+        // 最終位置に設定
+        if (item != null)
+        {
+            item.transform.position = endPos;
+        }
+    }
+
+    /// <summary>
+    /// トロッコに資源を追加
+    /// </summary>
+    private void AddResourceToMinecart(ResourceType resourceType)
+    {
+        if (minecartManager != null && minecartManager.digable)
+        {
+            minecartManager.updatevalue(0, resourceType, 1); // 0番目のトロッコに1つ追加
+            Debug.Log($"資源 {resourceType} をトロッコに積載");
+
+            // 満載チェック
+            if (minecartManager.minecarts[0].resources[resourceType] >= minecartManager.CartCapacity)
+            {
+                minecartManager.settime(0, minecartManager.cartcooltime);
+                Debug.Log("トロッコが満載、送信開始");
+            }
         }
     }
 }
