@@ -12,6 +12,10 @@ public class PlayerController : MonoBehaviour
 
     [Header("移動設定")]
     public float moveSpeed = 5f; // 移動速度
+    public float acceleration = 0.1f; // 加速のスムーズさ
+    public float deceleration = 0.2f; // 減速のスムーズさ
+    public float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
+    public float fallAcceleration = 1f; // 落下加速度
     [SerializeField] private MoveMode _currentMoveMode;
     public MoveMode currentMoveMode
     {
@@ -25,6 +29,7 @@ public class PlayerController : MonoBehaviour
 
     [Header("UI設定")]
     public Text scoreText; // スコア表示用のText
+    public Text depthText; // 深度表示用のText
     
     [Header("参照")]
     public Digger digger; // Diggerへの参照
@@ -32,7 +37,9 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
+    private float currentFallSpeed = 0f; // 現在の落下速度
     private Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
+    private Vector3 currentVelocity; // SmoothDamp用の現在速度
 
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
@@ -89,6 +96,16 @@ public class PlayerController : MonoBehaviour
         }
         UpdateScoreText();
 
+        // depthTextを探して設定
+        if (depthText == null)
+        {
+            var depthTextObject = GameObject.Find("DepthText");
+            if (depthTextObject != null)
+            {
+                depthText = depthTextObject.GetComponent<Text>();
+            }
+        }
+
         // Rigidbodyの制約を更新
         UpdateConstraints();
     }
@@ -120,26 +137,61 @@ public class PlayerController : MonoBehaviour
         controls.Player.Disable();
     }
 
+    // フレームごとに呼ばれる
+    void Update()
+    {
+        UpdateDepthText();
+    }
+
     // 物理演算の更新タイミングで呼ばれる
     void FixedUpdate()
     {
         Vector3 moveDirection;
+        Vector3 targetVelocity;
+
         switch (currentMoveMode)
         {
             case MoveMode.SideScroller:
                 moveDirection = new Vector3(moveInput.x, moveInput.y, 0f);
+
+                if (moveInput == Vector2.zero)
+                {
+                    // 無操作時は徐々に落下速度を上げる
+                    currentFallSpeed += fallAcceleration * Time.fixedDeltaTime;
+                    float maxFallSpeed = moveSpeed * fallSpeedMultiplier;
+                    currentFallSpeed = Mathf.Min(currentFallSpeed, maxFallSpeed);
+                    targetVelocity = new Vector3(0, -currentFallSpeed, 0);
+                }
+                else
+                {
+                    currentFallSpeed = 0f; // 操作中は落下速度をリセット
+                    if (moveInput.x != 0 && moveInput.y == 0)
+                    {
+                        // 左右のみの入力の場合は落下しない
+                        targetVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed;
+                    }
+                    else
+                    {
+                        // それ以外の入力（上下含む）
+                        targetVelocity = moveDirection.normalized * moveSpeed;
+                    }
+                }
                 break;
             case MoveMode.TopDown:
                 moveDirection = new Vector3(moveInput.x, 0f, moveInput.y);
+                targetVelocity = moveDirection.normalized * moveSpeed;
                 break;
             default:
                 moveDirection = Vector3.zero;
+                targetVelocity = Vector3.zero;
                 break;
         }
 
-        // 移動ベクトルを計算
-        Vector3 newVelocity = moveDirection.normalized * moveSpeed;
-        rb.linearVelocity = newVelocity;
+        // 慣性を適用する時間を決定
+        float smoothTime = moveDirection.sqrMagnitude > 0 ? acceleration : deceleration;
+
+        // SmoothDampを使用して速度を滑らかに変化させる
+        rb.linearVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
 
         // 移動入力がある場合、その方向を保存
         if (moveDirection.sqrMagnitude > 0.1f)
@@ -178,8 +230,19 @@ public class PlayerController : MonoBehaviour
         // 衝突したオブジェクトが "DroppedItem" タグを持っているか確認
         if (collision.gameObject.CompareTag("DroppedItem"))
         {
-            // アイテムを破壊
-            Destroy(collision.gameObject);
+            // アイテム回収時に周辺のアイテムを起床させる
+            if (DroppedItemManager.Instance != null)
+            {
+                var itemCollider = collision.gameObject.GetComponent<Collider>();
+                if (itemCollider != null)
+                {
+                    float radius = itemCollider.bounds.extents.magnitude;
+                    DroppedItemManager.Instance.WakeUpItemsNearPosition(collision.transform.position, radius * DroppedItemManager.Instance.WakeUpRadiusMultiplier);
+                }
+            }
+
+            // アイテムをプールに返却
+            DroppedItemManager.Instance.ReturnItem(collision.gameObject);
             // スコアを更新
             score++;
             UpdateScoreText();
@@ -191,6 +254,16 @@ public class PlayerController : MonoBehaviour
         if (scoreText != null)
         {
             scoreText.text = "Score: " + score;
+        }
+    }
+
+    void UpdateDepthText()
+    {
+        if (depthText != null)
+        {
+            // プレイヤーのY座標を整数に変換して深度として表示
+            int depth = Mathf.FloorToInt(transform.position.y);
+            depthText.text = "Depth: " + depth;
         }
     }
 

@@ -55,10 +55,10 @@ public class Digger : MonoBehaviour
         );
 
         // ユニークなチャンクを収集（複数ヒット回避）
-        HashSet<VoxelChunk> hitChunks = new HashSet<VoxelChunk>();
+        HashSet<Block> hitChunks = new HashSet<Block>();
         foreach (var hitCollider in hitColliders)
         {
-            VoxelChunk chunk = hitCollider.GetComponent<VoxelChunk>();
+            Block chunk = hitCollider.GetComponent<Block>();
             if (chunk != null)
                 hitChunks.Add(chunk);
         }
@@ -80,7 +80,14 @@ public class Digger : MonoBehaviour
         foreach (var chunk in hitChunks)
         {
             // BoxCollider自体を渡して、より正確な判定をチャンク側で行う
-            chunk.DigVoxels(diggingArea);
+            StartCoroutine(chunk.DigVoxels(diggingArea));
+        }
+
+        // 掘削範囲内のドロップアイテムを起床させる
+        if (DroppedItemManager.Instance != null)
+        {
+            Vector3 expandedSize = diggingArea.size + new Vector3(2, 2, 2);
+            DroppedItemManager.Instance.WakeUpItemsInRadius(worldCenter, expandedSize, diggingArea.transform.rotation);
         }
     }
 

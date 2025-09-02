@@ -26,14 +26,21 @@ public struct VoxelFaceTextureInfo
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
 [RequireComponent(typeof(MeshCollider))]
-public class VoxelChunk : MonoBehaviour
+public class Block : MonoBehaviour
 {
+    // VoxelManagerへの参照を追加
+    private VoxelManager voxelManager;
+    private Vector3Int blockPosition; // このブロックの座標を保持
+
     public int ChunkSize { get; private set; } = 4; // 16ドット単位の塊　この変数いらない説
-    private byte[,,] voxelTypes; // 0: 空気, 1: 固体
-    private int[,,] voxelHPs; // HP
+    // voxelTypesとvoxelHPsはVoxelManagerで管理するため削除
+    // private byte[,,] voxelTypes; // 0: 空気, 1: 固体
+    // private int[,,] voxelHPs; // HP
     private int maxHP = 3;
     [Range(0.01f, 1.0f)]
     public float diggingThreshold = 0.1f; // 掘削判定の閾値（ボクセルとの重複率）
+    [Tooltip("掘削処理の各レイヤー間の待機フレーム数。0にするとフリーズする可能性があります。")]
+    [SerializeField] private int diggingFrameDelay = 1;
     private Color initialColor = Color.white;
     [SerializeField] private Texture2D texture1, texture2;
     private bool[,,] useTexture1Pattern; // テクスチャパターン
@@ -62,60 +69,37 @@ public class VoxelChunk : MonoBehaviour
         meshFilter.mesh = mesh;
     }
 
-    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp)
-    {
-        Initialize(pattern, newChunkSize, worldChunkSize, hp, null, true, true, 0.8f);
-    }
+    private BlockData blockData; // このブロックの種類を定義するデータ
 
-    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp, GameObject itemPrefab, bool disableItemRotation)
-    {
-        Initialize(pattern, newChunkSize, worldChunkSize, hp, itemPrefab, disableItemRotation, true, 0.8f);
-    }
-
-    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp, GameObject itemPrefab, bool disableItemRotation, bool autoScaleItems, float itemScaleMultiplier)
-    {
-        Initialize(pattern, newChunkSize, worldChunkSize, hp, itemPrefab, disableItemRotation, autoScaleItems, itemScaleMultiplier, null, null);
-    }
-
+    // Initializeメソッドをオーバーロードではなく、オプション引数を持つ単一のメソッドに統合
     /// <summary>
-    /// テクスチャを含む完全な初期化
+    /// ブロックを初期化
     /// </summary>
-    public void Initialize(bool[,,] pattern, int newChunkSize, float worldChunkSize, int hp, GameObject itemPrefab, bool disableItemRotation, bool autoScaleItems, float itemScaleMultiplier, Texture2D tex1, Texture2D tex2)
+    public void Initialize(
+        VoxelManager manager, Vector3Int position, bool[,,] pattern, int newChunkSize, float worldChunkSize, BlockData data)
     {
+        voxelManager = manager;
+        blockPosition = position;
         ChunkSize = newChunkSize;
         voxelSize = worldChunkSize / ChunkSize;
-        maxHP = hp;
-        droppedItemPrefab = itemPrefab;
-        disableRotation = disableItemRotation;
-        autoScale = autoScaleItems;
-        scaleMultiplier = itemScaleMultiplier;
-        
-        // テクスチャを設定
-        texture1 = tex1;
-        texture2 = tex2;
+        blockData = data; // BlockDataアセットを保持
 
-        // 配列を初期化
-        voxelTypes = new byte[ChunkSize, ChunkSize, ChunkSize];
-        voxelHPs = new int[ChunkSize, ChunkSize, ChunkSize];
+        // BlockDataから各種設定を読み込む
+        maxHP = blockData.voxelHp;
+        droppedItemPrefab = blockData.droppedItemPrefab;
+        disableRotation = blockData.disableRotation;
+        autoScale = blockData.autoScale;
+        scaleMultiplier = blockData.scaleMultiplier;
+        
+        // テクスチャを設定 (最初のテクスチャをtexture1, 2番目をtexture2とする)
+        texture1 = (blockData.textures != null && blockData.textures.Count > 0) ? blockData.textures[0] : null;
+        texture2 = (blockData.textures != null && blockData.textures.Count > 1) ? blockData.textures[1] : null;
+
+        // テクスチャパターンを設定
         useTexture1Pattern = pattern ?? new bool[ChunkSize, ChunkSize, ChunkSize];
 
-        for (int x = 0; x < ChunkSize; x++)
-            for (int y = 0; y < ChunkSize; y++)
-                for (int z = 0; z < ChunkSize; z++)
-                {
-                    // patternに基づいてボクセルの種類を決定
-                    if (useTexture1Pattern[x, y, z])
-                    {
-                        voxelTypes[x, y, z] = 1; // 固体
-                        voxelHPs[x, y, z] = maxHP;
-                    }
-                    else
-                    {
-                        voxelTypes[x, y, z] = 0; // 空気
-                        voxelHPs[x, y, z] = 0;
-                    }
-                }
-        GenerateMesh();
+        // メッシュ生成はVoxelManagerへのデータ登録後に外部から呼び出す
+        // GenerateMesh();
     }
 
     public void TakeDamage(Vector3 localPos, int damage)
@@ -123,96 +107,154 @@ public class VoxelChunk : MonoBehaviour
         int x = Mathf.FloorToInt(localPos.x + ChunkSize / 2.0f);
         int y = Mathf.FloorToInt(localPos.y + ChunkSize / 2.0f);
         int z = Mathf.FloorToInt(localPos.z + ChunkSize / 2.0f);
-        if (x < 0 || x >= ChunkSize || y < 0 || y >= ChunkSize || z < 0 || z >= ChunkSize || voxelTypes[x, y, z] == 0) return;
+        
+        Vector3Int localVoxelPos = new Vector3Int(x, y, z);
 
-        voxelHPs[x, y, z] -= damage;
-        if (voxelHPs[x, y, z] <= 0)
+        // VoxelManagerにダメージ処理を移管
+        if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, damage))
         {
-            voxelTypes[x, y, z] = 0;
-            DropItem(transform.position + localPos, x, y, z); // ボクセル座標も渡す
+            // Voxelが破壊された場合
+            var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
+            if (voxelData != null)
+            {
+                 DropItem(voxelData.worldPosition, x, y, z);
+            }
+            GenerateMesh(); // メッシュを更新
         }
-        GenerateMesh(); // 破壊後更新
     }
 
-    public void DigVoxels(BoxCollider diggingArea)
+    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea)
     {
-        bool needsMeshUpdate = false;
-        const int sampleResolution = 3; // 各軸のサンプル解像度
+        const int sampleResolution = 3;
         const int totalSamples = sampleResolution * sampleResolution * sampleResolution;
 
-        // diggingAreaの判定用情報を事前に計算
-        Matrix4x4 worldToLocalMatrix = diggingArea.transform.worldToLocalMatrix;
+        Matrix4x4 worldToLocalMatrix = transform.worldToLocalMatrix;
+        Matrix4x4 diggingAreaWorldToLocal = diggingArea.transform.worldToLocalMatrix;
         Vector3 halfSize = diggingArea.size * 0.5f;
         Vector3 center = diggingArea.center;
 
-        for (int x = 0; x < ChunkSize; x++)
+        Bounds diggingBounds = diggingArea.bounds;
+        Vector3 localMin = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.min);
+        Vector3 localMax = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.max);
+
+        int startX = Mathf.Max(0, Mathf.FloorToInt(localMin.x + ChunkSize / 2.0f));
+        int endX = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.x + ChunkSize / 2.0f));
+        int startY = Mathf.Max(0, Mathf.FloorToInt(localMin.y + ChunkSize / 2.0f));
+        int endY = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.y + ChunkSize / 2.0f));
+        int startZ = Mathf.Max(0, Mathf.FloorToInt(localMin.z + ChunkSize / 2.0f));
+        int endZ = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.z + ChunkSize / 2.0f));
+
+        PlayerController.MoveMode moveMode = GetCurrentMoveMode();
+
+        if (moveMode == PlayerController.MoveMode.SideScroller)
         {
-            for (int y = 0; y < ChunkSize; y++)
+            for (int z = startZ; z <= endZ; z++)
             {
-                for (int z = 0; z < ChunkSize; z++)
+                bool layerModified = false;
+                List<System.Action> dropActions = new List<System.Action>();
+
+                for (int x = startX; x <= endX; x++)
                 {
-                    if (voxelTypes[x, y, z] == 0) continue;
-
-                    int containedSamples = 0;
-                    // ボクセルのローカル座標でのバウンディングボックスの最小点を計算
-                    Vector3 voxelMin = new Vector3(x - ChunkSize / 2.0f, y - ChunkSize / 2.0f, z - ChunkSize / 2.0f);
-
-                    // ボクセル内をサンプリングして、diggingAreaとの重複をチェック
-                    for (int sx = 0; sx < sampleResolution; sx++)
+                    for (int y = startY; y <= endY; y++)
                     {
-                        for (int sy = 0; sy < sampleResolution; sy++)
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions))
                         {
-                            for (int sz = 0; sz < sampleResolution; sz++)
-                            {
-                                // サンプル点のチャンク内ローカル座標を計算 (ボクセルサイズは1x1x1と仮定)
-                                float sampleX = voxelMin.x + (sx + 0.5f) / sampleResolution;
-                                float sampleY = voxelMin.y + (sy + 0.5f) / sampleResolution;
-                                float sampleZ = voxelMin.z + (sz + 0.5f) / sampleResolution;
-                                Vector3 sampleLocalPos = new Vector3(sampleX, sampleY, sampleZ);
-
-                                // ワールド座標に変換
-                                Vector3 sampleWorldPos = transform.TransformPoint(sampleLocalPos);
-
-                                // diggingAreaのローカル座標に変換
-                                Vector3 localPosInDiggingArea = worldToLocalMatrix.MultiplyPoint3x4(sampleWorldPos);
-
-                                // diggingAreaの中心を考慮して、AABBの内外判定
-                                if (Mathf.Abs(localPosInDiggingArea.x - center.x) <= halfSize.x &&
-                                    Mathf.Abs(localPosInDiggingArea.y - center.y) <= halfSize.y &&
-                                    Mathf.Abs(localPosInDiggingArea.z - center.z) <= halfSize.z)
-                                {
-                                    containedSamples++;
-                                }
-                            }
+                            layerModified = true;
                         }
                     }
+                }
 
-                    // 重複率が閾値を超えていればダメージを与える
-                    float overlapRatio = (float)containedSamples / totalSamples;
-                    if (overlapRatio >= diggingThreshold)
+                if (layerModified)
+                {
+                    foreach (var action in dropActions) action.Invoke();
+                    GenerateMesh();
+                }
+
+                int delay = Mathf.Max(1, diggingFrameDelay);
+                for (int i = 0; i < delay; i++)
+                {
+                    yield return null;
+                }
+            }
+        }
+        else // TopDown or other modes
+        {
+            for (int y = endY; y >= startY; y--)
+            {
+                bool layerModified = false;
+                List<System.Action> dropActions = new List<System.Action>();
+
+                for (int x = startX; x <= endX; x++)
+                {
+                    for (int z = startZ; z <= endZ; z++)
                     {
-                        voxelHPs[x, y, z]--;
-                        needsMeshUpdate = true;
-
-                        if (voxelHPs[x, y, z] <= 0)
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions))
                         {
-                            voxelTypes[x, y, z] = 0;
-                            Vector3 voxelCenterPos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
-                            Vector3 voxelWorldPos = transform.TransformPoint(voxelCenterPos);
-                            DropItem(voxelWorldPos, x, y, z); // ボクセル座標も渡す
+                            layerModified = true;
                         }
+                    }
+                }
+
+                if (layerModified)
+                {
+                    foreach (var action in dropActions) action.Invoke();
+                    GenerateMesh();
+                }
+
+                int delay = Mathf.Max(1, diggingFrameDelay);
+                for (int i = 0; i < delay; i++)
+                {
+                    yield return null;
+                }
+            }
+        }
+    }
+
+    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions)
+    {
+        Vector3Int localVoxelPos = new Vector3Int(x, y, z);
+        var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
+        if (voxelData == null || !voxelData.isActive) return false;
+
+        int containedSamples = 0;
+        Vector3 voxelMin = new Vector3(x - ChunkSize / 2.0f, y - ChunkSize / 2.0f, z - ChunkSize / 2.0f);
+
+        for (int sx = 0; sx < sampleResolution; sx++)
+        {
+            for (int sy = 0; sy < sampleResolution; sy++)
+            {
+                for (int sz = 0; sz < sampleResolution; sz++)
+                {
+                    float sampleX = voxelMin.x + (sx + 0.5f) / sampleResolution;
+                    float sampleY = voxelMin.y + (sy + 0.5f) / sampleResolution;
+                    float sampleZ = voxelMin.z + (sz + 0.5f) / sampleResolution;
+                    Vector3 sampleLocalPos = new Vector3(sampleX, sampleY, sampleZ);
+                    Vector3 sampleWorldPos = transform.TransformPoint(sampleLocalPos);
+                    Vector3 localPosInDiggingArea = diggingAreaWorldToLocal.MultiplyPoint3x4(sampleWorldPos);
+
+                    if (Mathf.Abs(localPosInDiggingArea.x - center.x) <= halfSize.x &&
+                        Mathf.Abs(localPosInDiggingArea.y - center.y) <= halfSize.y &&
+                        Mathf.Abs(localPosInDiggingArea.z - center.z) <= halfSize.z)
+                    {
+                        containedSamples++;
                     }
                 }
             }
         }
 
-        if (needsMeshUpdate)
+        float overlapRatio = (float)containedSamples / totalSamples;
+        if (overlapRatio >= diggingThreshold)
         {
-            GenerateMesh();
+            if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, 1))
+            {
+                dropActions.Add(() => DropItem(voxelData.worldPosition, x, y, z));
+                return true;
+            }
         }
+        return false;
     }
 
-    private void GenerateMesh()
+    public void GenerateMesh()
     {
         mesh.Clear();
         List<Vector3> vertices = new List<Vector3>();
@@ -220,34 +262,37 @@ public class VoxelChunk : MonoBehaviour
         List<Vector2> uvs = new List<Vector2>();
         List<Color> colors = new List<Color>();
 
-        // 各ボクセルをループ
-        for (int x = 0; x < ChunkSize; x++)
-            for (int y = 0; y < ChunkSize; y++)
-                for (int z = 0; z < ChunkSize; z++)
-                {
-                    if (voxelTypes[x, y, z] == 0) continue;
+        // VoxelManagerからこのブロックのボクセルリストを取得
+        var voxelsInBlock = voxelManager.GetVoxelsInBlock(blockPosition);
 
-                    float healthPercentage = (float)voxelHPs[x, y, z] / maxHP;
-                    Color healthColor = Color.Lerp(Color.black, initialColor, healthPercentage);
-                    healthColor.a = healthPercentage; // ドット透過
+        foreach (var voxelData in voxelsInBlock)
+        {
+            if (!voxelData.isActive) continue;
 
-                    Vector3 pos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
+            int x = voxelData.localPosition.x;
+            int y = voxelData.localPosition.y;
+            int z = voxelData.localPosition.z;
 
-                    // 6面追加（露出チェック）
-                    // X, Y方向はそのまま、Z方向の面のみ巻き順を反転させる
-                    if (x == ChunkSize - 1 || voxelTypes[x + 1, y, z] == 0)
-                        AddFace(pos, Vector3.right, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-                    if (x == 0 || voxelTypes[x - 1, y, z] == 0)
-                        AddFace(pos, Vector3.left, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-                    if (y == ChunkSize - 1 || voxelTypes[x, y + 1, z] == 0)
-                        AddFace(pos, Vector3.up, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-                    if (y == 0 || voxelTypes[x, y - 1, z] == 0)
-                        AddFace(pos, Vector3.down, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-                    if (z == ChunkSize - 1 || voxelTypes[x, y, z + 1] == 0)
-                        AddFace(pos, Vector3.forward, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
-                    if (z == 0 || voxelTypes[x, y, z - 1] == 0)
-                        AddFace(pos, Vector3.back, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
-                }
+            float healthPercentage = (float)voxelData.health / maxHP;
+            Color healthColor = Color.Lerp(Color.black, initialColor, healthPercentage);
+            healthColor.a = healthPercentage; // ドット透過
+
+            Vector3 pos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
+
+            // 6面追加（露出チェック）
+            if (IsVoxelFaceExposed(x + 1, y, z))
+                AddFace(pos, Vector3.right, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
+            if (IsVoxelFaceExposed(x - 1, y, z))
+                AddFace(pos, Vector3.left, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
+            if (IsVoxelFaceExposed(x, y + 1, z))
+                AddFace(pos, Vector3.up, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
+            if (IsVoxelFaceExposed(x, y - 1, z))
+                AddFace(pos, Vector3.down, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
+            if (IsVoxelFaceExposed(x, y, z + 1))
+                AddFace(pos, Vector3.forward, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
+            if (IsVoxelFaceExposed(x, y, z - 1))
+                AddFace(pos, Vector3.back, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
+        }
 
         mesh.vertices = vertices.ToArray();
         mesh.triangles = triangles.ToArray();
@@ -262,6 +307,22 @@ public class VoxelChunk : MonoBehaviour
         }
 
         collider.sharedMesh = mesh;
+    }
+
+    /// <summary>
+    /// 指定されたローカル座標のボクセルの面が露出しているかチェック
+    /// </summary>
+    private bool IsVoxelFaceExposed(int x, int y, int z)
+    {
+        // 座標がブロックの範囲外なら、その面は露出している
+        if (x < 0 || x >= ChunkSize || y < 0 || y >= ChunkSize || z < 0 || z >= ChunkSize)
+        {
+            return true;
+        }
+
+        // VoxelManagerに問い合わせて、隣接ボクセルが存在しないか非アクティブなら露出している
+        var neighborVoxel = voxelManager.GetVoxelAt(blockPosition, new Vector3Int(x, y, z));
+        return neighborVoxel == null || !neighborVoxel.isActive;
     }
 
     private void AddFace(Vector3 pos, Vector3 normal, List<Vector3> verts, List<int> tris, List<Vector2> uvs, List<Color> colors, Color faceColor, bool reverse, int voxelX, int voxelY, int voxelZ)
@@ -703,26 +764,34 @@ public class VoxelChunk : MonoBehaviour
 
     private void DropItem(Vector3 position, int voxelX, int voxelY, int voxelZ) // ボクセル座標を受け取る新しいオーバーロード
     {
-        GameObject item;
-        
-        // Prefabが指定されている場合はそれを使用、されていない場合はデフォルトのCubeを作成
-        if (droppedItemPrefab != null)
+        if (DroppedItemManager.Instance == null)
         {
-            item = Instantiate(droppedItemPrefab, position, Quaternion.identity);
-            
-            // 自動スケール調整が有効な場合
-            if (autoScale)
-            {
-                float targetScale = voxelSize * scaleMultiplier;
-                item.transform.localScale = Vector3.one * targetScale;
-            }
+            Debug.LogError("DroppedItemManager.Instance is null. Please ensure a DroppedItemManager exists in the scene.");
+            return;
         }
-        else
+        if (blockData == null)
         {
-            // デフォルト処理：Cubeを作成
-            item = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            item.transform.position = position;
-            item.transform.localScale = Vector3.one * voxelSize;
+            Debug.LogError($"Block at {blockPosition} has no BlockData assigned. Check TerrainManager setup.", this.gameObject);
+            return;
+        }
+        if (blockData.droppedItemPrefab == null)
+        {
+            Debug.LogError($"BlockData '{blockData.name}' has no droppedItemPrefab assigned.", blockData);
+            return;
+        }
+
+        // DroppedItemManagerから正しいPrefabのアイテムを取得
+        GameObject item = DroppedItemManager.Instance.GetItem(blockData.droppedItemPrefab);
+        if (item == null) return;
+
+        item.transform.position = position;
+        item.transform.rotation = Quaternion.identity;
+
+        // 自動スケール調整が有効な場合
+        if (blockData.autoScale)
+        {
+            float targetScale = voxelSize * blockData.scaleMultiplier;
+            item.transform.localScale = Vector3.one * targetScale;
         }
 
         // ボクセル座標が有効な場合、テクスチャ抽出を実行
@@ -755,15 +824,9 @@ public class VoxelChunk : MonoBehaviour
 
         // DroppedItemコンポーネントの処理
         DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
-        if (droppedItemComponent == null)
+        if (droppedItemComponent != null)
         {
-            droppedItemComponent = item.AddComponent<DroppedItem>();
-        }
-
-        // 回転を無効化する場合の処理
-        if (disableRotation)
-        {
-            droppedItemComponent.enabled = false; // DroppedItemコンポーネントを無効化して回転を停止
+            droppedItemComponent.enabled = !blockData.disableRotation;
         }
 
         // タグが設定されていない場合は設定
