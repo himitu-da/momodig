@@ -18,11 +18,10 @@ public class MinecartInteractionSystem : MonoBehaviour
     
     [Header("参照")]
     [SerializeField] private MinecartManager minecartManager; // MinecartManagerへの参照
-    [SerializeField] private GameObject minecartPrefab; // マインカードプレハブ
     
     // プライベート変数
-    private List<GameObject> spawnedMinecarts = new List<GameObject>(); // 生成したトロッコのリスト
     private bool isTransferringItems = false; // アイテム転送中フラグ
+    private float minecartOffset = 2f; // プレイヤーとトロッコの距離
     
     // 外部から設定される依存関係
     private PlayerController playerController;
@@ -33,8 +32,15 @@ public class MinecartInteractionSystem : MonoBehaviour
     {
         playerController = GetComponent<PlayerController>();
         
-        InitializeTestMinecart();
         ValidateReferences();
+    }
+
+    void Update()
+    {
+        if (minecartManager != null && playerController != null)
+        {
+            minecartManager.UpdateMinecartPositions(playerController.transform.position, playerController.lastMoveDirection, minecartOffset);
+        }
     }
     
     #endregion
@@ -82,23 +88,6 @@ public class MinecartInteractionSystem : MonoBehaviour
     #region プライベートメソッド
     
     /// <summary>
-    /// 初期化時にテスト用トロッコを生成
-    /// </summary>
-    private void InitializeTestMinecart()
-    {
-        if (minecartPrefab != null)
-        {
-            GameObject testMinecart = Instantiate(minecartPrefab, Vector3.zero, Quaternion.identity);
-            spawnedMinecarts.Add(testMinecart);
-            Debug.Log("MinecartInteractionSystem: テスト用マインカード生成完了");
-        }
-        else
-        {
-            Debug.LogWarning("MinecartInteractionSystem: minecartPrefabがアタッチされていません");
-        }
-    }
-    
-    /// <summary>
     /// 参照の妥当性をチェック
     /// </summary>
     private void ValidateReferences()
@@ -125,16 +114,18 @@ public class MinecartInteractionSystem : MonoBehaviour
     {
         GameObject nearest = null;
         float nearestDistance = float.MaxValue;
-        
-        foreach (GameObject minecart in spawnedMinecarts)
+
+        if (minecartManager == null) return null;
+
+        foreach (Minecart cart in minecartManager.minecarts)
         {
-            if (minecart != null)
+            if (cart.gameObject != null)
             {
-                float distance = Vector3.Distance(transform.position, minecart.transform.position);
+                float distance = Vector3.Distance(transform.position, cart.gameObject.transform.position);
                 if (distance < nearestDistance)
                 {
                     nearestDistance = distance;
-                    nearest = minecart;
+                    nearest = cart.gameObject;
                 }
             }
         }
@@ -443,7 +434,7 @@ public class MinecartInteractionSystem : MonoBehaviour
         return $"MinecartInteractionSystem - " +
                $"Range: {minecartDetectionRange:F1}m, " +
                $"Transferring: {isTransferringItems}, " +
-               $"Minecarts: {spawnedMinecarts.Count}, " +
+               $"Minecarts: {(minecartManager != null ? minecartManager.minecarts.Count : 0)}, " +
                $"TransferSpeed: {itemTransferSpeed}/s";
     }
     

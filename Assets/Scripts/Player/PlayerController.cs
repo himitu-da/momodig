@@ -50,7 +50,7 @@ public class PlayerController : MonoBehaviour
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
     private float currentFallSpeed = 0f; // 現在の落下速度
-    private Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
+    public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
     
     // 接触中のアイテム管理用

@@ -4,12 +4,14 @@ using System.Collections.Generic;
 // トロッコクラス
 public class Minecart
 {
+    public GameObject gameObject; // トロッコのゲームオブジェクト
     public Dictionary<ResourceType, int> resources; // 資源と量
     public float time;
 
     // コンストラクタで初期化
-    public Minecart()
+    public Minecart(GameObject obj)
     {
+        gameObject = obj;
         resources = new Dictionary<ResourceType, int>();
         foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
         {
@@ -22,19 +24,24 @@ public class Minecart
 // トロッコ管理クラス
 public class MinecartManager : MonoBehaviour
 {
+    [Header("トロッコ設定")]
+    public GameObject minecartPrefab; // トロッコのプレハブ
     public int CartCapacity = 500;
     public int cartunit = 2;
     public List<Minecart> minecarts = new List<Minecart>();
+
+    [Header("トロッコ状態")]
     private int usingcart = 0;
     public float cartcooltime;
     public float DeltaTime;
     public bool digable = true;
+
     void Start()
     {
         // トロッコを必要数まで生成
         while (minecarts.Count < cartunit)
         {
-            minecarts.Add(new Minecart());
+            addnewcart();
         }
         updatevalue(0, ResourceType.Stone, 10);
         // 内容を確認
@@ -50,7 +57,15 @@ public class MinecartManager : MonoBehaviour
     // 新しいトロッコを追加
     public void addnewcart()
     {
-        minecarts.Add(new Minecart());
+        if (minecartPrefab != null)
+        {
+            GameObject newMinecartObject = Instantiate(minecartPrefab, Vector3.zero, Quaternion.identity);
+            minecarts.Add(new Minecart(newMinecartObject));
+        }
+        else
+        {
+            Debug.LogError("minecartPrefabが設定されていません！");
+        }
     }
 
     // minecartnum番目のトロッコの指定資源をvalueだけ追加
@@ -63,6 +78,20 @@ public class MinecartManager : MonoBehaviour
     {
         minecarts[minecartnum].time += cartcooltime;
     }
+
+    // トロッコの位置を更新する
+    public void UpdateMinecartPositions(Vector3 playerPosition, Vector3 playerLastMoveDirection, float offset)
+    {
+        foreach (Minecart cart in minecarts)
+        {
+            if (cart.gameObject != null)
+            {
+                Vector3 targetPosition = playerPosition - playerLastMoveDirection * offset;
+                cart.gameObject.transform.position = targetPosition;
+            }
+        }
+    }
+
     void Update()
     {
         // 必要に応じて処理
