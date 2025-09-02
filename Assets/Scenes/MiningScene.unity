@@ -751,6 +751,7 @@ GameObject:
   - component: {fileID: 672003891}
   - component: {fileID: 672003893}
   - component: {fileID: 672003892}
+  - component: {fileID: 672003894}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -798,37 +799,8 @@ MonoBehaviour:
   depthText: {fileID: 0}
   inventoryText: {fileID: 0}
   digger: {fileID: 2018520425}
-  minecartManager: {fileID: 1324682791}
-  minecartPrefab: {fileID: 1242165045067032922, guid: 57b4c4f6783a13c45909b1fc9784d4b1, type: 3}
   playerInventory:
     maxCapacity: 200
-  minecartDetectionRange: 3
-  itemTransferSpeed: 100
-  itemMoveSpeed: 5
-  movementCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
   itemPickupRetryInterval: 0.1
 --- !u!54 &672003893
 Rigidbody:
@@ -857,6 +829,47 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 112
   m_CollisionDetection: 0
+--- !u!114 &672003894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 672003887}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04ba007c373c1cd4baf170a2b85a9f7c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  minecartDetectionRange: 3
+  itemTransferSpeed: 50
+  itemMoveSpeed: 5
+  movementCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  minecartManager: {fileID: 1324682791}
+  minecartPrefab: {fileID: 1242165045067032922, guid: 57b4c4f6783a13c45909b1fc9784d4b1, type: 3}
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0

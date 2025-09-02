@@ -7,90 +7,6 @@ using System; // Serializable用
 
 public class PlayerController : MonoBehaviour
 {
-    [System.Serializable]
-    public class PlayerInventory
-    {
-        [Header("インベントリ設定")]
-        public int maxCapacity = 200; // プレイヤーが持てる最大数
-        
-        private Dictionary<ResourceType, int> resources = new Dictionary<ResourceType, int>();
-        
-        public PlayerInventory()
-        {
-            // 全リソースタイプを初期化
-            foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
-            {
-                resources[type] = 0;
-            }
-        }
-        
-        /// <summary>
-        /// リソースを追加できるかチェック
-        /// </summary>
-        public bool CanAddResource(ResourceType type, int amount = 1)
-        {
-            return GetTotalItemCount() + amount <= maxCapacity;
-        }
-        
-        /// <summary>
-        /// リソースを追加
-        /// </summary>
-        public bool AddResource(ResourceType type, int amount = 1)
-        {
-            if (!CanAddResource(type, amount)) return false;
-            
-            resources[type] += amount;
-            return true;
-        }
-        
-        /// <summary>
-        /// リソースを削除（戻り値は実際に削除した数）
-        /// </summary>
-        public int RemoveResource(ResourceType type, int amount = 1)
-        {
-            int currentAmount = resources[type];
-            int removeAmount = Mathf.Min(currentAmount, amount);
-            resources[type] -= removeAmount;
-            return removeAmount;
-        }
-        
-        /// <summary>
-        /// 総アイテム数を取得
-        /// </summary>
-        public int GetTotalItemCount()
-        {
-            int total = 0;
-            foreach (var kvp in resources)
-            {
-                total += kvp.Value;
-            }
-            return total;
-        }
-        
-        /// <summary>
-        /// 特定リソースの数を取得
-        /// </summary>
-        public int GetResourceCount(ResourceType type)
-        {
-            return resources.ContainsKey(type) ? resources[type] : 0;
-        }
-        
-        /// <summary>
-        /// 全リソース情報を取得
-        /// </summary>
-        public Dictionary<ResourceType, int> GetAllResources()
-        {
-            return new Dictionary<ResourceType, int>(resources);
-        }
-        
-        /// <summary>
-        /// インベントリが空かチェック
-        /// </summary>
-        public bool IsEmpty()
-        {
-            return GetTotalItemCount() == 0;
-        }
-    }
 
     public enum MoveMode
     {
@@ -229,6 +145,13 @@ public class PlayerController : MonoBehaviour
         {
             Debug.LogWarning("MinecartInteractionSystemが見つかりません");
         }
+        
+        // インベントリイベントの購読
+        if (playerInventory != null)
+        {
+            playerInventory.OnResourceAdded += OnInventoryResourceAdded;
+            playerInventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
+        }
     }
 
     // インスペクターで値が変更されたときに呼ばれる（エディタのみ）
@@ -256,6 +179,17 @@ public class PlayerController : MonoBehaviour
     void OnDisable()
     {
         controls.Player.Disable();
+    }
+    
+    // オブジェクトが破棄されるときに呼ばれる
+    void OnDestroy()
+    {
+        // イベント購読解除
+        if (playerInventory != null)
+        {
+            playerInventory.OnResourceAdded -= OnInventoryResourceAdded;
+            playerInventory.OnTotalCountChanged -= OnInventoryTotalCountChanged;
+        }
     }
 
     // フレームごとに呼ばれる
@@ -525,5 +459,23 @@ public class PlayerController : MonoBehaviour
             // Y位置を固定
             rb.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
         }
+    }
+    
+    /// <summary>
+    /// インベントリにリソースが追加されたときの処理
+    /// </summary>
+    private void OnInventoryResourceAdded(ResourceType type, int amount)
+    {
+        // リソース追加時の追加処理があれば実装
+        UpdateInventoryUI(); // UI更新を呼び出し
+    }
+    
+    /// <summary>
+    /// インベントリの総数が変更されたときの処理
+    /// </summary>
+    private void OnInventoryTotalCountChanged(int newTotal)
+    {
+        // 総数変更時の処理（必要に応じて）
+        // 例: 満杯状態の通知、パフォーマンス調整など
     }
 }
