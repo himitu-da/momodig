@@ -1,15 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// 資源の種類をenumで定義
-public enum ResourceType
-{
-    Stone,
-    Iron,
-    Gold,
-    Diamond
-}
-
 // トロッコクラス
 public class Minecart
 {

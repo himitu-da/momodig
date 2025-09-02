@@ -760,17 +760,11 @@ public class PlayerController : MonoBehaviour
         var collider = animItem.GetComponent<Collider>();
         if (collider != null) collider.enabled = false;
         
-        // 色を資源タイプに応じて変更（オプション）
+        // 色を資源タイプに応じて変更（ResourceTypeUtilityを使用）
         var renderer = animItem.GetComponent<Renderer>();
         if (renderer != null)
         {
-            switch (resourceType)
-            {
-                case ResourceType.Stone: renderer.material.color = Color.gray; break;
-                case ResourceType.Iron: renderer.material.color = new Color(0.8f, 0.4f, 0.2f); break;
-                case ResourceType.Gold: renderer.material.color = Color.yellow; break;
-                case ResourceType.Diamond: renderer.material.color = Color.cyan; break;
-            }
+            renderer.material.color = ResourceTypeUtility.GetResourceColor(resourceType);
         }
         
         // トロッコの中央にランダムなバラツキを追加

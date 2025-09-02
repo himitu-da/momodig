@@ -794,8 +794,8 @@ MonoBehaviour:
   fallSpeedMultiplier: 0.5
   fallAcceleration: 1
   _currentMoveMode: 0
-  scoreText: {fileID: 479779840}
-  depthText: {fileID: 291085690}
+  scoreText: {fileID: 0}
+  depthText: {fileID: 0}
   inventoryText: {fileID: 0}
   digger: {fileID: 2018520425}
   minecartManager: {fileID: 1324682791}
@@ -803,7 +803,7 @@ MonoBehaviour:
   playerInventory:
     maxCapacity: 200
   minecartDetectionRange: 3
-  itemTransferSpeed: 50
+  itemTransferSpeed: 100
   itemMoveSpeed: 5
   movementCurve:
     serializedVersion: 2
@@ -829,7 +829,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  itemPickupRetryInterval: 0.5
+  itemPickupRetryInterval: 0.1
 --- !u!54 &672003893
 Rigidbody:
   m_ObjectHideFlags: 0
