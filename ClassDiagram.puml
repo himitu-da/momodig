@@ -8,7 +8,7 @@ skinparam classBorderColor #333
 skinparam classArrowColor #333
 skinparam shadowing false
 
-namespace momodig {
+package "Data" {
   enum ResourceType {
     Stone
     Iron
@@ -22,26 +22,32 @@ namespace momodig {
     + {static} GetBaseValue(resourceType: ResourceType): int
   }
 
-  class Minecart {
-    + resources: Dictionary<ResourceType, int>
-    + time: float
-    + Minecart()
+  class BlockData <<ScriptableObject>> {
+    + voxelHp: int
+    + textures: List<Texture2D>
+    + droppedItemPrefab: GameObject
+    + disableRotation: bool
+    + autoScale: bool
+    + scaleMultiplier: float
   }
 
-  class MinecartManager {
-    + CartCapacity: int
-    + cartunit: int
-    + minecarts: List<Minecart>
-    + cartcooltime: float
-    + DeltaTime: float
-    + digable: bool
-    + addnewcart()
-    + updatevalue(minecartnum: int, type: ResourceType, value: int)
-    + settime(minecartnum: int, cartcooltime: float)
+  class "BlockDataManager.BlockDataMapping" as BlockDataMapping {
+    + resourceType: ResourceType
+    + blockData: BlockData
   }
 
-  MinecartManager o-- "cartunit" Minecart
+  class BlockDataManager <<ScriptableObject>> {
+    - blockDataMappings: List<BlockDataMapping>
+    - _dataMap: Dictionary<ResourceType, BlockData>
+    + Initialize()
+    + GetBlockData(resourceType: ResourceType): BlockData
+  }
 
+  BlockDataManager +-- BlockDataMapping
+  BlockDataManager ..> BlockData
+}
+
+package "Player" {
   class Digger {
     - diggingArea: BoxCollider
     + SetDiggingArea(area: BoxCollider)
@@ -49,57 +55,6 @@ namespace momodig {
     - Dig()
     - DrawDebugBox()
   }
-
-  class DroppedItem {
-    + rb: Rigidbody
-    + resourceType: ResourceType
-  }
-
-  class DroppedItemManager <<Singleton>> {
-    + {static} Instance: DroppedItemManager
-    + maxWakeUpsPerUpdate: int
-    + WakeUpRadiusMultiplier: float
-    + MaxWakeUpPerStep: int
-    + WakeUpStepDelay: float
-    + MaxDownwardChain: int
-    - activeItems: List<DroppedItem>
-    - itemPools: Dictionary<GameObject, Queue<GameObject>>
-    + WakeUpItemsInRadius(center: Vector3, size: Vector3, rotation: Quaternion)
-    + WakeUpItemsNearPosition(position: Vector3, radius: float)
-    + GetItem(prefab: GameObject): GameObject
-    + ReturnItem(itemInstance: GameObject)
-  }
-
-  class "DroppedItemManager.ItemState" as ItemState {
-    + isSleeping: bool
-    + velocityHistory: Queue<float>
-    + surroundingObjectCount: int
-    + objectCountChangeCounter: int
-    + sleepCooldownTimer: float
-  }
-
-  DroppedItemManager +-- ItemState
-  DroppedItemManager o-- "*" DroppedItem
-
-  class MinecartInteractionSystem {
-    - minecartDetectionRange: float
-    - itemTransferSpeed: float
-    - itemMoveSpeed: float
-    - movementCurve: AnimationCurve
-    - minecartManager: MinecartManager
-    - minecartPrefab: GameObject
-    - spawnedMinecarts: List<GameObject>
-    - isTransferringItems: bool
-    - playerController: PlayerController
-    + CheckMinecartProximity()
-    + GetDetectionRange(): float
-    + SetDetectionRange(range: float)
-    + IsTransferringItems(): bool
-    + GetDebugInfo(): string
-  }
-
-  MinecartInteractionSystem ..> MinecartManager
-  MinecartInteractionSystem ..> PlayerController
 
   class PlayerController {
     + moveSpeed: float
@@ -131,12 +86,6 @@ namespace momodig {
     TopDown
   }
 
-  PlayerController +-- MoveMode
-  PlayerController o-- Digger
-  PlayerController o-- PlayerInventory
-  PlayerController ..> DroppedItemManager
-  PlayerController ..> MinecartInteractionSystem
-
   class PlayerInventory {
     + maxCapacity: int
     - resources: Dictionary<ResourceType, int>
@@ -156,6 +105,84 @@ namespace momodig {
     + Clear()
   }
 
+  PlayerController +-- MoveMode
+  PlayerController o-- Digger
+  PlayerController o-- PlayerInventory
+}
+
+package "Minecart" {
+  class Minecart {
+    + resources: Dictionary<ResourceType, int>
+    + time: float
+    + Minecart()
+  }
+
+  class MinecartManager {
+    + CartCapacity: int
+    + cartunit: int
+    + minecarts: List<Minecart>
+    + cartcooltime: float
+    + DeltaTime: float
+    + digable: bool
+    + addnewcart()
+    + updatevalue(minecartnum: int, type: ResourceType, value: int)
+    + settime(minecartnum: int, cartcooltime: float)
+  }
+
+  class MinecartInteractionSystem {
+    - minecartDetectionRange: float
+    - itemTransferSpeed: float
+    - itemMoveSpeed: float
+    - movementCurve: AnimationCurve
+    - minecartManager: MinecartManager
+    - minecartPrefab: GameObject
+    - spawnedMinecarts: List<GameObject>
+    - isTransferringItems: bool
+    - playerController: PlayerController
+    + CheckMinecartProximity()
+    + GetDetectionRange(): float
+    + SetDetectionRange(range: float)
+    + IsTransferringItems(): bool
+    + GetDebugInfo(): string
+  }
+
+  MinecartManager o-- "cartunit" Minecart
+}
+
+package "Items" {
+  class DroppedItem {
+    + rb: Rigidbody
+    + resourceType: ResourceType
+  }
+
+  class "DroppedItemManager.ItemState" as ItemState {
+    + isSleeping: bool
+    + velocityHistory: Queue<float>
+    + surroundingObjectCount: int
+    + objectCountChangeCounter: int
+    + sleepCooldownTimer: float
+  }
+
+  class DroppedItemManager <<Singleton>> {
+    + {static} Instance: DroppedItemManager
+    + maxWakeUpsPerUpdate: int
+    + WakeUpRadiusMultiplier: float
+    + MaxWakeUpPerStep: int
+    + WakeUpStepDelay: float
+    + MaxDownwardChain: int
+    - activeItems: List<DroppedItem>
+    - itemPools: Dictionary<GameObject, Queue<GameObject>>
+    + WakeUpItemsInRadius(center: Vector3, size: Vector3, rotation: Quaternion)
+    + WakeUpItemsNearPosition(position: Vector3, radius: float)
+    + GetItem(prefab: GameObject): GameObject
+    + ReturnItem(itemInstance: GameObject)
+  }
+
+  DroppedItemManager +-- ItemState
+  DroppedItemManager o-- "*" DroppedItem
+}
+
+package "Terrain" {
   class Block {
     + ChunkSize: int
     + diggingThreshold: float
@@ -192,34 +219,14 @@ namespace momodig {
     + isExposed: bool
   }
 
-  Block ..> VoxelManager
-  Block ..> BlockData
-  Block ..> PlayerController
-  Block ..> DroppedItemManager
-
-  class BlockData <<ScriptableObject>> {
-    + voxelHp: int
-    + textures: List<Texture2D>
-    + droppedItemPrefab: GameObject
-    + disableRotation: bool
-    + autoScale: bool
-    + scaleMultiplier: float
+  class "BlockGenerator.BlockGenerationData" as BlockGenerationData {
+    + generationType: TerrainGenerationType
+    + voxelSize: int
+    + chunkSize: float
+    + chunkPosition: Vector3Int
+    + cubeSize: float
+    + BlockGenerationData(type: TerrainGenerationType, vSize: int, cSize: float, cPos: Vector3Int)
   }
-
-  class BlockDataManager <<ScriptableObject>> {
-    - blockDataMappings: List<BlockDataMapping>
-    - _dataMap: Dictionary<ResourceType, BlockData>
-    + Initialize()
-    + GetBlockData(resourceType: ResourceType): BlockData
-  }
-
-  class "BlockDataManager.BlockDataMapping" as BlockDataMapping {
-    + resourceType: ResourceType
-    + blockData: BlockData
-  }
-
-  BlockDataManager +-- BlockDataMapping
-  BlockDataManager ..> BlockData
 
   class BlockGenerator {
     - showBlockDebugInfo: bool
@@ -233,17 +240,14 @@ namespace momodig {
     + GetDebugInfo(): string
   }
 
-  class "BlockGenerator.BlockGenerationData" as BlockGenerationData {
-    + generationType: TerrainGenerationType
-    + voxelSize: int
-    + chunkSize: float
-    + chunkPosition: Vector3Int
-    + cubeSize: float
-    + BlockGenerationData(type: TerrainGenerationType, vSize: int, cSize: float, cPos: Vector3Int)
+  class "BlockManager.BlockInstanceData" as BlockInstanceData {
+    + position: Vector3Int
+    + worldPosition: Vector3
+    + block: Block
+    + isActive: bool
+    + voxelCount: int
+    + BlockInstanceData(pos: Vector3Int, worldPos: Vector3)
   }
-
-  BlockGenerator +-- BlockGenerationData
-  BlockGenerator ..> TerrainManager
 
   class BlockManager {
     - blocks: List<BlockInstanceData>
@@ -259,22 +263,25 @@ namespace momodig {
     + GetDebugInfo(): string
   }
 
-  class "BlockManager.BlockInstanceData" as BlockInstanceData {
-    + position: Vector3Int
-    + worldPosition: Vector3
-    + block: Block
-    + isActive: bool
-    + voxelCount: int
-    + BlockInstanceData(pos: Vector3Int, worldPos: Vector3)
-  }
-
-  BlockManager +-- BlockInstanceData
-  BlockManager ..> TerrainManager
-  BlockInstanceData o-- Block
-
   class Chunk {
     + chunkPosition: Vector3Int
     + Initialize(position: Vector3Int)
+  }
+
+  enum TerrainGenerationType {
+    SideScroller
+    TopDown
+    Custom
+  }
+
+  class TerrainSettings {
+    + center: Vector3Int
+    + worldSizeInChunks: Vector2Int
+    + chunkSizeInBlocks: Vector2Int
+    + blockSize: float
+    + voxelSize: int
+    + generationType: TerrainGenerationType
+    + blocksPerFrame: int
   }
 
   class TerrainManager {
@@ -304,29 +311,25 @@ namespace momodig {
     + ShowDebugInfo()
   }
 
-  class TerrainSettings {
-    + center: Vector3Int
-    + worldSizeInChunks: Vector2Int
-    + chunkSizeInBlocks: Vector2Int
-    + blockSize: float
-    + voxelSize: int
-    + generationType: TerrainGenerationType
-    + blocksPerFrame: int
+  enum "VoxelManager.VoxelType" as VoxelType {
+    Standard
+    Reinforced
+    Fragile
+    Unbreakable
+    Special
   }
 
-  enum TerrainGenerationType {
-    SideScroller
-    TopDown
-    Custom
+  class "VoxelManager.VoxelData" as VoxelData {
+    + blockPosition: Vector3Int
+    + localPosition: Vector3Int
+    + worldPosition: Vector3
+    + isActive: bool
+    + health: int
+    + maxHealth: int
+    + voxelType: VoxelType
+    + lastModifiedTime: float
+    + VoxelData(blockPos: Vector3Int, localPos: Vector3Int, worldPos: Vector3, hp: int, type: VoxelType)
   }
-
-  TerrainManager o-- TerrainSettings
-  TerrainManager ..> BlockDataManager
-  TerrainManager o-- BlockManager
-  TerrainManager o-- BlockGenerator
-  TerrainManager o-- VoxelManager
-  TerrainManager o-- "*" Chunk
-  TerrainSettings +-- TerrainGenerationType
 
   class VoxelManager {
     - showVoxelDebugInfo: bool
@@ -347,28 +350,31 @@ namespace momodig {
     + GetDebugInfo(): string
   }
 
-  class "VoxelManager.VoxelData" as VoxelData {
-    + blockPosition: Vector3Int
-    + localPosition: Vector3Int
-    + worldPosition: Vector3
-    + isActive: bool
-    + health: int
-    + maxHealth: int
-    + voxelType: VoxelType
-    + lastModifiedTime: float
-    + VoxelData(blockPos: Vector3Int, localPos: Vector3Int, worldPos: Vector3, hp: int, type: VoxelType)
-  }
-
-  enum "VoxelManager.VoxelType" as VoxelType {
-    Standard
-    Reinforced
-    Fragile
-    Unbreakable
-    Special
-  }
-
+  BlockGenerator +-- BlockGenerationData
+  BlockGenerator ..> TerrainManager
+  BlockManager +-- BlockInstanceData
+  BlockManager ..> TerrainManager
+  BlockInstanceData o-- Block
+  TerrainManager o-- TerrainSettings
+  TerrainManager ..> BlockDataManager
+  TerrainManager o-- BlockManager
+  TerrainManager o-- BlockGenerator
+  TerrainManager o-- VoxelManager
+  TerrainManager o-- "*" Chunk
+  TerrainSettings +-- TerrainGenerationType
   VoxelManager +-- VoxelData
   VoxelData +-- VoxelType
   VoxelManager ..> TerrainManager
+  Block ..> VoxelManager
+  Block ..> BlockData
 }
+
+' Relationships between packages
+PlayerController ..> DroppedItemManager
+PlayerController ..> MinecartInteractionSystem
+MinecartInteractionSystem ..> MinecartManager
+MinecartInteractionSystem ..> PlayerController
+Block ..> PlayerController
+Block ..> DroppedItemManager
+
 @enduml
