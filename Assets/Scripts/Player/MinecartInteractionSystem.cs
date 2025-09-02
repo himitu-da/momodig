@@ -385,7 +385,7 @@ public class MinecartInteractionSystem : MonoBehaviour
     {
         Vector3 randomOffset = new Vector3(
             UnityEngine.Random.Range(-0.5f, 0.5f), // X軸方向のバラツキ
-            UnityEngine.Random.Range(0.2f, 0.8f),  // Y軸方向のバラツキ（トロッコの中に入るように）
+            UnityEngine.Random.Range(-0.1f, 0.3f),  // Y軸方向のバラツキ（トロッコの中に入るように）
             UnityEngine.Random.Range(-0.5f, 0.5f)  // Z軸方向のバラツキ
         );
         return basePosition + randomOffset;

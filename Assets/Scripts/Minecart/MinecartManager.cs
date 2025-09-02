@@ -1,26 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// トロッコクラス
-public class Minecart
-{
-    public GameObject gameObject; // トロッコのゲームオブジェクト
-    public Dictionary<ResourceType, int> resources; // 資源と量
-    public float time;
-
-    // コンストラクタで初期化
-    public Minecart(GameObject obj)
-    {
-        gameObject = obj;
-        resources = new Dictionary<ResourceType, int>();
-        foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
-        {
-            resources[type] = 0;
-        }
-        time = 0f;
-    }
-}
-
 // トロッコ管理クラス
 public class MinecartManager : MonoBehaviour
 {
@@ -60,6 +40,11 @@ public class MinecartManager : MonoBehaviour
         if (minecartPrefab != null)
         {
             GameObject newMinecartObject = Instantiate(minecartPrefab, Vector3.zero, Quaternion.identity);
+            // MinecartMovementコンポーネントがなければ追加する
+            if (newMinecartObject.GetComponent<MinecartMovement>() == null)
+            {
+                newMinecartObject.AddComponent<MinecartMovement>();
+            }
             minecarts.Add(new Minecart(newMinecartObject));
         }
         else
@@ -82,12 +67,14 @@ public class MinecartManager : MonoBehaviour
     // トロッコの位置を更新する
     public void UpdateMinecartPositions(Vector3 playerPosition, Vector3 playerLastMoveDirection, float offset)
     {
-        foreach (Minecart cart in minecarts)
+        for (int i = 0; i < minecarts.Count; i++)
         {
-            if (cart.gameObject != null)
+            Minecart cart = minecarts[i];
+            if (cart.gameObject != null && cart.movement != null)
             {
-                Vector3 targetPosition = playerPosition - playerLastMoveDirection * offset;
-                cart.gameObject.transform.position = targetPosition;
+                // プレイヤーの後ろに追従するようなオフセットを計算
+                Vector3 targetPosition = playerPosition - playerLastMoveDirection * (offset * (i + 1));
+                cart.movement.targetPosition = targetPosition;
             }
         }
     }
