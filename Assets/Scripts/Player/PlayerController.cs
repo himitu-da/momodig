@@ -3,7 +3,8 @@ using UnityEngine.InputSystem; // Input Systemを使うために必要
 using UnityEngine.UI; // UIを使うために必要
 using System.Collections.Generic; // MinecartManager用
 using System.Collections; // Coroutine用
-using System; // Serializable用
+using System;
+using Unity.VisualScripting; // Serializable用
 
 public class PlayerController : MonoBehaviour
 {
@@ -15,11 +16,11 @@ public class PlayerController : MonoBehaviour
     }
 
     [Header("移動設定")]
-    public float moveSpeed = 5f; // 移動速度
-    public float acceleration = 0.1f; // 加速のスムーズさ
-    public float deceleration = 0.2f; // 減速のスムーズさ
-    public float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
-    public float fallAcceleration = 1f; // 落下加速度
+    [SerializeField] private float moveSpeed = 5f; // 移動速度
+    [SerializeField] private float acceleration = 0.1f; // 加速のスムーズさ
+    [SerializeField] private float deceleration = 0.2f; // 減速のスムーズさ
+    [SerializeField] private float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
+    [SerializeField] private float fallAcceleration = 1f; // 落下加速度
     [SerializeField] private MoveMode _currentMoveMode;
     public MoveMode currentMoveMode
     {
@@ -32,12 +33,12 @@ public class PlayerController : MonoBehaviour
     }
 
     [Header("UI設定")]
-    public Text scoreText; // スコア表示用のText
-    public Text depthText; // 深度表示用のText
-    public Text inventoryText; // インベントリ表示用UI
-    
+    [SerializeField] private Text scoreText; // スコア表示用のText
+    [SerializeField] private Text depthText; // 深度表示用のText
+    [SerializeField] private Text inventoryText; // インベントリ表示用UI
+
     [Header("参照")]
-    public Digger digger; // Diggerへの参照
+    private Digger digger; // Diggerへの参照
 
     [Header("インベントリ設定")]
     private IInventory inventory;
@@ -49,7 +50,7 @@ public class PlayerController : MonoBehaviour
     public IInventory Inventory => inventory;
     
     [Header("アイテム回収設定")]
-    public float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
+    [SerializeField] private float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
     
     private int score = 0;
     private Rigidbody rb;
