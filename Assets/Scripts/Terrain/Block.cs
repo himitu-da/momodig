@@ -55,6 +55,9 @@ public class Block : MonoBehaviour
     // アイテムドロップシステム
     private BlockItemDropper itemDropper;
     
+    // 掘削システム
+    private BlockDiggingSystem diggingSystem;
+    
     [Header("Dropped Item Settings")]
     private GameObject droppedItemPrefab; // ドロップアイテムのPrefab（オプション）
     private bool disableRotation = true; // 回転を無効化するかどうか
@@ -85,6 +88,9 @@ public class Block : MonoBehaviour
         
         // アイテムドロップシステムを初期化
         itemDropper = new BlockItemDropper();
+        
+        // 掘削システムを初期化
+        diggingSystem = new BlockDiggingSystem();
     }
 
     private BlockData blockData; // このブロックの種類を定義するデータ
@@ -120,174 +126,28 @@ public class Block : MonoBehaviour
         itemDropper.Initialize(blockData, enableTextureExtraction, voxelSize, ChunkSize, 
             textureExtractor, texture1, texture2, useTexture1Pattern);
 
+        // 掘削システムを初期化
+        diggingSystem.Initialize(voxelManager, itemDropper, this, diggingThreshold, 
+            diggingFrameDelay, ChunkSize, blockPosition);
+
         // メッシュ生成はVoxelManagerへのデータ登録後に外部から呼び出す
         // GenerateMesh();
     }
 
     public void TakeDamage(Vector3 localPos, int damage)
     {
-        int x = Mathf.FloorToInt(localPos.x + ChunkSize / 2.0f);
-        int y = Mathf.FloorToInt(localPos.y + ChunkSize / 2.0f);
-        int z = Mathf.FloorToInt(localPos.z + ChunkSize / 2.0f);
-        
-        Vector3Int localVoxelPos = new Vector3Int(x, y, z);
-
-        // VoxelManagerにダメージ処理を移管
-        if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, damage))
-        {
-            // Voxelが破壊された場合
-            var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
-            if (voxelData != null)
-            {
-                 itemDropper.DropItem(voxelData.worldPosition, x, y, z);
-            }
-            GenerateMesh(); // メッシュを更新
-        }
+        diggingSystem.TakeDamage(localPos, damage);
     }
 
     public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea)
     {
-        const int sampleResolution = 3;
-        const int totalSamples = sampleResolution * sampleResolution * sampleResolution;
-
-        Matrix4x4 worldToLocalMatrix = transform.worldToLocalMatrix;
-        Matrix4x4 diggingAreaWorldToLocal = diggingArea.transform.worldToLocalMatrix;
-        Vector3 halfSize = diggingArea.size * 0.5f;
-        Vector3 center = diggingArea.center;
-
-        Bounds diggingBounds = diggingArea.bounds;
-        Vector3 localMin = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.min);
-        Vector3 localMax = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.max);
-
-        int startX = Mathf.Max(0, Mathf.FloorToInt(localMin.x + ChunkSize / 2.0f));
-        int endX = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.x + ChunkSize / 2.0f));
-        int startY = Mathf.Max(0, Mathf.FloorToInt(localMin.y + ChunkSize / 2.0f));
-        int endY = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.y + ChunkSize / 2.0f));
-        int startZ = Mathf.Max(0, Mathf.FloorToInt(localMin.z + ChunkSize / 2.0f));
-        int endZ = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.z + ChunkSize / 2.0f));
-
-        // 現在の移動モードを取得
-        PlayerController playerController = FindFirstObjectByType<PlayerController>();
-        PlayerController.MoveMode moveMode = PlayerController.MoveMode.TopDown;
-        if (playerController != null)
-        {
-            moveMode = playerController.currentMoveMode;
-        }
-
-        if (moveMode == PlayerController.MoveMode.SideScroller)
-        {
-            for (int z = startZ; z <= endZ; z++)
-            {
-                bool layerModified = false;
-                List<System.Action> dropActions = new List<System.Action>();
-
-                for (int x = startX; x <= endX; x++)
-                {
-                    for (int y = startY; y <= endY; y++)
-                    {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions))
-                        {
-                            layerModified = true;
-                        }
-                    }
-                }
-
-                if (layerModified)
-                {
-                    foreach (var action in dropActions) action.Invoke();
-                    GenerateMesh();
-                }
-
-                int delay = Mathf.Max(1, diggingFrameDelay);
-                for (int i = 0; i < delay; i++)
-                {
-                    yield return null;
-                }
-            }
-        }
-        else // TopDown or other modes
-        {
-            for (int y = endY; y >= startY; y--)
-            {
-                bool layerModified = false;
-                List<System.Action> dropActions = new List<System.Action>();
-
-                for (int x = startX; x <= endX; x++)
-                {
-                    for (int z = startZ; z <= endZ; z++)
-                    {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions))
-                        {
-                            layerModified = true;
-                        }
-                    }
-                }
-
-                if (layerModified)
-                {
-                    foreach (var action in dropActions) action.Invoke();
-                    GenerateMesh();
-                }
-
-                int delay = Mathf.Max(1, diggingFrameDelay);
-                for (int i = 0; i < delay; i++)
-                {
-                    yield return null;
-                }
-            }
-        }
-    }
-
-    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions)
-    {
-        Vector3Int localVoxelPos = new Vector3Int(x, y, z);
-        var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
-        if (voxelData == null || !voxelData.isActive) return false;
-
-        int containedSamples = 0;
-        Vector3 voxelMin = new Vector3(x - ChunkSize / 2.0f, y - ChunkSize / 2.0f, z - ChunkSize / 2.0f);
-
-        for (int sx = 0; sx < sampleResolution; sx++)
-        {
-            for (int sy = 0; sy < sampleResolution; sy++)
-            {
-                for (int sz = 0; sz < sampleResolution; sz++)
-                {
-                    float sampleX = voxelMin.x + (sx + 0.5f) / sampleResolution;
-                    float sampleY = voxelMin.y + (sy + 0.5f) / sampleResolution;
-                    float sampleZ = voxelMin.z + (sz + 0.5f) / sampleResolution;
-                    Vector3 sampleLocalPos = new Vector3(sampleX, sampleY, sampleZ);
-                    Vector3 sampleWorldPos = transform.TransformPoint(sampleLocalPos);
-                    Vector3 localPosInDiggingArea = diggingAreaWorldToLocal.MultiplyPoint3x4(sampleWorldPos);
-
-                    if (Mathf.Abs(localPosInDiggingArea.x - center.x) <= halfSize.x &&
-                        Mathf.Abs(localPosInDiggingArea.y - center.y) <= halfSize.y &&
-                        Mathf.Abs(localPosInDiggingArea.z - center.z) <= halfSize.z)
-                    {
-                        containedSamples++;
-                    }
-                }
-            }
-        }
-
-        float overlapRatio = (float)containedSamples / totalSamples;
-        if (overlapRatio >= diggingThreshold)
-        {
-            if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, 1))
-            {
-                dropActions.Add(() => itemDropper.DropItem(voxelData.worldPosition, x, y, z));
-                return true;
-            }
-        }
-        return false;
+        return diggingSystem.DigVoxels(diggingArea);
     }
 
     public void GenerateMesh()
     {
         meshGenerator.GenerateMesh(this, voxelManager, blockPosition, ChunkSize, maxHP, initialColor, mesh, collider);
-    }
-
-    /// <summary>
+    }    /// <summary>
     /// 指定されたボクセルの面テクスチャ情報を取得
     /// </summary>
     public VoxelFaceTextureInfo GetVoxelFaceTextureInfo(int voxelX, int voxelY, int voxelZ, Vector3 normal)
