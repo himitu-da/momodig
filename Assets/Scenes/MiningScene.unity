@@ -799,8 +799,6 @@ MonoBehaviour:
   depthText: {fileID: 0}
   inventoryText: {fileID: 0}
   digger: {fileID: 2018520425}
-  playerInventory:
-    maxCapacity: 200
   itemPickupRetryInterval: 0.1
   lastMoveDirection: {x: 0, y: 0, z: 1}
 --- !u!54 &672003893
@@ -843,7 +841,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   minecartDetectionRange: 3
-  itemTransferSpeed: 100
+  itemTransferSpeed: 150
   itemMoveSpeed: 5
   movementCurve:
     serializedVersion: 2
@@ -1247,12 +1245,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerTransform: {fileID: 0}
   minecartPrefab: {fileID: 1242165045067032922, guid: 57b4c4f6783a13c45909b1fc9784d4b1, type: 3}
-  CartCapacity: 100
+  CartCapacity: 50
   cartunit: 5
   pathRecordInterval: 0.2
   cartDistanceInPoints: 5
   maxPathPoints: 100
-  cartcooltime: 5
+  cartcooltime: 0
   DeltaTime: 0
   digable: 1
 --- !u!4 &1324682792
@@ -1299,8 +1297,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c094062e6106c9a48997e6d6051cbd3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _wakeUpRadiusMultiplier: 3
   maxWakeUpsPerUpdate: 8
-  WakeUpRadiusMultiplier: 2
   MaxWakeUpPerStep: 10
   WakeUpStepDelay: 0.1
   MaxDownwardChain: 5

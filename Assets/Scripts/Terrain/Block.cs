@@ -32,10 +32,7 @@ public class Block : MonoBehaviour
     private VoxelManager voxelManager;
     private Vector3Int blockPosition; // このブロックの座標を保持
 
-    public int ChunkSize { get; private set; } = 4; // 16ドット単位の塊　この変数いらない説
-    // voxelTypesとvoxelHPsはVoxelManagerで管理するため削除
-    // private byte[,,] voxelTypes; // 0: 空気, 1: 固体
-    // private int[,,] voxelHPs; // HP
+    public int ChunkSize { get; private set; } = 4;
     private int maxHP = 3;
     [Range(0.01f, 1.0f)]
     public float diggingThreshold = 0.1f; // 掘削判定の閾値（ボクセルとの重複率）
@@ -43,7 +40,8 @@ public class Block : MonoBehaviour
     [SerializeField] private int diggingFrameDelay = 1;
     private Color initialColor = Color.white;
     [SerializeField] private Texture2D texture1, texture2;
-    private bool[,,] useTexture1Pattern; // テクスチャパターン
+    private bool[,,] useTexture1Pattern;
+    
     private float voxelSize; // BaseCubePlacerから受け取る
     
     // メッシュ生成システム
@@ -76,20 +74,13 @@ public class Block : MonoBehaviour
     {
         meshFilter = GetComponent<MeshFilter>();
         collider = GetComponent<MeshCollider>();
-
         mesh = new Mesh();
         meshFilter.mesh = mesh;
         
-        // メッシュ生成システムを初期化
+        // 各システムを初期化
         meshGenerator = new BlockMeshGenerator();
-        
-        // テクスチャ抽出システムを初期化
-        textureExtractor = new VoxelTextureExtractor(enableTextureExtraction, extractedTextureResolution);
-        
-        // アイテムドロップシステムを初期化
+        textureExtractor = new VoxelTextureExtractor();
         itemDropper = new BlockItemDropper();
-        
-        // 掘削システムを初期化
         diggingSystem = new BlockDiggingSystem();
     }
 
@@ -122,11 +113,10 @@ public class Block : MonoBehaviour
         // テクスチャパターンを設定
         useTexture1Pattern = pattern ?? new bool[ChunkSize, ChunkSize, ChunkSize];
 
-        // アイテムドロップシステムを初期化
+        // System initializations
         itemDropper.Initialize(blockData, enableTextureExtraction, voxelSize, ChunkSize, 
             textureExtractor, texture1, texture2, useTexture1Pattern);
 
-        // 掘削システムを初期化
         diggingSystem.Initialize(voxelManager, itemDropper, this, diggingThreshold, 
             diggingFrameDelay, ChunkSize, blockPosition);
 
@@ -147,22 +137,6 @@ public class Block : MonoBehaviour
     public void GenerateMesh()
     {
         meshGenerator.GenerateMesh(this, voxelManager, blockPosition, ChunkSize, maxHP, initialColor, mesh, collider);
-    }    /// <summary>
-    /// 指定されたボクセルの面テクスチャ情報を取得
-    /// </summary>
-    public VoxelFaceTextureInfo GetVoxelFaceTextureInfo(int voxelX, int voxelY, int voxelZ, Vector3 normal)
-    {
-        return textureExtractor.GetVoxelFaceTextureInfo(voxelX, voxelY, voxelZ, normal, 
-            texture1, texture2, useTexture1Pattern, ChunkSize);
-    }
-
-    /// <summary>
-    /// ドロップアイテムにボクセルテクスチャを適用
-    /// </summary>
-    private void ApplyVoxelTextureToDroppedItem(GameObject item, int voxelX, int voxelY, int voxelZ)
-    {
-        textureExtractor.ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ, 
-            texture1, texture2, useTexture1Pattern, ChunkSize);
     }
 
 }
