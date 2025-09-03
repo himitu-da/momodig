@@ -52,7 +52,7 @@ public class MinecartInteractionSystem : MonoBehaviour
     /// </summary>
     public void CheckMinecartProximity()
     {
-        if (isTransferringItems || playerController.playerInventory.IsEmpty()) 
+        if (isTransferringItems || playerController.Inventory.IsEmpty()) 
             return;
         
         GameObject nearestMinecart = GetNearestMinecart();
@@ -170,9 +170,9 @@ public class MinecartInteractionSystem : MonoBehaviour
         isTransferringItems = true;
         Debug.Log("MinecartInteractionSystem: アイテム転送開始");
         
-        Debug.Log($"MinecartInteractionSystem: プレイヤーインベントリ総数: {playerController.playerInventory.GetTotalItemCount()}");
+        Debug.Log($"MinecartInteractionSystem: プレイヤーインベントリ総数: {playerController.Inventory.GetTotalItemCount()}");
         
-        while (!playerController.playerInventory.IsEmpty())
+        while (!playerController.Inventory.IsEmpty())
         {
             // トロッコが離れた場合は中断
             float currentDistance = Vector3.Distance(transform.position, targetMinecart.transform.position);
@@ -190,7 +190,7 @@ public class MinecartInteractionSystem : MonoBehaviour
             
             // 転送するリソースタイプを選択
             ResourceType transferType = SelectTransferResourceType();
-            if (transferType == ResourceType.Stone && playerController.playerInventory.GetResourceCount(ResourceType.Stone) == 0)
+            if (transferType == ResourceType.Stone && playerController.Inventory.GetResourceCount(ResourceType.Stone) == 0)
             {
                 Debug.Log("MinecartInteractionSystem: 転送可能なリソースが見つかりません");
                 break;
@@ -244,7 +244,7 @@ public class MinecartInteractionSystem : MonoBehaviour
     /// </summary>
     private ResourceType SelectTransferResourceType()
     {
-        var allResources = playerController.playerInventory.GetAllResources();
+        var allResources = playerController.Inventory.GetAllResources();
         foreach (var kvp in allResources)
         {
             if (kvp.Value > 0)
@@ -271,7 +271,7 @@ public class MinecartInteractionSystem : MonoBehaviour
         if (currentAmount >= capacity)
         {
             transferType = FindAlternativeResourceType(transferType, targetCart, capacity);
-            if (transferType == ResourceType.Stone && playerController.playerInventory.GetResourceCount(ResourceType.Stone) == 0)
+            if (transferType == ResourceType.Stone && playerController.Inventory.GetResourceCount(ResourceType.Stone) == 0)
             {
                 Debug.Log("MinecartInteractionSystem: 全てのリソースタイプで満載のため転送終了");
                 return false;
@@ -292,7 +292,7 @@ public class MinecartInteractionSystem : MonoBehaviour
         foreach (ResourceType otherType in System.Enum.GetValues(typeof(ResourceType)))
         {
             if (otherType != currentType && 
-                playerController.playerInventory.GetResourceCount(otherType) > 0 && 
+                playerController.Inventory.GetResourceCount(otherType) > 0 && 
                 targetCart.resources[otherType] < capacity)
             {
                 Debug.Log($"MinecartInteractionSystem: 別のリソースタイプに切り替え: {otherType}");
@@ -308,7 +308,7 @@ public class MinecartInteractionSystem : MonoBehaviour
     /// </summary>
     private bool ExecuteResourceTransfer(ResourceType transferType, GameObject targetMinecart)
     {
-        int removedAmount = playerController.playerInventory.RemoveResource(transferType, 1);
+        int removedAmount = playerController.Inventory.RemoveResource(transferType, 1);
         if (removedAmount > 0)
         {
             Debug.Log($"MinecartInteractionSystem: プレイヤーから{transferType}を{removedAmount}個削除");

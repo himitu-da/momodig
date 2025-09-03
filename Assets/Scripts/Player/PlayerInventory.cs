@@ -7,10 +7,10 @@ using System;
 /// リソースの追加、削除、容量管理を担当
 /// </summary>
 [System.Serializable]
-public class PlayerInventory
+public class PlayerInventory : IInventory
 {
     [Header("インベントリ設定")]
-    public int maxCapacity = 200; // プレイヤーが持てる最大数
+    [SerializeField] private int _maxCapacity = 200; // プレイヤーが持てる最大数
     
     [SerializeField] private Dictionary<ResourceType, int> resources = new Dictionary<ResourceType, int>();
     
@@ -19,6 +19,9 @@ public class PlayerInventory
     public event Action<ResourceType, int> OnResourceRemoved;
     public event Action<int> OnTotalCountChanged;
     public event Action<bool> OnInventoryFullStateChanged;
+    
+    // インターフェース実装用プロパティ
+    public int maxCapacity => _maxCapacity;
     
     public PlayerInventory()
     {

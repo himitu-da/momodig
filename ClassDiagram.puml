@@ -8,6 +8,27 @@ skinparam classBorderColor #333
 skinparam classArrowColor #333
 skinparam shadowing false
 
+package "Interfaces" {
+  interface IInventory {
+    + maxCapacity: int
+    + CanAddResource(type: ResourceType, amount: int = 1): bool
+    + AddResource(type: ResourceType, amount: int = 1): bool
+    + GetTotalItemCount(): int
+    + GetResourceCount(type: ResourceType): int
+    + RemoveResource(type: ResourceType, amount: int = 1): int
+    + IsEmpty(): bool
+    + GetAllResources(): Dictionary<ResourceType, int>
+    + OnResourceAdded: event Action<ResourceType, int>
+    + OnTotalCountChanged: event Action<int>
+  }
+
+  interface IItemManager {
+    + WakeUpRadiusMultiplier: float
+    + ReturnItem(itemObject: GameObject): void
+    + WakeUpItemsNearPosition(position: Vector3, radius: float): void
+  }
+}
+
 package "Data" {
   enum ResourceType {
     Stone
@@ -67,8 +88,10 @@ package "Player" {
     + depthText: Text
     + inventoryText: Text
     + digger: Digger
-    + playerInventory: PlayerInventory
     + itemPickupRetryInterval: float
+    + Inventory: IInventory
+    - inventory: IInventory
+    - itemManager: IItemManager
     - score: int
     - rb: Rigidbody
     - controls: InputSystem_Actions
@@ -88,6 +111,7 @@ package "Player" {
 
   class PlayerInventory {
     + maxCapacity: int
+    - _maxCapacity: int
     - resources: Dictionary<ResourceType, int>
     + OnResourceAdded: Action<ResourceType, int>
     + OnResourceRemoved: Action<ResourceType, int>
@@ -107,7 +131,9 @@ package "Player" {
 
   PlayerController +-- MoveMode
   PlayerController o-- Digger
-  PlayerController o-- PlayerInventory
+  PlayerController ..> IInventory : inventory
+  PlayerController ..> IItemManager : itemManager
+  PlayerInventory ..|> IInventory : implements
 }
 
 package "Minecart" {
@@ -180,6 +206,7 @@ package "Items" {
 
   DroppedItemManager +-- ItemState
   DroppedItemManager o-- "*" DroppedItem
+  DroppedItemManager ..|> IItemManager : implements
 }
 
 package "Terrain" {
@@ -370,7 +397,8 @@ package "Terrain" {
 }
 
 ' Relationships between packages
-PlayerController ..> DroppedItemManager
+PlayerController ..> IInventory
+PlayerController ..> IItemManager
 PlayerController ..> MinecartInteractionSystem
 MinecartInteractionSystem ..> MinecartManager
 MinecartInteractionSystem ..> PlayerController

@@ -40,7 +40,13 @@ public class PlayerController : MonoBehaviour
     public Digger digger; // Diggerへの参照
 
     [Header("インベントリ設定")]
-    public PlayerInventory playerInventory = new PlayerInventory();
+    private IInventory inventory;
+    
+    [Header("アイテムマネージャー設定")]
+    private IItemManager itemManager;
+    
+    // 外部からのアクセス用プロパティ
+    public IInventory Inventory => inventory;
     
     [Header("アイテム回収設定")]
     public float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
@@ -146,11 +152,15 @@ public class PlayerController : MonoBehaviour
             Debug.LogWarning("MinecartInteractionSystemが見つかりません");
         }
         
+        // 依存関係の初期化（インターフェース経由）
+        inventory = new PlayerInventory();
+        itemManager = DroppedItemManager.Instance;
+        
         // インベントリイベントの購読
-        if (playerInventory != null)
+        if (inventory != null)
         {
-            playerInventory.OnResourceAdded += OnInventoryResourceAdded;
-            playerInventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
+            inventory.OnResourceAdded += OnInventoryResourceAdded;
+            inventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
         }
     }
 
@@ -185,10 +195,10 @@ public class PlayerController : MonoBehaviour
     void OnDestroy()
     {
         // イベント購読解除
-        if (playerInventory != null)
+        if (inventory != null)
         {
-            playerInventory.OnResourceAdded -= OnInventoryResourceAdded;
-            playerInventory.OnTotalCountChanged -= OnInventoryTotalCountChanged;
+            inventory.OnResourceAdded -= OnInventoryResourceAdded;
+            inventory.OnTotalCountChanged -= OnInventoryTotalCountChanged;
         }
     }
 
@@ -352,14 +362,14 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private void TryPickupItem(GameObject itemObject)
     {
-        // 周辺アイテムを起床させる（既存処理）
-        if (DroppedItemManager.Instance != null)
+        // 周辺アイテムを起床させる（インターフェース経由）
+        if (itemManager != null)
         {
             var itemCollider = itemObject.GetComponent<Collider>();
             if (itemCollider != null)
             {
                 float radius = itemCollider.bounds.extents.magnitude;
-                DroppedItemManager.Instance.WakeUpItemsNearPosition(itemObject.transform.position, radius * DroppedItemManager.Instance.WakeUpRadiusMultiplier);
+                itemManager.WakeUpItemsNearPosition(itemObject.transform.position, radius * itemManager.WakeUpRadiusMultiplier);
             }
         }
 
@@ -367,13 +377,13 @@ public class PlayerController : MonoBehaviour
         DroppedItem itemComponent = itemObject.GetComponent<DroppedItem>();
         ResourceType resourceType = itemComponent != null ? itemComponent.resourceType : ResourceType.Stone;
 
-        // プレイヤーインベントリに追加を試行
-        if (playerInventory.CanAddResource(resourceType))
+        // プレイヤーインベントリに追加を試行（インターフェース経由）
+        if (inventory.CanAddResource(resourceType))
         {
-            if (playerInventory.AddResource(resourceType))
+            if (inventory.AddResource(resourceType))
             {
-                // アイテムをプールに返却
-                DroppedItemManager.Instance.ReturnItem(itemObject);
+                // アイテムをプールに返却（インターフェース経由）
+                itemManager.ReturnItem(itemObject);
                 
                 // 接触リストからも削除
                 contactItems.Remove(itemObject);
@@ -385,10 +395,10 @@ public class PlayerController : MonoBehaviour
                 // インベントリUI更新
                 UpdateInventoryUI();
                 
-                Debug.Log($"プレイヤーが{resourceType}を回収しました。持ち物: {playerInventory.GetTotalItemCount()}/{playerInventory.maxCapacity}");
+                Debug.Log($"プレイヤーが{resourceType}を回収しました。持ち物: {inventory.GetTotalItemCount()}/{inventory.maxCapacity}");
                 
-                // インベントリの詳細を出力
-                var allRes = playerInventory.GetAllResources();
+                // インベントリの詳細を出力（インターフェース経由）
+                var allRes = inventory.GetAllResources();
                 string detailInfo = "インベントリ詳細: ";
                 foreach (var kvp in allRes)
                 {
@@ -426,8 +436,8 @@ public class PlayerController : MonoBehaviour
     {
         if (inventoryText != null)
         {
-            var resources = playerInventory.GetAllResources();
-            string inventoryInfo = $"持ち物 ({playerInventory.GetTotalItemCount()}/{playerInventory.maxCapacity}):\n";
+            var resources = inventory.GetAllResources();
+            string inventoryInfo = $"持ち物 ({inventory.GetTotalItemCount()}/{inventory.maxCapacity}):\n";
             
             foreach (var kvp in resources)
             {

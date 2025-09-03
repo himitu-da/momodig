@@ -3,9 +3,27 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-public class DroppedItemManager : MonoBehaviour
+public class DroppedItemManager : MonoBehaviour, IItemManager
 {
-    public static DroppedItemManager Instance { get; private set; }
+    [Header("アイテム管理設定")]
+    [SerializeField] private float _wakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
+    
+    // インターフェース実装用プロパティ
+    public float WakeUpRadiusMultiplier => _wakeUpRadiusMultiplier;
+    
+    private static DroppedItemManager _instance;
+    public static DroppedItemManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindFirstObjectByType<DroppedItemManager>();
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     // オブジェクトプーリング関連
     private Dictionary<GameObject, Queue<GameObject>> itemPools = new Dictionary<GameObject, Queue<GameObject>>();
@@ -32,7 +50,6 @@ public class DroppedItemManager : MonoBehaviour
 
     private const float SleepCheckInterval = 0.2f; // 0.1秒ごとにチェック
     private const float SleepVelocityThreshold = 0.1f;
-    public float WakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
     public int MaxWakeUpPerStep = 12; // 1ステップで起床させる最大数
     public float WakeUpStepDelay = 0.1f; // 次のステップまでの待機時間
     public int MaxDownwardChain = 7; // 下方向への連鎖回数の上限
