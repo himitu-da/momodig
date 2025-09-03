@@ -800,7 +800,7 @@ MonoBehaviour:
   inventoryText: {fileID: 0}
   digger: {fileID: 2018520425}
   playerInventory:
-    maxCapacity: 2000
+    maxCapacity: 200
   itemPickupRetryInterval: 0.1
   lastMoveDirection: {x: 0, y: 0, z: 1}
 --- !u!54 &672003893
@@ -843,7 +843,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   minecartDetectionRange: 3
-  itemTransferSpeed: 50
+  itemTransferSpeed: 100
   itemMoveSpeed: 5
   movementCurve:
     serializedVersion: 2
@@ -1245,10 +1245,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1373d1287db7cf34093a85738bf8d678, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  playerTransform: {fileID: 0}
   minecartPrefab: {fileID: 1242165045067032922, guid: 57b4c4f6783a13c45909b1fc9784d4b1, type: 3}
-  CartCapacity: 500
-  cartunit: 2
-  cartcooltime: 0
+  CartCapacity: 100
+  cartunit: 5
+  pathRecordInterval: 0.2
+  cartDistanceInPoints: 5
+  maxPathPoints: 100
+  cartcooltime: 5
   DeltaTime: 0
   digable: 1
 --- !u!4 &1324682792

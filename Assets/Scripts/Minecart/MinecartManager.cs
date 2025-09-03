@@ -4,11 +4,23 @@ using System.Collections.Generic;
 // トロッコ管理クラス
 public class MinecartManager : MonoBehaviour
 {
+    [Header("プレイヤー設定")]
+    public Transform playerTransform; // プレイヤーのTransform
+
     [Header("トロッコ設定")]
     public GameObject minecartPrefab; // トロッコのプレハブ
     public int CartCapacity = 500;
     public int cartunit = 2;
     public List<Minecart> minecarts = new List<Minecart>();
+
+    [Header("軌跡追従設定")]
+    [Tooltip("軌跡を記録する最小移動距離（格子点の間隔）")]
+    public float pathRecordInterval = 1.0f;
+    [Tooltip("トロッコ間の距離（軌跡点の数）")]
+    public int cartDistanceInPoints = 5;
+    [Tooltip("記録する軌跡の最大数")]
+    public int maxPathPoints = 100;
+    private List<Vector3> pathPoints = new List<Vector3>();
 
     [Header("トロッコ状態")]
     private int usingcart = 0;
@@ -31,6 +43,12 @@ public class MinecartManager : MonoBehaviour
             {
                 Debug.Log($"Key={element.Key}, Amount={element.Value}");
             }
+        }
+
+        // 軌跡記録の初期化
+        if (playerTransform != null)
+        {
+            pathPoints.Add(playerTransform.position);
         }
     }
 
@@ -92,23 +110,76 @@ public class MinecartManager : MonoBehaviour
     }
 
     // トロッコの位置を更新する
-    public void UpdateMinecartPositions(Vector3 playerPosition, Vector3 playerLastMoveDirection, float offset)
+    public void UpdateMinecartPositions()
     {
+        if (pathPoints.Count == 0) return;
+
         for (int i = 0; i < minecarts.Count; i++)
         {
             Minecart cart = minecarts[i];
             if (cart.gameObject != null && cart.movement != null && !cart.isGoingToGround)
             {
-                // 地上に行く途中は追従しない
-                // プレイヤーの後ろに追従するようなオフセットを計算
-                Vector3 targetPosition = playerPosition - playerLastMoveDirection * (offset * (i + 1));
+                // 各トロッコの目標となる軌跡リスト上のインデックスを計算
+                int targetIndex = pathPoints.Count - 1 - (cartDistanceInPoints * (i + 1));
+
+                // インデックスが範囲外にならないように調整
+                if (targetIndex < 0)
+                {
+                    targetIndex = 0;
+                }
+
+                Vector3 targetPosition = pathPoints[targetIndex];
                 cart.movement.targetPosition = targetPosition;
             }
         }
     }
 
+    // 互換用オーバーロード（旧呼び出しに対応）
+    // 旧API: プレイヤー位置・最後の移動方向・オフセットを受け取る
+    // 実装: プレイヤー位置を軌跡に取り込み、軌跡ベースの追従ロジックへ委譲
+    public void UpdateMinecartPositions(Vector3 playerPosition, Vector3 playerLastMoveDirection, float offset)
+    {
+        // 軌跡初期化または追記
+        if (pathPoints.Count == 0)
+        {
+            pathPoints.Add(playerPosition);
+        }
+        else
+        {
+            if (Vector3.Distance(playerPosition, pathPoints[pathPoints.Count - 1]) > pathRecordInterval)
+            {
+                pathPoints.Add(playerPosition);
+                if (pathPoints.Count > maxPathPoints)
+                {
+                    pathPoints.RemoveAt(0);
+                }
+            }
+        }
+
+        // 軌跡に基づいて各トロッコの目標位置を更新
+        UpdateMinecartPositions();
+    }
+
     void Update()
     {
+        // プレイヤーの軌跡を記録
+        if (playerTransform != null)
+        {
+            float distance = Vector3.Distance(playerTransform.position, pathPoints[pathPoints.Count - 1]);
+            if (distance > pathRecordInterval)
+            {
+                pathPoints.Add(playerTransform.position);
+                // 軌跡リストが最大数を超えたら古いものから削除
+                if (pathPoints.Count > maxPathPoints)
+                {
+                    pathPoints.RemoveAt(0);
+                }
+            }
+        }
+
+        // トロッコの位置を更新
+        UpdateMinecartPositions();
+
         // 必要に応じて処理
         //time>0fのトロッコはDeltaTime(Time.DeltaTimeと同値、timemanager的なものを作るまでは待機)ずつ減らす
         foreach (Minecart cart in minecarts)
