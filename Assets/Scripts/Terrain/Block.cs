@@ -46,6 +46,9 @@ public class Block : MonoBehaviour
     private bool[,,] useTexture1Pattern; // テクスチャパターン
     private float voxelSize; // BaseCubePlacerから受け取る
     
+    // メッシュ生成システム
+    private BlockMeshGenerator meshGenerator;
+    
     [Header("Dropped Item Settings")]
     private GameObject droppedItemPrefab; // ドロップアイテムのPrefab（オプション）
     private bool disableRotation = true; // 回転を無効化するかどうか
@@ -67,6 +70,9 @@ public class Block : MonoBehaviour
 
         mesh = new Mesh();
         meshFilter.mesh = mesh;
+        
+        // メッシュ生成システムを初期化
+        meshGenerator = new BlockMeshGenerator();
     }
 
     private BlockData blockData; // このブロックの種類を定義するデータ
@@ -256,221 +262,7 @@ public class Block : MonoBehaviour
 
     public void GenerateMesh()
     {
-        mesh.Clear();
-        List<Vector3> vertices = new List<Vector3>();
-        List<int> triangles = new List<int>();
-        List<Vector2> uvs = new List<Vector2>();
-        List<Color> colors = new List<Color>();
-
-        // VoxelManagerからこのブロックのボクセルリストを取得
-        var voxelsInBlock = voxelManager.GetVoxelsInBlock(blockPosition);
-
-        foreach (var voxelData in voxelsInBlock)
-        {
-            if (!voxelData.isActive) continue;
-
-            int x = voxelData.localPosition.x;
-            int y = voxelData.localPosition.y;
-            int z = voxelData.localPosition.z;
-
-            float healthPercentage = (float)voxelData.health / maxHP;
-            Color healthColor = Color.Lerp(Color.black, initialColor, healthPercentage);
-            healthColor.a = healthPercentage; // ドット透過
-
-            Vector3 pos = new Vector3(x - ChunkSize / 2.0f + 0.5f, y - ChunkSize / 2.0f + 0.5f, z - ChunkSize / 2.0f + 0.5f);
-
-            // 6面追加（露出チェック）
-            if (IsVoxelFaceExposed(x + 1, y, z))
-                AddFace(pos, Vector3.right, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-            if (IsVoxelFaceExposed(x - 1, y, z))
-                AddFace(pos, Vector3.left, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-            if (IsVoxelFaceExposed(x, y + 1, z))
-                AddFace(pos, Vector3.up, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-            if (IsVoxelFaceExposed(x, y - 1, z))
-                AddFace(pos, Vector3.down, vertices, triangles, uvs, colors, healthColor, false, x, y, z);
-            if (IsVoxelFaceExposed(x, y, z + 1))
-                AddFace(pos, Vector3.forward, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
-            if (IsVoxelFaceExposed(x, y, z - 1))
-                AddFace(pos, Vector3.back, vertices, triangles, uvs, colors, healthColor, true, x, y, z);
-        }
-
-        mesh.vertices = vertices.ToArray();
-        mesh.triangles = triangles.ToArray();
-        mesh.uv = uvs.ToArray();
-        mesh.colors = colors.ToArray();
-        mesh.RecalculateNormals();
-
-        if (vertices.Count == 0)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        collider.sharedMesh = mesh;
-    }
-
-    /// <summary>
-    /// 指定されたローカル座標のボクセルの面が露出しているかチェック
-    /// </summary>
-    private bool IsVoxelFaceExposed(int x, int y, int z)
-    {
-        // 座標がブロックの範囲外なら、その面は露出している
-        if (x < 0 || x >= ChunkSize || y < 0 || y >= ChunkSize || z < 0 || z >= ChunkSize)
-        {
-            return true;
-        }
-
-        // VoxelManagerに問い合わせて、隣接ボクセルが存在しないか非アクティブなら露出している
-        var neighborVoxel = voxelManager.GetVoxelAt(blockPosition, new Vector3Int(x, y, z));
-        return neighborVoxel == null || !neighborVoxel.isActive;
-    }
-
-    private void AddFace(Vector3 pos, Vector3 normal, List<Vector3> verts, List<int> tris, List<Vector2> uvs, List<Color> colors, Color faceColor, bool reverse, int voxelX, int voxelY, int voxelZ)
-    {
-        int vertCount = verts.Count;
-
-        // 頂点追加（ボクセル中心posから-0.5~0.5オフセット）
-        verts.Add(pos + GetVertexOffset(normal, 0));
-        verts.Add(pos + GetVertexOffset(normal, 1));
-        verts.Add(pos + GetVertexOffset(normal, 2));
-        verts.Add(pos + GetVertexOffset(normal, 3));
-
-        // 三角形（reverseで巻き方向を逆転し、面の向きを統一）
-        if (reverse)
-        {
-            tris.Add(vertCount + 0);
-            tris.Add(vertCount + 3);
-            tris.Add(vertCount + 2);
-            tris.Add(vertCount + 0);
-            tris.Add(vertCount + 2);
-            tris.Add(vertCount + 1);
-        }
-        else
-        {
-            tris.Add(vertCount + 0);
-            tris.Add(vertCount + 1);
-            tris.Add(vertCount + 2);
-            tris.Add(vertCount + 0);
-            tris.Add(vertCount + 2);
-            tris.Add(vertCount + 3);
-        }
-
-        // UV（テクスチャ用）
-        float pixelSize = 1.0f / ChunkSize;
-        float u_base = 0;
-        float v_base = 0;
-
-        if (normal == Vector3.right || normal == Vector3.left) // X面
-        {
-            u_base = (float)voxelZ / ChunkSize;
-            v_base = (float)voxelY / ChunkSize;
-        }
-        else if (normal == Vector3.up || normal == Vector3.down) // Y面
-        {
-            u_base = (float)voxelX / ChunkSize;
-            v_base = (float)voxelZ / ChunkSize;
-        }
-        else if (normal == Vector3.forward || normal == Vector3.back) // Z面
-        {
-            u_base = (float)voxelX / ChunkSize;
-            v_base = (float)voxelY / ChunkSize;
-        }
-
-        if (normal == Vector3.left || normal == Vector3.back)
-        {
-            // テクスチャが反転しないようにUVの順序を調整
-            uvs.Add(new Vector2(u_base + pixelSize, v_base));
-            uvs.Add(new Vector2(u_base + pixelSize, v_base + pixelSize));
-            uvs.Add(new Vector2(u_base, v_base + pixelSize));
-            uvs.Add(new Vector2(u_base, v_base));
-        }
-        else if (normal == Vector3.down)
-        {
-            // 下面のテクスチャ順序を調整
-            uvs.Add(new Vector2(u_base, v_base + pixelSize));
-            uvs.Add(new Vector2(u_base, v_base));
-            uvs.Add(new Vector2(u_base + pixelSize, v_base));
-            uvs.Add(new Vector2(u_base + pixelSize, v_base + pixelSize));
-        }
-        else // right, up, forward
-        {
-            uvs.Add(new Vector2(u_base, v_base));
-            uvs.Add(new Vector2(u_base, v_base + pixelSize));
-            uvs.Add(new Vector2(u_base + pixelSize, v_base + pixelSize));
-            uvs.Add(new Vector2(u_base + pixelSize, v_base));
-        }
-
-        // 色
-        colors.Add(faceColor);
-        colors.Add(faceColor);
-        colors.Add(faceColor);
-        colors.Add(faceColor);
-    }
-
-    private Vector3 GetVertexOffset(Vector3 normal, int index)
-    {
-        // 各normalの4頂点（時計回り、見た目上正面向き）
-        if (normal == Vector3.right) // +X
-        {
-            switch (index)
-            {
-                case 0: return new Vector3(0.5f, -0.5f, -0.5f);
-                case 1: return new Vector3(0.5f, 0.5f, -0.5f);
-                case 2: return new Vector3(0.5f, 0.5f, 0.5f);
-                case 3: return new Vector3(0.5f, -0.5f, 0.5f);
-            }
-        }
-        else if (normal == Vector3.left) // -X
-        {
-            switch (index)
-            {
-                case 0: return new Vector3(-0.5f, -0.5f, 0.5f);
-                case 1: return new Vector3(-0.5f, 0.5f, 0.5f);
-                case 2: return new Vector3(-0.5f, 0.5f, -0.5f);
-                case 3: return new Vector3(-0.5f, -0.5f, -0.5f);
-            }
-        }
-        else if (normal == Vector3.up) // +Y
-        {
-            switch (index)
-            {
-                case 0: return new Vector3(-0.5f, 0.5f, -0.5f);
-                case 1: return new Vector3(-0.5f, 0.5f, 0.5f);
-                case 2: return new Vector3(0.5f, 0.5f, 0.5f);
-                case 3: return new Vector3(0.5f, 0.5f, -0.5f);
-            }
-        }
-        else if (normal == Vector3.down) // -Y
-        {
-            switch (index)
-            {
-                case 0: return new Vector3(-0.5f, -0.5f, 0.5f);
-                case 1: return new Vector3(-0.5f, -0.5f, -0.5f);
-                case 2: return new Vector3(0.5f, -0.5f, -0.5f);
-                case 3: return new Vector3(0.5f, -0.5f, 0.5f);
-            }
-        }
-        else if (normal == Vector3.forward) // +Z
-        {
-            switch (index)
-            {
-                case 0: return new Vector3(-0.5f, -0.5f, 0.5f);
-                case 1: return new Vector3(-0.5f, 0.5f, 0.5f);
-                case 2: return new Vector3(0.5f, 0.5f, 0.5f);
-                case 3: return new Vector3(0.5f, -0.5f, 0.5f);
-            }
-        }
-        else if (normal == Vector3.back) // -Z
-        {
-            switch (index)
-            {
-                case 0: return new Vector3(0.5f, -0.5f, -0.5f);
-                case 1: return new Vector3(0.5f, 0.5f, -0.5f);
-                case 2: return new Vector3(-0.5f, 0.5f, -0.5f);
-                case 3: return new Vector3(-0.5f, -0.5f, -0.5f);
-            }
-        }
-        return Vector3.zero;
+        meshGenerator.GenerateMesh(this, voxelManager, blockPosition, ChunkSize, maxHP, initialColor, mesh, collider);
     }
 
     /// <summary>
