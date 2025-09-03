@@ -212,16 +212,20 @@ package "Items" {
 package "Terrain" {
   class Block {
     + ChunkSize: int
-    + diggingThreshold: float
     - voxelManager: VoxelManager
     - blockPosition: Vector3Int
     - maxHP: int
+    - diggingThreshold: float
     - diggingFrameDelay: int
     - initialColor: Color
     - texture1: Texture2D
     - texture2: Texture2D
     - useTexture1Pattern: bool[,,]
     - voxelSize: float
+    - meshGenerator: BlockMeshGenerator
+    - textureExtractor: VoxelTextureExtractor
+    - itemDropper: BlockItemDropper
+    - diggingSystem: BlockDiggingSystem
     - droppedItemPrefab: GameObject
     - disableRotation: bool
     - autoScale: bool
@@ -236,6 +240,52 @@ package "Terrain" {
     + TakeDamage(localPos: Vector3, damage: int)
     + DigVoxels(diggingArea: BoxCollider): IEnumerator
     + GenerateMesh()
+  }
+
+  class BlockMeshGenerator {
+    + GenerateMesh(block: Block, voxelManager: VoxelManager, blockPosition: Vector3Int, chunkSize: int, maxHP: int, initialColor: Color, mesh: Mesh, collider: MeshCollider)
+    - IsVoxelFaceExposed(voxelManager: VoxelManager, blockPosition: Vector3Int, x: int, y: int, z: int, chunkSize: int): bool
+    - AddFace(vertices: List<Vector3>, triangles: List<int>, uvs: List<Vector2>, colors: List<Color>, position: Vector3, normal: Vector3, size: float, color: Color)
+  }
+
+  class VoxelTextureExtractor {
+    - extractedTextureResolution: int
+    - enableTextureExtraction: bool
+    + ApplyVoxelTextureToDroppedItem(item: GameObject, voxelX: int, voxelY: int, voxelZ: int, texture1: Texture2D, texture2: Texture2D, pattern: bool[,,], chunkSize: int)
+    + ExtractVoxelTextureRegion(faceInfo: VoxelFaceTextureInfo): Texture2D
+    + GetVoxelFaceTextureInfo(voxelX: int, voxelY: int, voxelZ: int, normal: Vector3, texture1: Texture2D, texture2: Texture2D, pattern: bool[,,], chunkSize: int): VoxelFaceTextureInfo
+    - GetAllVoxelFaceTextureInfo(...): List<VoxelFaceTextureInfo>
+    - GetRepresentativeFace(faceInfos: List<VoxelFaceTextureInfo>): VoxelFaceTextureInfo
+    - RotateTexture180(pixels: Color[], width: int, height: int): Color[]
+    - ApplyDefaultMaterial(renderer: Renderer)
+  }
+
+  class BlockItemDropper {
+    - blockData: BlockData
+    - enableTextureExtraction: bool
+    - voxelSize: float
+    - chunkSize: int
+    - textureExtractor: VoxelTextureExtractor
+    - texture1: Texture2D
+    - texture2: Texture2D
+    - useTexture1Pattern: bool[,,]
+    + Initialize(data: BlockData, enableTexture: bool, size: float, chunk: int, extractor: VoxelTextureExtractor, tex1: Texture2D, tex2: Texture2D, pattern: bool[,,])
+    + DropItem(localPosition: Vector3, worldPosition: Vector3)
+    - SetDroppedItemConstraints(item: GameObject)
+  }
+
+  class BlockDiggingSystem {
+    - voxelManager: VoxelManager
+    - itemDropper: BlockItemDropper
+    - targetBlock: Block
+    - diggingThreshold: float
+    - diggingFrameDelay: int
+    - chunkSize: int
+    - blockPosition: Vector3Int
+    + Initialize(manager: VoxelManager, dropper: BlockItemDropper, block: Block, threshold: float, frameDelay: int, chunk: int, position: Vector3Int)
+    + TakeDamage(localPos: Vector3, damage: int)
+    + DigVoxels(diggingArea: BoxCollider): IEnumerator
+    - ProcessVoxel(x: int, y: int, z: int, mode: MovementMode)
   }
 
   struct VoxelFaceTextureInfo {
@@ -404,5 +454,18 @@ MinecartInteractionSystem ..> MinecartManager
 MinecartInteractionSystem ..> PlayerController
 Block ..> PlayerController
 Block ..> DroppedItemManager
+
+' Block System Relationships (updated)
+Block ||--|| BlockMeshGenerator : contains
+Block ||--|| VoxelTextureExtractor : contains
+Block ||--|| BlockItemDropper : contains
+Block ||--|| BlockDiggingSystem : contains
+BlockItemDropper }o--|| VoxelTextureExtractor : uses
+BlockDiggingSystem }o--|| BlockItemDropper : uses
+BlockDiggingSystem }o--|| Block : references
+VoxelTextureExtractor ..> VoxelFaceTextureInfo : creates
+BlockItemDropper ..> DroppedItem : creates
+BlockMeshGenerator ..> VoxelManager : queries
+BlockDiggingSystem ..> VoxelManager : modifies
 
 @enduml
