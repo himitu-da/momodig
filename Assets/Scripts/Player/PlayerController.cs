@@ -80,6 +80,7 @@ public class PlayerController : MonoBehaviour
     private Vector2 moveInput;
     private float currentFallSpeed = 0f; // 現在の落下速度
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
+    public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
     
     // 接触中のアイテム管理用
@@ -103,6 +104,7 @@ public class PlayerController : MonoBehaviour
         {
             transform.rotation = Quaternion.identity; // X正方向を向く
             lastMoveDirection = Vector3.right; // X正方向
+            IsFacingRight = true;
         }
         else // TopDown
         {
@@ -283,6 +285,12 @@ public class PlayerController : MonoBehaviour
 
         // SmoothDampを使用して速度を滑らかに変化させる
         rb.linearVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+
+        // SideScrollerモードで左右の入力があった場合、向きを更新
+        if (currentMoveMode == MoveMode.SideScroller && moveInput.x != 0)
+        {
+            IsFacingRight = moveInput.x > 0;
+        }
 
         // 移動入力がある場合、その方向を保存
         if (moveDirection.sqrMagnitude > 0.1f)

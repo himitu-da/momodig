@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9aeb31885c8abf14fb15a81355969677, type: 3}
   m_Name: PickaxeMiningModule
   m_EditorClassIdentifier: 
-  centerOffset: {x: 1, y: 0, z: 0}
+  centerOffset: {x: 1.2, y: 0, z: 0}
   size: {x: 0.8, y: 1.5, z: 1}
