@@ -110,6 +110,9 @@ public class PlayerController : MonoBehaviour
         controls.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         controls.Player.Move.canceled += ctx => moveInput = Vector2.zero;
 
+        // "Mine" アクションの登録
+        controls.Player.Mine.performed += OnMine;
+
         // Textコンポーネントを探して、それをscoreTextに追加
         if (scoreText == null)
         {
@@ -190,7 +193,7 @@ public class PlayerController : MonoBehaviour
     {
         controls.Player.Disable();
     }
-    
+
     // オブジェクトが破棄されるときに呼ばれる
     void OnDestroy()
     {
@@ -199,6 +202,11 @@ public class PlayerController : MonoBehaviour
         {
             inventory.OnResourceAdded -= OnInventoryResourceAdded;
             inventory.OnTotalCountChanged -= OnInventoryTotalCountChanged;
+        }
+        
+        if (controls != null)
+        {
+            controls.Player.Mine.performed -= OnMine;
         }
     }
 
@@ -294,6 +302,14 @@ public class PlayerController : MonoBehaviour
         }
 
         // Diggerの掘削エリアは手動設定に従う（自動的な位置変更は行わない）
+    }
+
+    private void OnMine(InputAction.CallbackContext context)
+    {
+        if (digger != null)
+        {
+            digger.Dig();
+        }
     }
 
     void OnCollisionEnter(Collision collision)

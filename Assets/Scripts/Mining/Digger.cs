@@ -26,17 +26,11 @@ public class Digger : MonoBehaviour
 
     void Update()
     {
-        // 左クリックされたら
-        if (Input.GetMouseButtonDown(0))
-        {
-            Dig();
-        }
-
         // ゲームビューにデバッグ用のボックスを描画
         DrawDebugBox();
     }
 
-    void Dig()
+    public void Dig()
     {
         if (diggingArea == null)
         {
