@@ -4,7 +4,8 @@ using UnityEngine.UI; // UIを使うために必要
 using System.Collections.Generic; // MinecartManager用
 using System.Collections; // Coroutine用
 using System;
-using Unity.VisualScripting; // Serializable用
+using Unity.VisualScripting;
+using UnityEditor; // Serializable用
 
 public class PlayerController : MonoBehaviour
 {
@@ -37,8 +38,29 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Text depthText; // 深度表示用のText
     [SerializeField] private Text inventoryText; // インベントリ表示用UI
 
-    [Header("参照")]
-    private Digger digger; // Diggerへの参照
+    [Header("掘削ツール設定")]
+    [SerializeField] private List<MiningTool> usableMiningTools;
+    [SerializeField] private MiningTool _currentMiningTool;
+    public MiningTool currentMiningTool
+    {
+        get => _currentMiningTool;
+        set
+        {
+            _currentMiningTool = value;
+            if (_currentMiningTool != null && _currentMiningTool.miningModule != null)
+            {
+                // Diggerの掘削範囲を現在のツールの設定で初期化
+                Digger digger = GetComponentInChildren<Digger>();
+                if (digger != null)
+                {
+                    digger.SetDiggingAreaParameters(
+                        _currentMiningTool.miningModule.DiggingCenter,
+                        _currentMiningTool.miningModule.DiggingSize
+                    );
+                }
+            }
+        }
+    }
 
     [Header("インベントリ設定")]
     private IInventory inventory;
@@ -87,22 +109,11 @@ public class PlayerController : MonoBehaviour
             transform.rotation = Quaternion.identity; // Z正方向を向く
             lastMoveDirection = Vector3.forward; // Z正方向
         }
-        
-        // DiggingAreaのDiggerコンポーネントを取得（手動設定を尊重）
-        Transform diggingAreaTransform = this.transform.Find("DiggingArea");
-        if (diggingAreaTransform != null)
+
+        if (usableMiningTools != null && usableMiningTools.Count > 0)
         {
-            digger = diggingAreaTransform.GetComponent<Digger>();
-            if (digger == null)
-            {
-                digger = diggingAreaTransform.gameObject.AddComponent<Digger>();
-            }
-            
-            BoxCollider diggingAreaCollider = diggingAreaTransform.GetComponent<BoxCollider>();
-            if (diggingAreaCollider != null)
-            {
-                digger.SetDiggingArea(diggingAreaCollider);
-            }
+            // プロパティ経由で設定することで、Diggerの初期化も行われる
+            currentMiningTool = usableMiningTools[0];
         }
 
         controls = new InputSystem_Actions();
@@ -307,9 +318,13 @@ public class PlayerController : MonoBehaviour
 
     private void OnMine(InputAction.CallbackContext context)
     {
-        if (digger != null)
+        if (currentMiningTool != null)
         {
-            digger.Dig();
+            currentMiningTool.Use(this.gameObject);
+        }
+        else
+        {
+            Debug.LogWarning("No mining tool is currently selected.");
         }
     }
 

@@ -5,6 +5,18 @@ public class Digger : MonoBehaviour
 {
     private BoxCollider diggingArea; // 掘削範囲のBoxCollider
 
+    void Awake()
+    {
+        // 自身のゲームオブジェクトにアタッチされているBoxColliderを取得
+        diggingArea = GetComponent<BoxCollider>();
+        // もしBoxColliderがなければ、新しく追加する
+        if (diggingArea == null)
+        {
+            diggingArea = gameObject.AddComponent<BoxCollider>();
+            diggingArea.isTrigger = true; // OverlapBoxで使用するためトリガーにする
+        }
+    }
+
     // SphereGeneratorから呼び出される
     public void SetDiggingArea(BoxCollider area)
     {
@@ -20,6 +32,16 @@ public class Digger : MonoBehaviour
             // 位置のオフセットのみを設定する
             diggingArea.transform.localPosition = position;
             diggingArea.transform.localRotation = Quaternion.identity;
+        }
+    }
+
+    // MiningModuleから呼び出される
+    public void SetDiggingAreaParameters(Vector3 center, Vector3 size)
+    {
+        if (diggingArea != null)
+        {
+            diggingArea.center = center;
+            diggingArea.size = size;
         }
     }
 

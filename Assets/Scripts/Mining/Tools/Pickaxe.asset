@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d858e96903d310042bd37270a6e76ea5, type: 3}
   m_Name: Pickaxe
   m_EditorClassIdentifier: 
-  toolName: 
+  toolName: NormalPickaxe
   toolIcon: {fileID: 0}
-  miningModule: {fileID: 0}
+  miningModule: {fileID: 11400000, guid: 4f29df67723d9c746a4dcfbd44555943, type: 2}
