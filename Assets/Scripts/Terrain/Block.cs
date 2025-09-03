@@ -52,6 +52,9 @@ public class Block : MonoBehaviour
     // テクスチャ抽出システム
     private VoxelTextureExtractor textureExtractor;
     
+    // アイテムドロップシステム
+    private BlockItemDropper itemDropper;
+    
     [Header("Dropped Item Settings")]
     private GameObject droppedItemPrefab; // ドロップアイテムのPrefab（オプション）
     private bool disableRotation = true; // 回転を無効化するかどうか
@@ -79,6 +82,9 @@ public class Block : MonoBehaviour
         
         // テクスチャ抽出システムを初期化
         textureExtractor = new VoxelTextureExtractor(enableTextureExtraction, extractedTextureResolution);
+        
+        // アイテムドロップシステムを初期化
+        itemDropper = new BlockItemDropper();
     }
 
     private BlockData blockData; // このブロックの種類を定義するデータ
@@ -110,6 +116,10 @@ public class Block : MonoBehaviour
         // テクスチャパターンを設定
         useTexture1Pattern = pattern ?? new bool[ChunkSize, ChunkSize, ChunkSize];
 
+        // アイテムドロップシステムを初期化
+        itemDropper.Initialize(blockData, enableTextureExtraction, voxelSize, ChunkSize, 
+            textureExtractor, texture1, texture2, useTexture1Pattern);
+
         // メッシュ生成はVoxelManagerへのデータ登録後に外部から呼び出す
         // GenerateMesh();
     }
@@ -129,7 +139,7 @@ public class Block : MonoBehaviour
             var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
             if (voxelData != null)
             {
-                 DropItem(voxelData.worldPosition, x, y, z);
+                 itemDropper.DropItem(voxelData.worldPosition, x, y, z);
             }
             GenerateMesh(); // メッシュを更新
         }
@@ -156,7 +166,13 @@ public class Block : MonoBehaviour
         int startZ = Mathf.Max(0, Mathf.FloorToInt(localMin.z + ChunkSize / 2.0f));
         int endZ = Mathf.Min(ChunkSize - 1, Mathf.CeilToInt(localMax.z + ChunkSize / 2.0f));
 
-        PlayerController.MoveMode moveMode = GetCurrentMoveMode();
+        // 現在の移動モードを取得
+        PlayerController playerController = FindFirstObjectByType<PlayerController>();
+        PlayerController.MoveMode moveMode = PlayerController.MoveMode.TopDown;
+        if (playerController != null)
+        {
+            moveMode = playerController.currentMoveMode;
+        }
 
         if (moveMode == PlayerController.MoveMode.SideScroller)
         {
@@ -259,7 +275,7 @@ public class Block : MonoBehaviour
         {
             if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, 1))
             {
-                dropActions.Add(() => DropItem(voxelData.worldPosition, x, y, z));
+                dropActions.Add(() => itemDropper.DropItem(voxelData.worldPosition, x, y, z));
                 return true;
             }
         }
@@ -287,132 +303,6 @@ public class Block : MonoBehaviour
     {
         textureExtractor.ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ, 
             texture1, texture2, useTexture1Pattern, ChunkSize);
-    }
-
-    private void DropItem(Vector3 position) // エラー解決: メソッド追加（Block.csから移行）
-    {
-        // 座標情報が不明な場合は従来の処理を実行
-        DropItem(position, -1, -1, -1);
-    }
-
-    private void DropItem(Vector3 position, int voxelX, int voxelY, int voxelZ) // ボクセル座標を受け取る新しいオーバーロード
-    {
-        if (DroppedItemManager.Instance == null)
-        {
-            Debug.LogError("DroppedItemManager.Instance is null. Please ensure a DroppedItemManager exists in the scene.");
-            return;
-        }
-        if (blockData == null)
-        {
-            Debug.LogError($"Block at {blockPosition} has no BlockData assigned. Check TerrainManager setup.", this.gameObject);
-            return;
-        }
-        if (blockData.droppedItemPrefab == null)
-        {
-            Debug.LogError($"BlockData '{blockData.name}' has no droppedItemPrefab assigned.", blockData);
-            return;
-        }
-
-        // DroppedItemManagerから正しいPrefabのアイテムを取得
-        GameObject item = DroppedItemManager.Instance.GetItem(blockData.droppedItemPrefab);
-        if (item == null) return;
-
-        item.transform.position = position;
-        item.transform.rotation = Quaternion.identity;
-
-        // 自動スケール調整が有効な場合
-        if (blockData.autoScale)
-        {
-            float targetScale = voxelSize * blockData.scaleMultiplier;
-            item.transform.localScale = Vector3.one * targetScale;
-        }
-
-        // ボクセル座標が有効な場合、テクスチャ抽出を実行
-        if (enableTextureExtraction && voxelX >= 0 && voxelY >= 0 && voxelZ >= 0 && 
-            voxelX < ChunkSize && voxelY < ChunkSize && voxelZ < ChunkSize)
-        {
-            ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ);
-        }
-        else
-        {
-            // テクスチャ抽出が無効または座標が無効な場合、デフォルトマテリアルを適用
-            var itemRenderer = item.GetComponent<Renderer>();
-            if (itemRenderer != null)
-            {
-                var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-                material.color = Color.gray; // 色を灰色に設定
-                itemRenderer.material = material;
-            }
-        }
-
-        // Rigidbodyが無い場合は追加
-        Rigidbody itemRigidbody = item.GetComponent<Rigidbody>();
-        if (itemRigidbody == null)
-        {
-            itemRigidbody = item.AddComponent<Rigidbody>();
-        }
-
-        // 移動モードに応じてRigidbodyのConstraintを設定
-        SetDroppedItemConstraints(itemRigidbody);
-
-        // DroppedItemコンポーネントの処理
-        DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
-        if (droppedItemComponent != null)
-        {
-            droppedItemComponent.enabled = !blockData.disableRotation;
-        }
-
-        // タグが設定されていない場合は設定
-        if (!item.CompareTag("DroppedItem"))
-        {
-            item.tag = "DroppedItem";
-        }
-    }
-
-    /// <summary>
-    /// ドロップアイテムのRigidbodyに移動モードに応じた制約を設定
-    /// </summary>
-    private void SetDroppedItemConstraints(Rigidbody itemRigidbody)
-    {
-        if (itemRigidbody == null) return;
-
-        // 現在の移動モードを取得
-        PlayerController.MoveMode currentMoveMode = GetCurrentMoveMode();
-
-        // 移動モードに応じて制約を設定
-        switch (currentMoveMode)
-        {
-            case PlayerController.MoveMode.SideScroller:
-                // SideScrollerモード: XY平面のみ移動、Z軸は固定
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationY;
-                break;
-
-            case PlayerController.MoveMode.TopDown:
-                // TopDownモード: XZ平面のみ移動、Y軸は固定
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
-                break;
-
-            default:
-                // デフォルトは制約なし
-                itemRigidbody.constraints = RigidbodyConstraints.None;
-                break;
-        }
-    }
-
-    /// <summary>
-    /// 現在のゲームの移動モードを取得
-    /// </summary>
-    private PlayerController.MoveMode GetCurrentMoveMode()
-    {
-        // プレイヤーオブジェクトを探してPlayerControllerから移動モードを取得
-        PlayerController playerController = FindFirstObjectByType<PlayerController>();
-        if (playerController != null)
-        {
-            return playerController.currentMoveMode;
-        }
-
-        // プレイヤーが見つからない場合はデフォルトでTopDownモードを返す
-        return PlayerController.MoveMode.TopDown;
     }
 
 }
