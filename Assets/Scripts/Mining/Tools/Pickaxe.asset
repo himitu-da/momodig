@@ -14,4 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   toolName: NormalPickaxe
   toolIcon: {fileID: 0}
+  toolPrefab: {fileID: 283676005089803581, guid: e4bff02c47381f94a8c07254420e4502, type: 3}
   miningModule: {fileID: 11400000, guid: 4f29df67723d9c746a4dcfbd44555943, type: 2}
