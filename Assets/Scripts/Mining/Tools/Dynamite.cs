@@ -11,10 +11,4 @@ public class Dynamite : MiningTool
     public GameObject ProjectilePrefab => dynamitePrefab;
     public float ThrowForce => throwForce;
     public float UpwardForce => upwardForce;
-
-    [System.Obsolete("Deprecated: Use behaviour-driven tools. Do not call Dynamite.Use() at runtime.")]
-    public override void Use(GameObject user)
-    {
-        Debug.LogError("[Deprecated] Dynamite.Use() was called. Behaviour-driven architecture is in use. Assign toolPrefab and use MiningToolsController -> Behaviour.Use().");
-    }
 }

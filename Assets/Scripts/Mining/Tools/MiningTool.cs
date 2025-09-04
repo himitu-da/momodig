@@ -53,11 +53,4 @@ public abstract class MiningTool : ScriptableObject
             }
         }
     }
-
-    /// <summary>
-    /// 旧 SO 駆動の経路。Behaviour 駆動へ移行済みのため使用しないでください。
-    /// </summary>
-    /// <param name="user">使用者</param>
-    [System.Obsolete("Deprecated: Use behaviour-driven tools. Do not call MiningTool.Use() at runtime.")]
-    public abstract void Use(GameObject user);
 }
