@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 4759036973688268866}
   - component: {fileID: 799041562312209318}
   - component: {fileID: 1209770684202066957}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Minecart
   m_TagString: Untagged
   m_Icon: {fileID: 0}
