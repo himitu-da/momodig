@@ -87,9 +87,18 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Mine",
+                    "name": "MainMine",
                     "type": "Button",
                     "id": "59a9e9ee-50a5-4236-adca-4bafb42ea241",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "SubMine",
+                    "type": "Button",
+                    "id": "bc0f651f-c896-4b64-a70c-15a1fee38b13",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -489,7 +498,18 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Mine",
+                    "action": "MainMine",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "e8bd62c7-7ccb-4ad4-a86c-aca8f309992a",
+                    "path": "<Mouse>/rightButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SubMine",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

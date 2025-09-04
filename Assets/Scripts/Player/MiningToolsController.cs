@@ -5,26 +5,34 @@ public class MiningToolsController : MonoBehaviour
 {
     [Header("掘削ツール設定")]
     [SerializeField] private List<MiningTool> usableMiningTools;
-    [SerializeField] private MiningTool _currentMiningTool;
-    public MiningTool currentMiningTool
+    [SerializeField] private MiningTool _mainMiningTool;
+    [SerializeField] private MiningTool _subMiningTool; // サブ用ツール
+    public MiningTool mainMiningTool
     {
-        get => _currentMiningTool;
+        get => _mainMiningTool;
         private set // PlayerControllerからは変更させない
         {
-            _currentMiningTool = value;
-            if (_currentMiningTool != null && _currentMiningTool.miningModule != null)
+            _mainMiningTool = value;
+            if (_mainMiningTool != null && _mainMiningTool.miningModule != null)
             {
                 // Diggerの掘削範囲を現在のツールの設定で初期化
                 Digger digger = GetComponentInChildren<Digger>();
                 if (digger != null)
                 {
                     digger.SetDiggingAreaParameters(
-                        _currentMiningTool.miningModule.DiggingCenter,
-                        _currentMiningTool.miningModule.DiggingSize
+                        _mainMiningTool.miningModule.DiggingCenter,
+                        _mainMiningTool.miningModule.DiggingSize
                     );
                 }
             }
         }
+    }
+
+    // サブ用ツールのプロパティ（外部からは変更不可）
+    public MiningTool subMiningTool
+    {
+        get => _subMiningTool;
+        private set => _subMiningTool = value;
     }
 
     void Awake()
@@ -32,23 +40,57 @@ public class MiningToolsController : MonoBehaviour
         if (usableMiningTools != null && usableMiningTools.Count > 0)
         {
             // プロパティ経由で設定することで、Diggerの初期化も行われる
-            currentMiningTool = usableMiningTools[0];
+            mainMiningTool = usableMiningTools[0];
+        }
+
+        // 未指定で、2本以上登録がある場合は2本目をサブに割り当て
+        if (_subMiningTool == null && usableMiningTools != null && usableMiningTools.Count > 1)
+        {
+            subMiningTool = usableMiningTools[1];
         }
     }
 
     /// <summary>
-    /// 現在のツールを使用して掘削を実行する
+    /// メイン用ツールを使用して掘削を実行する
     /// </summary>
-    public void UseCurrentTool(GameObject user)
+    public void UseMainMineTool(GameObject user)
     {
-        if (currentMiningTool != null)
+        if (mainMiningTool != null)
         {
-            currentMiningTool.Use(user);
+            mainMiningTool.Use(user);
         }
         else
         {
             Debug.LogWarning("No mining tool is currently selected.");
         }
+    }
+
+    /// <summary>
+    /// サブ用ツールを使用して掘削を実行する
+    /// </summary>
+    public void UseSubMineTool(GameObject user)
+    {
+        var tool = subMiningTool != null ? subMiningTool : mainMiningTool;
+        if (tool == null)
+        {
+            Debug.LogWarning("No sub mining tool is set, and no main tool to fallback.");
+            return;
+        }
+
+        // 掘削範囲をサブツール設定に切り替え（念のため）
+        if (tool.miningModule != null)
+        {
+            Digger digger = GetComponentInChildren<Digger>();
+            if (digger != null)
+            {
+                digger.SetDiggingAreaParameters(
+                    tool.miningModule.DiggingCenter,
+                    tool.miningModule.DiggingSize
+                );
+            }
+        }
+
+    tool.Use(user);
     }
 
     /// <summary>
@@ -76,4 +118,8 @@ public class MiningToolsController : MonoBehaviour
             transform.rotation = targetRotation;
         }
     }
+
+    // 任意: スクリプトから差し替えるためのSetter
+    public void SetmainTool(MiningTool tool) => mainMiningTool = tool;
+    public void SetSubTool(MiningTool tool) => subMiningTool = tool;
 }

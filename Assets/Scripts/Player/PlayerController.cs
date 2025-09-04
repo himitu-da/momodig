@@ -97,8 +97,11 @@ public class PlayerController : MonoBehaviour
         controls.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         controls.Player.Move.canceled += ctx => moveInput = Vector2.zero;
 
-        // "Mine" アクションの登録
-        controls.Player.Mine.performed += OnMine;
+    // "MainMine" アクションの登録
+    controls.Player.MainMine.performed += OnMainMine;
+
+    // "SubMine" アクションの登録
+    controls.Player.SubMine.performed += OnSubMine;
 
         // Textコンポーネントを探して、それをscoreTextに追加
         if (scoreText == null)
@@ -200,7 +203,8 @@ public class PlayerController : MonoBehaviour
         
         if (controls != null)
         {
-            controls.Player.Mine.performed -= OnMine;
+            controls.Player.MainMine.performed -= OnMainMine;
+            controls.Player.SubMine.performed -= OnSubMine;
         }
     }
 
@@ -285,11 +289,19 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    private void OnMine(InputAction.CallbackContext context)
+    private void OnMainMine(InputAction.CallbackContext context)
     {
         if (miningToolsController != null)
         {
-            miningToolsController.UseCurrentTool(this.gameObject);
+            miningToolsController.UseMainMineTool(this.gameObject);
+        }
+    }
+
+    private void OnSubMine(InputAction.CallbackContext context)
+    {
+        if (miningToolsController != null)
+        {
+            miningToolsController.UseSubMineTool(this.gameObject);
         }
     }
 

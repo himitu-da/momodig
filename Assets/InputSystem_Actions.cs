@@ -173,9 +173,18 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""initialStateCheck"": false
                 },
                 {
-                    ""name"": ""Mine"",
+                    ""name"": ""MainMine"",
                     ""type"": ""Button"",
                     ""id"": ""59a9e9ee-50a5-4236-adca-4bafb42ea241"",
+                    ""expectedControlType"": """",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""SubMine"",
+                    ""type"": ""Button"",
+                    ""id"": ""bc0f651f-c896-4b64-a70c-15a1fee38b13"",
                     ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
@@ -575,7 +584,18 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""Mine"",
+                    ""action"": ""MainMine"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""e8bd62c7-7ccb-4ad4-a86c-aca8f309992a"",
+                    ""path"": ""<Mouse>/rightButton"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""SubMine"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -1172,7 +1192,8 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         m_Player_Previous = m_Player.FindAction("Previous", throwIfNotFound: true);
         m_Player_Next = m_Player.FindAction("Next", throwIfNotFound: true);
         m_Player_Sprint = m_Player.FindAction("Sprint", throwIfNotFound: true);
-        m_Player_Mine = m_Player.FindAction("Mine", throwIfNotFound: true);
+        m_Player_MainMine = m_Player.FindAction("MainMine", throwIfNotFound: true);
+        m_Player_SubMine = m_Player.FindAction("SubMine", throwIfNotFound: true);
         // UI
         m_UI = asset.FindActionMap("UI", throwIfNotFound: true);
         m_UI_Navigate = m_UI.FindAction("Navigate", throwIfNotFound: true);
@@ -1275,7 +1296,8 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_Previous;
     private readonly InputAction m_Player_Next;
     private readonly InputAction m_Player_Sprint;
-    private readonly InputAction m_Player_Mine;
+    private readonly InputAction m_Player_MainMine;
+    private readonly InputAction m_Player_SubMine;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -1324,9 +1346,13 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// </summary>
         public InputAction @Sprint => m_Wrapper.m_Player_Sprint;
         /// <summary>
-        /// Provides access to the underlying input action "Player/Mine".
+        /// Provides access to the underlying input action "Player/MainMine".
         /// </summary>
-        public InputAction @Mine => m_Wrapper.m_Player_Mine;
+        public InputAction @MainMine => m_Wrapper.m_Player_MainMine;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/SubMine".
+        /// </summary>
+        public InputAction @SubMine => m_Wrapper.m_Player_SubMine;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -1380,9 +1406,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Sprint.started += instance.OnSprint;
             @Sprint.performed += instance.OnSprint;
             @Sprint.canceled += instance.OnSprint;
-            @Mine.started += instance.OnMine;
-            @Mine.performed += instance.OnMine;
-            @Mine.canceled += instance.OnMine;
+            @MainMine.started += instance.OnMainMine;
+            @MainMine.performed += instance.OnMainMine;
+            @MainMine.canceled += instance.OnMainMine;
+            @SubMine.started += instance.OnSubMine;
+            @SubMine.performed += instance.OnSubMine;
+            @SubMine.canceled += instance.OnSubMine;
         }
 
         /// <summary>
@@ -1421,9 +1450,12 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
             @Sprint.started -= instance.OnSprint;
             @Sprint.performed -= instance.OnSprint;
             @Sprint.canceled -= instance.OnSprint;
-            @Mine.started -= instance.OnMine;
-            @Mine.performed -= instance.OnMine;
-            @Mine.canceled -= instance.OnMine;
+            @MainMine.started -= instance.OnMainMine;
+            @MainMine.performed -= instance.OnMainMine;
+            @MainMine.canceled -= instance.OnMainMine;
+            @SubMine.started -= instance.OnSubMine;
+            @SubMine.performed -= instance.OnSubMine;
+            @SubMine.canceled -= instance.OnSubMine;
         }
 
         /// <summary>
@@ -1788,12 +1820,19 @@ public partial class @InputSystem_Actions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnSprint(InputAction.CallbackContext context);
         /// <summary>
-        /// Method invoked when associated input action "Mine" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// Method invoked when associated input action "MainMine" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnMine(InputAction.CallbackContext context);
+        void OnMainMine(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "SubMine" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnSubMine(InputAction.CallbackContext context);
     }
     /// <summary>
     /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "UI" which allows adding and removing callbacks.
