@@ -4,6 +4,7 @@ using System.Collections.Generic;
 public class Digger : MonoBehaviour
 {
     private BoxCollider diggingArea; // 掘削範囲のBoxCollider
+    private MiningModule pendingMiningModule; // 実行待機中の掘削モジュール
 
     void Awake()
     {
@@ -14,6 +15,37 @@ public class Digger : MonoBehaviour
         {
             diggingArea = gameObject.AddComponent<BoxCollider>();
             diggingArea.isTrigger = true; // OverlapBoxで使用するためトリガーにする
+        }
+    }
+
+    /// <summary>
+    /// 実行待機中の掘削モジュールを設定します。
+    /// </summary>
+    /// <param name="module">掘削モジュール</param>
+    public void SetPendingMiningModule(MiningModule module)
+    {
+        pendingMiningModule = module;
+    }
+
+    /// <summary>
+    /// アニメーションイベントから呼び出され、保留中の掘削を実行します。
+    /// </summary>
+    public void ExecuteDigFromAnimation()
+    {
+        if (pendingMiningModule != null)
+        {
+            // 掘削範囲をモジュールの設定で更新
+            SetDiggingAreaParameters(pendingMiningModule.DiggingCenter, pendingMiningModule.DiggingSize);
+            
+            // 掘削を実行
+            Dig();
+
+            // 実行後に保留中のモジュールをクリア
+            pendingMiningModule = null;
+        }
+        else
+        {
+            Debug.LogWarning("Pending mining module is not set. Cannot execute dig.");
         }
     }
 

@@ -6,7 +6,25 @@ public class Pickaxe : MiningTool
 {
     public override void Use(GameObject user)
     {
-        // userオブジェクトとその子オブジェクトからAnimatorコンポーネントを取得
+        // Diggerコンポーネントを取得
+        Digger digger = user.GetComponentInChildren<Digger>();
+        if (digger == null)
+        {
+            Debug.LogError("Digger component not found on the user or its children.");
+            return;
+        }
+
+        // MiningModuleが設定されているか確認
+        if (miningModule == null)
+        {
+            Debug.LogWarning($"MiningModule is not set for {toolName}.");
+            return;
+        }
+
+        // Diggerに掘削モジュールをセット
+        digger.SetPendingMiningModule(miningModule);
+
+        // Animatorコンポーネントを取得してアニメーションを再生
         Animator animator = user.GetComponentInChildren<Animator>();
         if (animator != null)
         {
@@ -17,21 +35,12 @@ public class Pickaxe : MiningTool
                 animator.SetBool("IsFacingRight", playerController.IsFacingRight);
             }
 
-            // "Mine"という名前のトリガーをセットして、アニメーションを再生
+            // "Mine"トリガーでアニメーションを再生
             animator.SetTrigger("Mine");
         }
         else
         {
             Debug.LogWarning($"Animator component not found on {user.name} or its children.");
-        }
-
-        if (miningModule != null)
-        {
-            miningModule.Execute(user);
-        }
-        else
-        {
-            Debug.LogWarning($"MiningModule is not set for {toolName}.");
         }
     }
 }
