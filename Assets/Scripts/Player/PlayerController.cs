@@ -38,30 +38,6 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Text depthText; // 深度表示用のText
     [SerializeField] private Text inventoryText; // インベントリ表示用UI
 
-    [Header("掘削ツール設定")]
-    [SerializeField] private List<MiningTool> usableMiningTools;
-    [SerializeField] private MiningTool _currentMiningTool;
-    public MiningTool currentMiningTool
-    {
-        get => _currentMiningTool;
-        set
-        {
-            _currentMiningTool = value;
-            if (_currentMiningTool != null && _currentMiningTool.miningModule != null)
-            {
-                // Diggerの掘削範囲を現在のツールの設定で初期化
-                Digger digger = GetComponentInChildren<Digger>();
-                if (digger != null)
-                {
-                    digger.SetDiggingAreaParameters(
-                        _currentMiningTool.miningModule.DiggingCenter,
-                        _currentMiningTool.miningModule.DiggingSize
-                    );
-                }
-            }
-        }
-    }
-
     [Header("インベントリ設定")]
     private IInventory inventory;
     
@@ -90,6 +66,9 @@ public class PlayerController : MonoBehaviour
     // MinecartInteractionSystemへの参照
     private MinecartInteractionSystem minecartInteraction;
 
+    // MiningToolsControllerへの参照
+    private MiningToolsController miningToolsController;
+
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
     {
@@ -110,12 +89,6 @@ public class PlayerController : MonoBehaviour
         {
             transform.rotation = Quaternion.identity; // Z正方向を向く
             lastMoveDirection = Vector3.forward; // Z正方向
-        }
-
-        if (usableMiningTools != null && usableMiningTools.Count > 0)
-        {
-            // プロパティ経由で設定することで、Diggerの初期化も行われる
-            currentMiningTool = usableMiningTools[0];
         }
 
         controls = new InputSystem_Actions();
@@ -167,6 +140,13 @@ public class PlayerController : MonoBehaviour
         if (minecartInteraction == null)
         {
             Debug.LogWarning("MinecartInteractionSystemが見つかりません");
+        }
+        
+        // MiningToolsControllerの参照を取得
+        miningToolsController = GetComponentInChildren<MiningToolsController>();
+        if (miningToolsController == null)
+        {
+            Debug.LogError("MiningToolsControllerが見つかりません。Playerの子オブジェクトにアタッチしてください。");
         }
         
         // 依存関係の初期化（インターフェース経由）
@@ -298,41 +278,18 @@ public class PlayerController : MonoBehaviour
             lastMoveDirection = moveDirection.normalized;
         }
 
-        // Playerの向きとDiggerの位置を更新
-        if (lastMoveDirection.sqrMagnitude > 0.1f)
+        // MiningToolsControllerに回転処理を委譲
+        if (miningToolsController != null)
         {
-            Quaternion targetRotation;
-            if (currentMoveMode == MoveMode.TopDown)
-            {
-                // TopDownモードでは、入力のX軸を基準とした回転を計算
-                // moveInput.x（右方向入力）がワールドのX軸、moveInput.y（上方向入力）がワールドのZ軸
-                // プレイヤーの「右」方向（ローカルX軸）が移動方向を向くようにする
-                // Z軸の符号を反転して上下方向を修正
-                float angle = Mathf.Atan2(-lastMoveDirection.z, lastMoveDirection.x) * Mathf.Rad2Deg;
-                targetRotation = Quaternion.AngleAxis(angle, Vector3.up);
-            }
-            else // SideScroller
-            {
-                // XY平面での2Dの回転。プレイヤーの右方向が進行方向を向くようにする
-                float angle = Mathf.Atan2(lastMoveDirection.y, lastMoveDirection.x) * Mathf.Rad2Deg;
-                targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
-            }
-            // Rigidbodyを使って回転させる
-            rb.MoveRotation(targetRotation);
+            miningToolsController.UpdateRotation(lastMoveDirection, currentMoveMode);
         }
-
-        // Diggerの掘削エリアは手動設定に従う（自動的な位置変更は行わない）
     }
 
     private void OnMine(InputAction.CallbackContext context)
     {
-        if (currentMiningTool != null)
+        if (miningToolsController != null)
         {
-            currentMiningTool.Use(this.gameObject);
-        }
-        else
-        {
-            Debug.LogWarning("No mining tool is currently selected.");
+            miningToolsController.UseCurrentTool(this.gameObject);
         }
     }
 
