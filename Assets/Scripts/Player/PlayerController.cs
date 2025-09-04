@@ -281,6 +281,19 @@ public class PlayerController : MonoBehaviour
         {
             lastMoveDirection = moveDirection.normalized;
         }
+        else
+        {
+            // 入力がない（停止中）の扱い
+            if (currentMoveMode == MoveMode.SideScroller)
+            {
+                // 横スクでは停止中でも向きフラグに基づいて水平方向をlastMoveDirectionに反映
+                lastMoveDirection = new Vector3(IsFacingRight ? 1f : -1f, 0f, 0f);
+            }
+            else
+            {
+                // TopDownでは停止中は直前の向きを維持（何もしない）
+            }
+        }
 
         // MiningToolsControllerに回転処理を委譲
         if (miningToolsController != null)

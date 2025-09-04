@@ -3,8 +3,8 @@ using UnityEngine;
 public class DynamiteToolBehaviour : MiningToolBehaviour
 {
     [Header("Projectile Settings")]
-    [SerializeField] private GameObject dynamiteProjectilePrefab;
-    [SerializeField] private float throwForce = 8f;
+    [SerializeField] private GameObject dynamiteProjectilePrefab; // フォールバック用
+    [SerializeField] private float throwForce = 8f;               // フォールバック用
     [SerializeField] private float spawnDistance = 0.8f;
 
     private GameObject owner;
@@ -14,7 +14,9 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     {
         base.OnEquip(user);
         owner = user;
-        playerController = user != null ? user.GetComponent<PlayerController>() : null;
+        
+        // userはMiningToolsなので、親オブジェクト（Player）からPlayerControllerを取得
+        playerController = user != null ? user.GetComponentInParent<PlayerController>() : null;
     }
 
     public override void Use()
@@ -25,7 +27,17 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             Debug.LogWarning("DynamiteToolBehaviour: owner is null.");
             return;
         }
-        if (dynamiteProjectilePrefab == null)
+
+        // ToolData(Dynamite) があれば優先的に使う
+        GameObject projectilePrefab = dynamiteProjectilePrefab;
+        float force = throwForce;
+        if (ToolData is Dynamite dyn)
+        {
+            if (dyn.ProjectilePrefab != null) projectilePrefab = dyn.ProjectilePrefab;
+            if (dyn.ThrowForce > 0f) force = dyn.ThrowForce;
+        }
+
+        if (projectilePrefab == null)
         {
             Debug.LogWarning("DynamiteToolBehaviour: projectile prefab is not assigned.");
             return;
@@ -35,11 +47,11 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         Vector3 dir = ComputeQuantizedDirection(owner, playerController, isTopDown);
         if (dir.sqrMagnitude < 0.0001f)
         {
-            dir = isTopDown ? new Vector3(1, 0, 0) : new Vector3(1, 0, 0);
+            dir = isTopDown ? new Vector3(1f, 0f, 0f) : new Vector3(1f, 0f, 0f);
         }
 
         Vector3 spawnPos = owner.transform.position + dir.normalized * spawnDistance;
-        var go = Object.Instantiate(dynamiteProjectilePrefab, spawnPos, Quaternion.identity);
+        var go = Object.Instantiate(projectilePrefab, spawnPos, Quaternion.identity);
 
         var proj = go.GetComponent<DynamiteProjectile>();
         if (proj == null) proj = go.AddComponent<DynamiteProjectile>();
@@ -51,14 +63,10 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         var rb = go.GetComponent<Rigidbody>();
         if (rb == null) rb = go.AddComponent<Rigidbody>();
         rb.useGravity = !isTopDown;
-        // 速度設定（プロジェクトに合わせたプロパティ名に合わせる）
-        try
-        {
-            // いくつかの環境では linearVelocity が使用されている想定
-            rb.GetType().GetProperty("linearVelocity")?.SetValue(rb, dir.normalized * throwForce);
-        }
-        catch { }
-        rb.linearVelocity = dir.normalized * throwForce;
+
+    Vector3 v = dir.normalized * force;
+    // プロジェクトの Rigidbody 拡張: linearVelocity を使用
+    rb.linearVelocity = v;
     }
 
     public override void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
@@ -73,6 +81,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         {
             if (isTopDown)
             {
+                // TopDown: XZ 平面
                 Vector2 base2 = new Vector2(pc.lastMoveDirection.x, pc.lastMoveDirection.z);
                 Vector2 q = Quantize8(base2);
                 if (q.sqrMagnitude < 0.5f)
@@ -84,6 +93,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             }
             else
             {
+                // SideScroller: XY 平面
                 Vector2 base2 = new Vector2(pc.lastMoveDirection.x, pc.lastMoveDirection.y);
                 Vector2 q = Quantize8(base2);
                 if (q.sqrMagnitude < 0.5f)
@@ -96,7 +106,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         }
 
         // フォールバック
-        Vector3 fw = user.transform.forward;
+        Vector3 fw = user != null ? user.transform.forward : Vector3.right;
         if (isTopDown)
         {
             Vector2 q = Quantize8(new Vector2(fw.x, fw.z));
@@ -104,7 +114,8 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         }
         else
         {
-            Vector2 q = Quantize8(new Vector2(Mathf.Approximately(Mathf.Sign(fw.x), 0f) ? 1f : Mathf.Sign(fw.x), 0f));
+            float sx = Mathf.Approximately(fw.x, 0f) ? 1f : Mathf.Sign(fw.x);
+            Vector2 q = Quantize8(new Vector2(sx, 0f));
             return new Vector3(q.x, q.y, 0f);
         }
     }
@@ -112,21 +123,23 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     // 8方向に量子化（E, NE, N, NW, W, SW, S, SE）
     private Vector2 Quantize8(Vector2 v)
     {
-        if (v.sqrMagnitude < 0.0001f) return Vector2.zero;
-        v.Normalize();
-        float angle = Mathf.Atan2(v.y, v.x) * Mathf.Rad2Deg; // -180..180
-        if (angle < 0f) angle += 360f; // 0..360
-        int sector = Mathf.RoundToInt(angle / 45f) % 8; // 0..7
-        switch (sector)
+        if (v.sqrMagnitude < 1e-6f) return Vector2.zero;
+
+        float angle = Mathf.Atan2(v.y, v.x); // [-pi, pi]
+        float step = Mathf.PI / 4f;          // 45°
+        int idx = Mathf.RoundToInt(angle / step);
+        idx = (idx % 8 + 8) % 8;             // 0..7 に正規化
+
+        switch (idx)
         {
-            case 0: return new Vector2(1f, 0f);           // E
-            case 1: return new Vector2(0.7071f, 0.7071f); // NE
-            case 2: return new Vector2(0f, 1f);           // N
-            case 3: return new Vector2(-0.7071f, 0.7071f);// NW
-            case 4: return new Vector2(-1f, 0f);          // W
-            case 5: return new Vector2(-0.7071f, -0.7071f);// SW
-            case 6: return new Vector2(0f, -1f);          // S
-            case 7: return new Vector2(0.7071f, -0.7071f);// SE
+            case 0:  return new Vector2(1f, 0f);                          // E
+            case 1:  return new Vector2(0.70710678f, 0.70710678f);        // NE
+            case 2:  return new Vector2(0f, 1f);                          // N
+            case 3:  return new Vector2(-0.70710678f, 0.70710678f);       // NW
+            case 4:  return new Vector2(-1f, 0f);                         // W
+            case 5:  return new Vector2(-0.70710678f, -0.70710678f);      // SW
+            case 6:  return new Vector2(0f, -1f);                         // S
+            case 7:  return new Vector2(0.70710678f, -0.70710678f);       // SE
             default: return new Vector2(1f, 0f);
         }
     }
