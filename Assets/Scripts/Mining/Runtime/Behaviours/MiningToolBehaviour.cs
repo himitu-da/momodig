@@ -1,0 +1,67 @@
+using UnityEngine;
+
+/// <summary>
+/// ツールPrefabに付与する抽象コンポーネント。
+/// ScriptableObject(MiningTool)のデータと、実体の挙動・アニメーションを橋渡しします。
+/// </summary>
+public abstract class MiningToolBehaviour : MonoBehaviour
+{
+    /// <summary>対応するツールデータ(SO)</summary>
+    public MiningTool ToolData { get; private set; }
+
+    /// <summary>装備者(GameObject)。装備時に設定されます。</summary>
+    protected GameObject user;
+
+    /// <summary>掘削実行担当（コントローラーから注入）</summary>
+    protected Digger digger;
+
+    /// <summary>装備中フラグ</summary>
+    public bool IsEquipped { get; private set; }
+
+    /// <summary>
+    /// ツールデータを紐付けます（インスタンス化直後に呼ばれます）。
+    /// </summary>
+    public virtual void BindTool(MiningTool tool)
+    {
+        ToolData = tool;
+    }
+
+    /// <summary>
+    /// 装備時に呼ばれます。
+    /// </summary>
+    public virtual void OnEquip(GameObject user)
+    {
+        this.user = user;
+        // Digger はコントローラー側から SetDigger で注入される想定
+        IsEquipped = true;
+    }
+
+    /// <summary>
+    /// 脱着時に呼ばれます。
+    /// </summary>
+    public virtual void OnUnequip()
+    {
+        IsEquipped = false;
+    }
+
+    /// <summary>
+    /// コントローラー側から Digger を注入します。
+    /// </summary>
+    public void SetDigger(Digger digger)
+    {
+        this.digger = digger;
+    }
+
+    /// <summary>
+    /// ツール使用（入力に応じてコントローラーから呼ばれる）
+    /// </summary>
+    public abstract void Use();
+
+    /// <summary>
+    /// 照準・向きの更新（プレイヤーの移動/入力から転送される）
+    /// </summary>
+    public virtual void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
+    {
+        // 既定では何もしない。必要に応じて派生で向き/アニメ用パラメータを更新。
+    }
+}
