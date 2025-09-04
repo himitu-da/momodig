@@ -47,6 +47,38 @@ public class PlayerController : MonoBehaviour
     // 外部からのアクセス用プロパティ
     public IInventory Inventory => inventory;
     
+    // マウス位置を外部から取得するためのプロパティ
+    public Vector2 MousePosition => mousePosition;
+    
+    /// <summary>
+    /// マウスのスクリーン座標をワールド座標に変換する
+    /// </summary>
+    /// <param name="screenPosition">スクリーン座標</param>
+    /// <param name="distance">カメラからの距離（SideScrollerモードで使用）</param>
+    /// <returns>ワールド座標</returns>
+    public Vector3 ScreenToWorldPoint(Vector2 screenPosition, float distance = 10f)
+    {
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            Debug.LogWarning("Main camera not found!");
+            return Vector3.zero;
+        }
+
+        Vector3 screenPos = new Vector3(screenPosition.x, screenPosition.y, distance);
+        return mainCamera.ScreenToWorldPoint(screenPos);
+    }
+    
+    /// <summary>
+    /// 現在のマウス位置をワールド座標で取得
+    /// </summary>
+    /// <param name="distance">カメラからの距離（SideScrollerモードで使用）</param>
+    /// <returns>マウス位置のワールド座標</returns>
+    public Vector3 GetMouseWorldPosition(float distance = 10f)
+    {
+        return ScreenToWorldPoint(mousePosition, distance);
+    }
+    
     [Header("アイテム回収設定")]
     [SerializeField] private float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
     
@@ -54,6 +86,7 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
+    private Vector2 mousePosition; // マウスのスクリーン座標
     private float currentFallSpeed = 0f; // 現在の落下速度
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
@@ -96,6 +129,10 @@ public class PlayerController : MonoBehaviour
         // "Move" アクションが実行された時(キーが押された/離された時)に呼ばれる処理を登録
         controls.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         controls.Player.Move.canceled += ctx => moveInput = Vector2.zero;
+
+        // "MousePosition" アクションの登録
+        controls.Player.MousePosition.performed += ctx => mousePosition = ctx.ReadValue<Vector2>();
+        controls.Player.MousePosition.canceled += ctx => mousePosition = Vector2.zero;
 
     // "MainMine" アクションの登録
     controls.Player.MainMine.performed += OnMainMine;
@@ -205,6 +242,8 @@ public class PlayerController : MonoBehaviour
         {
             controls.Player.MainMine.performed -= OnMainMine;
             controls.Player.SubMine.performed -= OnSubMine;
+            controls.Player.MousePosition.performed -= ctx => mousePosition = ctx.ReadValue<Vector2>();
+            controls.Player.MousePosition.canceled -= ctx => mousePosition = Vector2.zero;
         }
     }
 

@@ -6,6 +6,11 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     [SerializeField] private GameObject dynamiteProjectilePrefab; // フォールバック用
     [SerializeField] private float throwForce = 8f;               // フォールバック用
     [SerializeField] private float spawnDistance = 0.8f;
+    
+    [Header("Ballistic Settings")]
+    [SerializeField] private float maxThrowDistance = 15f;        // 最大投射距離
+    [SerializeField] private float maxThrowAngle = 45f;           // 最大投射角度（度）
+    [SerializeField] private float gravity = 9.81f;              // 重力加速度
 
     private GameObject owner;
     private PlayerController playerController;
@@ -31,10 +36,17 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         // ToolData(Dynamite) があれば優先的に使う
         GameObject projectilePrefab = dynamiteProjectilePrefab;
         float force = throwForce;
+        float maxDistance = maxThrowDistance;
+        float maxAngle = maxThrowAngle;
+        float gravityValue = gravity;
+        
         if (ToolData is Dynamite dyn)
         {
             if (dyn.ProjectilePrefab != null) projectilePrefab = dyn.ProjectilePrefab;
             if (dyn.ThrowForce > 0f) force = dyn.ThrowForce;
+            if (dyn.MaxThrowDistance > 0f) maxDistance = dyn.MaxThrowDistance;
+            if (dyn.MaxThrowAngle > 0f) maxAngle = dyn.MaxThrowAngle;
+            if (dyn.Gravity > 0f) gravityValue = dyn.Gravity;
         }
 
         if (projectilePrefab == null)
@@ -44,13 +56,26 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         }
 
         bool isTopDown = playerController != null && playerController.currentMoveMode == PlayerController.MoveMode.TopDown;
-        Vector3 dir = ComputeQuantizedDirection(owner, playerController, isTopDown);
+        Vector3 dir;
+        
+        if (isTopDown)
+        {
+            // TopDown: マウス方向への直接投射（従来と同様）
+            dir = ComputeQuantizedDirection(owner, playerController, isTopDown);
+        }
+        else
+        {
+            // SideScroller: マウス位置を目標とした放物運動
+            dir = ComputeBallisticDirection(owner, playerController);
+        }
+        
         if (dir.sqrMagnitude < 0.0001f)
         {
             dir = isTopDown ? new Vector3(1f, 0f, 0f) : new Vector3(1f, 0f, 0f);
         }
 
-        Vector3 spawnPos = owner.transform.position + dir.normalized * spawnDistance;
+        // プレイヤーの中心位置から発射（spawnDistanceを使わない）
+        Vector3 spawnPos = owner.transform.position;
         var go = Object.Instantiate(projectilePrefab, spawnPos, Quaternion.identity);
 
         var proj = go.GetComponent<DynamiteProjectile>();
@@ -64,9 +89,37 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         if (rb == null) rb = go.AddComponent<Rigidbody>();
         rb.useGravity = !isTopDown;
 
-    Vector3 v = dir.normalized * force;
-    // プロジェクトの Rigidbody 拡張: linearVelocity を使用
-    rb.linearVelocity = v;
+        Vector3 velocity;
+        if (isTopDown)
+        {
+            // TopDown: 従来通りの直接速度設定
+            velocity = dir.normalized * force;
+        }
+        else
+        {
+            // SideScroller: 放物運動用の初速度を再計算
+            Vector3 startPos = owner.transform.position;
+            Vector3 targetPos = playerController.GetMouseWorldPosition(10f);
+            targetPos.z = startPos.z; // Z座標を固定
+            
+            float horizontalDistance = targetPos.x - startPos.x;
+            float verticalDistance = targetPos.y - startPos.y;
+            
+            // 距離制限
+            float totalDistance = Mathf.Sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
+            if (totalDistance > maxThrowDistance)
+            {
+                Vector3 direction = (targetPos - startPos).normalized;
+                targetPos = startPos + direction * maxThrowDistance;
+                horizontalDistance = targetPos.x - startPos.x;
+                verticalDistance = targetPos.y - startPos.y;
+            }
+            
+            velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance);
+        }
+
+        // プロジェクトの Rigidbody 拡張: linearVelocity を使用
+        rb.linearVelocity = velocity;
     }
 
     public override void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
@@ -119,7 +172,94 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             return new Vector3(q.x, q.y, 0f);
         }
     }
-
+    
+    /// <summary>
+    /// SideScrollerモードでマウス位置を目標とした放物運動の方向を計算
+    /// </summary>
+    private Vector3 ComputeBallisticDirection(GameObject user, PlayerController pc)
+    {
+        if (pc == null) return Vector3.right;
+        
+        // Dynamiteクラスからパラメータを取得
+        float maxDistance = maxThrowDistance;
+        if (ToolData is Dynamite dyn && dyn.MaxThrowDistance > 0f)
+        {
+            maxDistance = dyn.MaxThrowDistance;
+        }
+        
+        // プレイヤーの中心位置とマウスのワールド座標を取得
+        Vector3 startPos = user.transform.position; // プレイヤーの中心位置
+        Vector3 targetPos = pc.GetMouseWorldPosition(10f); // Z=0平面でのワールド座標
+        
+        // SideScrollerなのでZ座標を0に固定
+        targetPos.z = startPos.z;
+        
+        // 水平距離と高度差を計算
+        float horizontalDistance = targetPos.x - startPos.x;
+        float verticalDistance = targetPos.y - startPos.y;
+        
+        // 距離制限をチェック（必要に応じて）
+        float totalDistance = Mathf.Sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
+        if (totalDistance > maxDistance)
+        {
+            // 最大距離を超える場合は方向を維持して距離を制限
+            Vector3 direction = (targetPos - startPos).normalized;
+            targetPos = startPos + direction * maxDistance;
+            horizontalDistance = targetPos.x - startPos.x;
+            verticalDistance = targetPos.y - startPos.y;
+        }
+        
+        // 放物運動の初速度を計算（角度制限なし）
+        Vector3 velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance);
+        
+        return velocity.normalized;
+    }
+    
+    /// <summary>
+    /// 放物運動で目標点に到達するための初速度ベクトルを計算
+    /// </summary>
+    private Vector3 CalculateBallisticVelocity(float horizontalDistance, float verticalDistance)
+    {
+        // Dynamiteクラスからパラメータを取得
+        float gravityValue = gravity;
+        if (ToolData is Dynamite dyn && dyn.Gravity > 0f)
+        {
+            gravityValue = dyn.Gravity;
+        }
+        
+        // 水平距離が0に近い場合は垂直投射
+        if (Mathf.Abs(horizontalDistance) < 0.1f)
+        {
+            float vY = verticalDistance > 0 ? Mathf.Sqrt(2 * gravityValue * Mathf.Abs(verticalDistance)) : -Mathf.Sqrt(2 * gravityValue * Mathf.Abs(verticalDistance));
+            return new Vector3(0f, vY, 0f);
+        }
+        
+        // 固定時間法を使用（より確実で直感的）
+        float x = horizontalDistance;
+        float y = verticalDistance;
+        float g = gravityValue;
+        
+        // 適切な飛行時間を推定（距離に基づく）
+        float distance = Mathf.Sqrt(x * x + y * y);
+        float timeOfFlight = Mathf.Sqrt(2 * distance / g); // 基本的な推定
+        
+        // 目標が遠い場合や高い場合は時間を調整
+        if (distance > 10f || y > 5f)
+        {
+            timeOfFlight *= 1.5f;
+        }
+        else if (y < -2f)
+        {
+            timeOfFlight *= 0.7f; // 下向きの場合は短く
+        }
+        
+        // 初速度を計算
+        float vx = x / timeOfFlight;
+        float vy = (y + 0.5f * g * timeOfFlight * timeOfFlight) / timeOfFlight;
+        
+        return new Vector3(vx, vy, 0f);
+    }
+    
     // 8方向に量子化（E, NE, N, NW, W, SW, S, SE）
     private Vector2 Quantize8(Vector2 v)
     {
