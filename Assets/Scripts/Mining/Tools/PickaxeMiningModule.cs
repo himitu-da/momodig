@@ -15,17 +15,8 @@ public class PickaxeMiningModule : MiningModule
 
     public override void Execute(GameObject user)
     {
-        // Playerの子オブジェクトからDiggerコンポーネントを探して実行
-        Digger digger = user.GetComponentInChildren<Digger>();
-        if (digger != null)
-        {
-            // 掘削範囲を設定してから掘削を実行
-            digger.SetDiggingAreaParameters(centerOffset, size);
-            digger.Dig();
-        }
-        else
-        {
-            Debug.LogError("Digger component not found on the user or its children.");
-        }
+        // このメソッドはアニメーションイベント経由で実行されるようになったため、
+        // ここでの処理は不要になります。
+        // Digger.ExecuteDigFromAnimation() が実際の処理を担当します。
     }
 }
