@@ -76,4 +76,17 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         }
     }
 
+    private void OnDrawGizmos()
+    {
+        if (ToolData == null || ToolData.miningModule == null || digger == null || digger.DiggingArea == null)
+        {
+            return;
+        }
+
+        Gizmos.color = Color.red;
+        // 掘削エリアのBoxColliderから情報を取得してGizmosを描画
+        BoxCollider area = digger.DiggingArea;
+        Gizmos.matrix = area.transform.localToWorldMatrix;
+        Gizmos.DrawWireCube(area.center, area.size);
+    }
 }

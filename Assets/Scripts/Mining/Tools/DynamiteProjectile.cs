@@ -71,4 +71,17 @@ public class DynamiteProjectile : MonoBehaviour
         CancelInvoke();
     }
 
+    private void OnDrawGizmos()
+    {
+        if (behaviour == null || behaviour.ToolData == null || behaviour.ToolData.miningModule == null)
+        {
+            return;
+        }
+
+        Gizmos.color = Color.yellow;
+        MiningModule module = behaviour.ToolData.miningModule;
+        Vector3 center = transform.position + module.DiggingCenter;
+        Vector3 size = module.DiggingSize;
+        Gizmos.DrawWireCube(center, size);
+    }
 }

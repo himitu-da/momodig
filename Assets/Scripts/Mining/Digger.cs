@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 public class Digger : MonoBehaviour
 {
-    private BoxCollider diggingArea; // 掘削範囲のBoxCollider
+    public BoxCollider DiggingArea => diggingArea; // 掘削範囲のBoxCollider
+    private BoxCollider diggingArea;
     private MiningModule pendingMiningModule; // 実行待機中の掘削モジュール
 
     void Awake()
