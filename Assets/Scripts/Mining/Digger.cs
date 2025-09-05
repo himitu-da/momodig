@@ -38,7 +38,7 @@ public class Digger : MonoBehaviour
             SetDiggingAreaParameters(pendingMiningModule.DiggingCenter, pendingMiningModule.DiggingSize);
             
             // 掘削を実行
-            Dig();
+            Dig(pendingMiningModule.DamagePerHit);
 
             // 実行後に保留中のモジュールをクリア
             pendingMiningModule = null;
@@ -84,7 +84,7 @@ public class Digger : MonoBehaviour
         DrawDebugBox();
     }
 
-    public void Dig()
+    public void Dig(int damagePerHit)
     {
         if (diggingArea == null)
         {
@@ -103,12 +103,12 @@ public class Digger : MonoBehaviour
         );
 
         // ユニークなチャンクを収集（複数ヒット回避）
-        HashSet<Block> hitChunks = new HashSet<Block>();
+        HashSet<Block> hitBlocks = new HashSet<Block>();
         foreach (var hitCollider in hitColliders)
         {
-            Block chunk = hitCollider.GetComponent<Block>();
-            if (chunk != null)
-                hitChunks.Add(chunk);
+            Block block = hitCollider.GetComponent<Block>();
+            if (block != null)
+                hitBlocks.Add(block);
         }
 
         // BoxColliderのワールド空間での8つの頂点を計算し、それらを完全に含むAABB (Axis-Aligned Bounding Box) を作成します。
@@ -125,10 +125,10 @@ public class Digger : MonoBehaviour
         points[6] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, size.y, size.z));
         points[7] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, size.y, size.z));
 
-        foreach (var chunk in hitChunks)
+        foreach (var block in hitBlocks)
         {
             // BoxCollider自体を渡して、より正確な判定をチャンク側で行う
-            StartCoroutine(chunk.DigVoxels(diggingArea));
+            StartCoroutine(block.DigVoxels(diggingArea, damagePerHit));
         }
 
         // 掘削範囲内のドロップアイテムを起床させる
