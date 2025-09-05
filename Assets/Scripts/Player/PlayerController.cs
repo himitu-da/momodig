@@ -1,9 +1,13 @@
 using UnityEngine;
 using UnityEngine.InputSystem; // Input Systemを使うために必要
 using UnityEngine.UI; // UIを使うために必要
+using System.Collections.Generic; // MinecartManager用
+using System.Collections; // Coroutine用
+using System; // Serializable用
 
 public class PlayerController : MonoBehaviour
 {
+
     public enum MoveMode
     {
         SideScroller,
@@ -30,16 +34,37 @@ public class PlayerController : MonoBehaviour
     [Header("UI設定")]
     public Text scoreText; // スコア表示用のText
     public Text depthText; // 深度表示用のText
+    public Text inventoryText; // インベントリ表示用UI
     
     [Header("参照")]
     public Digger digger; // Diggerへの参照
+
+    [Header("インベントリ設定")]
+    private IInventory inventory;
+    
+    [Header("アイテムマネージャー設定")]
+    private IItemManager itemManager;
+    
+    // 外部からのアクセス用プロパティ
+    public IInventory Inventory => inventory;
+    
+    [Header("アイテム回収設定")]
+    public float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
+    
     private int score = 0;
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
     private float currentFallSpeed = 0f; // 現在の落下速度
-    private Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
+    public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
+    
+    // 接触中のアイテム管理用
+    private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
+    private Coroutine pickupRetryCoroutine; // リトライコルーチン
+    
+    // MinecartInteractionSystemへの参照
+    private MinecartInteractionSystem minecartInteraction;
 
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
@@ -106,8 +131,37 @@ public class PlayerController : MonoBehaviour
             }
         }
 
+        // inventoryTextを探して設定
+        if (inventoryText == null)
+        {
+            var inventoryTextObject = GameObject.Find("InventoryText");
+            if (inventoryTextObject != null)
+            {
+                inventoryText = inventoryTextObject.GetComponent<Text>();
+            }
+        }
+        UpdateInventoryUI(); // 初期化
+
         // Rigidbodyの制約を更新
         UpdateConstraints();
+
+        // MinecartInteractionSystemの参照を取得
+        minecartInteraction = GetComponent<MinecartInteractionSystem>();
+        if (minecartInteraction == null)
+        {
+            Debug.LogWarning("MinecartInteractionSystemが見つかりません");
+        }
+        
+        // 依存関係の初期化（インターフェース経由）
+        inventory = new PlayerInventory();
+        itemManager = DroppedItemManager.Instance;
+        
+        // インベントリイベントの購読
+        if (inventory != null)
+        {
+            inventory.OnResourceAdded += OnInventoryResourceAdded;
+            inventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
+        }
     }
 
     // インスペクターで値が変更されたときに呼ばれる（エディタのみ）
@@ -136,11 +190,28 @@ public class PlayerController : MonoBehaviour
     {
         controls.Player.Disable();
     }
+    
+    // オブジェクトが破棄されるときに呼ばれる
+    void OnDestroy()
+    {
+        // イベント購読解除
+        if (inventory != null)
+        {
+            inventory.OnResourceAdded -= OnInventoryResourceAdded;
+            inventory.OnTotalCountChanged -= OnInventoryTotalCountChanged;
+        }
+    }
 
     // フレームごとに呼ばれる
     void Update()
     {
         UpdateDepthText();
+        
+        // トロッコとの近接チェックをMinecartInteractionSystemに委譲
+        if (minecartInteraction != null)
+        {
+            minecartInteraction.CheckMinecartProximity();
+        }
     }
 
     // 物理演算の更新タイミングで呼ばれる
@@ -230,22 +301,116 @@ public class PlayerController : MonoBehaviour
         // 衝突したオブジェクトが "DroppedItem" タグを持っているか確認
         if (collision.gameObject.CompareTag("DroppedItem"))
         {
-            // アイテム回収時に周辺のアイテムを起床させる
-            if (DroppedItemManager.Instance != null)
+            // 接触中のアイテムリストに追加
+            if (!contactItems.Contains(collision.gameObject))
             {
-                var itemCollider = collision.gameObject.GetComponent<Collider>();
-                if (itemCollider != null)
+                contactItems.Add(collision.gameObject);
+            }
+            
+            // アイテム回収を試行
+            TryPickupItem(collision.gameObject);
+            
+            // リトライコルーチンが実行されていない場合は開始
+            if (pickupRetryCoroutine == null)
+            {
+                pickupRetryCoroutine = StartCoroutine(PickupRetryCoroutine());
+            }
+        }
+    }
+    
+    void OnCollisionExit(Collision collision)
+    {
+        // 衝突したオブジェクトが "DroppedItem" タグを持っているか確認
+        if (collision.gameObject.CompareTag("DroppedItem"))
+        {
+            // 接触中のアイテムリストから削除
+            contactItems.Remove(collision.gameObject);
+            
+            // 接触中のアイテムがなくなったらリトライコルーチンを停止
+            if (contactItems.Count == 0 && pickupRetryCoroutine != null)
+            {
+                StopCoroutine(pickupRetryCoroutine);
+                pickupRetryCoroutine = null;
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 定期的に接触中のアイテムの回収を再試行する
+    /// </summary>
+    private IEnumerator PickupRetryCoroutine()
+    {
+        while (contactItems.Count > 0)
+        {
+            yield return new WaitForSeconds(itemPickupRetryInterval);
+            
+            // 接触中の全てのアイテムに対して回収を試行
+            for (int i = contactItems.Count - 1; i >= 0; i--)
+            {
+                if (i < contactItems.Count && contactItems[i] != null)
                 {
-                    float radius = itemCollider.bounds.extents.magnitude;
-                    DroppedItemManager.Instance.WakeUpItemsNearPosition(collision.transform.position, radius * DroppedItemManager.Instance.WakeUpRadiusMultiplier);
+                    TryPickupItem(contactItems[i]);
                 }
             }
+        }
+        
+        pickupRetryCoroutine = null;
+    }
+    
+    /// <summary>
+    /// アイテムの回収を試行する
+    /// </summary>
+    private void TryPickupItem(GameObject itemObject)
+    {
+        // 周辺アイテムを起床させる（インターフェース経由）
+        if (itemManager != null)
+        {
+            var itemCollider = itemObject.GetComponent<Collider>();
+            if (itemCollider != null)
+            {
+                float radius = itemCollider.bounds.extents.magnitude;
+                itemManager.WakeUpItemsNearPosition(itemObject.transform.position, radius * itemManager.WakeUpRadiusMultiplier);
+            }
+        }
 
-            // アイテムをプールに返却
-            DroppedItemManager.Instance.ReturnItem(collision.gameObject);
-            // スコアを更新
-            score++;
-            UpdateScoreText();
+        // 資源情報を取得
+        DroppedItem itemComponent = itemObject.GetComponent<DroppedItem>();
+        ResourceType resourceType = itemComponent != null ? itemComponent.resourceType : ResourceType.Stone;
+
+        // プレイヤーインベントリに追加を試行（インターフェース経由）
+        if (inventory.CanAddResource(resourceType))
+        {
+            if (inventory.AddResource(resourceType))
+            {
+                // アイテムをプールに返却（インターフェース経由）
+                itemManager.ReturnItem(itemObject);
+                
+                // 接触リストからも削除
+                contactItems.Remove(itemObject);
+                
+                // スコアを更新
+                score++;
+                UpdateScoreText();
+                
+                // インベントリUI更新
+                UpdateInventoryUI();
+                
+                Debug.Log($"プレイヤーが{resourceType}を回収しました。持ち物: {inventory.GetTotalItemCount()}/{inventory.maxCapacity}");
+                
+                // インベントリの詳細を出力（インターフェース経由）
+                var allRes = inventory.GetAllResources();
+                string detailInfo = "インベントリ詳細: ";
+                foreach (var kvp in allRes)
+                {
+                    if (kvp.Value > 0) detailInfo += $"{kvp.Key}:{kvp.Value} ";
+                }
+                Debug.Log(detailInfo);
+            }
+        }
+        else
+        {
+            Debug.Log("インベントリが満杯です！");
+            // TODO: 満杯時のフィードバック（UI表示、音声など）
         }
     }
 
@@ -267,6 +432,25 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    void UpdateInventoryUI()
+    {
+        if (inventoryText != null)
+        {
+            var resources = inventory.GetAllResources();
+            string inventoryInfo = $"持ち物 ({inventory.GetTotalItemCount()}/{inventory.maxCapacity}):\n";
+            
+            foreach (var kvp in resources)
+            {
+                if (kvp.Value > 0)
+                {
+                    inventoryInfo += $"{kvp.Key}: {kvp.Value}個 ";
+                }
+            }
+            
+            inventoryText.text = inventoryInfo;
+        }
+    }
+
     private void UpdateConstraints()
     {
         if (rb == null) return;
@@ -285,5 +469,23 @@ public class PlayerController : MonoBehaviour
             // Y位置を固定
             rb.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
         }
+    }
+    
+    /// <summary>
+    /// インベントリにリソースが追加されたときの処理
+    /// </summary>
+    private void OnInventoryResourceAdded(ResourceType type, int amount)
+    {
+        // リソース追加時の追加処理があれば実装
+        UpdateInventoryUI(); // UI更新を呼び出し
+    }
+    
+    /// <summary>
+    /// インベントリの総数が変更されたときの処理
+    /// </summary>
+    private void OnInventoryTotalCountChanged(int newTotal)
+    {
+        // 総数変更時の処理（必要に応じて）
+        // 例: 満杯状態の通知、パフォーマンス調整など
     }
 }

@@ -751,7 +751,8 @@ GameObject:
   - component: {fileID: 672003891}
   - component: {fileID: 672003893}
   - component: {fileID: 672003892}
-  m_Layer: 0
+  - component: {fileID: 672003894}
+  m_Layer: 3
   m_Name: Player
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -790,13 +791,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   moveSpeed: 5
   acceleration: 0.05
-  deceleration: 0.2
+  deceleration: 0.1
   fallSpeedMultiplier: 0.5
   fallAcceleration: 1
   _currentMoveMode: 0
-  scoreText: {fileID: 479779840}
-  depthText: {fileID: 291085690}
+  scoreText: {fileID: 0}
+  depthText: {fileID: 0}
+  inventoryText: {fileID: 0}
   digger: {fileID: 2018520425}
+  itemPickupRetryInterval: 0.1
+  lastMoveDirection: {x: 0, y: 0, z: 1}
 --- !u!54 &672003893
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -824,6 +828,46 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 112
   m_CollisionDetection: 0
+--- !u!114 &672003894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 672003887}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04ba007c373c1cd4baf170a2b85a9f7c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  minecartDetectionRange: 3
+  itemTransferSpeed: 150
+  itemMoveSpeed: 5
+  movementCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  minecartManager: {fileID: 1324682791}
 --- !u!1 &832575517
 GameObject:
   m_ObjectHideFlags: 0
@@ -885,7 +929,7 @@ GameObject:
   - component: {fileID: 973097927}
   - component: {fileID: 973097926}
   - component: {fileID: 973097925}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: PlayerVisuals2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -993,7 +1037,7 @@ GameObject:
   - component: {fileID: 1166258685}
   - component: {fileID: 1166258684}
   - component: {fileID: 1166258683}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: PlayerVisuals
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1170,6 +1214,60 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1324682790
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1324682792}
+  - component: {fileID: 1324682791}
+  m_Layer: 6
+  m_Name: Minecart
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1324682791
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1324682790}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1373d1287db7cf34093a85738bf8d678, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerTransform: {fileID: 0}
+  minecartPrefab: {fileID: 1242165045067032922, guid: 57b4c4f6783a13c45909b1fc9784d4b1, type: 3}
+  CartCapacity: 50
+  cartunit: 5
+  pathRecordInterval: 0.2
+  cartDistanceInPoints: 5
+  maxPathPoints: 100
+  cartcooltime: 0
+  DeltaTime: 0
+  digable: 1
+--- !u!4 &1324682792
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1324682790}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.94483, y: -1.21088, z: -0.27152}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1375720076
 GameObject:
   m_ObjectHideFlags: 0
@@ -1199,8 +1297,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c094062e6106c9a48997e6d6051cbd3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _wakeUpRadiusMultiplier: 3
   maxWakeUpsPerUpdate: 8
-  WakeUpRadiusMultiplier: 2
   MaxWakeUpPerStep: 10
   WakeUpStepDelay: 0.1
   MaxDownwardChain: 5
@@ -1230,7 +1328,7 @@ GameObject:
   - component: {fileID: 2018520423}
   - component: {fileID: 2018520424}
   - component: {fileID: 2018520425}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: DiggingArea
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1355,5 +1453,6 @@ SceneRoots:
   - {fileID: 421652223}
   - {fileID: 1317042596}
   - {fileID: 672003891}
+  - {fileID: 1324682792}
   - {fileID: 2071865105}
   - {fileID: 1375720078}

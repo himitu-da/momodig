@@ -4,6 +4,7 @@ using System.Collections.Generic;
 public class DroppedItem : MonoBehaviour
 {
     public Rigidbody rb { get; private set; }
+    public ResourceType resourceType = ResourceType.Stone; // デフォルトはStone
 
     void Awake()
     {

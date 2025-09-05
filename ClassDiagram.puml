@@ -1,0 +1,471 @@
+@startuml
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontStyle Bold
+skinparam classFontSize 15
+skinparam classHeaderBackgroundColor #EEE
+skinparam classBorderColor #333
+skinparam classArrowColor #333
+skinparam shadowing false
+
+package "Interfaces" {
+  interface IInventory {
+    + maxCapacity: int
+    + CanAddResource(type: ResourceType, amount: int = 1): bool
+    + AddResource(type: ResourceType, amount: int = 1): bool
+    + GetTotalItemCount(): int
+    + GetResourceCount(type: ResourceType): int
+    + RemoveResource(type: ResourceType, amount: int = 1): int
+    + IsEmpty(): bool
+    + GetAllResources(): Dictionary<ResourceType, int>
+    + OnResourceAdded: event Action<ResourceType, int>
+    + OnTotalCountChanged: event Action<int>
+  }
+
+  interface IItemManager {
+    + WakeUpRadiusMultiplier: float
+    + ReturnItem(itemObject: GameObject): void
+    + WakeUpItemsNearPosition(position: Vector3, radius: float): void
+  }
+}
+
+package "Data" {
+  enum ResourceType {
+    Stone
+    Iron
+    Gold
+    Diamond
+  }
+
+  class ResourceTypeUtility <<static>> {
+    + {static} GetResourceColor(resourceType: ResourceType): Color
+    + {static} GetDisplayName(resourceType: ResourceType): string
+    + {static} GetBaseValue(resourceType: ResourceType): int
+  }
+
+  class BlockData <<ScriptableObject>> {
+    + voxelHp: int
+    + textures: List<Texture2D>
+    + droppedItemPrefab: GameObject
+    + disableRotation: bool
+    + autoScale: bool
+    + scaleMultiplier: float
+  }
+
+  class "BlockDataManager.BlockDataMapping" as BlockDataMapping {
+    + resourceType: ResourceType
+    + blockData: BlockData
+  }
+
+  class BlockDataManager <<ScriptableObject>> {
+    - blockDataMappings: List<BlockDataMapping>
+    - _dataMap: Dictionary<ResourceType, BlockData>
+    + Initialize()
+    + GetBlockData(resourceType: ResourceType): BlockData
+  }
+
+  BlockDataManager +-- BlockDataMapping
+  BlockDataManager ..> BlockData
+}
+
+package "Player" {
+  class Digger {
+    - diggingArea: BoxCollider
+    + SetDiggingArea(area: BoxCollider)
+    + UpdateDiggingAreaTransform(position: Vector3, rotation: Quaternion)
+    - Dig()
+    - DrawDebugBox()
+  }
+
+  class PlayerController {
+    + moveSpeed: float
+    + acceleration: float
+    + deceleration: float
+    + fallSpeedMultiplier: float
+    + fallAcceleration: float
+    + currentMoveMode: MoveMode
+    + scoreText: Text
+    + depthText: Text
+    + inventoryText: Text
+    + digger: Digger
+    + itemPickupRetryInterval: float
+    + Inventory: IInventory
+    - inventory: IInventory
+    - itemManager: IItemManager
+    - score: int
+    - rb: Rigidbody
+    - controls: InputSystem_Actions
+    - moveInput: Vector2
+    - currentFallSpeed: float
+    - lastMoveDirection: Vector3
+    - currentVelocity: Vector3
+    - contactItems: List<GameObject>
+    - pickupRetryCoroutine: Coroutine
+    - minecartInteraction: MinecartInteractionSystem
+  }
+
+  enum "PlayerController.MoveMode" as MoveMode {
+    SideScroller
+    TopDown
+  }
+
+  class PlayerInventory {
+    + maxCapacity: int
+    - _maxCapacity: int
+    - resources: Dictionary<ResourceType, int>
+    + OnResourceAdded: Action<ResourceType, int>
+    + OnResourceRemoved: Action<ResourceType, int>
+    + OnTotalCountChanged: Action<int>
+    + OnInventoryFullStateChanged: Action<bool>
+    + PlayerInventory()
+    + CanAddResource(type: ResourceType, amount: int): bool
+    + AddResource(type: ResourceType, amount: int): bool
+    + RemoveResource(type: ResourceType, amount: int): int
+    + GetTotalItemCount(): int
+    + GetResourceCount(type: ResourceType): int
+    + GetAllResources(): Dictionary<ResourceType, int>
+    + IsEmpty(): bool
+    + IsFull(): bool
+    + Clear()
+  }
+
+  PlayerController +-- MoveMode
+  PlayerController o-- Digger
+  PlayerController ..> IInventory : inventory
+  PlayerController ..> IItemManager : itemManager
+  PlayerInventory ..|> IInventory : implements
+}
+
+package "Minecart" {
+  class Minecart {
+    + resources: Dictionary<ResourceType, int>
+    + time: float
+    + Minecart()
+  }
+
+  class MinecartManager {
+    + CartCapacity: int
+    + cartunit: int
+    + minecarts: List<Minecart>
+    + cartcooltime: float
+    + DeltaTime: float
+    + digable: bool
+    + addnewcart()
+    + updatevalue(minecartnum: int, type: ResourceType, value: int)
+    + settime(minecartnum: int, cartcooltime: float)
+  }
+
+  class MinecartInteractionSystem {
+    - minecartDetectionRange: float
+    - itemTransferSpeed: float
+    - itemMoveSpeed: float
+    - movementCurve: AnimationCurve
+    - minecartManager: MinecartManager
+    - minecartPrefab: GameObject
+    - spawnedMinecarts: List<GameObject>
+    - isTransferringItems: bool
+    - playerController: PlayerController
+    + CheckMinecartProximity()
+    + GetDetectionRange(): float
+    + SetDetectionRange(range: float)
+    + IsTransferringItems(): bool
+    + GetDebugInfo(): string
+  }
+
+  MinecartManager o-- "cartunit" Minecart
+}
+
+package "Items" {
+  class DroppedItem {
+    + rb: Rigidbody
+    + resourceType: ResourceType
+  }
+
+  class "DroppedItemManager.ItemState" as ItemState {
+    + isSleeping: bool
+    + velocityHistory: Queue<float>
+    + surroundingObjectCount: int
+    + objectCountChangeCounter: int
+    + sleepCooldownTimer: float
+  }
+
+  class DroppedItemManager <<Singleton>> {
+    + {static} Instance: DroppedItemManager
+    + maxWakeUpsPerUpdate: int
+    + WakeUpRadiusMultiplier: float
+    + MaxWakeUpPerStep: int
+    + WakeUpStepDelay: float
+    + MaxDownwardChain: int
+    - activeItems: List<DroppedItem>
+    - itemPools: Dictionary<GameObject, Queue<GameObject>>
+    + WakeUpItemsInRadius(center: Vector3, size: Vector3, rotation: Quaternion)
+    + WakeUpItemsNearPosition(position: Vector3, radius: float)
+    + GetItem(prefab: GameObject): GameObject
+    + ReturnItem(itemInstance: GameObject)
+  }
+
+  DroppedItemManager +-- ItemState
+  DroppedItemManager o-- "*" DroppedItem
+  DroppedItemManager ..|> IItemManager : implements
+}
+
+package "Terrain" {
+  class Block {
+    + ChunkSize: int
+    - voxelManager: VoxelManager
+    - blockPosition: Vector3Int
+    - maxHP: int
+    - diggingThreshold: float
+    - diggingFrameDelay: int
+    - initialColor: Color
+    - texture1: Texture2D
+    - texture2: Texture2D
+    - useTexture1Pattern: bool[,,]
+    - voxelSize: float
+    - meshGenerator: BlockMeshGenerator
+    - textureExtractor: VoxelTextureExtractor
+    - itemDropper: BlockItemDropper
+    - diggingSystem: BlockDiggingSystem
+    - droppedItemPrefab: GameObject
+    - disableRotation: bool
+    - autoScale: bool
+    - scaleMultiplier: float
+    - enableTextureExtraction: bool
+    - extractedTextureResolution: int
+    - mesh: Mesh
+    - meshFilter: MeshFilter
+    - collider: MeshCollider
+    - blockData: BlockData
+    + Initialize(manager: VoxelManager, position: Vector3Int, pattern: bool[,,], newChunkSize: int, worldChunkSize: float, data: BlockData)
+    + TakeDamage(localPos: Vector3, damage: int)
+    + DigVoxels(diggingArea: BoxCollider): IEnumerator
+    + GenerateMesh()
+  }
+
+  class BlockMeshGenerator {
+    + GenerateMesh(block: Block, voxelManager: VoxelManager, blockPosition: Vector3Int, chunkSize: int, maxHP: int, initialColor: Color, mesh: Mesh, collider: MeshCollider)
+    - IsVoxelFaceExposed(voxelManager: VoxelManager, blockPosition: Vector3Int, x: int, y: int, z: int, chunkSize: int): bool
+    - AddFace(vertices: List<Vector3>, triangles: List<int>, uvs: List<Vector2>, colors: List<Color>, position: Vector3, normal: Vector3, size: float, color: Color)
+  }
+
+  class VoxelTextureExtractor {
+    - extractedTextureResolution: int
+    - enableTextureExtraction: bool
+    + ApplyVoxelTextureToDroppedItem(item: GameObject, voxelX: int, voxelY: int, voxelZ: int, texture1: Texture2D, texture2: Texture2D, pattern: bool[,,], chunkSize: int)
+    + ExtractVoxelTextureRegion(faceInfo: VoxelFaceTextureInfo): Texture2D
+    + GetVoxelFaceTextureInfo(voxelX: int, voxelY: int, voxelZ: int, normal: Vector3, texture1: Texture2D, texture2: Texture2D, pattern: bool[,,], chunkSize: int): VoxelFaceTextureInfo
+    - GetAllVoxelFaceTextureInfo(...): List<VoxelFaceTextureInfo>
+    - GetRepresentativeFace(faceInfos: List<VoxelFaceTextureInfo>): VoxelFaceTextureInfo
+    - RotateTexture180(pixels: Color[], width: int, height: int): Color[]
+    - ApplyDefaultMaterial(renderer: Renderer)
+  }
+
+  class BlockItemDropper {
+    - blockData: BlockData
+    - enableTextureExtraction: bool
+    - voxelSize: float
+    - chunkSize: int
+    - textureExtractor: VoxelTextureExtractor
+    - texture1: Texture2D
+    - texture2: Texture2D
+    - useTexture1Pattern: bool[,,]
+    + Initialize(data: BlockData, enableTexture: bool, size: float, chunk: int, extractor: VoxelTextureExtractor, tex1: Texture2D, tex2: Texture2D, pattern: bool[,,])
+    + DropItem(localPosition: Vector3, worldPosition: Vector3)
+    - SetDroppedItemConstraints(item: GameObject)
+  }
+
+  class BlockDiggingSystem {
+    - voxelManager: VoxelManager
+    - itemDropper: BlockItemDropper
+    - targetBlock: Block
+    - diggingThreshold: float
+    - diggingFrameDelay: int
+    - chunkSize: int
+    - blockPosition: Vector3Int
+    + Initialize(manager: VoxelManager, dropper: BlockItemDropper, block: Block, threshold: float, frameDelay: int, chunk: int, position: Vector3Int)
+    + TakeDamage(localPos: Vector3, damage: int)
+    + DigVoxels(diggingArea: BoxCollider): IEnumerator
+    - ProcessVoxel(x: int, y: int, z: int, mode: MovementMode)
+  }
+
+  struct VoxelFaceTextureInfo {
+    + faceNormal: Vector3
+    + uvBase: Vector2
+    + uvSize: Vector2
+    + sourceTexture: Texture2D
+    + isExposed: bool
+  }
+
+  class "BlockGenerator.BlockGenerationData" as BlockGenerationData {
+    + generationType: TerrainGenerationType
+    + voxelSize: int
+    + chunkSize: float
+    + chunkPosition: Vector3Int
+    + cubeSize: float
+    + BlockGenerationData(type: TerrainGenerationType, vSize: int, cSize: float, cPos: Vector3Int)
+  }
+
+  class BlockGenerator {
+    - showBlockDebugInfo: bool
+    - terrainManager: TerrainManager
+    + Initialize(manager: TerrainManager)
+    + GenerateBlockPattern(data: BlockGenerationData): bool[,,]
+    + CountActiveBlocks(pattern: bool[,,]): int
+    + CalculatePatternDensity(pattern: bool[,,]): float
+    + VisualizePattern(pattern: bool[,,], layer: int): string
+    + ClonePattern(source: bool[,,]): bool[,,]
+    + GetDebugInfo(): string
+  }
+
+  class "BlockManager.BlockInstanceData" as BlockInstanceData {
+    + position: Vector3Int
+    + worldPosition: Vector3
+    + block: Block
+    + isActive: bool
+    + voxelCount: int
+    + BlockInstanceData(pos: Vector3Int, worldPos: Vector3)
+  }
+
+  class BlockManager {
+    - blocks: List<BlockInstanceData>
+    - showBlockDebugInfo: bool
+    - terrainManager: TerrainManager
+    + Initialize(manager: TerrainManager)
+    + CreateBlock(blockPos: Vector3Int, worldPos: Vector3, pattern: bool[,,], resourceType: ResourceType, data: BlockData, blockSize: float, voxelSize: int, parent: Transform): BlockInstanceData
+    + GetBlockAt(position: Vector3Int): BlockInstanceData
+    + GetAllBlocks(): List<BlockInstanceData>
+    + GetActiveBlockCount(): int
+    + SetBlockActive(position: Vector3Int, active: bool)
+    + ClearAllBlocks()
+    + GetDebugInfo(): string
+  }
+
+  class Chunk {
+    + chunkPosition: Vector3Int
+    + Initialize(position: Vector3Int)
+  }
+
+  enum TerrainGenerationType {
+    SideScroller
+    TopDown
+    Custom
+  }
+
+  class TerrainSettings {
+    + center: Vector3Int
+    + worldSizeInChunks: Vector2Int
+    + chunkSizeInBlocks: Vector2Int
+    + blockSize: float
+    + voxelSize: int
+    + generationType: TerrainGenerationType
+    + blocksPerFrame: int
+  }
+
+  class TerrainManager {
+    - blockDataManager: BlockDataManager
+    - settings: TerrainSettings
+    - playerTransform: Transform
+    - renderDistanceInChunks: int
+    - chunkUpdateInterval: float
+    - timeSinceLastChunkUpdate: float
+    - currentPlayerChunk: Vector3Int
+    - activeChunks: Dictionary<Vector3Int, Chunk>
+    - _blockGenerationList: List<Vector3Int>
+    - _processedBlocks: HashSet<Vector3Int>
+    - blockManager: BlockManager
+    - blockGenerator: BlockGenerator
+    - voxelManager: VoxelManager
+    - showDebugInfo: bool
+    - voxelCountText: Text
+    + Settings: TerrainSettings
+    + BlockDataManager: BlockDataManager
+    + BlockManager: BlockManager
+    + BlockGenerator: BlockGenerator
+    + VoxelManager: VoxelManager
+    + GenerateTerrain()
+    + ClearTerrain()
+    + RegenerateTerrain()
+    + ShowDebugInfo()
+  }
+
+  enum "VoxelManager.VoxelType" as VoxelType {
+    Standard
+    Reinforced
+    Fragile
+    Unbreakable
+    Special
+  }
+
+  class "VoxelManager.VoxelData" as VoxelData {
+    + blockPosition: Vector3Int
+    + localPosition: Vector3Int
+    + worldPosition: Vector3
+    + isActive: bool
+    + health: int
+    + maxHealth: int
+    + voxelType: VoxelType
+    + lastModifiedTime: float
+    + VoxelData(blockPos: Vector3Int, localPos: Vector3Int, worldPos: Vector3, hp: int, type: VoxelType)
+  }
+
+  class VoxelManager {
+    - showVoxelDebugInfo: bool
+    - trackedVoxels: Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelData>>
+    - terrainManager: TerrainManager
+    + Initialize(manager: TerrainManager)
+    + RegisterVoxelsFromPattern(pattern: bool[,,], blockPos: Vector3Int, blockWorldPos: Vector3, data: BlockData, blockSize: float, voxelSize: int)
+    + GetVoxelAt(blockPos: Vector3Int, localPos: Vector3Int): VoxelData
+    + CountVoxelsInBlock(blockPos: Vector3Int): int
+    + DamageVoxel(blockPos: Vector3Int, localPos: Vector3Int, damage: int): bool
+    + DestroyVoxel(blockPos: Vector3Int, localPos: Vector3Int): bool
+    + RestoreVoxel(blockPos: Vector3Int, localPos: Vector3Int): bool
+    + GetVoxelsInBlock(blockPos: Vector3Int): List<VoxelData>
+    + GetActiveVoxelCount(): int
+    + GetVoxelTypeStatistics(): Dictionary<VoxelType, int>
+    + ClearVoxelsInBlock(blockPos: Vector3Int)
+    + ClearAllVoxels()
+    + GetDebugInfo(): string
+  }
+
+  BlockGenerator +-- BlockGenerationData
+  BlockGenerator ..> TerrainManager
+  BlockManager +-- BlockInstanceData
+  BlockManager ..> TerrainManager
+  BlockInstanceData o-- Block
+  TerrainManager o-- TerrainSettings
+  TerrainManager ..> BlockDataManager
+  TerrainManager o-- BlockManager
+  TerrainManager o-- BlockGenerator
+  TerrainManager o-- VoxelManager
+  TerrainManager o-- "*" Chunk
+  TerrainSettings +-- TerrainGenerationType
+  VoxelManager +-- VoxelData
+  VoxelData +-- VoxelType
+  VoxelManager ..> TerrainManager
+  Block ..> VoxelManager
+  Block ..> BlockData
+}
+
+' Relationships between packages
+PlayerController ..> IInventory
+PlayerController ..> IItemManager
+PlayerController ..> MinecartInteractionSystem
+MinecartInteractionSystem ..> MinecartManager
+MinecartInteractionSystem ..> PlayerController
+Block ..> PlayerController
+Block ..> DroppedItemManager
+
+' Block System Relationships (updated)
+Block ||--|| BlockMeshGenerator : contains
+Block ||--|| VoxelTextureExtractor : contains
+Block ||--|| BlockItemDropper : contains
+Block ||--|| BlockDiggingSystem : contains
+BlockItemDropper }o--|| VoxelTextureExtractor : uses
+BlockDiggingSystem }o--|| BlockItemDropper : uses
+BlockDiggingSystem }o--|| Block : references
+VoxelTextureExtractor ..> VoxelFaceTextureInfo : creates
+BlockItemDropper ..> DroppedItem : creates
+BlockMeshGenerator ..> VoxelManager : queries
+BlockDiggingSystem ..> VoxelManager : modifies
+
+@enduml
