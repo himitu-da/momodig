@@ -6,7 +6,7 @@ public class DynamiteProjectile : MonoBehaviour
     [SerializeField] private float explosionDelay = 3f; // 3秒で爆発
     [SerializeField] private bool enableDebugLogs = true;
     
-    private MiningModule module; // 爆風サイズなど
+    private DynamiteToolBehaviour behaviour; // behaviour からデータを取得
     private bool hasExploded = false;
     
     private void Start()
@@ -20,12 +20,12 @@ public class DynamiteProjectile : MonoBehaviour
         }
     }
     
-    public void SetModule(MiningModule m)
+    public void SetBehaviour(DynamiteToolBehaviour b)
     {
-        module = m;
-        if (enableDebugLogs && m != null)
+        behaviour = b;
+        if (enableDebugLogs && b != null)
         {
-            Debug.Log($"DynamiteProjectile: Module set - Center: {m.DiggingCenter}, Size: {m.DiggingSize}");
+            Debug.Log($"DynamiteProjectile: Behaviour set - ToolData: {b.ToolData}");
         }
     }
     
@@ -39,7 +39,7 @@ public class DynamiteProjectile : MonoBehaviour
             Debug.Log($"DynamiteProjectile: Exploding at {transform.position}");
         }
         
-        // Diggerを使用した掘削処理（Blockを直接叩かない）
+        // Diggerを使用した掘削処理
         PerformMining();
         
         // オブジェクトを破棄
@@ -48,63 +48,21 @@ public class DynamiteProjectile : MonoBehaviour
     
     private void PerformMining()
     {
-        Vector3 center = Vector3.zero;
-        Vector3 size = new Vector3(3f, 3f, 3f);
-        int explosionDamage = 999;
-        
-        if (module != null)
-        {
-            center = module.DiggingCenter;
-            size = module.DiggingSize;
-            explosionDamage = module.DamagePerHit;
-        }
-        else
+        MiningModule module = behaviour?.ToolData?.miningModule;
+        if (module == null)
         {
             if (enableDebugLogs)
             {
-                Debug.LogWarning("DynamiteProjectile: No mining module set, using default explosion size");
+                Debug.LogWarning("DynamiteProjectile: No mining module from behaviour, using default explosion size");
             }
+            // デフォルトサイズでの爆発
+            behaviour?.PerformExplosionMining(transform.position, Vector3.zero, new Vector3(3f, 3f, 3f), 999);
+            return;
         }
         
-        CreateAndUseTemporaryDigger(center, size, explosionDamage);
-    }
-    
-    private void CreateAndUseTemporaryDigger(Vector3 localCenter, Vector3 size, int damage)
-    {
-        // 一時的なDiggerオブジェクトを作成し、Digger経由で掘削する
-        GameObject tempDigger = new GameObject("TempDynamiteDigger");
-        
-        // 配置: 爆心と同じワールド位置に置き、回転も合わせる
-        tempDigger.transform.position = transform.position;
-        tempDigger.transform.rotation = transform.rotation;
-        
-        // Diggerコンポーネントを追加（AwakeでBoxColliderが作られる）
-        Digger digger = tempDigger.AddComponent<Digger>();
-        
-        // Awakeが即時実行されるためBoxColliderは存在するはず。取得してパラメータを設定する。
-        BoxCollider diggingArea = tempDigger.GetComponent<BoxCollider>();
-        if (diggingArea == null)
-        {
-            // 念のため追加（通常はDigger.Awakeで追加される）
-            diggingArea = tempDigger.AddComponent<BoxCollider>();
-            diggingArea.isTrigger = true;
-        }
-
-        // BoxColliderはローカル中心とサイズで設定する（Digger.Digは transform を考慮してOverlapBoxを行う）
-        diggingArea.center = localCenter;
-        diggingArea.size = size;
-        diggingArea.isTrigger = true;
-
-        // ここでDiggerに直接掘削を行わせる（Digger.Dig は diggingArea のワールド変換を使う）
-        digger.Dig(damage);
-
-        // 掘削処理がコルーチンで回る可能性があるため少し遅らせて削除
-        Object.Destroy(tempDigger, 2f);
-
-        if (enableDebugLogs)
-        {
-            Debug.Log($"DynamiteProjectile: Spawned TempDigger at {tempDigger.transform.position} with center {localCenter}, size {size}, damage {damage}");
-        }
+        // Behaviour の Digger を使用して掘削実行
+        int explosionDamage = module.DamagePerHit;
+        behaviour?.PerformExplosionMining(transform.position, module.DiggingCenter, module.DiggingSize, explosionDamage);
     }
     
     private void OnDestroy()

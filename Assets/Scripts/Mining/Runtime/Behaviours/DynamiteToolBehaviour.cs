@@ -66,10 +66,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
 
         var proj = go.GetComponent<DynamiteProjectile>();
         if (proj == null) proj = go.AddComponent<DynamiteProjectile>();
-        if (ToolData != null && ToolData.miningModule != null)
-        {
-            proj.SetModule(ToolData.miningModule);
-        }
+        proj.SetBehaviour(this);
 
         var rb = go.GetComponent<Rigidbody>();
         if (rb == null) rb = go.AddComponent<Rigidbody>();
@@ -262,5 +259,36 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             case 7:  return new Vector2(0.70710678f, -0.70710678f);       // SE
             default: return new Vector2(1f, 0f);
         }
+    }
+
+    /// <summary>
+    /// 爆発による掘削を実行（Projectile から呼び出し）
+    /// </summary>
+    public void PerformExplosionMining(Vector3 explosionPosition, Vector3 center, Vector3 size, int damage)
+    {
+        if (digger == null)
+        {
+            Debug.LogWarning("DynamiteToolBehaviour: Digger is not set.");
+            return;
+        }
+
+        // Digger の位置を爆発位置に一時的に設定
+        Vector3 originalPosition = digger.transform.position;
+        digger.transform.position = explosionPosition;
+
+        // BoxCollider を設定
+        BoxCollider diggingArea = digger.GetComponent<BoxCollider>();
+        if (diggingArea != null)
+        {
+            diggingArea.center = center;
+            diggingArea.size = size;
+            diggingArea.isTrigger = true;
+        }
+
+        // 掘削実行
+        digger.Dig(damage);
+
+        // 位置を元に戻す
+        digger.transform.position = originalPosition;
     }
 }
