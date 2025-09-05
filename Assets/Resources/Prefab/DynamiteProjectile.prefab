@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 6155638648537918309}
   - component: {fileID: 2591133337667289820}
   - component: {fileID: 6824459241107736443}
-  - component: {fileID: 2260962201843149027}
+  - component: {fileID: 8383456912763629756}
   m_Layer: 0
   m_Name: DynamiteProjectile
   m_TagString: Untagged
@@ -139,7 +139,7 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 56
   m_CollisionDetection: 0
---- !u!114 &2260962201843149027
+--- !u!114 &8383456912763629756
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -148,6 +148,6 @@ MonoBehaviour:
   m_GameObject: {fileID: 2706890340770007549}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b8315cefdc30ab1408059adc83a843e6, type: 3}
+  m_Script: {fileID: 11500000, guid: 04f8c25d75a089c4e8fdf09f2f392827, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
