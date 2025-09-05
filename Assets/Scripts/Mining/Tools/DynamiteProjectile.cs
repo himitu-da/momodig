@@ -81,15 +81,28 @@ public class DynamiteProjectile : MonoBehaviour
             diggingArea.isTrigger = true;
         }
         
-        // 掘削を実行
-        digger.Dig();
+        // モジュールのダメージ値を使用（デフォルトで大ダメージ）
+        int explosionDamage = module?.DamagePerHit ?? 999;
+        
+        // 爆発範囲内のチャンクを取得して一括処理
+        Vector3 worldCenter = diggingArea.transform.TransformPoint(diggingArea.center);
+        Collider[] hitColliders = Physics.OverlapBox(worldCenter, diggingArea.size / 2, diggingArea.transform.rotation);
+        
+        foreach (var hitCollider in hitColliders)
+        {
+            Block chunk = hitCollider.GetComponent<Block>();
+            if (chunk != null)
+            {
+                StartCoroutine(chunk.DigVoxels(diggingArea, explosionDamage));
+            }
+        }
         
         // 一定時間後にDiggerオブジェクトを削除（掘削処理完了まで待機）
         Destroy(tempDigger, 2f);
         
         if (enableDebugLogs)
         {
-            Debug.Log($"DynamiteProjectile: Mining executed with Digger - Center: {center}, Size: {size}");
+            Debug.Log($"DynamiteProjectile: Mining executed with damage {explosionDamage} - Center: {center}, Size: {size}");
         }
     }
     

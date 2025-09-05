@@ -128,9 +128,9 @@ public class Block : MonoBehaviour
         diggingSystem.TakeDamage(localPos, damage);
     }
 
-    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea)
+    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
-        return diggingSystem.DigVoxels(diggingArea);
+        return diggingSystem.DigVoxels(diggingArea, damagePerHit);
     }
 
     public void GenerateMesh()

@@ -12,5 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 098a0eaa35833374e8355c95bbc8c99f, type: 3}
   m_Name: DynamiteMiningModule
   m_EditorClassIdentifier: 
+  damagePerHit: 2
   centerOffset: {x: 0, y: 0, z: 0}
   size: {x: 4, y: 4, z: 4}
