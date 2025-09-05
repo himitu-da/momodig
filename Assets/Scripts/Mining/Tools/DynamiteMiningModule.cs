@@ -3,16 +3,34 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "DynamiteMiningModule", menuName = "MomoDig/Mining/Modules/Dynamite")]
 public class DynamiteMiningModule : MiningModule
 {
-    [Header("Explosion Area")]
-    [Tooltip("爆風の中心オフセット")]
-    [SerializeField] private Vector3 centerOffset = Vector3.zero;
+    [Header("Throw Settings")]
+    [SerializeField] private GameObject dynamitePrefab;
+    [SerializeField] private float throwForce = 8f;
+    
+    [Header("Ballistic Settings")]
+    [SerializeField] private float maxThrowDistance = 15f;
+    [SerializeField] private float gravity = 9.81f;
+    
+    [Header("Explosion Settings")]
+    [SerializeField] private float explosionForce = 10f;
 
-    [Tooltip("爆風のサイズ")]
-    [SerializeField] private Vector3 size = new Vector3(4f, 4f, 4f);
+    // Digging settings (not used directly by Dynamite throw, but for explosion)
+    [Header("Box Dig Settings")]
+    [SerializeField] private Vector3 diggingCenter = Vector3.zero;
+    [SerializeField] private Vector3 diggingSize = new Vector3(5, 5, 5);
 
-    public override Vector3 DiggingCenter => centerOffset;
-    public override Vector3 DiggingSize => size;
+    // Public properties
+    public GameObject ProjectilePrefab => dynamitePrefab;
+    public float ThrowForce => throwForce;
+    public float MaxThrowDistance => maxThrowDistance;
+    public float Gravity => gravity;
+    public float ExplosionForce => explosionForce;
 
-    // 投擲物側で処理するため空実装
-    public override void Execute(GameObject user) { }
+    public override Vector3 DiggingCenter => diggingCenter;
+    public override Vector3 DiggingSize => diggingSize;
+
+    public override void Execute(GameObject user)
+    {
+        // Dynamite's execution is handled by DynamiteToolBehaviour instantiating a projectile.
+    }
 }

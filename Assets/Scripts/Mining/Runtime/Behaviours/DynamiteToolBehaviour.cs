@@ -23,17 +23,22 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             return;
         }
 
-        // ToolData(Dynamite) が必須
-        if (!(ToolData is Dynamite dyn))
+        // ToolData と Module が必須
+        if (ToolData.miningModule == null)
         {
-            Debug.LogWarning("DynamiteToolBehaviour: ToolData is not Dynamite type.");
+            Debug.LogWarning("MiningModule is not set on tool data.");
+            return;
+        }
+        if (!(ToolData.miningModule is DynamiteMiningModule dynamiteModule))
+        {
+            Debug.LogError("MiningModule on ToolData is not a DynamiteMiningModule.");
             return;
         }
 
-        GameObject projectilePrefab = dyn.ProjectilePrefab;
-        float force = dyn.ThrowForce;
-        float maxDistance = dyn.MaxThrowDistance;
-        float gravityValue = dyn.Gravity;
+        GameObject projectilePrefab = dynamiteModule.ProjectilePrefab;
+        float force = dynamiteModule.ThrowForce;
+        float maxDistance = dynamiteModule.MaxThrowDistance;
+        float gravityValue = dynamiteModule.Gravity;
 
         if (projectilePrefab == null)
         {
@@ -163,13 +168,13 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     {
         if (pc == null) return Vector3.right;
         
-        // Dynamiteクラスからパラメータを取得
-        if (!(ToolData is Dynamite dyn))
+        // Moduleからパラメータを取得
+        if (!(ToolData.miningModule is DynamiteMiningModule dynamiteModule))
         {
             return Vector3.right;
         }
         
-        float maxDistance = dyn.MaxThrowDistance;
+        float maxDistance = dynamiteModule.MaxThrowDistance;
         
         // プレイヤーの中心位置とマウスのワールド座標を取得
         Vector3 startPos = user.transform.position; // プレイヤーの中心位置
@@ -194,7 +199,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         }
         
         // 放物運動の初速度を計算（角度制限なし）
-        Vector3 velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance, dyn.Gravity);
+        Vector3 velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance, dynamiteModule.Gravity);
         
         return velocity.normalized;
     }

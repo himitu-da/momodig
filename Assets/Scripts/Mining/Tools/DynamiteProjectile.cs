@@ -64,9 +64,9 @@ public class DynamiteProjectile : MonoBehaviour
         }
 
         float explosionForce = 5f; // デフォルト値
-        if (behaviour.ToolData is Dynamite dynamite)
+        if (behaviour.ToolData.miningModule is DynamiteMiningModule dynamiteModule)
         {
-            explosionForce = dynamite.ExplosionForce;
+            explosionForce = dynamiteModule.ExplosionForce;
         }
         
         // Behaviour の Digger を使用して掘削実行

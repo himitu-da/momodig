@@ -2,11 +2,6 @@ using UnityEngine;
 
 public class PickaxeToolBehaviour : MiningToolBehaviour
 {
-    [Header("Animator Params")]
-    [SerializeField] private string mineTriggerName = "Mine";
-    [SerializeField] private string isFacingRightBool = "IsFacingRight";
-    [SerializeField] private float miningForce = 5f; // アイテムに与える力の強さ
-
     private Animator playerAnimator;
     private Vector3 currentAimDirection = Vector3.right; // 現在の照準方向
 
@@ -34,13 +29,19 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             Debug.LogWarning("MiningModule is not set on tool data.");
             return;
         }
+        
+        if (!(ToolData.miningModule is PickaxeMiningModule pickaxeModule))
+        {
+            Debug.LogError("MiningModule on ToolData is not a PickaxeMiningModule.");
+            return;
+        }
 
         // 掘削情報を作成
-        bool isFacingRight = playerAnimator != null && playerAnimator.GetBool(isFacingRightBool);
+        bool isFacingRight = playerAnimator != null && playerAnimator.GetBool(pickaxeModule.IsFacingRightBool);
         var miningInfo = MiningInfo.ArcSwing(
             digger.transform.position,
             isFacingRight,
-            miningForce
+            pickaxeModule.MiningForce
         );
 
         // 掘削モジュールと掘削情報をセット（アニメイベントでExecuteDigFromAnimationが呼ばれる想定）
@@ -50,7 +51,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         if (playerAnimator != null)
         {
             // 向き（横スク用）: PlayerControllerに依存する場合はUpdateAimで更新
-            playerAnimator.SetTrigger(mineTriggerName);
+            playerAnimator.SetTrigger(pickaxeModule.MineTriggerName);
         }
     }
 
@@ -67,10 +68,13 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         // 横スク用の簡易向きフラグ
         if (moveMode == PlayerController.MoveMode.SideScroller)
         {
-            if (direction.sqrMagnitude > 0.0001f)
+            if (ToolData.miningModule is PickaxeMiningModule pickaxeModule)
             {
-                bool facingRight = direction.x >= 0f;
-                playerAnimator.SetBool(isFacingRightBool, facingRight);
+                if (direction.sqrMagnitude > 0.0001f)
+                {
+                    bool facingRight = direction.x >= 0f;
+                    playerAnimator.SetBool(pickaxeModule.IsFacingRightBool, facingRight);
+                }
             }
         }
     }
