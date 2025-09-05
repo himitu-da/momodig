@@ -8,6 +8,10 @@ public class MiningToolsController : MonoBehaviour
     [SerializeField] private MiningTool _mainMiningTool;
     [SerializeField] private MiningTool _subMiningTool; // サブ用ツール
 
+    [Header("Digger Prefabs")]
+    [SerializeField] private GameObject _mainDiggerPrefab;  // MainDiggerのPrefab
+    [SerializeField] private GameObject _subDiggerPrefab;   // SubDiggerのPrefab
+
     [Header("ツールの装着先(未指定なら自身)")]
     [SerializeField] private Transform toolMount;
 
@@ -16,6 +20,10 @@ public class MiningToolsController : MonoBehaviour
     private MiningToolBehaviour _mainBehaviour;
     private MiningToolBehaviour _subBehaviour;
 
+    // 各ツール用の独立したDigger
+    private Digger _mainDigger;
+    private Digger _subDigger;
+
     // 外部参照用（読み取りのみ）
     public MiningTool mainMiningTool => _mainMiningTool;
     public MiningTool subMiningTool => _subMiningTool;
@@ -23,6 +31,37 @@ public class MiningToolsController : MonoBehaviour
     private void Awake()
     {
         if (toolMount == null) toolMount = this.transform;
+
+        // MainDiggerとSubDiggerをPrefabからインスタンス化
+        if (_mainDiggerPrefab != null)
+        {
+            GameObject mainDiggerObj = Instantiate(_mainDiggerPrefab, toolMount);
+            mainDiggerObj.name = "MainDigger";
+            _mainDigger = mainDiggerObj.GetComponent<Digger>();
+            if (_mainDigger == null)
+            {
+                Debug.LogError("MainDiggerPrefab does not have a Digger component.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("MainDiggerPrefab is not assigned.");
+        }
+
+        if (_subDiggerPrefab != null)
+        {
+            GameObject subDiggerObj = Instantiate(_subDiggerPrefab, toolMount);
+            subDiggerObj.name = "SubDigger";
+            _subDigger = subDiggerObj.GetComponent<Digger>();
+            if (_subDigger == null)
+            {
+                Debug.LogError("SubDiggerPrefab does not have a Digger component.");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("SubDiggerPrefab is not assigned.");
+        }
 
         // 初期装備
         if (_mainMiningTool == null && usableMiningTools != null && usableMiningTools.Count > 0)
@@ -150,8 +189,7 @@ public class MiningToolsController : MonoBehaviour
         _mainBehaviour = GetOrCreateBehaviour(tool);
         if (_mainBehaviour != null)
         {
-            var digger = GetComponentInChildren<Digger>();
-            _mainBehaviour.SetDigger(digger);
+            _mainBehaviour.SetDigger(_mainDigger);  // MainDiggerを渡す
             _mainBehaviour.gameObject.SetActive(true);
             _mainBehaviour.OnEquip(user);
         }
@@ -172,8 +210,7 @@ public class MiningToolsController : MonoBehaviour
         _subBehaviour = GetOrCreateBehaviour(tool);
         if (_subBehaviour != null)
         {
-            var digger = GetComponentInChildren<Digger>();
-            _subBehaviour.SetDigger(digger);
+            _subBehaviour.SetDigger(_subDigger);  // SubDiggerを渡す
             _subBehaviour.gameObject.SetActive(active);
             _subBehaviour.OnEquip(user);
             if (!active) _subBehaviour.gameObject.SetActive(false);
