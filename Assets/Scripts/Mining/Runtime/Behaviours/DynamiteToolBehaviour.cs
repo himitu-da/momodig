@@ -2,16 +2,6 @@ using UnityEngine;
 
 public class DynamiteToolBehaviour : MiningToolBehaviour
 {
-    [Header("Projectile Settings")]
-    [SerializeField] private GameObject dynamiteProjectilePrefab; // フォールバック用
-    [SerializeField] private float throwForce = 8f;               // フォールバック用
-    [SerializeField] private float spawnDistance = 0.8f;
-    
-    [Header("Ballistic Settings")]
-    [SerializeField] private float maxThrowDistance = 15f;        // 最大投射距離
-    [SerializeField] private float maxThrowAngle = 45f;           // 最大投射角度（度）
-    [SerializeField] private float gravity = 9.81f;              // 重力加速度
-
     private GameObject owner;
     private PlayerController playerController;
 
@@ -33,21 +23,17 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             return;
         }
 
-        // ToolData(Dynamite) があれば優先的に使う
-        GameObject projectilePrefab = dynamiteProjectilePrefab;
-        float force = throwForce;
-        float maxDistance = maxThrowDistance;
-        float maxAngle = maxThrowAngle;
-        float gravityValue = gravity;
-        
-        if (ToolData is Dynamite dyn)
+        // ToolData(Dynamite) が必須
+        if (!(ToolData is Dynamite dyn))
         {
-            if (dyn.ProjectilePrefab != null) projectilePrefab = dyn.ProjectilePrefab;
-            if (dyn.ThrowForce > 0f) force = dyn.ThrowForce;
-            if (dyn.MaxThrowDistance > 0f) maxDistance = dyn.MaxThrowDistance;
-            if (dyn.MaxThrowAngle > 0f) maxAngle = dyn.MaxThrowAngle;
-            if (dyn.Gravity > 0f) gravityValue = dyn.Gravity;
+            Debug.LogWarning("DynamiteToolBehaviour: ToolData is not Dynamite type.");
+            return;
         }
+
+        GameObject projectilePrefab = dyn.ProjectilePrefab;
+        float force = dyn.ThrowForce;
+        float maxDistance = dyn.MaxThrowDistance;
+        float gravityValue = dyn.Gravity;
 
         if (projectilePrefab == null)
         {
@@ -107,15 +93,15 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             
             // 距離制限
             float totalDistance = Mathf.Sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
-            if (totalDistance > maxThrowDistance)
+            if (totalDistance > maxDistance)
             {
                 Vector3 direction = (targetPos - startPos).normalized;
-                targetPos = startPos + direction * maxThrowDistance;
+                targetPos = startPos + direction * maxDistance;
                 horizontalDistance = targetPos.x - startPos.x;
                 verticalDistance = targetPos.y - startPos.y;
             }
             
-            velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance);
+            velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance, gravityValue);
         }
 
         // プロジェクトの Rigidbody 拡張: linearVelocity を使用
@@ -181,11 +167,12 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         if (pc == null) return Vector3.right;
         
         // Dynamiteクラスからパラメータを取得
-        float maxDistance = maxThrowDistance;
-        if (ToolData is Dynamite dyn && dyn.MaxThrowDistance > 0f)
+        if (!(ToolData is Dynamite dyn))
         {
-            maxDistance = dyn.MaxThrowDistance;
+            return Vector3.right;
         }
+        
+        float maxDistance = dyn.MaxThrowDistance;
         
         // プレイヤーの中心位置とマウスのワールド座標を取得
         Vector3 startPos = user.transform.position; // プレイヤーの中心位置
@@ -210,7 +197,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         }
         
         // 放物運動の初速度を計算（角度制限なし）
-        Vector3 velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance);
+        Vector3 velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance, dyn.Gravity);
         
         return velocity.normalized;
     }
@@ -218,15 +205,8 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     /// <summary>
     /// 放物運動で目標点に到達するための初速度ベクトルを計算
     /// </summary>
-    private Vector3 CalculateBallisticVelocity(float horizontalDistance, float verticalDistance)
+    private Vector3 CalculateBallisticVelocity(float horizontalDistance, float verticalDistance, float gravityValue)
     {
-        // Dynamiteクラスからパラメータを取得
-        float gravityValue = gravity;
-        if (ToolData is Dynamite dyn && dyn.Gravity > 0f)
-        {
-            gravityValue = dyn.Gravity;
-        }
-        
         // 水平距離が0に近い場合は垂直投射
         if (Mathf.Abs(horizontalDistance) < 0.1f)
         {
