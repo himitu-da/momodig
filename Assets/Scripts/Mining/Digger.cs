@@ -6,6 +6,7 @@ public class Digger : MonoBehaviour
     public BoxCollider DiggingArea => diggingArea; // 掘削範囲のBoxCollider
     private BoxCollider diggingArea;
     private MiningModule pendingMiningModule; // 実行待機中の掘削モジュール
+    private MiningInfo pendingMiningInfo; // 実行待機中の掘削情報
 
     void Awake()
     {
@@ -20,12 +21,14 @@ public class Digger : MonoBehaviour
     }
 
     /// <summary>
-    /// 実行待機中の掘削モジュールを設定します。
+    /// 実行待機中の掘削モジュールと掘削情報を設定します。
     /// </summary>
     /// <param name="module">掘削モジュール</param>
-    public void SetPendingMiningModule(MiningModule module)
+    /// <param name="info">掘削情報</param>
+    public void SetPendingMining(MiningModule module, MiningInfo info)
     {
         pendingMiningModule = module;
+        pendingMiningInfo = info;
     }
 
     /// <summary>
@@ -39,7 +42,7 @@ public class Digger : MonoBehaviour
             SetDiggingAreaParameters(pendingMiningModule.DiggingCenter, pendingMiningModule.DiggingSize);
             
             // 掘削を実行
-            Dig(pendingMiningModule.DamagePerHit);
+            Dig(pendingMiningModule.DamagePerHit, pendingMiningInfo);
 
             // 実行後に保留中のモジュールをクリア
             pendingMiningModule = null;
@@ -83,7 +86,7 @@ public class Digger : MonoBehaviour
     {
     }
 
-    public void Dig(int damagePerHit)
+    public void Dig(int damagePerHit, MiningInfo info)
     {
         if (diggingArea == null)
         {
@@ -130,11 +133,11 @@ public class Digger : MonoBehaviour
             StartCoroutine(block.DigVoxels(diggingArea, damagePerHit));
         }
 
-        // 掘削範囲内のドロップアイテムを起床させる
+        // 掘削範囲内のドロップアイテムに力を加える
         if (DroppedItemManager.Instance != null)
         {
             Vector3 expandedSize = diggingArea.size + new Vector3(2, 2, 2);
-            DroppedItemManager.Instance.WakeUpItemsInRadius(worldCenter, expandedSize, diggingArea.transform.rotation);
+            DroppedItemManager.Instance.ApplyForceToItemsInRadius(worldCenter, expandedSize, diggingArea.transform.rotation, info);
         }
     }
 

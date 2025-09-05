@@ -5,8 +5,10 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
     [Header("Animator Params")]
     [SerializeField] private string mineTriggerName = "Mine";
     [SerializeField] private string isFacingRightBool = "IsFacingRight";
+    [SerializeField] private float miningForce = 5f; // アイテムに与える力の強さ
 
     private Animator playerAnimator;
+    private Vector3 currentAimDirection = Vector3.right; // 現在の照準方向
 
     public override void OnEquip(GameObject user)
     {
@@ -33,8 +35,16 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             return;
         }
 
-        // 掘削モジュールをセット（アニメイベントでExecuteDigFromAnimationが呼ばれる想定）
-        digger.SetPendingMiningModule(ToolData.miningModule);
+        // 掘削情報を作成
+        bool isFacingRight = playerAnimator != null && playerAnimator.GetBool(isFacingRightBool);
+        var miningInfo = MiningInfo.ArcSwing(
+            digger.transform.position,
+            isFacingRight,
+            miningForce
+        );
+
+        // 掘削モジュールと掘削情報をセット（アニメイベントでExecuteDigFromAnimationが呼ばれる想定）
+        digger.SetPendingMining(ToolData.miningModule, miningInfo);
 
         // アニメーションを再生
         if (playerAnimator != null)
@@ -47,6 +57,11 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
     public override void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
     {
         base.UpdateAim(direction, moveMode);
+        if (direction.sqrMagnitude > 0.001f)
+        {
+            currentAimDirection = direction.normalized;
+        }
+
         if (playerAnimator == null) return;
 
         // 横スク用の簡易向きフラグ

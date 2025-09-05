@@ -48,21 +48,30 @@ public class DynamiteProjectile : MonoBehaviour
     
     private void PerformMining()
     {
-        MiningModule module = behaviour?.ToolData?.miningModule;
+        if (behaviour == null || behaviour.ToolData == null)
+        {
+            if (enableDebugLogs) Debug.LogWarning("DynamiteProjectile: Behaviour or ToolData is null.");
+            return;
+        }
+
+        MiningModule module = behaviour.ToolData.miningModule;
         if (module == null)
         {
-            if (enableDebugLogs)
-            {
-                Debug.LogWarning("DynamiteProjectile: No mining module from behaviour, using default explosion size");
-            }
-            // デフォルトサイズでの爆発
-            behaviour?.PerformExplosionMining(transform.position, Vector3.zero, new Vector3(3f, 3f, 3f), 999);
+            if (enableDebugLogs) Debug.LogWarning("DynamiteProjectile: No mining module from behaviour, using default explosion size");
+            // デフォルト値での爆発
+            behaviour.PerformExplosionMining(transform.position, Vector3.zero, new Vector3(3f, 3f, 3f), 999, 5f);
             return;
+        }
+
+        float explosionForce = 5f; // デフォルト値
+        if (behaviour.ToolData is Dynamite dynamite)
+        {
+            explosionForce = dynamite.ExplosionForce;
         }
         
         // Behaviour の Digger を使用して掘削実行
         int explosionDamage = module.DamagePerHit;
-        behaviour?.PerformExplosionMining(transform.position, module.DiggingCenter, module.DiggingSize, explosionDamage);
+        behaviour.PerformExplosionMining(transform.position, module.DiggingCenter, module.DiggingSize, explosionDamage, explosionForce);
     }
     
     private void OnDestroy()

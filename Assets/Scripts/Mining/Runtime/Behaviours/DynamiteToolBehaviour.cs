@@ -264,7 +264,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     /// <summary>
     /// 爆発による掘削を実行（Projectile から呼び出し）
     /// </summary>
-    public void PerformExplosionMining(Vector3 explosionPosition, Vector3 center, Vector3 size, int damage)
+    public void PerformExplosionMining(Vector3 explosionPosition, Vector3 center, Vector3 size, int damage, float force)
     {
         if (digger == null)
         {
@@ -285,8 +285,11 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             diggingArea.isTrigger = true;
         }
 
+        // 掘削情報を作成
+        var miningInfo = MiningInfo.Explosive(explosionPosition, force);
+
         // 掘削実行
-        digger.Dig(damage);
+        digger.Dig(damage, miningInfo);
 
         // 位置を元に戻す
         digger.transform.position = originalPosition;
