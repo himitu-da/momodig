@@ -37,12 +37,29 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         }
 
         // 掘削情報を作成
-        bool isFacingRight = playerAnimator != null && playerAnimator.GetBool(pickaxeModule.IsFacingRightBool);
-        var miningInfo = MiningInfo.ArcSwing(
-            digger.transform.position,
-            isFacingRight,
-            pickaxeModule.MiningForce
-        );
+        MiningInfo miningInfo;
+        float verticalDot = Vector3.Dot(currentAimDirection.normalized, Vector3.up);
+
+        // 照準がほぼ真上または真下を向いているか判定 (cos(18 deg) ~= 0.95)
+        if (Mathf.Abs(verticalDot) > 0.95f)
+        {
+            // 真上/真下の場合は、照準方向にまっすぐ飛ばす
+            miningInfo = MiningInfo.Directional(
+                digger.transform.position,
+                currentAimDirection,
+                pickaxeModule.MiningForce
+            );
+        }
+        else
+        {
+            // それ以外の角度の場合は、円弧状に飛ばす
+            bool isFacingRight = playerAnimator != null && playerAnimator.GetBool(pickaxeModule.IsFacingRightBool);
+            miningInfo = MiningInfo.ArcSwing(
+                digger.transform.position,
+                isFacingRight,
+                pickaxeModule.MiningForce
+            );
+        }
 
         // 掘削モジュールと掘削情報をセット（アニメイベントでExecuteDigFromAnimationが呼ばれる想定）
         digger.SetPendingMining(ToolData.miningModule, miningInfo);
