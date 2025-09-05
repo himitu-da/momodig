@@ -75,4 +75,5 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             Debug.LogError("Digger is not set on PickaxeToolBehaviour. Cannot execute dig from animation.");
         }
     }
+
 }

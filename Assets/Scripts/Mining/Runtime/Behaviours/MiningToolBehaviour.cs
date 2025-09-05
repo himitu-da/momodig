@@ -62,6 +62,6 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// </summary>
     public virtual void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
     {
-        // 既定では何もしない。必要に応じて派生で向き/アニメ用パラメータを更新。
+        // 派生クラスで照準の更新を実装
     }
 }
