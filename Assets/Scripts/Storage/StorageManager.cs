@@ -15,7 +15,7 @@ public class StorageManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindObjectOfType<StorageManager>();
+                _instance = FindFirstObjectByType<StorageManager>();
                 if (_instance == null)
                 {
                     GameObject go = new GameObject("StorageManager");
