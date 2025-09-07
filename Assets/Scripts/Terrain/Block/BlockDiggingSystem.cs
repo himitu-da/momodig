@@ -60,7 +60,7 @@ public class BlockDiggingSystem
     /// <summary>
     /// ボクセルを掘削する
     /// </summary>
-    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea)
+    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
         const int sampleResolution = 3;
         const int totalSamples = sampleResolution * sampleResolution * sampleResolution;
@@ -100,7 +100,7 @@ public class BlockDiggingSystem
                 {
                     for (int y = startY; y <= endY; y++)
                     {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions))
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit))
                         {
                             layerModified = true;
                         }
@@ -131,7 +131,7 @@ public class BlockDiggingSystem
                 {
                     for (int z = startZ; z <= endZ; z++)
                     {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions))
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit))
                         {
                             layerModified = true;
                         }
@@ -156,7 +156,7 @@ public class BlockDiggingSystem
     /// <summary>
     /// 個別ボクセルの掘削処理
     /// </summary>
-    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions)
+    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions, int damagePerHit)
     {
         Vector3Int localVoxelPos = new Vector3Int(x, y, z);
         var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
@@ -191,7 +191,7 @@ public class BlockDiggingSystem
         float overlapRatio = (float)containedSamples / totalSamples;
         if (overlapRatio >= diggingThreshold)
         {
-            if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, 1))
+            if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, damagePerHit))
             {
                 dropActions.Add(() => itemDropper.DropItem(voxelData.worldPosition, x, y, z));
                 return true;

@@ -3,7 +3,7 @@ using UnityEngine;
 public class MinecartMovement : MonoBehaviour
 {
     public Vector3 targetPosition;
-    public float moveSpeed = 5f;
+    [SerializeField] private float moveSpeed = 5f;
 
     void Start()
     {

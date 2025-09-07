@@ -3,7 +3,9 @@ using UnityEngine.InputSystem; // Input Systemを使うために必要
 using UnityEngine.UI; // UIを使うために必要
 using System.Collections.Generic; // MinecartManager用
 using System.Collections; // Coroutine用
-using System; // Serializable用
+using System;
+using Unity.VisualScripting;
+using UnityEditor; // Serializable用
 
 public class PlayerController : MonoBehaviour
 {
@@ -15,11 +17,11 @@ public class PlayerController : MonoBehaviour
     }
 
     [Header("移動設定")]
-    public float moveSpeed = 5f; // 移動速度
-    public float acceleration = 0.1f; // 加速のスムーズさ
-    public float deceleration = 0.2f; // 減速のスムーズさ
-    public float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
-    public float fallAcceleration = 1f; // 落下加速度
+    [SerializeField] private float moveSpeed = 5f; // 移動速度
+    [SerializeField] private float acceleration = 0.1f; // 加速のスムーズさ
+    [SerializeField] private float deceleration = 0.2f; // 減速のスムーズさ
+    [SerializeField] private float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
+    [SerializeField] private float fallAcceleration = 1f; // 落下加速度
     [SerializeField] private MoveMode _currentMoveMode;
     public MoveMode currentMoveMode
     {
@@ -32,12 +34,9 @@ public class PlayerController : MonoBehaviour
     }
 
     [Header("UI設定")]
-    public Text scoreText; // スコア表示用のText
-    public Text depthText; // 深度表示用のText
-    public Text inventoryText; // インベントリ表示用UI
-    
-    [Header("参照")]
-    public Digger digger; // Diggerへの参照
+    [SerializeField] private Text scoreText; // スコア表示用のText
+    [SerializeField] private Text depthText; // 深度表示用のText
+    [SerializeField] private Text inventoryText; // インベントリ表示用UI
 
     [Header("インベントリ設定")]
     private IInventory inventory;
@@ -48,15 +47,49 @@ public class PlayerController : MonoBehaviour
     // 外部からのアクセス用プロパティ
     public IInventory Inventory => inventory;
     
+    // マウス位置を外部から取得するためのプロパティ
+    public Vector2 MousePosition => mousePosition;
+    
+    /// <summary>
+    /// マウスのスクリーン座標をワールド座標に変換する
+    /// </summary>
+    /// <param name="screenPosition">スクリーン座標</param>
+    /// <param name="distance">カメラからの距離（SideScrollerモードで使用）</param>
+    /// <returns>ワールド座標</returns>
+    public Vector3 ScreenToWorldPoint(Vector2 screenPosition, float distance = 10f)
+    {
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            Debug.LogWarning("Main camera not found!");
+            return Vector3.zero;
+        }
+
+        Vector3 screenPos = new Vector3(screenPosition.x, screenPosition.y, distance);
+        return mainCamera.ScreenToWorldPoint(screenPos);
+    }
+    
+    /// <summary>
+    /// 現在のマウス位置をワールド座標で取得
+    /// </summary>
+    /// <param name="distance">カメラからの距離（SideScrollerモードで使用）</param>
+    /// <returns>マウス位置のワールド座標</returns>
+    public Vector3 GetMouseWorldPosition(float distance = 10f)
+    {
+        return ScreenToWorldPoint(mousePosition, distance);
+    }
+    
     [Header("アイテム回収設定")]
-    public float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
+    [SerializeField] private float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
     
     private int score = 0;
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
+    private Vector2 mousePosition; // マウスのスクリーン座標
     private float currentFallSpeed = 0f; // 現在の落下速度
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
+    public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
     
     // 接触中のアイテム管理用
@@ -65,6 +98,9 @@ public class PlayerController : MonoBehaviour
     
     // MinecartInteractionSystemへの参照
     private MinecartInteractionSystem minecartInteraction;
+
+    // MiningToolsControllerへの参照
+    private MiningToolsController miningToolsController;
 
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
@@ -80,28 +116,12 @@ public class PlayerController : MonoBehaviour
         {
             transform.rotation = Quaternion.identity; // X正方向を向く
             lastMoveDirection = Vector3.right; // X正方向
+            IsFacingRight = true;
         }
         else // TopDown
         {
             transform.rotation = Quaternion.identity; // Z正方向を向く
             lastMoveDirection = Vector3.forward; // Z正方向
-        }
-        
-        // DiggingAreaのDiggerコンポーネントを取得（手動設定を尊重）
-        Transform diggingAreaTransform = this.transform.Find("DiggingArea");
-        if (diggingAreaTransform != null)
-        {
-            digger = diggingAreaTransform.GetComponent<Digger>();
-            if (digger == null)
-            {
-                digger = diggingAreaTransform.gameObject.AddComponent<Digger>();
-            }
-            
-            BoxCollider diggingAreaCollider = diggingAreaTransform.GetComponent<BoxCollider>();
-            if (diggingAreaCollider != null)
-            {
-                digger.SetDiggingArea(diggingAreaCollider);
-            }
         }
 
         controls = new InputSystem_Actions();
@@ -109,6 +129,16 @@ public class PlayerController : MonoBehaviour
         // "Move" アクションが実行された時(キーが押された/離された時)に呼ばれる処理を登録
         controls.Player.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         controls.Player.Move.canceled += ctx => moveInput = Vector2.zero;
+
+        // "MousePosition" アクションの登録
+        controls.Player.MousePosition.performed += ctx => mousePosition = ctx.ReadValue<Vector2>();
+        controls.Player.MousePosition.canceled += ctx => mousePosition = Vector2.zero;
+
+    // "MainMine" アクションの登録
+    controls.Player.MainMine.performed += OnMainMine;
+
+    // "SubMine" アクションの登録
+    controls.Player.SubMine.performed += OnSubMine;
 
         // Textコンポーネントを探して、それをscoreTextに追加
         if (scoreText == null)
@@ -152,6 +182,13 @@ public class PlayerController : MonoBehaviour
             Debug.LogWarning("MinecartInteractionSystemが見つかりません");
         }
         
+        // MiningToolsControllerの参照を取得
+        miningToolsController = GetComponentInChildren<MiningToolsController>();
+        if (miningToolsController == null)
+        {
+            Debug.LogError("MiningToolsControllerが見つかりません。Playerの子オブジェクトにアタッチしてください。");
+        }
+        
         // 依存関係の初期化（インターフェース経由）
         inventory = new PlayerInventory();
         itemManager = DroppedItemManager.Instance;
@@ -190,7 +227,7 @@ public class PlayerController : MonoBehaviour
     {
         controls.Player.Disable();
     }
-    
+
     // オブジェクトが破棄されるときに呼ばれる
     void OnDestroy()
     {
@@ -199,6 +236,14 @@ public class PlayerController : MonoBehaviour
         {
             inventory.OnResourceAdded -= OnInventoryResourceAdded;
             inventory.OnTotalCountChanged -= OnInventoryTotalCountChanged;
+        }
+        
+        if (controls != null)
+        {
+            controls.Player.MainMine.performed -= OnMainMine;
+            controls.Player.SubMine.performed -= OnSubMine;
+            controls.Player.MousePosition.performed -= ctx => mousePosition = ctx.ReadValue<Vector2>();
+            controls.Player.MousePosition.canceled -= ctx => mousePosition = Vector2.zero;
         }
     }
 
@@ -264,36 +309,52 @@ public class PlayerController : MonoBehaviour
         // SmoothDampを使用して速度を滑らかに変化させる
         rb.linearVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
 
+        // SideScrollerモードで左右の入力があった場合、向きを更新
+        if (currentMoveMode == MoveMode.SideScroller && moveInput.x != 0)
+        {
+            IsFacingRight = moveInput.x > 0;
+        }
+
         // 移動入力がある場合、その方向を保存
         if (moveDirection.sqrMagnitude > 0.1f)
         {
             lastMoveDirection = moveDirection.normalized;
         }
-
-        // Playerの向きとDiggerの位置を更新
-        if (lastMoveDirection.sqrMagnitude > 0.1f)
+        else
         {
-            Quaternion targetRotation;
-            if (currentMoveMode == MoveMode.TopDown)
+            // 入力がない（停止中）の扱い
+            if (currentMoveMode == MoveMode.SideScroller)
             {
-                // TopDownモードでは、入力のX軸を基準とした回転を計算
-                // moveInput.x（右方向入力）がワールドのX軸、moveInput.y（上方向入力）がワールドのZ軸
-                // プレイヤーの「右」方向（ローカルX軸）が移動方向を向くようにする
-                // Z軸の符号を反転して上下方向を修正
-                float angle = Mathf.Atan2(-lastMoveDirection.z, lastMoveDirection.x) * Mathf.Rad2Deg;
-                targetRotation = Quaternion.AngleAxis(angle, Vector3.up);
+                // 横スクでは停止中でも向きフラグに基づいて水平方向をlastMoveDirectionに反映
+                lastMoveDirection = new Vector3(IsFacingRight ? 1f : -1f, 0f, 0f);
             }
-            else // SideScroller
+            else
             {
-                // XY平面での2Dの回転。プレイヤーの右方向が進行方向を向くようにする
-                float angle = Mathf.Atan2(lastMoveDirection.y, lastMoveDirection.x) * Mathf.Rad2Deg;
-                targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
+                // TopDownでは停止中は直前の向きを維持（何もしない）
             }
-            // Rigidbodyを使って回転させる
-            rb.MoveRotation(targetRotation);
         }
 
-        // Diggerの掘削エリアは手動設定に従う（自動的な位置変更は行わない）
+        // MiningToolsControllerに回転処理を委譲
+        if (miningToolsController != null)
+        {
+            miningToolsController.UpdateRotation(lastMoveDirection, currentMoveMode);
+        }
+    }
+
+    private void OnMainMine(InputAction.CallbackContext context)
+    {
+        if (miningToolsController != null)
+        {
+            miningToolsController.UseMainMineTool(this.gameObject);
+        }
+    }
+
+    private void OnSubMine(InputAction.CallbackContext context)
+    {
+        if (miningToolsController != null)
+        {
+            miningToolsController.UseSubMineTool(this.gameObject);
+        }
     }
 
     void OnCollisionEnter(Collision collision)

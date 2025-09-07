@@ -212,26 +212,26 @@ public class CameraFollowController : MonoBehaviour
         }
     }
 
-#if UNITY_EDITOR
-    /// <summary>
-    /// エディタ上でGizmosを描画してオフセットを可視化
-    /// </summary>
-    void OnDrawGizmosSelected()
-    {
-        if (playerObject == null) return;
+// #if UNITY_EDITOR
+//     /// <summary>
+//     /// エディタ上でGizmosを描画してオフセットを可視化
+//     /// </summary>
+//     void OnDrawGizmosSelected()
+//     {
+//         if (playerObject == null) return;
 
-        Gizmos.color = Color.yellow;
-        Vector3 playerPos = playerObject.transform.position;
+//         Gizmos.color = Color.yellow;
+//         Vector3 playerPos = playerObject.transform.position;
 
-        // SideScrollerオフセット
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(playerPos + sideScrollerOffset, 0.5f);
-        Gizmos.DrawLine(playerPos, playerPos + sideScrollerOffset);
+//         // SideScrollerオフセット
+//         Gizmos.color = Color.red;
+//         Gizmos.DrawWireSphere(playerPos + sideScrollerOffset, 0.5f);
+//         Gizmos.DrawLine(playerPos, playerPos + sideScrollerOffset);
 
-        // TopDownオフセット
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireSphere(playerPos + topDownOffset, 0.5f);
-        Gizmos.DrawLine(playerPos, playerPos + topDownOffset);
-    }
-#endif
+//         // TopDownオフセット
+//         Gizmos.color = Color.blue;
+//         Gizmos.DrawWireSphere(playerPos + topDownOffset, 0.5f);
+//         Gizmos.DrawLine(playerPos, playerPos + topDownOffset);
+//     }
+// #endif
 }

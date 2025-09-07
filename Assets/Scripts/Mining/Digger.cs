@@ -3,7 +3,55 @@ using System.Collections.Generic;
 
 public class Digger : MonoBehaviour
 {
-    private BoxCollider diggingArea; // 掘削範囲のBoxCollider
+    public BoxCollider DiggingArea => diggingArea; // 掘削範囲のBoxCollider
+    private BoxCollider diggingArea;
+    private MiningModule pendingMiningModule; // 実行待機中の掘削モジュール
+    private MiningInfo pendingMiningInfo; // 実行待機中の掘削情報
+
+    void Awake()
+    {
+        // 自身のゲームオブジェクトにアタッチされているBoxColliderを取得
+        diggingArea = GetComponent<BoxCollider>();
+        // もしBoxColliderがなければ、新しく追加する
+        if (diggingArea == null)
+        {
+            diggingArea = gameObject.AddComponent<BoxCollider>();
+            diggingArea.isTrigger = true; // OverlapBoxで使用するためトリガーにする
+        }
+    }
+
+    /// <summary>
+    /// 実行待機中の掘削モジュールと掘削情報を設定します。
+    /// </summary>
+    /// <param name="module">掘削モジュール</param>
+    /// <param name="info">掘削情報</param>
+    public void SetPendingMining(MiningModule module, MiningInfo info)
+    {
+        pendingMiningModule = module;
+        pendingMiningInfo = info;
+    }
+
+    /// <summary>
+    /// アニメーションイベントから呼び出され、保留中の掘削を実行します。
+    /// </summary>
+    public void ExecuteDigFromAnimation()
+    {
+        if (pendingMiningModule != null)
+        {
+            // 掘削範囲をモジュールの設定で更新
+            SetDiggingAreaParameters(pendingMiningModule.DiggingCenter, pendingMiningModule.DiggingSize);
+            
+            // 掘削を実行
+            Dig(pendingMiningModule.DamagePerHit, pendingMiningInfo);
+
+            // 実行後に保留中のモジュールをクリア
+            pendingMiningModule = null;
+        }
+        else
+        {
+            Debug.LogWarning("Pending mining module is not set. Cannot execute dig.");
+        }
+    }
 
     // SphereGeneratorから呼び出される
     public void SetDiggingArea(BoxCollider area)
@@ -23,20 +71,22 @@ public class Digger : MonoBehaviour
         }
     }
 
+    // MiningModuleから呼び出される
+    public void SetDiggingAreaParameters(Vector3 center, Vector3 size)
+    {
+        if (diggingArea != null)
+        {
+            diggingArea.center = center;
+            diggingArea.size = size;
+        }
+    }
+
 
     void Update()
     {
-        // 左クリックされたら
-        if (Input.GetMouseButtonDown(0))
-        {
-            Dig();
-        }
-
-        // ゲームビューにデバッグ用のボックスを描画
-        DrawDebugBox();
     }
 
-    void Dig()
+    public void Dig(int damagePerHit, MiningInfo info)
     {
         if (diggingArea == null)
         {
@@ -55,12 +105,12 @@ public class Digger : MonoBehaviour
         );
 
         // ユニークなチャンクを収集（複数ヒット回避）
-        HashSet<Block> hitChunks = new HashSet<Block>();
+        HashSet<Block> hitBlocks = new HashSet<Block>();
         foreach (var hitCollider in hitColliders)
         {
-            Block chunk = hitCollider.GetComponent<Block>();
-            if (chunk != null)
-                hitChunks.Add(chunk);
+            Block block = hitCollider.GetComponent<Block>();
+            if (block != null)
+                hitBlocks.Add(block);
         }
 
         // BoxColliderのワールド空間での8つの頂点を計算し、それらを完全に含むAABB (Axis-Aligned Bounding Box) を作成します。
@@ -77,67 +127,18 @@ public class Digger : MonoBehaviour
         points[6] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, size.y, size.z));
         points[7] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, size.y, size.z));
 
-        foreach (var chunk in hitChunks)
+        foreach (var block in hitBlocks)
         {
             // BoxCollider自体を渡して、より正確な判定をチャンク側で行う
-            StartCoroutine(chunk.DigVoxels(diggingArea));
+            StartCoroutine(block.DigVoxels(diggingArea, damagePerHit));
         }
 
-        // 掘削範囲内のドロップアイテムを起床させる
+        // 掘削範囲内のドロップアイテムに力を加える
         if (DroppedItemManager.Instance != null)
         {
             Vector3 expandedSize = diggingArea.size + new Vector3(2, 2, 2);
-            DroppedItemManager.Instance.WakeUpItemsInRadius(worldCenter, expandedSize, diggingArea.transform.rotation);
+            DroppedItemManager.Instance.ApplyForceToItemsInRadius(worldCenter, expandedSize, diggingArea.transform.rotation, info);
         }
     }
 
-    // Gizmoを描画する
-    void OnDrawGizmos()
-    {
-        // OnDrawGizmosはシーンビューでのみ表示されるため、
-        // ゲームビューでの表示はUpdate内のDrawDebugBoxで行う
-        if (diggingArea != null)
-        {
-            Gizmos.color = Color.green;
-            Gizmos.matrix = diggingArea.transform.localToWorldMatrix;
-            Gizmos.DrawWireCube(diggingArea.center, diggingArea.size);
-        }
-    }
-
-    // ゲームビューにデバッグ用のボックスを描画する
-    void DrawDebugBox()
-    {
-        if (diggingArea == null) return;
-
-        Vector3 center = diggingArea.transform.TransformPoint(diggingArea.center);
-        Vector3 size = diggingArea.size;
-        Quaternion rotation = diggingArea.transform.rotation;
-
-        Vector3 halfSize = size / 2;
-        Vector3[] points = new Vector3[8];
-        points[0] = rotation * new Vector3(-halfSize.x, -halfSize.y, -halfSize.z) + center;
-        points[1] = rotation * new Vector3( halfSize.x, -halfSize.y, -halfSize.z) + center;
-        points[2] = rotation * new Vector3( halfSize.x, -halfSize.y,  halfSize.z) + center;
-        points[3] = rotation * new Vector3(-halfSize.x, -halfSize.y,  halfSize.z) + center;
-        points[4] = rotation * new Vector3(-halfSize.x,  halfSize.y, -halfSize.z) + center;
-        points[5] = rotation * new Vector3( halfSize.x,  halfSize.y, -halfSize.z) + center;
-        points[6] = rotation * new Vector3( halfSize.x,  halfSize.y,  halfSize.z) + center;
-        points[7] = rotation * new Vector3(-halfSize.x,  halfSize.y,  halfSize.z) + center;
-
-        Color color = Color.green;
-        Debug.DrawLine(points[0], points[1], color);
-        Debug.DrawLine(points[1], points[2], color);
-        Debug.DrawLine(points[2], points[3], color);
-        Debug.DrawLine(points[3], points[0], color);
-
-        Debug.DrawLine(points[4], points[5], color);
-        Debug.DrawLine(points[5], points[6], color);
-        Debug.DrawLine(points[6], points[7], color);
-        Debug.DrawLine(points[7], points[4], color);
-
-        Debug.DrawLine(points[0], points[4], color);
-        Debug.DrawLine(points[1], points[5], color);
-        Debug.DrawLine(points[2], points[6], color);
-        Debug.DrawLine(points[3], points[7], color);
-    }
 }

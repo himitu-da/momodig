@@ -32,8 +32,8 @@ public class Block : MonoBehaviour
     private VoxelManager voxelManager;
     private Vector3Int blockPosition; // このブロックの座標を保持
 
-    public int ChunkSize { get; private set; } = 4;
-    private int maxHP = 3;
+    public int ChunkSize { get; private set; }
+    private int maxHP;
     [Range(0.01f, 1.0f)]
     public float diggingThreshold = 0.1f; // 掘削判定の閾値（ボクセルとの重複率）
     [Tooltip("掘削処理の各レイヤー間の待機フレーム数。0にするとフリーズする可能性があります。")]
@@ -58,14 +58,13 @@ public class Block : MonoBehaviour
     
     [Header("Dropped Item Settings")]
     private GameObject droppedItemPrefab; // ドロップアイテムのPrefab（オプション）
-    private bool disableRotation = true; // 回転を無効化するかどうか
-    private bool autoScale = true; // Prefabのスケールを自動調整するかどうか
-    private float scaleMultiplier = 0.8f; // スケール倍率（voxelSizeに対する倍率）
+    private bool disableRotation; // 回転を無効化するかどうか
+    private bool autoScale; // Prefabのスケールを自動調整するかどうか
+    private float scaleMultiplier; // スケール倍率（voxelSizeに対する倍率）
     
     [Header("Voxel Texture Extraction")]
     [SerializeField] private bool enableTextureExtraction = true; // ボクセルテクスチャ抽出を有効にするか
-    [SerializeField] private int extractedTextureResolution = 32; // 抽出テクスチャの解像度
-
+    
     private Mesh mesh;
     private MeshFilter meshFilter;
     private new MeshCollider collider; // newキーワード追加で警告解決
@@ -129,9 +128,9 @@ public class Block : MonoBehaviour
         diggingSystem.TakeDamage(localPos, damage);
     }
 
-    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea)
+    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
-        return diggingSystem.DigVoxels(diggingArea);
+        return diggingSystem.DigVoxels(diggingArea, damagePerHit);
     }
 
     public void GenerateMesh()

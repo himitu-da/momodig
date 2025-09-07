@@ -194,6 +194,57 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         StartCoroutine(ProcessWakeUpQueueCoroutine(itemsToWakeUp));
     }
 
+    public void ApplyForceToItemsInRadius(Vector3 center, Vector3 size, Quaternion rotation, MiningInfo info)
+    {
+        if (info.Force <= 0) return;
+
+        Collider[] hitColliders = Physics.OverlapBox(center, size / 2, rotation);
+        foreach (var hitCollider in hitColliders)
+        {
+            DroppedItem item = hitCollider.GetComponent<DroppedItem>();
+            if (item != null && item.rb != null)
+            {
+                // アイテムがスリープ状態なら起床させる
+                if (itemStates.TryGetValue(item, out ItemState state) && state.isSleeping)
+                {
+                    item.rb.isKinematic = false;
+                    state.isSleeping = false;
+                    state.sleepCooldownTimer = SleepCooldownDuration;
+                    state.velocityHistory.Clear();
+                }
+
+                // 力を加える
+                Vector3 velocity = Vector3.zero;
+                switch (info.Type)
+                {
+                    case MiningType.Directional:
+                        velocity = info.Direction.normalized * info.Force;
+                        break;
+                    case MiningType.ArcSwing:
+                        Vector3 itemDirection = item.transform.position - info.SourcePoint;
+                        itemDirection.z = 0; // 2D平面で計算
+                        Vector3 tangentDirection;
+                        if (info.IsFacingRight) // 時計回り
+                        {
+                            tangentDirection = new Vector3(itemDirection.y, -itemDirection.x, 0);
+                        }
+                        else // 反時計回り
+                        {
+                            tangentDirection = new Vector3(-itemDirection.y, itemDirection.x, 0);
+                        }
+                        velocity = (tangentDirection.normalized + Vector3.up * 0.3f).normalized * info.Force; // 少し上向きの力を加える
+                        break;
+                    case MiningType.Explosive:
+                        Vector3 directionFromExplosion = (item.transform.position - info.SourcePoint).normalized;
+                        directionFromExplosion = (directionFromExplosion + Vector3.up * 0.5f).normalized;
+                        velocity = directionFromExplosion * info.Force;
+                        break;
+                }
+                item.rb.AddForce(velocity, ForceMode.Impulse);
+            }
+        }
+    }
+
     public void WakeUpItemsNearPosition(Vector3 position, float radius)
     {
         Collider[] hitColliders = Physics.OverlapSphere(position, radius);
