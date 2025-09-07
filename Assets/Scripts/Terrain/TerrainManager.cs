@@ -33,6 +33,7 @@ public class TerrainSettings
     
     [Header("Performance")]
     public int blocksPerFrame = 16; // 1フレームあたりのブロック生成数
+    public float blockActivationDistance = 50f; // ブロックを起床させる距離
 }
 
 /// <summary>
@@ -105,6 +106,12 @@ public class TerrainManager : MonoBehaviour
         {
             UpdateChunks();
             timeSinceLastChunkUpdate = 0f;
+        }
+        
+        // ブロックのKinematic状態を更新
+        if (blockManager != null)
+        {
+            blockManager.UpdateBlocksKinematicState(playerTransform.position, settings.blockActivationDistance);
         }
     }
     

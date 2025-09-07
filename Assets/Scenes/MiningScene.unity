@@ -788,7 +788,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 79c3719c2c96fb246aef8c2572b5d0fa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 5
+  baseMoveSpeed: 5
   acceleration: 0.05
   deceleration: 0.1
   fallSpeedMultiplier: 0.5
@@ -1312,6 +1312,7 @@ MonoBehaviour:
     voxelSize: 4
     generationType: 0
     blocksPerFrame: 16
+    blockActivationDistance: 7
   playerTransform: {fileID: 672003891}
   renderDistanceInChunks: 2
   blockManager: {fileID: 0}

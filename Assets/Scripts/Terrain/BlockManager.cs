@@ -20,6 +20,7 @@ public class BlockManager : MonoBehaviour
         public Vector3Int position;          // ブロックの論理座標
         public Vector3 worldPosition;       // ワールド座標
         public Block block;                 // 実際のBlockへの参照
+        public Rigidbody rigidbody;         // Rigidbodyへの参照
         public bool isActive = true;        // ブロックがアクティブかどうか
         public int voxelCount;              // このブロック内のボクセル数
         
@@ -73,6 +74,11 @@ public class BlockManager : MonoBehaviour
         // Blockコンポーネントを追加
         Block block = blockObj.AddComponent<Block>();
         blockInstance.block = block;
+
+        // Rigidbodyを追加して初期設定
+        Rigidbody rb = blockObj.AddComponent<Rigidbody>();
+        rb.isKinematic = true; // デフォルトはスリープ状態
+        blockInstance.rigidbody = rb;
         
         // マテリアル設定
         CreateBlockMaterial(blockObj, data);
@@ -218,6 +224,30 @@ public class BlockManager : MonoBehaviour
         }
         
         blocks.Clear();
+    }
+    
+    /// <summary>
+    /// デバッグ情報を取得
+    /// </summary>
+    /// <summary>
+    /// プレイヤーとの距離に応じてブロックのisKinematic状態を更新
+    /// </summary>
+    public void UpdateBlocksKinematicState(Vector3 playerPosition, float activationDistance)
+    {
+        float sqrActivationDistance = activationDistance * activationDistance;
+        foreach (var blockData in blocks)
+        {
+            if (blockData.block == null || blockData.rigidbody == null) continue;
+
+            float sqrDistance = (blockData.worldPosition - playerPosition).sqrMagnitude;
+            bool shouldBeAwake = sqrDistance <= sqrActivationDistance;
+            
+            // 状態が異なる場合のみ更新
+            if (blockData.rigidbody.isKinematic == shouldBeAwake)
+            {
+                blockData.rigidbody.isKinematic = !shouldBeAwake;
+            }
+        }
     }
     
     /// <summary>
