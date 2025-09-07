@@ -195,7 +195,11 @@ public class MinecartManager : MonoBehaviour
             Minecart cart = minecarts[i];
             if (cart.isGoingToGround && Vector3.Distance(cart.gameObject.transform.position, Vector3.zero) < 1f)
             {
-                // 地上に到着したら中身を空にして追従に戻す
+                // 地上に到着したら中身をStorageManagerに移し、空にして追従に戻す
+                if (StorageManager.Instance != null)
+                {
+                    StorageManager.Instance.AddResources(cart.resources);
+                }
                 cart.ClearResources();
                 cart.isGoingToGround = false; // 追従可能に
             }
