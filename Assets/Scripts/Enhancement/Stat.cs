@@ -1,3 +1,4 @@
+using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -31,6 +32,11 @@ public class Stat
             return finalValue;
         }
     }
+
+    /// <summary>
+    /// Valueを整数に丸めた値。ダメージ計算などに使用します。
+    /// </summary>
+    public int IntValue => Mathf.RoundToInt(Value);
 
     /// <summary>
     /// 加算補正を追加します。

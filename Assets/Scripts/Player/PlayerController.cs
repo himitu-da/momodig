@@ -17,7 +17,8 @@ public class PlayerController : MonoBehaviour
     }
 
     [Header("移動設定")]
-    [SerializeField] private float moveSpeed = 5f; // 移動速度
+    [SerializeField] private float baseMoveSpeed = 5f; // 移動速度
+    public Stat moveSpeed = new Stat();
     [SerializeField] private float acceleration = 0.1f; // 加速のスムーズさ
     [SerializeField] private float deceleration = 0.2f; // 減速のスムーズさ
     [SerializeField] private float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
@@ -105,6 +106,8 @@ public class PlayerController : MonoBehaviour
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
     {
+        moveSpeed.BaseValue = baseMoveSpeed;
+
         rb = GetComponent<Rigidbody>();
         if (rb != null)
         {
@@ -274,7 +277,7 @@ public class PlayerController : MonoBehaviour
                 {
                     // 無操作時は徐々に落下速度を上げる
                     currentFallSpeed += fallAcceleration * Time.fixedDeltaTime;
-                    float maxFallSpeed = moveSpeed * fallSpeedMultiplier;
+                    float maxFallSpeed = moveSpeed.Value * fallSpeedMultiplier;
                     currentFallSpeed = Mathf.Min(currentFallSpeed, maxFallSpeed);
                     targetVelocity = new Vector3(0, -currentFallSpeed, 0);
                 }
@@ -284,18 +287,18 @@ public class PlayerController : MonoBehaviour
                     if (moveInput.x != 0 && moveInput.y == 0)
                     {
                         // 左右のみの入力の場合は落下しない
-                        targetVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed;
+                        targetVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed.Value;
                     }
                     else
                     {
                         // それ以外の入力（上下含む）
-                        targetVelocity = moveDirection.normalized * moveSpeed;
+                        targetVelocity = moveDirection.normalized * moveSpeed.Value;
                     }
                 }
                 break;
             case MoveMode.TopDown:
                 moveDirection = new Vector3(moveInput.x, 0f, moveInput.y);
-                targetVelocity = moveDirection.normalized * moveSpeed;
+                targetVelocity = moveDirection.normalized * moveSpeed.Value;
                 break;
             default:
                 moveDirection = Vector3.zero;

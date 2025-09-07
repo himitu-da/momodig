@@ -66,7 +66,7 @@ public class MinecartManager : MonoBehaviour
             {
                 movement = newMinecartObject.AddComponent<MinecartMovement>();
             }
-            movement.moveSpeed = followMoveSpeed; // 初期速度を設定
+            movement.moveSpeed.BaseValue = followMoveSpeed; // 初期速度を設定
             minecarts.Add(new Minecart(newMinecartObject));
         }
         else
@@ -96,7 +96,7 @@ public class MinecartManager : MonoBehaviour
         {
             cart.state = MinecartState.GoingToGround; // 状態を地上へ移動中に変更
             cart.movement.targetPosition = groundStationPosition; // 地上の停留点に移動
-            cart.movement.moveSpeed = groundMoveSpeed; // 地上への移動速度を設定
+            cart.movement.moveSpeed.BaseValue = groundMoveSpeed; // 地上への移動速度を設定
 
             // 使用済みのトロッコをリストの末尾に移動（キューの末尾へ）
             Minecart movedCart = minecarts[0];
@@ -217,7 +217,7 @@ public class MinecartManager : MonoBehaviour
                     else
                     {
                         cart.state = MinecartState.Following; // 状態を追従中に変更
-                        cart.movement.moveSpeed = followMoveSpeed; // 追従速度に戻す
+                        cart.movement.moveSpeed.BaseValue = followMoveSpeed; // 追従速度に戻す
                     }
                     break;
 

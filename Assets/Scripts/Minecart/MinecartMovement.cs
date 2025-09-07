@@ -3,10 +3,12 @@ using UnityEngine;
 public class MinecartMovement : MonoBehaviour
 {
     public Vector3 targetPosition;
-    public float moveSpeed = 5f;
+    [SerializeField] private float baseMoveSpeed = 5f;
+    public Stat moveSpeed = new Stat();
 
     void Start()
     {
+        moveSpeed.BaseValue = baseMoveSpeed;
         // 初期位置をターゲット位置に設定
         targetPosition = transform.position;
     }
@@ -17,7 +19,7 @@ public class MinecartMovement : MonoBehaviour
         if (Vector3.Distance(transform.position, targetPosition) > 0.01f)
         {
             // MoveTowardsを使って一定の速度で移動
-            transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
+            transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed.Value * Time.deltaTime);
         }
     }
 }
