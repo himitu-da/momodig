@@ -9,5 +9,5 @@ EditorBuildSettings:
     path: Assets/Scenes/MiningScene.unity
     guid: 774dc15c4765a404b96dc251afed8cb9
   m_configObjects:
-    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 20206fbed39774a4fbe7ed7c108155e7, type: 3}
   m_UseUCBPForAssetBundles: 0
