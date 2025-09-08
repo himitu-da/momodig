@@ -2,12 +2,21 @@ using UnityEngine;
 using System.Collections.Generic;
 
 // トロッコクラス
+
+public enum MinecartState
+{
+    Following,      // プレイヤーを追従中
+    GoingToGround,  // 地上へ移動中
+    Unloading       // 地上で荷降ろし中
+}
+
 public class Minecart
 {
     public GameObject gameObject; // トロッコのゲームオブジェクト
     public MinecartMovement movement; // トロッコの移動コンポーネント
     public Dictionary<ResourceType, int> resources; // 資源と量
     public float time;
+    public MinecartState state; // トロッコの現在の状態
 
     // コンストラクタで初期化
     public Minecart(GameObject obj)
@@ -24,7 +33,7 @@ public class Minecart
             resources[type] = 0;
         }
         time = 0f;
-        isGoingToGround = false; // 地上に行く途中で、プレイヤーを追従しないフラグ
+        state = MinecartState.Following; // 初期状態は追従
     }
 
     // 現在の積載量を計算
@@ -50,5 +59,4 @@ public class Minecart
         }
     }
 
-    public bool isGoingToGround; // 地上に行く途中で、プレイヤーを追従しないフラグ
 }

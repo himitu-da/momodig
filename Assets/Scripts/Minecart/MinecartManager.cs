@@ -10,6 +10,11 @@ public class MinecartManager : MonoBehaviour
     [Header("トロッコ設定")]
     public GameObject minecartPrefab; // トロッコのプレハブ
     public int CartCapacity = 500;
+    [Header("トロッコ移動設定")]
+    public Vector3 groundStationPosition = Vector3.zero; // 地上の停留点
+    public float followMoveSpeed = 5f; // プレイヤー追従時の速度
+    public float groundMoveSpeed = 10f; // 地上へ向かう際の速度
+    public float unloadTime = 2.0f; // 地上での荷降ろし時間
     public int cartunit = 2;
     public List<Minecart> minecarts = new List<Minecart>();
 
@@ -23,9 +28,6 @@ public class MinecartManager : MonoBehaviour
     private List<Vector3> pathPoints = new List<Vector3>();
 
     [Header("トロッコ状態")]
-    private int usingcart = 0;
-    public float cartcooltime;
-    public float DeltaTime;
     public bool digable = true;
 
     void Start()
@@ -59,10 +61,12 @@ public class MinecartManager : MonoBehaviour
         {
             GameObject newMinecartObject = Instantiate(minecartPrefab, Vector3.zero, Quaternion.identity);
             // MinecartMovementコンポーネントがなければ追加する
-            if (newMinecartObject.GetComponent<MinecartMovement>() == null)
+            MinecartMovement movement = newMinecartObject.GetComponent<MinecartMovement>();
+            if (movement == null)
             {
-                newMinecartObject.AddComponent<MinecartMovement>();
+                movement = newMinecartObject.AddComponent<MinecartMovement>();
             }
+            movement.moveSpeed = followMoveSpeed; // 初期速度を設定
             minecarts.Add(new Minecart(newMinecartObject));
         }
         else
@@ -83,11 +87,6 @@ public class MinecartManager : MonoBehaviour
             SendCartToHome(currentCart);
         }
     }
-    // minecartnum番目のトロッコをcartcooltime間送信する、cartcooltime>0fならばトロッコは使用しているものとみなし、利用不可
-    public void settime(int minecartnum, float cartcooltime)
-    {
-        minecarts[minecartnum].time += cartcooltime;
-    }
 
     // トロッコを地上(0,0,0)に送り、キューを進める
     private void SendCartToHome(int minecartnum)
@@ -95,9 +94,9 @@ public class MinecartManager : MonoBehaviour
         Minecart cart = minecarts[minecartnum];
         if (cart.gameObject != null && minecartnum == 0) // 先頭のトロッコのみ処理
         {
-            cart.isGoingToGround = true; // 地上に行く途中で追従を停止
-            cart.movement.targetPosition = Vector3.zero; // 地上に移動
-            cart.time = cartcooltime; // 送出時間を設定
+            cart.state = MinecartState.GoingToGround; // 状態を地上へ移動中に変更
+            cart.movement.targetPosition = groundStationPosition; // 地上の停留点に移動
+            cart.movement.moveSpeed = groundMoveSpeed; // 地上への移動速度を設定
 
             // 使用済みのトロッコをリストの末尾に移動（キューの末尾へ）
             Minecart movedCart = minecarts[0];
@@ -117,7 +116,8 @@ public class MinecartManager : MonoBehaviour
         for (int i = 0; i < minecarts.Count; i++)
         {
             Minecart cart = minecarts[i];
-            if (cart.gameObject != null && cart.movement != null && !cart.isGoingToGround)
+            // 追従状態のトロッコのみ位置を更新
+            if (cart.state == MinecartState.Following && cart.gameObject != null && cart.movement != null)
             {
                 // 各トロッコの目標となる軌跡リスト上のインデックスを計算
                 int targetIndex = pathPoints.Count - 1 - (cartDistanceInPoints * (i + 1));
@@ -165,55 +165,76 @@ public class MinecartManager : MonoBehaviour
         // プレイヤーの軌跡を記録
         if (playerTransform != null)
         {
-            float distance = Vector3.Distance(playerTransform.position, pathPoints[pathPoints.Count - 1]);
-            if (distance > pathRecordInterval)
+            if (pathPoints.Count > 0)
+            {
+                float distance = Vector3.Distance(playerTransform.position, pathPoints[pathPoints.Count - 1]);
+                if (distance > pathRecordInterval)
+                {
+                    pathPoints.Add(playerTransform.position);
+                    // 軌跡リストが最大数を超えたら古いものから削除
+                    if (pathPoints.Count > maxPathPoints)
+                    {
+                        pathPoints.RemoveAt(0);
+                    }
+                }
+            }
+            else
             {
                 pathPoints.Add(playerTransform.position);
-                // 軌跡リストが最大数を超えたら古いものから削除
-                if (pathPoints.Count > maxPathPoints)
-                {
-                    pathPoints.RemoveAt(0);
-                }
             }
         }
 
         // トロッコの位置を更新
         UpdateMinecartPositions();
 
-        // 必要に応じて処理
-        //time>0fのトロッコはDeltaTime(Time.DeltaTimeと同値、timemanager的なものを作るまでは待機)ずつ減らす
+        // トロッコの状態を更新
         foreach (Minecart cart in minecarts)
         {
-            if (0f < cart.time)
+            switch (cart.state)
             {
-                cart.time -= Time.deltaTime;
-            }
-        }
-        // 地上到着チェック
-        for (int i = 0; i < minecarts.Count; i++)
-        {
-            Minecart cart = minecarts[i];
-            if (cart.isGoingToGround && Vector3.Distance(cart.gameObject.transform.position, Vector3.zero) < 1f)
-            {
-                // 地上に到着したら中身を空にして追従に戻す
-                cart.ClearResources();
-                cart.isGoingToGround = false; // 追従可能に
+                case MinecartState.GoingToGround:
+                    // 地上到着チェック
+                    if (Vector3.Distance(cart.gameObject.transform.position, groundStationPosition) < 0.1f)
+                    {
+                        cart.state = MinecartState.Unloading; // 状態を荷降ろし中に変更
+                        cart.time = unloadTime; // 荷降ろしタイマーを設定
+
+                        // 中身をStorageManagerに移す
+                        if (StorageManager.Instance != null)
+                        {
+                            StorageManager.Instance.AddResources(cart.resources);
+                        }
+                        cart.ClearResources();
+                    }
+                    break;
+
+                case MinecartState.Unloading:
+                    // 荷降ろしタイマーを減らす
+                    if (cart.time > 0)
+                    {
+                        cart.time -= Time.deltaTime;
+                    }
+                    else
+                    {
+                        cart.state = MinecartState.Following; // 状態を追従中に変更
+                        cart.movement.moveSpeed = followMoveSpeed; // 追従速度に戻す
+                    }
+                    break;
+
+                case MinecartState.Following:
+                    // 追従中の処理はUpdateMinecartPositionsで行う
+                    break;
             }
         }
 
-        //利用中のトロッコはキューの先頭（index 0）、minecarts[0].time <= 0fならば、このカートは積載可能とみなす
-        usingcart = 0; // 常に先頭のトロッコを使用
-        if (minecarts.Count > 0 && minecarts[usingcart].time <= 0f)
+        // 採掘可能かどうかの判定
+        if (minecarts.Count > 0 && minecarts[0].state == MinecartState.Following)
         {
-            if (!digable)   //もし、digable=falseなのにminecarts[usingcart].time <= 0fであるならばtrueにする
-            {
-                digable = !digable;
-            }
-            //ここに資材を追加する適当なプログラムを入力する
+            digable = true;
         }
-        else    // キューが空の場合や利用不可である時を考える
+        else
         {
-            digable = false;    //トロッコは使えないものとする
+            digable = false;
         }
     }
 }

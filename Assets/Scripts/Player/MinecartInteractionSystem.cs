@@ -320,13 +320,7 @@ public class MinecartInteractionSystem : MonoBehaviour
             minecartManager.updatevalue(0, transferType, removedAmount);
             Debug.Log($"MinecartInteractionSystem: {transferType}をトロッコに{removedAmount}個転送完了");
             
-            // 満載チェック
-            int newAmount = minecartManager.minecarts[0].resources[transferType];
-            if (newAmount >= minecartManager.CartCapacity)
-            {
-                minecartManager.settime(0, minecartManager.cartcooltime);
-                Debug.Log($"MinecartInteractionSystem: トロッコの{transferType}が満載、送信開始 ({newAmount}/{minecartManager.CartCapacity})");
-            }
+            // 満載チェックはMinecartManagerのupdatevalue内で行われるため、ここでの追加処理は不要
             
             return true;
         }

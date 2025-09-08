@@ -1201,12 +1201,14 @@ MonoBehaviour:
   playerTransform: {fileID: 0}
   minecartPrefab: {fileID: 1242165045067032922, guid: 57b4c4f6783a13c45909b1fc9784d4b1, type: 3}
   CartCapacity: 50
+  groundStationPosition: {x: 0, y: 2, z: 0}
+  followMoveSpeed: 5
+  groundMoveSpeed: 10
+  unloadTime: 2
   cartunit: 5
   pathRecordInterval: 0.2
   cartDistanceInPoints: 5
   maxPathPoints: 100
-  cartcooltime: 0
-  DeltaTime: 0
   digable: 1
 --- !u!4 &1324682792
 Transform:
