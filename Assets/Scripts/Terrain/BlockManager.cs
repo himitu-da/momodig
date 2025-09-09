@@ -51,7 +51,7 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// ブロックを作成
     /// </summary>
-    public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, ResourceType resourceType, global::BlockData data, float blockSize, int voxelSize, Transform parent)
+    public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, ResourceType resourceType, global::BlockData data, float blockSize, int voxelsPerBlock, Transform parent)
     {
         if (showBlockDebugInfo)
         {
@@ -67,7 +67,7 @@ public class BlockManager : MonoBehaviour
         blockObj.transform.position = worldPos;
         
         // スケール調整
-        float scale = blockSize / voxelSize;
+        float scale = blockSize / voxelsPerBlock;
         blockObj.transform.localScale = new Vector3(scale, scale, scale);
         
         // Blockコンポーネントを追加
@@ -82,8 +82,8 @@ public class BlockManager : MonoBehaviour
             terrainManager.VoxelManager,
             blockPos,
             pattern,
-            voxelSize,
-            blockSize,
+            voxelsPerBlock, // voxelCountPerSide
+            blockSize, // worldBlockSize
             data
         );
         
