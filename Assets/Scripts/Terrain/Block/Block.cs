@@ -138,4 +138,29 @@ public class Block : MonoBehaviour
         meshGenerator.GenerateMesh(this, voxelManager, blockPosition, ChunkSize, maxHP, initialColor, mesh, collider);
     }
 
+    /// <summary>
+    /// 現在のボクセルパターンを取得します
+    /// </summary>
+    /// <returns>ボクセルパターン</returns>
+    public bool[,,] GetVoxelPattern()
+    {
+        return useTexture1Pattern;
+    }
+
+    /// <summary>
+    /// 新しいボクセルパターンを設定し、メッシュを再生成します
+    /// </summary>
+    /// <param name="newPattern">新しいボクセルパターン</param>
+    public void SetVoxelPattern(bool[,,] newPattern)
+    {
+        useTexture1Pattern = newPattern;
+        
+        // VoxelManagerのデータはBlockManager側でまとめて更新するため、ここでは何もしない
+        // if (voxelManager != null)
+        // {
+        //     // voxelManager.UnregisterVoxelsInBlock(blockPosition);
+        // }
+
+        GenerateMesh();
+    }
 }

@@ -3,8 +3,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-public class DroppedItemManager : MonoBehaviour, IItemManager
+public class DroppedItemManager : MonoBehaviour, IItemManager, ISaveable
 {
+    [Header("システム参照")]
+    [SerializeField] private TerrainManager terrainManager; // ロード時に使用
+
     [Header("アイテム管理設定")]
     [SerializeField] private float _wakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
     
@@ -68,6 +71,15 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         else
         {
             Instance = this;
+        }
+    }
+
+    void Start()
+    {
+        // TerrainManagerが設定されていなければ検索
+        if (terrainManager == null)
+        {
+            terrainManager = FindFirstObjectByType<TerrainManager>();
         }
     }
 
@@ -414,4 +426,73 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             Destroy(itemInstance);
         }
     }
+
+    #region SaveSystem
+    public string SaveFileName => "dropped_items";
+
+    public object CaptureState()
+    {
+        var saveData = new DroppedItemsSaveData();
+        foreach (var item in activeItems)
+        {
+            if (item == null) continue;
+            var itemData = new DroppedItemSaveData
+            {
+                position = new SerializableVector3(item.transform.position),
+                itemId = (int)item.resourceType
+            };
+            saveData.droppedItems.Add(itemData);
+        }
+        return saveData;
+    }
+
+    public void RestoreState(object state)
+    {
+        var saveData = state as DroppedItemsSaveData;
+        if (saveData == null) return;
+
+        // 既存の全アイテムをプールに戻す
+        for (int i = activeItems.Count - 1; i >= 0; i--)
+        {
+            if (activeItems[i] != null)
+            {
+                ReturnItem(activeItems[i].gameObject);
+            }
+        }
+        activeItems.Clear();
+        itemStates.Clear();
+
+        if (terrainManager == null)
+        {
+            Debug.LogError("TerrainManager is not assigned to DroppedItemManager. Cannot restore items.");
+            return;
+        }
+
+        // セーブデータからアイテムを復元
+        foreach (var itemData in saveData.droppedItems)
+        {
+            ResourceType resourceType = (ResourceType)itemData.itemId;
+            BlockData blockData = terrainManager.BlockDataManager.GetBlockData(resourceType);
+            if (blockData == null || blockData.droppedItemPrefab == null)
+            {
+                Debug.LogWarning($"Prefab for item ID {itemData.itemId} not found. Skipping.");
+                continue;
+            }
+
+            GameObject itemInstance = GetItem(blockData.droppedItemPrefab);
+            if (itemInstance != null)
+            {
+                itemInstance.transform.position = itemData.position.ToVector3();
+                
+                // 状態をスリープにしておく
+                var droppedItem = itemInstance.GetComponent<DroppedItem>();
+                if (droppedItem != null && itemStates.ContainsKey(droppedItem))
+                {
+                    droppedItem.rb.isKinematic = true;
+                    itemStates[droppedItem].isSleeping = true;
+                }
+            }
+        }
+    }
+    #endregion
 }
