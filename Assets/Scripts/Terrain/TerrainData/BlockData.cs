@@ -9,6 +9,7 @@ using System.Collections.Generic;
 public class BlockData : ScriptableObject
 {
     [Header("Block Properties")]
+    public ResourceType resourceType;
     public int voxelHp = 2;
     
     // 複数のテクスチャに対応

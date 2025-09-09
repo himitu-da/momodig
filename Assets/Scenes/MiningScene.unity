@@ -1303,13 +1303,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54778056d54c8c24ca0ba2d5ebd0e017, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  blockDataManager: {fileID: 11400000, guid: fdb69d72c9e5daa4db34ab04514653a1, type: 2}
+  blockData: {fileID: 11400000, guid: b72d8998d07556445be5daed7dd44989, type: 2}
   settings:
     center: {x: 0, y: 0, z: 0}
-    worldSizeInChunks: {x: 2, y: 5}
-    chunkSizeInBlocks: {x: 5, y: 5}
+    initialChunkCount: {x: 2, y: 5}
+    blocksPerChunk: {x: 5, y: 5}
     blockSize: 1
-    voxelSize: 4
+    voxelsPerBlock: 4
     generationType: 0
     blocksPerFrame: 16
   playerTransform: {fileID: 672003891}

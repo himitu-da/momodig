@@ -45,7 +45,7 @@ public class TerrainSettings
 public class TerrainManager : MonoBehaviour
 {
     [Header("Data Managers")]
-    [SerializeField] private BlockDataManager blockDataManager;
+    [SerializeField] private BlockData blockData;
 
     [Header("Terrain Configuration")]
     [SerializeField] private TerrainSettings settings = new TerrainSettings();
@@ -77,7 +77,6 @@ public class TerrainManager : MonoBehaviour
     /// <summary>
     /// 階層マネージャーへのアクセス
     /// </summary>
-    public BlockDataManager BlockDataManager => blockDataManager;
     public BlockManager BlockManager => blockManager;
     public BlockGenerator BlockGenerator => blockGenerator;
     public VoxelManager VoxelManager => voxelManager;
@@ -410,13 +409,12 @@ public class TerrainManager : MonoBehaviour
 
         Vector3 worldPos = new Vector3(worldX, worldY, settings.center.z);
 
-        // TODO: 将来的にはBlockGeneratorがResourceTypeを決定するようにする
-        ResourceType currentResourceType = ResourceType.Stone;
-        BlockData blockTypeData = blockDataManager.GetBlockData(currentResourceType);
+        // BlockDataManager を廃止し、直接 BlockData を使用する
+        BlockData blockTypeData = blockData;
 
         if (blockTypeData == null)
         {
-            Debug.LogError($"BlockData for {currentResourceType} is not assigned in BlockDataManager.");
+            Debug.LogError("BlockData is not assigned in TerrainManager.");
             return;
         }
 
@@ -430,7 +428,7 @@ public class TerrainManager : MonoBehaviour
         bool[,,] pattern = blockGenerator.GenerateBlockPattern(generationData);
 
         // BlockManagerでブロックを作成
-        var newBlockInstance = blockManager.CreateBlock(blockPos, worldPos, pattern, currentResourceType, blockTypeData, settings.blockSize, settings.voxelsPerBlock, chunk.transform);
+        var newBlockInstance = blockManager.CreateBlock(blockPos, worldPos, pattern, blockTypeData, settings.blockSize, settings.voxelsPerBlock, chunk.transform);
 
         // VoxelManagerにボクセルデータを登録
         voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, blockTypeData, settings.blockSize, settings.voxelsPerBlock);

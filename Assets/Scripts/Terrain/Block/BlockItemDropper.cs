@@ -100,6 +100,7 @@ public class BlockItemDropper
         DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
+            droppedItemComponent.resourceType = blockData.resourceType; // ResourceTypeを設定
             droppedItemComponent.enabled = !blockData.disableRotation;
         }
 

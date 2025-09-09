@@ -51,18 +51,18 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// ブロックを作成
     /// </summary>
-    public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, ResourceType resourceType, global::BlockData data, float blockSize, int voxelsPerBlock, Transform parent)
+    public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, global::BlockData data, float blockSize, int voxelsPerBlock, Transform parent)
     {
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockManager: Creating block at {blockPos} with type {resourceType}");
+            Debug.Log($"BlockManager: Creating block at {blockPos} with type {data.resourceType}");
         }
         
         // ブロックデータを作成
         BlockInstanceData blockInstance = new BlockInstanceData(blockPos, worldPos);
         
         // GameObjectとBlockを作成
-        GameObject blockObj = new GameObject($"Block_{resourceType}_{blockPos.x}_{blockPos.y}");
+        GameObject blockObj = new GameObject($"Block_{data.resourceType}_{blockPos.x}_{blockPos.y}");
         blockObj.transform.parent = parent;
         blockObj.transform.position = worldPos;
         

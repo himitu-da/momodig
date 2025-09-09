@@ -20,3 +20,4 @@ MonoBehaviour:
   disableRotation: 1
   autoScale: 1
   scaleMultiplier: 1
+  generationWeight: 1
