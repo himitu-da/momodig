@@ -23,10 +23,10 @@ public class TerrainSettings
 {
     [Header("Basic Settings")]
     public Vector3Int center = Vector3Int.zero;
-    public Vector2Int worldSizeInChunks = new Vector2Int(10, 1); // ワールドのチャンク数
-    public Vector2Int chunkSizeInBlocks = new Vector2Int(1, 5); // チャンクあたりのブロック数
+    public Vector2Int initialChunkCount = new Vector2Int(2, 5);
+    public Vector2Int blocksPerChunk = new Vector2Int(5, 5);
     public float blockSize = 1.0f; // ブロックのサイズ
-    public int voxelSize = 4;
+    public int voxelsPerBlock = 4;
 
     [Header("Generation Type")]
     public TerrainGenerationType generationType = TerrainGenerationType.SideScroller;
@@ -195,13 +195,13 @@ public class TerrainManager : MonoBehaviour
             {
                 List<Vector3Int> chunkBlocks = new List<Vector3Int>();
                 
-                for (int bx = 0; bx < settings.chunkSizeInBlocks.x; bx++)
+                for (int bx = 0; bx < settings.blocksPerChunk.x; bx++)
                 {
-                    for (int by = 0; by < settings.chunkSizeInBlocks.y; by++)
+                    for (int by = 0; by < settings.blocksPerChunk.y; by++)
                     {
                         Vector3Int blockPos = new Vector3Int(
-                            chunkPos.x * settings.chunkSizeInBlocks.x + bx,
-                            chunkPos.y * settings.chunkSizeInBlocks.y + by,
+                            chunkPos.x * settings.blocksPerChunk.x + bx,
+                            chunkPos.y * settings.blocksPerChunk.y + by,
                             0
                         );
                         chunkBlocks.Add(blockPos);
@@ -249,16 +249,16 @@ public class TerrainManager : MonoBehaviour
     /// </summary>
     private void UpdateChunks()
     {
-        Vector3Int playerChunkPos = GetChunkPositionFromWorld(playerTransform.position);
+        Vector3Int newPlayerChunkPos = GetChunkPositionFromWorld(playerTransform.position);
 
         // プレイヤーがチャンクをまたいだ場合のみ更新
-        if (playerChunkPos == currentPlayerChunk && activeChunks.Count > 0) return;
+        if (newPlayerChunkPos == currentPlayerChunk && activeChunks.Count > 0) return;
         
-        currentPlayerChunk = playerChunkPos;
+        currentPlayerChunk = newPlayerChunkPos;
         Vector3 playerWorldPos = playerTransform.position;
 
         // 同様に距離順でソートして追加
-        List<Vector3Int> newChunks = new List<Vector3Int>();
+        List<Vector3Int> chunksToGenerate = new List<Vector3Int>();
         
         for (int x = -renderDistanceInChunks; x <= renderDistanceInChunks; x++)
         {
@@ -269,12 +269,12 @@ public class TerrainManager : MonoBehaviour
                 if (chunkPos.y > 0) continue;
                 if (activeChunks.ContainsKey(chunkPos)) continue;
                 
-                newChunks.Add(chunkPos);
+                chunksToGenerate.Add(chunkPos);
             }
         }
         
         // 距離順でソート
-        newChunks.Sort((a, b) => 
+        chunksToGenerate.Sort((a, b) => 
         {
             Vector3 aCenterWorld = GetChunkCenterWorldPosition(a);
             Vector3 bCenterWorld = GetChunkCenterWorldPosition(b);
@@ -284,24 +284,24 @@ public class TerrainManager : MonoBehaviour
         });
         
         // 各チャンクのブロックを距離順で追加
-        foreach (var chunkPos in newChunks)
+        foreach (var chunkPos in chunksToGenerate)
         {
-            List<Vector3Int> chunkBlocks = new List<Vector3Int>();
+            List<Vector3Int> blocksInChunk = new List<Vector3Int>();
             
-            for (int bx = 0; bx < settings.chunkSizeInBlocks.x; bx++)
+            for (int bx = 0; bx < settings.blocksPerChunk.x; bx++)
             {
-                for (int by = 0; by < settings.chunkSizeInBlocks.y; by++)
+                for (int by = 0; by < settings.blocksPerChunk.y; by++)
                 {
                     Vector3Int blockPos = new Vector3Int(
-                        chunkPos.x * settings.chunkSizeInBlocks.x + bx,
-                        chunkPos.y * settings.chunkSizeInBlocks.y + by,
+                        chunkPos.x * settings.blocksPerChunk.x + bx,
+                        chunkPos.y * settings.blocksPerChunk.y + by,
                         0
                     );
-                    chunkBlocks.Add(blockPos);
+                    blocksInChunk.Add(blockPos);
                 }
             }
             
-            chunkBlocks.Sort((a, b) => 
+            blocksInChunk.Sort((a, b) => 
             {
                 Vector3 aWorldPos = GetBlockWorldPosition(a);
                 Vector3 bWorldPos = GetBlockWorldPosition(b);
@@ -310,7 +310,7 @@ public class TerrainManager : MonoBehaviour
                 return distA.CompareTo(distB);
             });
             
-            foreach (var blockPos in chunkBlocks)
+            foreach (var blockPos in blocksInChunk)
             {
                 if (_processedBlocks.Add(blockPos))
                 {
@@ -339,8 +339,8 @@ public class TerrainManager : MonoBehaviour
     private Vector3Int GetChunkPositionFromWorld(Vector3 worldPosition)
     {
         float t = settings.blockSize;
-        float u_x = settings.chunkSizeInBlocks.x;
-        float u_y = settings.chunkSizeInBlocks.y;
+        float u_x = settings.blocksPerChunk.x;
+        float u_y = settings.blocksPerChunk.y;
         float tu_y = t * u_y;
 
         // チャンク中心からのオフセットを考慮してx座標を計算
@@ -389,8 +389,8 @@ public class TerrainManager : MonoBehaviour
 
         // w=tux, z = tu(2y-1)/2
         float t = settings.blockSize;
-        float u_x = settings.chunkSizeInBlocks.x;
-        float u_y = settings.chunkSizeInBlocks.y;
+        float u_x = settings.blocksPerChunk.x;
+        float u_y = settings.blocksPerChunk.y;
         
         int chunkCoordX = chunk.chunkPosition.x;
         int chunkCoordY = chunk.chunkPosition.y;
@@ -423,17 +423,17 @@ public class TerrainManager : MonoBehaviour
         // BlockGeneratorでパターンを生成
         var generationData = new BlockGenerator.BlockGenerationData(
             settings.generationType,
-            settings.voxelSize,
+            settings.voxelsPerBlock,
             settings.blockSize,
             blockPos
         );
         bool[,,] pattern = blockGenerator.GenerateBlockPattern(generationData);
 
         // BlockManagerでブロックを作成
-        var newBlockInstance = blockManager.CreateBlock(blockPos, worldPos, pattern, currentResourceType, blockTypeData, settings.blockSize, settings.voxelSize, chunk.transform);
+        var newBlockInstance = blockManager.CreateBlock(blockPos, worldPos, pattern, currentResourceType, blockTypeData, settings.blockSize, settings.voxelsPerBlock, chunk.transform);
 
         // VoxelManagerにボクセルデータを登録
-        voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, blockTypeData, settings.blockSize, settings.voxelSize);
+        voxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, blockTypeData, settings.blockSize, settings.voxelsPerBlock);
 
         // ボクセルデータ登録後にメッシュを生成
         if (newBlockInstance != null && newBlockInstance.block != null)
@@ -445,8 +445,8 @@ public class TerrainManager : MonoBehaviour
     private Chunk GetOrCreateChunk(Vector3Int blockPos)
     {
         Vector3Int chunkPos = new Vector3Int(
-            Mathf.FloorToInt((float)blockPos.x / settings.chunkSizeInBlocks.x),
-            Mathf.FloorToInt((float)blockPos.y / settings.chunkSizeInBlocks.y),
+            Mathf.FloorToInt((float)blockPos.x / settings.blocksPerChunk.x),
+            Mathf.FloorToInt((float)blockPos.y / settings.blocksPerChunk.y),
             0
         );
 
@@ -506,8 +506,8 @@ public class TerrainManager : MonoBehaviour
     {
         Debug.Log("=== TerrainManager Debug Info ===");
         Debug.Log($"Generation Type: {settings.generationType}");
-        Debug.Log($"World Size (Chunks): {settings.worldSizeInChunks}");
-        Debug.Log($"Chunk Size (Blocks): {settings.chunkSizeInBlocks}");
+        Debug.Log($"Initial Chunk Count: {settings.initialChunkCount}");
+        Debug.Log($"Blocks Per Chunk: {settings.blocksPerChunk}");
         
         if (blockManager != null && voxelManager != null && blockGenerator != null)
         {
@@ -523,8 +523,8 @@ public class TerrainManager : MonoBehaviour
     private Vector3 GetChunkCenterWorldPosition(Vector3Int chunkPos)
     {
         float t = settings.blockSize;
-        float u_x = settings.chunkSizeInBlocks.x;
-        float u_y = settings.chunkSizeInBlocks.y;
+        float u_x = settings.blocksPerChunk.x;
+        float u_y = settings.blocksPerChunk.y;
         
         float centerX = chunkPos.x * u_x * t;
         float centerY = t * u_y * (2 * chunkPos.y - 1) / 2f;
@@ -538,14 +538,14 @@ public class TerrainManager : MonoBehaviour
     private Vector3 GetBlockWorldPosition(Vector3Int blockPos)
     {
         Vector3Int chunkPos = new Vector3Int(
-            Mathf.FloorToInt((float)blockPos.x / settings.chunkSizeInBlocks.x),
-            Mathf.FloorToInt((float)blockPos.y / settings.chunkSizeInBlocks.y),
+            Mathf.FloorToInt((float)blockPos.x / settings.blocksPerChunk.x),
+            Mathf.FloorToInt((float)blockPos.y / settings.blocksPerChunk.y),
             0
         );
         
         float t = settings.blockSize;
-        float u_x = settings.chunkSizeInBlocks.x;
-        float u_y = settings.chunkSizeInBlocks.y;
+        float u_x = settings.blocksPerChunk.x;
+        float u_y = settings.blocksPerChunk.y;
         
         int bx = blockPos.x - chunkPos.x * (int)u_x;
         int by = blockPos.y - chunkPos.y * (int)u_y;
@@ -565,12 +565,12 @@ public class TerrainManager : MonoBehaviour
     private void OnValidate()
     {
         // エディタでの値変更時に設定を検証
-        settings.worldSizeInChunks.x = Mathf.Max(1, settings.worldSizeInChunks.x);
-        settings.worldSizeInChunks.y = Mathf.Max(1, settings.worldSizeInChunks.y);
-        settings.chunkSizeInBlocks.x = Mathf.Max(1, settings.chunkSizeInBlocks.x);
-        settings.chunkSizeInBlocks.y = Mathf.Max(1, settings.chunkSizeInBlocks.y);
+        settings.initialChunkCount.x = Mathf.Max(1, settings.initialChunkCount.x);
+        settings.initialChunkCount.y = Mathf.Max(1, settings.initialChunkCount.y);
+        settings.blocksPerChunk.x = Mathf.Max(1, settings.blocksPerChunk.x);
+        settings.blocksPerChunk.y = Mathf.Max(1, settings.blocksPerChunk.y);
         settings.blockSize = Mathf.Max(0.1f, settings.blockSize);
-        settings.voxelSize = Mathf.Max(1, settings.voxelSize);
+        settings.voxelsPerBlock = Mathf.Max(1, settings.voxelsPerBlock);
     }
 #endif
 }
