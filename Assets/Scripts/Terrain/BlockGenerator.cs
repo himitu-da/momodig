@@ -16,18 +16,18 @@ public class BlockGenerator : MonoBehaviour
     public class BlockGenerationData
     {
         public TerrainGenerationType generationType;
-        public int voxelSize;
-        public float chunkSize;
-        public Vector3Int chunkPosition;
-        public float cubeSize;
+        public int voxelsPerBlock;
+        public float blockSize;
+        public Vector3Int blockPosition;
+        public float voxelWorldSize;
         
-        public BlockGenerationData(TerrainGenerationType type, int vSize, float cSize, Vector3Int cPos)
+        public BlockGenerationData(TerrainGenerationType type, int vPerBlock, float bSize, Vector3Int bPos)
         {
             generationType = type;
-            voxelSize = vSize;
-            chunkSize = cSize;
-            chunkPosition = cPos;
-            cubeSize = cSize / vSize;
+            voxelsPerBlock = vPerBlock;
+            blockSize = bSize;
+            blockPosition = bPos;
+            voxelWorldSize = bSize / vPerBlock;
         }
     }
     
@@ -56,10 +56,10 @@ public class BlockGenerator : MonoBehaviour
     {
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockGenerator: Generating pattern for {data.generationType} at {data.chunkPosition}");
+            Debug.Log($"BlockGenerator: Generating pattern for {data.generationType} at {data.blockPosition}");
         }
         
-        bool[,,] pattern = new bool[data.voxelSize, data.voxelSize, data.voxelSize];
+        bool[,,] pattern = new bool[data.voxelsPerBlock, data.voxelsPerBlock, data.voxelsPerBlock];
         
         switch (data.generationType)
         {
@@ -85,17 +85,17 @@ public class BlockGenerator : MonoBehaviour
     {
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockGenerator: Generating SideScroller pattern, cubeSize: {data.cubeSize}");
+            Debug.Log($"BlockGenerator: Generating SideScroller pattern, voxelWorldSize: {data.voxelWorldSize}");
         }
         
-        for (int x = 0; x < data.voxelSize; x++)
+        for (int x = 0; x < data.voxelsPerBlock; x++)
         {
-            for (int y = 0; y < data.voxelSize; y++)
+            for (int y = 0; y < data.voxelsPerBlock; y++)
             {
-                for (int z = 0; z < data.voxelSize; z++)
+                for (int z = 0; z < data.voxelsPerBlock; z++)
                 {
                     // Z軸の絶対値が0.5以下のボクセルのみ生成
-                    float zPos = (z - (data.voxelSize - 1) / 2.0f) * data.cubeSize;
+                    float zPos = (z - (data.voxelsPerBlock - 1) / 2.0f) * data.voxelWorldSize;
                     pattern[x, y, z] = Mathf.Abs(zPos) <= 0.5f;
                 }
             }
@@ -111,17 +111,17 @@ public class BlockGenerator : MonoBehaviour
     {
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockGenerator: Generating TopDown pattern, cubeSize: {data.cubeSize}");
+            Debug.Log($"BlockGenerator: Generating TopDown pattern, voxelWorldSize: {data.voxelWorldSize}");
         }
         
-        for (int x = 0; x < data.voxelSize; x++)
+        for (int x = 0; x < data.voxelsPerBlock; x++)
         {
-            for (int y = 0; y < data.voxelSize; y++)
+            for (int y = 0; y < data.voxelsPerBlock; y++)
             {
-                for (int z = 0; z < data.voxelSize; z++)
+                for (int z = 0; z < data.voxelsPerBlock; z++)
                 {
                     // Y軸の絶対値が0.5以下のボクセルのみ生成
-                    float yPos = (y - (data.voxelSize - 1) / 2.0f) * data.cubeSize;
+                    float yPos = (y - (data.voxelsPerBlock - 1) / 2.0f) * data.voxelWorldSize;
                     pattern[x, y, z] = Mathf.Abs(yPos) <= 0.5f;
                 }
             }
@@ -141,11 +141,11 @@ public class BlockGenerator : MonoBehaviour
         }
         
         // デフォルトは全ブロックを生成
-        for (int x = 0; x < data.voxelSize; x++)
+        for (int x = 0; x < data.voxelsPerBlock; x++)
         {
-            for (int y = 0; y < data.voxelSize; y++)
+            for (int y = 0; y < data.voxelsPerBlock; y++)
             {
-                for (int z = 0; z < data.voxelSize; z++)
+                for (int z = 0; z < data.voxelsPerBlock; z++)
                 {
                     pattern[x, y, z] = true;
                 }
@@ -156,9 +156,9 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// パターン内のアクティブブロック数を取得
+    /// パターン内のアクティブボクセル数を取得
     /// </summary>
-    public int CountActiveBlocks(bool[,,] pattern)
+    public int CountActiveVoxels(bool[,,] pattern)
     {
         int count = 0;
         for (int x = 0; x < pattern.GetLength(0); x++)
@@ -174,7 +174,7 @@ public class BlockGenerator : MonoBehaviour
         
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockGenerator: Pattern contains {count} active blocks");
+            Debug.Log($"BlockGenerator: Pattern contains {count} active voxels");
         }
         
         return count;
@@ -185,14 +185,14 @@ public class BlockGenerator : MonoBehaviour
     /// </summary>
     public float CalculatePatternDensity(bool[,,] pattern)
     {
-        int activeBlocks = CountActiveBlocks(pattern);
-        int totalBlocks = pattern.GetLength(0) * pattern.GetLength(1) * pattern.GetLength(2);
+        int activeVoxels = CountActiveVoxels(pattern);
+        int totalVoxels = pattern.GetLength(0) * pattern.GetLength(1) * pattern.GetLength(2);
         
-        float density = totalBlocks > 0 ? (float)activeBlocks / totalBlocks : 0f;
+        float density = totalVoxels > 0 ? (float)activeVoxels / totalVoxels : 0f;
         
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockGenerator: Pattern density: {density:F2} ({activeBlocks}/{totalBlocks})");
+            Debug.Log($"BlockGenerator: Pattern density: {density:F2} ({activeVoxels}/{totalVoxels})");
         }
         
         return density;
