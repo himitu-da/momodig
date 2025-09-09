@@ -9,8 +9,8 @@ public class BlockItemDropper
     // 設定パラメータ
     private BlockData blockData;
     private bool enableTextureExtraction;
-    private float voxelSize;
-    private int chunkSize;
+    private float voxelWorldSize;
+    private int voxelsPerBlock;
     private VoxelTextureExtractor textureExtractor;
     private Texture2D texture1, texture2;
     private bool[,,] useTexture1Pattern;
@@ -18,13 +18,13 @@ public class BlockItemDropper
     /// <summary>
     /// BlockItemDropperを初期化
     /// </summary>
-    public void Initialize(BlockData data, bool enableTexture, float size, int chunk, 
+    public void Initialize(BlockData data, bool enableTexture, float worldSize, int vPerBlock, 
         VoxelTextureExtractor extractor, Texture2D tex1, Texture2D tex2, bool[,,] pattern)
     {
         blockData = data;
         enableTextureExtraction = enableTexture;
-        voxelSize = size;
-        chunkSize = chunk;
+        voxelWorldSize = worldSize;
+        voxelsPerBlock = vPerBlock;
         textureExtractor = extractor;
         texture1 = tex1;
         texture2 = tex2;
@@ -70,13 +70,13 @@ public class BlockItemDropper
         // 自動スケール調整が有効な場合
         if (blockData.autoScale)
         {
-            float targetScale = voxelSize * blockData.scaleMultiplier;
+            float targetScale = voxelWorldSize * blockData.scaleMultiplier;
             item.transform.localScale = Vector3.one * targetScale;
         }
 
         // ボクセル座標が有効な場合、テクスチャ抽出を実行
         if (enableTextureExtraction && voxelX >= 0 && voxelY >= 0 && voxelZ >= 0 && 
-            voxelX < chunkSize && voxelY < chunkSize && voxelZ < chunkSize)
+            voxelX < voxelsPerBlock && voxelY < voxelsPerBlock && voxelZ < voxelsPerBlock)
         {
             ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ);
         }
@@ -118,7 +118,7 @@ public class BlockItemDropper
         if (textureExtractor != null)
         {
             textureExtractor.ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ, 
-                texture1, texture2, useTexture1Pattern, chunkSize);
+                texture1, texture2, useTexture1Pattern, voxelsPerBlock);
         }
     }
 
