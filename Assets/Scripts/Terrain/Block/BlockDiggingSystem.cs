@@ -15,21 +15,21 @@ public class BlockDiggingSystem
     // 掘削パラメータ
     private float diggingThreshold;
     private int diggingFrameDelay;
-    private int chunkSize;
+    private int voxelsPerBlock;
     private Vector3Int blockPosition;
 
     /// <summary>
     /// BlockDiggingSystemを初期化
     /// </summary>
     public void Initialize(VoxelManager manager, BlockItemDropper dropper, Block block, 
-        float threshold, int frameDelay, int chunk, Vector3Int position)
+        float threshold, int frameDelay, int vPerBlock, Vector3Int position)
     {
         voxelManager = manager;
         itemDropper = dropper;
         targetBlock = block;
         diggingThreshold = threshold;
         diggingFrameDelay = frameDelay;
-        chunkSize = chunk;
+        voxelsPerBlock = vPerBlock;
         blockPosition = position;
     }
 
@@ -38,9 +38,9 @@ public class BlockDiggingSystem
     /// </summary>
     public void TakeDamage(Vector3 localPos, int damage)
     {
-        int x = Mathf.FloorToInt(localPos.x + chunkSize / 2.0f);
-        int y = Mathf.FloorToInt(localPos.y + chunkSize / 2.0f);
-        int z = Mathf.FloorToInt(localPos.z + chunkSize / 2.0f);
+        int x = Mathf.FloorToInt(localPos.x + voxelsPerBlock / 2.0f);
+        int y = Mathf.FloorToInt(localPos.y + voxelsPerBlock / 2.0f);
+        int z = Mathf.FloorToInt(localPos.z + voxelsPerBlock / 2.0f);
         
         Vector3Int localVoxelPos = new Vector3Int(x, y, z);
 
@@ -74,12 +74,12 @@ public class BlockDiggingSystem
         Vector3 localMin = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.min);
         Vector3 localMax = worldToLocalMatrix.MultiplyPoint3x4(diggingBounds.max);
 
-        int startX = Mathf.Max(0, Mathf.FloorToInt(localMin.x + chunkSize / 2.0f));
-        int endX = Mathf.Min(chunkSize - 1, Mathf.CeilToInt(localMax.x + chunkSize / 2.0f));
-        int startY = Mathf.Max(0, Mathf.FloorToInt(localMin.y + chunkSize / 2.0f));
-        int endY = Mathf.Min(chunkSize - 1, Mathf.CeilToInt(localMax.y + chunkSize / 2.0f));
-        int startZ = Mathf.Max(0, Mathf.FloorToInt(localMin.z + chunkSize / 2.0f));
-        int endZ = Mathf.Min(chunkSize - 1, Mathf.CeilToInt(localMax.z + chunkSize / 2.0f));
+        int startX = Mathf.Max(0, Mathf.FloorToInt(localMin.x + voxelsPerBlock / 2.0f));
+        int endX = Mathf.Min(voxelsPerBlock - 1, Mathf.CeilToInt(localMax.x + voxelsPerBlock / 2.0f));
+        int startY = Mathf.Max(0, Mathf.FloorToInt(localMin.y + voxelsPerBlock / 2.0f));
+        int endY = Mathf.Min(voxelsPerBlock - 1, Mathf.CeilToInt(localMax.y + voxelsPerBlock / 2.0f));
+        int startZ = Mathf.Max(0, Mathf.FloorToInt(localMin.z + voxelsPerBlock / 2.0f));
+        int endZ = Mathf.Min(voxelsPerBlock - 1, Mathf.CeilToInt(localMax.z + voxelsPerBlock / 2.0f));
 
         // 現在の移動モードを取得
         PlayerController playerController = Object.FindFirstObjectByType<PlayerController>();
@@ -163,7 +163,7 @@ public class BlockDiggingSystem
         if (voxelData == null || !voxelData.isActive) return false;
 
         int containedSamples = 0;
-        Vector3 voxelMin = new Vector3(x - chunkSize / 2.0f, y - chunkSize / 2.0f, z - chunkSize / 2.0f);
+        Vector3 voxelMin = new Vector3(x - voxelsPerBlock / 2.0f, y - voxelsPerBlock / 2.0f, z - voxelsPerBlock / 2.0f);
 
         for (int sx = 0; sx < sampleResolution; sx++)
         {
