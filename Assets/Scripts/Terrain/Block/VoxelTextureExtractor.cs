@@ -20,7 +20,7 @@ public class VoxelTextureExtractor
     /// ドロップアイテムにボクセルテクスチャを適用
     /// </summary>
     public void ApplyVoxelTextureToDroppedItem(GameObject item, int voxelX, int voxelY, int voxelZ, 
-        Texture2D texture1, Texture2D texture2, bool[,,] useTexture1Pattern, int chunkSize)
+        Texture2D texture1, Texture2D texture2, bool[,,] useTexture1Pattern, int voxelsPerBlock)
     {
         var itemRenderer = item.GetComponent<Renderer>();
         if (itemRenderer == null) return;
@@ -46,7 +46,7 @@ public class VoxelTextureExtractor
 
         // ボクセルのすべての面テクスチャ情報を取得
         List<VoxelFaceTextureInfo> faceInfos = GetAllVoxelFaceTextureInfo(voxelX, voxelY, voxelZ, 
-            texture1, texture2, useTexture1Pattern, chunkSize);
+            texture1, texture2, useTexture1Pattern, voxelsPerBlock);
         
         if (enableTextureExtraction)
         {
@@ -154,34 +154,34 @@ public class VoxelTextureExtractor
     /// 指定されたボクセルの面テクスチャ情報を取得
     /// </summary>
     public VoxelFaceTextureInfo GetVoxelFaceTextureInfo(int voxelX, int voxelY, int voxelZ, Vector3 normal,
-        Texture2D texture1, Texture2D texture2, bool[,,] useTexture1Pattern, int chunkSize)
+        Texture2D texture1, Texture2D texture2, bool[,,] useTexture1Pattern, int voxelsPerBlock)
     {
         // ボクセル位置の境界チェック
-        if (voxelX < 0 || voxelX >= chunkSize || voxelY < 0 || voxelY >= chunkSize || voxelZ < 0 || voxelZ >= chunkSize)
+        if (voxelX < 0 || voxelX >= voxelsPerBlock || voxelY < 0 || voxelY >= voxelsPerBlock || voxelZ < 0 || voxelZ >= voxelsPerBlock)
         {
-            Debug.LogWarning($"Voxel position ({voxelX}, {voxelY}, {voxelZ}) is out of bounds (chunk size: {chunkSize})");
+            Debug.LogWarning($"Voxel position ({voxelX}, {voxelY}, {voxelZ}) is out of bounds (chunk size: {voxelsPerBlock})");
             return new VoxelFaceTextureInfo(normal, Vector2.zero, Vector2.zero, null, false);
         }
 
         // AddFaceメソッドのUV計算ロジックを再利用
-        float pixelSize = 1.0f / chunkSize;
+        float pixelSize = 1.0f / voxelsPerBlock;
         float u_base = 0;
         float v_base = 0;
 
         if (normal == Vector3.right || normal == Vector3.left) // X面
         {
-            u_base = (float)voxelZ / chunkSize;
-            v_base = (float)voxelY / chunkSize;
+            u_base = (float)voxelZ / voxelsPerBlock;
+            v_base = (float)voxelY / voxelsPerBlock;
         }
         else if (normal == Vector3.up || normal == Vector3.down) // Y面
         {
-            u_base = (float)voxelX / chunkSize;
-            v_base = (float)voxelZ / chunkSize;
+            u_base = (float)voxelX / voxelsPerBlock;
+            v_base = (float)voxelZ / voxelsPerBlock;
         }
         else if (normal == Vector3.forward || normal == Vector3.back) // Z面
         {
-            u_base = (float)voxelX / chunkSize;
-            v_base = (float)voxelY / chunkSize;
+            u_base = (float)voxelX / voxelsPerBlock;
+            v_base = (float)voxelY / voxelsPerBlock;
         }
 
         // useTexture1Patternの配列チェック
@@ -223,7 +223,7 @@ public class VoxelTextureExtractor
     /// 指定されたボクセルのすべての面テクスチャ情報を取得
     /// </summary>
     private List<VoxelFaceTextureInfo> GetAllVoxelFaceTextureInfo(int voxelX, int voxelY, int voxelZ,
-        Texture2D texture1, Texture2D texture2, bool[,,] useTexture1Pattern, int chunkSize)
+        Texture2D texture1, Texture2D texture2, bool[,,] useTexture1Pattern, int voxelsPerBlock)
     {
         List<VoxelFaceTextureInfo> faceInfos = new List<VoxelFaceTextureInfo>();
         
@@ -237,7 +237,7 @@ public class VoxelTextureExtractor
         foreach (Vector3 normal in faceNormals)
         {
             VoxelFaceTextureInfo faceInfo = GetVoxelFaceTextureInfo(voxelX, voxelY, voxelZ, normal,
-                texture1, texture2, useTexture1Pattern, chunkSize);
+                texture1, texture2, useTexture1Pattern, voxelsPerBlock);
             faceInfos.Add(faceInfo);
         }
 
