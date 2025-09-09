@@ -75,7 +75,7 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ボクセルパターンからボクセルデータを作成
     /// </summary>
-    public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, Vector3 blockWorldPos, BlockData data, float blockSize, int voxelSize)
+    public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, Vector3 blockWorldPos, BlockData data, float blockSize, int voxelsPerBlock)
     {
         if (showVoxelDebugInfo)
         {
@@ -91,7 +91,7 @@ public class VoxelManager : MonoBehaviour
                     if (pattern[x, y, z])
                     {
                         Vector3Int localPos = new Vector3Int(x, y, z);
-                        Vector3 worldPos = CalculateWorldPosition(blockWorldPos, localPos, blockSize, voxelSize);
+                        Vector3 worldPos = CalculateWorldPosition(blockWorldPos, localPos, blockSize, voxelsPerBlock);
                         
                         VoxelData voxelData = new VoxelData(
                             blockPos, 
@@ -119,14 +119,14 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// ワールド座標を計算
     /// </summary>
-    private Vector3 CalculateWorldPosition(Vector3 blockWorldPos, Vector3Int localPos, float blockSize, int voxelSize)
+    private Vector3 CalculateWorldPosition(Vector3 blockWorldPos, Vector3Int localPos, float blockSize, int voxelsPerBlock)
     {
-        float voxelUnit = blockSize / voxelSize;
+        float voxelUnit = blockSize / voxelsPerBlock;
         // ブロックの中心からのオフセットとしてボクセルのローカル座標を計算
         Vector3 localOffset = new Vector3(
-            (localPos.x - voxelSize / 2f + 0.5f) * voxelUnit,
-            (localPos.y - voxelSize / 2f + 0.5f) * voxelUnit,
-            (localPos.z - voxelSize / 2f + 0.5f) * voxelUnit
+            (localPos.x - voxelsPerBlock / 2f + 0.5f) * voxelUnit,
+            (localPos.y - voxelsPerBlock / 2f + 0.5f) * voxelUnit,
+            (localPos.z - voxelsPerBlock / 2f + 0.5f) * voxelUnit
         );
         
         return blockWorldPos + localOffset;
