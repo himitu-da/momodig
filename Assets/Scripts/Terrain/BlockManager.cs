@@ -51,7 +51,7 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// ブロックを作成
     /// </summary>
-    public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, global::BlockData data, float blockSize, int voxelsPerBlock, Transform parent)
+    public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, BlockData data, float blockSize, int voxelsPerBlock, Transform parent)
     {
         if (showBlockDebugInfo)
         {
@@ -104,7 +104,7 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// ブロック用マテリアルを作成
     /// </summary>
-    private void CreateBlockMaterial(GameObject blockObj, global::BlockData data)
+    private void CreateBlockMaterial(GameObject blockObj, BlockData data)
     {
         var renderer = blockObj.GetComponent<MeshRenderer>();
         if (renderer == null)
@@ -213,7 +213,14 @@ public class BlockManager : MonoBehaviour
         {
             if (block.block != null)
             {
-                DestroyImmediate(block.block.gameObject);
+                if (Application.isPlaying)
+                {
+                    Destroy(block.block.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(block.block.gameObject);
+                }
             }
         }
         

@@ -12,47 +12,7 @@ public class VoxelManager : MonoBehaviour
     
     // データ構造をListからDictionaryに変更し、ブロック座標とローカル座標でボクセルデータを管理
     // これにより、O(n)の検索がO(1)になり、パフォーマンスが大幅に向上
-    private Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelData>> trackedVoxels = new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelData>>();
-    
-    /// <summary>
-    /// ボクセルデータ構造
-    /// </summary>
-    [System.Serializable]
-    public class VoxelData
-    {
-        public Vector3Int blockPosition;     // 所属ブロック座標
-        public Vector3Int localPosition;    // ブロック内でのローカル座標
-        public Vector3 worldPosition;       // ワールド座標
-        public bool isActive;               // ボクセルがアクティブかどうか
-        public int health;                  // ボクセルの耐久値
-        public int maxHealth;               // ボクセルの最大耐久値
-        public VoxelType voxelType;         // ボクセルタイプ
-        public float lastModifiedTime;      // 最後に変更された時間
-        
-        public VoxelData(Vector3Int blockPos, Vector3Int localPos, Vector3 worldPos, int hp, VoxelType type)
-        {
-            blockPosition = blockPos;
-            localPosition = localPos;
-            worldPosition = worldPos;
-            isActive = true;
-            health = hp;
-            maxHealth = hp; // 最大HPも初期HPと同じに設定
-            voxelType = type;
-            lastModifiedTime = Time.time;
-        }
-    }
-    
-    /// <summary>
-    /// ボクセルタイプ列挙型
-    /// </summary>
-    public enum VoxelType
-    {
-        Standard,      // 標準ボクセル
-        Reinforced,    // 強化ボクセル
-        Fragile,       // 脆弱ボクセル
-        Unbreakable,   // 破壊不能ボクセル
-        Special        // 特殊ボクセル
-    }
+    private Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>> trackedVoxels = new Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>>();
     
     /// <summary>
     /// TerrainManagerからの参照
@@ -93,7 +53,7 @@ public class VoxelManager : MonoBehaviour
                         Vector3Int localPos = new Vector3Int(x, y, z);
                         Vector3 worldPos = CalculateWorldPosition(blockWorldPos, localPos, blockSize, voxelsPerBlock);
                         
-                        VoxelData voxelData = new VoxelData(
+                        Voxel voxelData = new Voxel(
                             blockPos, 
                             localPos, 
                             worldPos, 
@@ -102,7 +62,7 @@ public class VoxelManager : MonoBehaviour
                         );
                         if (!trackedVoxels.ContainsKey(blockPos))
                         {
-                            trackedVoxels[blockPos] = new Dictionary<Vector3Int, VoxelData>();
+                            trackedVoxels[blockPos] = new Dictionary<Vector3Int, Voxel>();
                         }
                         trackedVoxels[blockPos][localPos] = voxelData;
                     }
@@ -145,7 +105,7 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// 指定座標のボクセルデータを取得
     /// </summary>
-    public VoxelData GetVoxelAt(Vector3Int blockPos, Vector3Int localPos)
+    public Voxel GetVoxelAt(Vector3Int blockPos, Vector3Int localPos)
     {
         if (trackedVoxels.TryGetValue(blockPos, out var block) && block.TryGetValue(localPos, out var voxel))
         {
@@ -179,7 +139,7 @@ public class VoxelManager : MonoBehaviour
     /// </summary>
     public bool DamageVoxel(Vector3Int blockPos, Vector3Int localPos, int damage = 1)
     {
-        VoxelData voxel = GetVoxelAt(blockPos, localPos);
+        Voxel voxel = GetVoxelAt(blockPos, localPos);
         if (voxel != null)
         {
             voxel.health -= damage;
@@ -204,7 +164,7 @@ public class VoxelManager : MonoBehaviour
     /// </summary>
     public bool DestroyVoxel(Vector3Int blockPos, Vector3Int localPos)
     {
-        VoxelData voxel = GetVoxelAt(blockPos, localPos);
+        Voxel voxel = GetVoxelAt(blockPos, localPos);
         if (voxel != null && voxel.voxelType != VoxelType.Unbreakable)
         {
             voxel.isActive = false;
@@ -226,7 +186,7 @@ public class VoxelManager : MonoBehaviour
     /// </summary>
     public bool RestoreVoxel(Vector3Int blockPos, Vector3Int localPos)
     {
-        VoxelData voxel = GetVoxelAt(blockPos, localPos);
+        Voxel voxel = GetVoxelAt(blockPos, localPos);
         if (voxel != null && !voxel.isActive)
         {
             voxel.isActive = true;
@@ -247,13 +207,13 @@ public class VoxelManager : MonoBehaviour
     /// <summary>
     /// 指定ブロックのボクセルをすべて取得
     /// </summary>
-    public List<VoxelData> GetVoxelsInBlock(Vector3Int blockPos)
+    public List<Voxel> GetVoxelsInBlock(Vector3Int blockPos)
     {
         if (trackedVoxels.TryGetValue(blockPos, out var block))
         {
-            return new List<VoxelData>(block.Values);
+            return new List<Voxel>(block.Values);
         }
-        return new List<VoxelData>();
+        return new List<Voxel>();
     }
     
     /// <summary>
