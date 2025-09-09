@@ -1,0 +1,47 @@
+using UnityEngine;
+using System.Collections.Generic;
+
+/// <summary>
+/// BiomeTypeとBiomeDataのマッピングを管理するデータベース。
+/// </summary>
+[CreateAssetMenu(fileName = "TerrainDataManager", menuName = "Momodig/Terrain Data Manager")]
+public class TerrainDataManager : ScriptableObject
+{
+    [Header("Default Settings")]
+    public BlockData defaultBlockData;
+
+    [System.Serializable]
+    public class BiomeDataMapping
+    {
+        public BiomeType biomeType;
+        public BiomeData biomeData;
+    }
+
+    [SerializeField]
+    private List<BiomeDataMapping> biomeDataMappings;
+
+    private Dictionary<BiomeType, BiomeData> _dataMap;
+
+    public void Initialize()
+    {
+        _dataMap = new Dictionary<BiomeType, BiomeData>();
+        foreach (var mapping in biomeDataMappings)
+        {
+            if (mapping.biomeData != null && !_dataMap.ContainsKey(mapping.biomeType))
+            {
+                _dataMap.Add(mapping.biomeType, mapping.biomeData);
+            }
+        }
+    }
+
+    public BiomeData GetBiomeData(BiomeType biomeType)
+    {
+        if (_dataMap == null)
+        {
+            Initialize();
+        }
+
+        _dataMap.TryGetValue(biomeType, out BiomeData data);
+        return data;
+    }
+}
