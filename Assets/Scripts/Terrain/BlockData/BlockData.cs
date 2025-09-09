@@ -19,4 +19,7 @@ public class BlockData : ScriptableObject
     public bool disableRotation = true;
     public bool autoScale = true;
     public float scaleMultiplier = 1.0f;
+
+    [Header("World Generation Settings")]
+    public float generationWeight = 1.0f; // 生成の重み
 }
