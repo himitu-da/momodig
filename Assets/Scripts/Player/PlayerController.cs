@@ -96,8 +96,8 @@ public class PlayerController : MonoBehaviour
     private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
     private Coroutine pickupRetryCoroutine; // リトライコルーチン
     
-    // MinecartInteractionSystemへの参照
-    private MinecartInteractionSystem minecartInteraction;
+    // MinecartPlayerInteractionSystemへの参照
+    [SerializeField] private MinecartPlayerInteractionSystem minecartInteraction;
 
     // MiningToolsControllerへの参照
     private MiningToolsController miningToolsController;
@@ -175,12 +175,7 @@ public class PlayerController : MonoBehaviour
         // Rigidbodyの制約を更新
         UpdateConstraints();
 
-        // MinecartInteractionSystemの参照を取得
-        minecartInteraction = GetComponent<MinecartInteractionSystem>();
-        if (minecartInteraction == null)
-        {
-            Debug.LogWarning("MinecartInteractionSystemが見つかりません");
-        }
+        // MinecartInteractionSystemの参照はインスペクタから設定される
         
         // MiningToolsControllerの参照を取得
         miningToolsController = GetComponentInChildren<MiningToolsController>();
@@ -251,12 +246,6 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         UpdateDepthText();
-        
-        // トロッコとの近接チェックをMinecartInteractionSystemに委譲
-        if (minecartInteraction != null)
-        {
-            minecartInteraction.CheckMinecartProximity();
-        }
     }
 
     // 物理演算の更新タイミングで呼ばれる
