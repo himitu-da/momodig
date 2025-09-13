@@ -112,10 +112,8 @@ public class BlockManager : MonoBehaviour
             renderer = blockObj.AddComponent<MeshRenderer>();
         }
         
-        // URP Transparentマテリアルを作成
-        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        mat.SetFloat("_Surface", 1); // Transparent
-        mat.SetFloat("_AlphaClip", 1); // Alpha Clipping
+        // Custom Unlitマテリアルを作成
+        Material mat = new Material(Shader.Find("Custom/UnlitBlock"));
         
         // BlockDataにテクスチャが設定されていれば使用
         if (data.textures != null && data.textures.Count > 0)

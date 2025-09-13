@@ -67,8 +67,8 @@ public class VoxelTextureExtractor
             
             if (extractedTexture != null)
             {
-                // URPマテリアルを作成
-                var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                // Custom Unlitマテリアルを作成
+                var material = new Material(Shader.Find("Custom/UnlitBlock"));
                 material.mainTexture = extractedTexture;
                 itemRenderer.material = material;
                 
@@ -275,8 +275,8 @@ public class VoxelTextureExtractor
     /// </summary>
     private void ApplyDefaultMaterial(Renderer renderer)
     {
-        var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        material.color = Color.gray;
+        var material = new Material(Shader.Find("Custom/UnlitBlock"));
+        material.color = Color.white; // Unlitなのでテクスチャの色をそのまま出すために白に
         renderer.material = material;
     }
 

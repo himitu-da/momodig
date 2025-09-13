@@ -135,8 +135,8 @@ public class BlockItemDropper
         var itemRenderer = item.GetComponent<Renderer>();
         if (itemRenderer != null)
         {
-            var material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            material.color = Color.gray;
+            var material = new Material(Shader.Find("Custom/UnlitBlock"));
+            material.color = Color.white; // Unlitなのでテクスチャの色をそのまま出すために白に
             itemRenderer.material = material;
         }
     }
