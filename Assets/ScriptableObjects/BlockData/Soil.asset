@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Soil
   m_EditorClassIdentifier: 
   resourceType: 0
-  voxelHp: 2
+  voxelHp: 1
   textures:
   - {fileID: 2800000, guid: f13afc898aea2af4988bf2d23cfd8f14, type: 3}
   droppedItemPrefab: {fileID: 5313337329262707675, guid: e31edd0b8e028754f9cff52745811db7, type: 3}

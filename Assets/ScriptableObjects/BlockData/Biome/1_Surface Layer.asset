@@ -14,28 +14,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   biomeName: Surface Layer
   biomeType: 0
-  maxHeight: 0
-  minHeight: -5
+  maxHeight: -1
+  minHeight: -10
   availableBlocks:
   - blockData: {fileID: 11400000, guid: f64b64dfc9ba274488a6f2e4e48f60ab, type: 2}
     distributionCurve:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0
-        value: 0
-        inSlope: 2
-        outSlope: 2
-        tangentMode: 0
+        time: -5
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 34
         weightedMode: 0
         inWeight: 0
         outWeight: 0
       - serializedVersion: 3
-        time: 1
+        time: -1
         value: 1
         inSlope: 0
         outSlope: 0
-        tangentMode: 0
+        tangentMode: 34
         weightedMode: 0
         inWeight: 0
         outWeight: 0
@@ -47,23 +47,23 @@ MonoBehaviour:
       serializedVersion: 2
       m_Curve:
       - serializedVersion: 3
-        time: 0
-        value: 0.49261475
-        inSlope: 0.50738525
-        outSlope: 0.50738525
-        tangentMode: 34
+        time: -10
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
         weightedMode: 0
         inWeight: 0
         outWeight: 0.33333334
       - serializedVersion: 3
-        time: 1
-        value: 1
-        inSlope: 0.50738525
-        outSlope: 0.50738525
-        tangentMode: 34
+        time: -5
+        value: 0.05
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
         weightedMode: 0
         inWeight: 0.33333334
-        outWeight: 0
+        outWeight: 0.33333334
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4

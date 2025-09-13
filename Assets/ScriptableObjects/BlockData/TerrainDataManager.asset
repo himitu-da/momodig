@@ -20,3 +20,17 @@ MonoBehaviour:
     biomeData: {fileID: 11400000, guid: bb293338bc90e5640a8ab82187582fb2, type: 2}
   - biomeType: 0
     biomeData: {fileID: 11400000, guid: 73759dc94a6f6324e997433888a1ea00, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 6ec2f20eb6d1cad488fea9ec93380807, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: a21980f92cea50b4d8103cbb1f646cd3, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: ccfaa5a02bcbd1749ac609bf50308e5d, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 7cfe27176b55a444fabe7a4a5f94a5d3, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: f59e04db4dc03e34fae91e8112b03d18, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 452b225123a5d9546a941955dd757f24, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 244a9e753f43b074aaa2e2d9608974f0, type: 2}
