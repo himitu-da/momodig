@@ -92,6 +92,10 @@ public class BlockItemDropper
         {
             itemRigidbody = item.AddComponent<Rigidbody>();
         }
+        
+        // 質量を設定
+        float volume = Mathf.Pow(voxelWorldSize, 3);
+        itemRigidbody.mass = volume * blockData.density;
 
         // 移動モードに応じてRigidbodyのConstraintを設定
         SetDroppedItemConstraints(itemRigidbody);
