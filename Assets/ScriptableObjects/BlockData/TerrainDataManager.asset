@@ -16,3 +16,7 @@ MonoBehaviour:
   biomeDataMappings:
   - biomeType: 0
     biomeData: {fileID: 11400000, guid: 92942545c70d39142aa5dc220a0882cc, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: bb293338bc90e5640a8ab82187582fb2, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 73759dc94a6f6324e997433888a1ea00, type: 2}
