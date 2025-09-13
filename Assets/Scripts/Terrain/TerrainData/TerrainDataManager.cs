@@ -44,4 +44,16 @@ public class TerrainDataManager : ScriptableObject
         _dataMap.TryGetValue(biomeType, out BiomeData data);
         return data;
     }
+
+    public BiomeData GetBiomeForHeight(int height)
+    {
+        foreach (var mapping in biomeDataMappings)
+        {
+            if (mapping.biomeData != null && height >= mapping.biomeData.minHeight && height <= mapping.biomeData.maxHeight)
+            {
+                return mapping.biomeData;
+            }
+        }
+        return null; // No suitable biome found
+    }
 }

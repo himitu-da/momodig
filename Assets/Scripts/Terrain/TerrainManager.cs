@@ -45,7 +45,7 @@ public class TerrainSettings
 public class TerrainManager : MonoBehaviour
 {
     [Header("Data Managers")]
-    public BlockData blockData;
+    public TerrainDataManager terrainDataManager;
 
     [Header("Terrain Configuration")]
     [SerializeField] private TerrainSettings settings = new TerrainSettings();
@@ -75,8 +75,9 @@ public class TerrainManager : MonoBehaviour
     public BlockManager BlockManager => blockManager;
     public BlockGenerator BlockGenerator => blockGenerator;
     public VoxelManager VoxelManager => voxelManager;
+    public TerrainDataManager TerrainDataManager => terrainDataManager;
 
-    void Start()
+    void Awake()
     {
         InitializeHierarchicalSystem();
     }
@@ -96,33 +97,13 @@ public class TerrainManager : MonoBehaviour
     /// </summary>
     private void InitializeHierarchicalSystem()
     {
-        // 階層マネージャーを自動作成または取得
-        if (chunkManager == null)
+        // 階層マネージャーがインスペクターから設定されているか検証
+        if (chunkManager == null || blockManager == null || blockGenerator == null || voxelManager == null)
         {
-            GameObject chunkManagerObj = new GameObject("ChunkManager");
-            chunkManagerObj.transform.parent = transform;
-            chunkManager = chunkManagerObj.AddComponent<ChunkManager>();
-        }
-        
-        if (blockManager == null)
-        {
-            GameObject blockManagerObj = new GameObject("BlockManager");
-            blockManagerObj.transform.parent = transform;
-            blockManager = blockManagerObj.AddComponent<BlockManager>();
-        }
-        
-        if (blockGenerator == null)
-        {
-            GameObject blockGeneratorObj = new GameObject("BlockGenerator");
-            blockGeneratorObj.transform.parent = transform;
-            blockGenerator = blockGeneratorObj.AddComponent<BlockGenerator>();
-        }
-        
-        if (voxelManager == null)
-        {
-            GameObject voxelManagerObj = new GameObject("VoxelManager");
-            voxelManagerObj.transform.parent = transform;
-            voxelManager = voxelManagerObj.AddComponent<VoxelManager>();
+            Debug.LogError("TerrainManager: One or more hierarchical managers are not assigned in the Inspector.");
+            // 重要なコンポーネントが不足しているため、ここで処理を中断
+            // this.enabled = false; // コンポーネントを無効化するなどの対策も考えられる
+            return;
         }
         
         // 各マネージャーを初期化
@@ -130,6 +111,9 @@ public class TerrainManager : MonoBehaviour
         blockManager.Initialize(this);
         blockGenerator.Initialize(this);
         voxelManager.Initialize(this);
+        
+        // TerrainDataManagerを初期化
+        terrainDataManager?.Initialize();
         
         if (showDebugInfo)
         {
