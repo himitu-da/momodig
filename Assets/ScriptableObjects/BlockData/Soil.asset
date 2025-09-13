@@ -15,8 +15,9 @@ MonoBehaviour:
   resourceType: 0
   voxelHp: 1
   textures:
-  - {fileID: 2800000, guid: f13afc898aea2af4988bf2d23cfd8f14, type: 3}
+  - {fileID: 2800000, guid: 6ce98367fac1d644b8bac6062642b1ec, type: 3}
   droppedItemPrefab: {fileID: 5313337329262707675, guid: e31edd0b8e028754f9cff52745811db7, type: 3}
   disableRotation: 1
   autoScale: 1
   scaleMultiplier: 1
+  density: 1300
