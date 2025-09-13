@@ -31,7 +31,7 @@ public class BlockDistributionDrawer : PropertyDrawer
         
         // 描画範囲を定義
         float range = Mathf.Abs(biomeData.maxHeight - biomeData.minHeight);
-        Rect viewRect = new Rect(biomeData.minHeight, 0, range, 10); // 縦軸を0-10に設定
+        Rect viewRect = new Rect(biomeData.minHeight, 0, range, 1); // 縦軸を0-1に設定
 
         curveProp.animationCurveValue = EditorGUI.CurveField(
             curveRect,
