@@ -199,10 +199,12 @@ public class ChunkManager : MonoBehaviour
         Chunk chunk = GetOrCreateChunk(blockPos);
         Vector3 worldPos = GetBlockWorldPosition(blockPos);
 
-        BlockData blockTypeData = terrainManager.blockData;
+        // 論理座標に基づいて、生成すべきブロックのデータを取得
+        BlockData blockTypeData = terrainManager.BlockGenerator.GetBlockDataForPosition(blockPos);
+
+        // 生成すべきブロックがない場合は、ここで処理を終了
         if (blockTypeData == null)
         {
-            Debug.LogError("BlockData is not assigned in TerrainManager.");
             return;
         }
 
@@ -263,16 +265,14 @@ public class ChunkManager : MonoBehaviour
     private Vector3Int GetChunkPositionFromWorld(Vector3 worldPosition)
     {
         var settings = terrainManager.Settings;
-        float t = settings.blockSize;
-        float u_x = settings.blocksPerChunk.x;
-        float u_y = settings.blocksPerChunk.y;
-        float tu_y = t * u_y;
-
-        float x_offset = worldPosition.x + (u_x - 1) / 2f * t;
-        int chunkX = Mathf.FloorToInt(x_offset / (t * u_x));
         
-        float y_float = (2 * worldPosition.y / tu_y + 1) / 2;
-        int chunkY = Mathf.FloorToInt(y_float);
+        // ワールド座標を論理ブロック座標に変換
+        int blockX = Mathf.RoundToInt(worldPosition.x / settings.blockSize);
+        int blockY = Mathf.RoundToInt(worldPosition.y / settings.blockSize);
+
+        // 論理ブロック座標をチャンク座標に変換
+        int chunkX = Mathf.FloorToInt((float)blockX / settings.blocksPerChunk.x);
+        int chunkY = Mathf.FloorToInt((float)blockY / settings.blocksPerChunk.y);
 
         return new Vector3Int(chunkX, chunkY, 0);
     }
@@ -280,39 +280,30 @@ public class ChunkManager : MonoBehaviour
     private Vector3 GetChunkCenterWorldPosition(Vector3Int chunkPos)
     {
         var settings = terrainManager.Settings;
-        float t = settings.blockSize;
-        float u_x = settings.blocksPerChunk.x;
-        float u_y = settings.blocksPerChunk.y;
         
-        float centerX = chunkPos.x * u_x * t;
-        float centerY = t * u_y * (2 * chunkPos.y - 1) / 2f;
-        
-        return new Vector3(centerX, centerY, settings.center.z);
+        // チャンクの開始ブロック座標を計算
+        float startBlockX = chunkPos.x * settings.blocksPerChunk.x;
+        float startBlockY = chunkPos.y * settings.blocksPerChunk.y;
+
+        // チャンクの中心のブロック座標を計算
+        float centerBlockX = startBlockX + (settings.blocksPerChunk.x - 1) / 2f;
+        float centerBlockY = startBlockY + (settings.blocksPerChunk.y - 1) / 2f;
+
+        // ワールド座標に変換
+        float worldX = centerBlockX * settings.blockSize;
+        float worldY = centerBlockY * settings.blockSize;
+
+        return new Vector3(worldX, worldY, settings.center.z);
     }
 
     private Vector3 GetBlockWorldPosition(Vector3Int blockPos)
     {
         var settings = terrainManager.Settings;
-        Vector3Int chunkPos = new Vector3Int(
-            Mathf.FloorToInt((float)blockPos.x / settings.blocksPerChunk.x),
-            Mathf.FloorToInt((float)blockPos.y / settings.blocksPerChunk.y),
-            0
-        );
         
-        float t = settings.blockSize;
-        float u_x = settings.blocksPerChunk.x;
-        float u_y = settings.blocksPerChunk.y;
-        
-        int bx = blockPos.x - chunkPos.x * (int)u_x;
-        int by = blockPos.y - chunkPos.y * (int)u_y;
-
-        float chunkCenterX = chunkPos.x * u_x * t;
-        float relativeBlockX = (bx - (u_x - 1) / 2f) * t;
-        float worldX = chunkCenterX + relativeBlockX;
-
-        float chunkCenterY = t * u_y * (2 * chunkPos.y - 1) / 2f;
-        float relativeBlockY = (by - (u_y - 1) / 2f) * t;
-        float worldY = chunkCenterY + relativeBlockY;
+        // 論理座標にブロックサイズを掛けてワールド座標の基点を計算
+        // （ブロックの中心ではなく、左下の角を原点とする）
+        float worldX = blockPos.x * settings.blockSize;
+        float worldY = blockPos.y * settings.blockSize;
 
         return new Vector3(worldX, worldY, settings.center.z);
     }

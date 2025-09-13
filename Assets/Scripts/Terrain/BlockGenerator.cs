@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// ブロック生成クラス
@@ -251,5 +252,54 @@ public class BlockGenerator : MonoBehaviour
     public string GetDebugInfo()
     {
         return "BlockGenerator - Ready for pattern generation";
+    }
+
+    /// <summary>
+    /// 指定された論理座標に対応するBlockDataを取得
+    /// </summary>
+    public BlockData GetBlockDataForPosition(Vector3Int blockPosition)
+    {
+        if (terrainManager == null || terrainManager.TerrainDataManager == null)
+        {
+            return null;
+        }
+
+        // 論理Y座標に基づいてバイオームを取得
+        var biome = terrainManager.TerrainDataManager.GetBiomeForHeight(blockPosition.y);
+        if (biome == null || biome.availableBlocks == null || biome.availableBlocks.Count == 0)
+        {
+            return null;
+        }
+
+        // 各ブロックの重みを計算
+        List<float> weights = new List<float>();
+        float totalWeight = 0f;
+        foreach (var blockDist in biome.availableBlocks)
+        {
+            // AnimationCurveを論理Y座標で直接評価
+            float weight = blockDist.distributionCurve.Evaluate(blockPosition.y);
+            weights.Add(weight);
+            totalWeight += weight;
+        }
+
+        // 合計の重みが0以下なら、何も生成しない
+        if (totalWeight <= 0)
+        {
+            return null;
+        }
+
+        // 加重ランダム選択
+        float randomValue = Random.Range(0, totalWeight);
+        for (int i = 0; i < biome.availableBlocks.Count; i++)
+        {
+            if (randomValue < weights[i])
+            {
+                return biome.availableBlocks[i].blockData;
+            }
+            randomValue -= weights[i];
+        }
+
+        // フォールバック（計算誤差などでここまで来た場合）
+        return biome.availableBlocks[biome.availableBlocks.Count - 1].blockData;
     }
 }
