@@ -59,7 +59,7 @@ public class MinecartManager : MonoBehaviour
     {
         if (minecartPrefab != null)
         {
-            GameObject newMinecartObject = Instantiate(minecartPrefab, Vector3.zero, Quaternion.identity);
+            GameObject newMinecartObject = Instantiate(minecartPrefab, Vector3.zero, Quaternion.identity, transform);
             // MinecartMovementコンポーネントがなければ追加する
             MinecartMovement movement = newMinecartObject.GetComponent<MinecartMovement>();
             if (movement == null)

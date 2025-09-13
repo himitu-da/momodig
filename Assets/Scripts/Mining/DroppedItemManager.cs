@@ -358,7 +358,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         }
         else
         {
-            itemInstance = Instantiate(prefab);
+            itemInstance = Instantiate(prefab, transform);
             itemInstance.layer = LayerMask.NameToLayer("DroppedItem");
             instancePrefabMap[itemInstance] = prefab;
         }
