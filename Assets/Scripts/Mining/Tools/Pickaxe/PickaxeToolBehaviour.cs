@@ -113,6 +113,12 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             currentAimDirection = direction.normalized;
         }
 
+        // 採掘中でないときは、常にツールの向きを照準に追従させる
+        if (!IsMining)
+        {
+            UpdateToolRotation(currentAimDirection, currentMoveMode);
+        }
+
         if (playerAnimator == null) return;
 
         // 横スク用の簡易向きフラグ
