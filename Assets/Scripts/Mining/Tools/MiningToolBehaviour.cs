@@ -58,7 +58,7 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// <summary>
     /// ツール使用（入力に応じてコントローラーから呼ばれる）
     /// </summary>
-    public abstract void Use();
+    public abstract void Use(Vector3 direction);
 
     /// <summary>
     /// 照準・向きの更新（プレイヤーの移動/入力から転送される）

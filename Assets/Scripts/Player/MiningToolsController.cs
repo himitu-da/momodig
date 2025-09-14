@@ -28,6 +28,8 @@ public class MiningToolsController : MonoBehaviour
     public MiningTool mainMiningTool => _mainMiningTool;
     public MiningTool subMiningTool => _subMiningTool;
 
+    private Vector3 _currentDirection = Vector3.right;
+
     private void Awake()
     {
         if (toolMount == null) toolMount = this.transform;
@@ -80,11 +82,11 @@ public class MiningToolsController : MonoBehaviour
     /// <summary>
     /// メイン用ツールを使用（Behaviour に委譲）
     /// </summary>
-    public void UseMainMineTool(GameObject user)
+    public void UseMainMineTool(GameObject user, Vector3 direction)
     {
         if (_mainBehaviour != null)
         {
-            _mainBehaviour.Use();
+            _mainBehaviour.Use(direction);
         }
         else
         {
@@ -95,11 +97,11 @@ public class MiningToolsController : MonoBehaviour
     /// <summary>
     /// サブ用ツールを使用（Behaviour に委譲）
     /// </summary>
-    public void UseSubMineTool(GameObject user)
+    public void UseSubMineTool(GameObject user, Vector3 direction)
     {
         if (_subBehaviour != null)
         {
-            _subBehaviour.Use();
+            _subBehaviour.Use(direction);
         }
         else
         {
@@ -112,20 +114,31 @@ public class MiningToolsController : MonoBehaviour
     /// </summary>
     public void UpdateRotation(Vector3 direction, PlayerController.MoveMode moveMode)
     {
-        // メインツールが採掘中でなければ回転と照準更新を行う
-        if (_mainBehaviour != null && !_mainBehaviour.IsMining)
+        if (direction.sqrMagnitude > 0.001f)
         {
-            if (direction.sqrMagnitude > 0.1f)
-            {
-                UpdateToolRotation(direction, moveMode);
-            }
-            _mainBehaviour.UpdateAim(direction, moveMode);
+            _currentDirection = direction;
         }
 
-        // サブツールが採掘中でなければ照準更新を行う
-        if (_subBehaviour != null && !_subBehaviour.IsMining)
+        // メインツールの更新
+        if (_mainBehaviour != null)
         {
-            // サブツールはメインツールと同じ向きを共有するため、個別の回転処理は不要
+            // 照準の更新は常に行う
+            _mainBehaviour.UpdateAim(direction, moveMode);
+
+            // ツール自体の回転は PickaxeToolBehaviour 側で制御するため、ここからは削除
+            // if (!_mainBehaviour.IsMining)
+            // {
+            //     if (direction.sqrMagnitude > 0.1f)
+            //     {
+            //         UpdateToolRotation(direction, moveMode);
+            //     }
+            // }
+        }
+
+        // サブツールの更新
+        if (_subBehaviour != null)
+        {
+            // サブツールも照準更新は常に行う
             _subBehaviour.UpdateAim(direction, moveMode);
         }
     }

@@ -14,7 +14,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         playerController = user != null ? user.GetComponentInParent<PlayerController>() : null;
     }
 
-    public override void Use()
+    public override void Use(Vector3 direction)
     {
         if (!IsEquipped) return;
         if (owner == null)
@@ -97,8 +97,8 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             float totalDistance = Mathf.Sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
             if (totalDistance > maxDistance)
             {
-                Vector3 direction = (targetPos - startPos).normalized;
-                targetPos = startPos + direction * maxDistance;
+                Vector3 throwDirection = (targetPos - startPos).normalized;
+                targetPos = startPos + throwDirection * maxDistance;
                 horizontalDistance = targetPos.x - startPos.x;
                 verticalDistance = targetPos.y - startPos.y;
             }
@@ -192,8 +192,8 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         if (totalDistance > maxDistance)
         {
             // 最大距離を超える場合は方向を維持して距離を制限
-            Vector3 direction = (targetPos - startPos).normalized;
-            targetPos = startPos + direction * maxDistance;
+            Vector3 throwDirection = (targetPos - startPos).normalized;
+            targetPos = startPos + throwDirection * maxDistance;
             horizontalDistance = targetPos.x - startPos.x;
             verticalDistance = targetPos.y - startPos.y;
         }
