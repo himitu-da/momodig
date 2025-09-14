@@ -338,7 +338,7 @@ public class PlayerController : MonoBehaviour
     {
         if (miningToolsController != null)
         {
-            miningToolsController.UseMainMineTool(this.gameObject);
+            miningToolsController.UseMainMineTool(this.gameObject, lastMoveDirection);
         }
     }
 
@@ -346,7 +346,7 @@ public class PlayerController : MonoBehaviour
     {
         if (miningToolsController != null)
         {
-            miningToolsController.UseSubMineTool(this.gameObject);
+            miningToolsController.UseSubMineTool(this.gameObject, lastMoveDirection);
         }
     }
 

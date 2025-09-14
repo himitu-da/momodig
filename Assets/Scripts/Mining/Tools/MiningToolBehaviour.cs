@@ -15,6 +15,9 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// <summary>掘削実行担当（コントローラーから注入）</summary>
     protected Digger digger;
 
+    /// <summary>採掘アニメーション中フラグ</summary>
+    public bool IsMining { get; protected set; } = false;
+
     /// <summary>装備中フラグ</summary>
     public bool IsEquipped { get; private set; }
 
@@ -55,7 +58,7 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// <summary>
     /// ツール使用（入力に応じてコントローラーから呼ばれる）
     /// </summary>
-    public abstract void Use();
+    public abstract void Use(Vector3 direction);
 
     /// <summary>
     /// 照準・向きの更新（プレイヤーの移動/入力から転送される）

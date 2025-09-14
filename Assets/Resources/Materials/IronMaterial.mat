@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: IronMaterial
-  m_Shader: {fileID: 4800000, guid: 05f5dffd08dadd746a4e4aeb70ba191b, type: 3}
+  m_Shader: {fileID: 4800000, guid: a33d4da1bf39f4744a5abaa8ed3c222f, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []

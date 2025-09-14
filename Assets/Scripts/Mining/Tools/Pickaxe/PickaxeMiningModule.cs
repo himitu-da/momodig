@@ -21,11 +21,15 @@ public class PickaxeMiningModule : MiningModule
     [Tooltip("プレイヤーの向きをAnimatorに伝えるためのBoolパラメータ名")]
     [SerializeField] private string isFacingRightBool = "IsFacingRight";
 
+    [Tooltip("プレイヤーの向きの状態をAnimatorに伝えるためのIntegerパラメータ名")]
+    [SerializeField] private string directionStateName = "DirectionState";
+
     public override Vector3 DiggingCenter => centerOffset;
     public override Vector3 DiggingSize => size;
     public float MiningForce => miningForce;
     public string MineTriggerName => mineTriggerName;
     public string IsFacingRightBool => isFacingRightBool;
+    public string DirectionStateName => directionStateName;
 
     public override void Execute(GameObject user)
     {

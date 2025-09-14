@@ -3,16 +3,43 @@ using UnityEngine;
 public class PickaxeToolBehaviour : MiningToolBehaviour
 {
     private Animator playerAnimator;
+    private Transform toolMount; // Diggerの親 = MiningToolsController
+    private PlayerController.MoveMode currentMoveMode; // 現在の移動モード
     private Vector3 currentAimDirection = Vector3.right; // 現在の照準方向
+    private bool useBuffered = false; // 先行入力用のバッファフラグ
+    private bool canBufferUse = false; // 先行入力の受付期間フラグ
 
     public override void OnEquip(GameObject user)
     {
         base.OnEquip(user);
         playerAnimator = user != null ? user.GetComponentInChildren<Animator>() : null;
+        if (digger != null)
+        {
+            toolMount = digger.transform.parent;
+        }
     }
 
-    public override void Use()
+    public override void Use(Vector3 direction)
     {
+        // direction パラメータはインターフェース互換性のために残すが、ここでは使用しない。
+        // currentAimDirection は UpdateAim によって常に最新に保たれている。
+
+        // 既に採掘中の場合は、受付期間中であれば入力をバッファリングする
+        if (IsMining)
+        {
+            if (canBufferUse)
+            {
+                useBuffered = true;
+            }
+            return;
+        }
+
+        // 新しい採掘を開始する前に、バッファ受付フラグをリセット
+        canBufferUse = false;
+
+        // 採掘の向きを物理的に反映させる
+        UpdateToolRotation(currentAimDirection, currentMoveMode);
+
         if (ToolData == null)
         {
             Debug.LogWarning("ToolData is not bound on PickaxeToolBehaviour.");
@@ -36,9 +63,11 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             return;
         }
 
-        // 掘削情報を作成
+        // 掘削情報とアニメーションの向きを決定
         MiningInfo miningInfo;
-        float verticalDot = Vector3.Dot(currentAimDirection.normalized, Vector3.up);
+        var dir = currentAimDirection.normalized;
+        float verticalDot = Vector3.Dot(dir, Vector3.up);
+        int directionState;
 
         // 照準がほぼ真上または真下を向いているか判定 (cos(18 deg) ~= 0.95)
         if (Mathf.Abs(verticalDot) > 0.95f)
@@ -49,16 +78,18 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
                 currentAimDirection,
                 pickaxeModule.MiningForce
             );
+            directionState = verticalDot > 0 ? 2 : 3; // 2: 上, 3: 下
         }
         else
         {
             // それ以外の角度の場合は、円弧状に飛ばす
-            bool isFacingRight = playerAnimator != null && playerAnimator.GetBool(pickaxeModule.IsFacingRightBool);
+            bool isFacingRight = dir.x >= 0;
             miningInfo = MiningInfo.ArcSwing(
                 digger.transform.position,
                 isFacingRight,
                 pickaxeModule.MiningForce
             );
+            directionState = isFacingRight ? 0 : 1; // 0: 右, 1: 左
         }
 
         // 掘削モジュールと掘削情報をセット（アニメイベントでExecuteDigFromAnimationが呼ばれる想定）
@@ -67,7 +98,8 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         // アニメーションを再生
         if (playerAnimator != null)
         {
-            // 向き（横スク用）: PlayerControllerに依存する場合はUpdateAimで更新
+            IsMining = true;
+            playerAnimator.SetInteger(pickaxeModule.DirectionStateName, directionState);
             playerAnimator.SetTrigger(pickaxeModule.MineTriggerName);
         }
     }
@@ -75,9 +107,16 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
     public override void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
     {
         base.UpdateAim(direction, moveMode);
+        currentMoveMode = moveMode; // 移動モードをキャッシュ
         if (direction.sqrMagnitude > 0.001f)
         {
             currentAimDirection = direction.normalized;
+        }
+
+        // 採掘中でないときは、常にツールの向きを照準に追従させる
+        if (!IsMining)
+        {
+            UpdateToolRotation(currentAimDirection, currentMoveMode);
         }
 
         if (playerAnimator == null) return;
@@ -110,6 +149,60 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         {
             Debug.LogError("Digger is not set on PickaxeToolBehaviour. Cannot execute dig from animation.");
         }
+    }
+
+    /// <summary>
+    /// アニメーションの終了時に呼び出されるメソッド。
+    /// </summary>
+    public void OnMineAnimationEnd()
+    {
+        IsMining = false;
+
+        // バッファされた入力があれば、即座に次のUseを実行
+        if (useBuffered)
+        {
+            useBuffered = false;
+            // バッファされた入力でUseを呼び出す際は、最後に更新された向き(currentAimDirection)をそのまま使う
+            Use(currentAimDirection);
+        }
+        else
+        {
+            // バッファされた入力がない場合は、受付フラグもリセット
+            canBufferUse = false;
+        }
+    }
+
+    /// <summary>
+    /// アニメーションイベントから呼び出し、先行入力の受付を開始するメソッド。
+    /// </summary>
+    public void OpenBufferWindow()
+    {
+        canBufferUse = true;
+    }
+
+    /// <summary>
+    /// ツールホルダー自体の向きを更新する
+    /// </summary>
+    private void UpdateToolRotation(Vector3 direction, PlayerController.MoveMode moveMode)
+    {
+        if (toolMount == null) return;
+
+        Quaternion targetRotation;
+        if (moveMode == PlayerController.MoveMode.TopDown)
+        {
+            // TopDownモードの回転計算
+            float angle = Mathf.Atan2(-direction.z, direction.x) * Mathf.Rad2Deg;
+            targetRotation = Quaternion.AngleAxis(angle, Vector3.up);
+        }
+        else // SideScroller
+        {
+            // SideScrollerモードの回転計算
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
+        }
+
+        // このオブジェクト（MiningTools）の向きを更新
+        toolMount.rotation = targetRotation;
     }
 
     private void OnDrawGizmos()

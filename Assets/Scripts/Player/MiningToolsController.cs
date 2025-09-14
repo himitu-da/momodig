@@ -28,6 +28,8 @@ public class MiningToolsController : MonoBehaviour
     public MiningTool mainMiningTool => _mainMiningTool;
     public MiningTool subMiningTool => _subMiningTool;
 
+    private Vector3 _currentDirection = Vector3.right;
+
     private void Awake()
     {
         if (toolMount == null) toolMount = this.transform;
@@ -80,11 +82,11 @@ public class MiningToolsController : MonoBehaviour
     /// <summary>
     /// メイン用ツールを使用（Behaviour に委譲）
     /// </summary>
-    public void UseMainMineTool(GameObject user)
+    public void UseMainMineTool(GameObject user, Vector3 direction)
     {
         if (_mainBehaviour != null)
         {
-            _mainBehaviour.Use();
+            _mainBehaviour.Use(direction);
         }
         else
         {
@@ -95,11 +97,11 @@ public class MiningToolsController : MonoBehaviour
     /// <summary>
     /// サブ用ツールを使用（Behaviour に委譲）
     /// </summary>
-    public void UseSubMineTool(GameObject user)
+    public void UseSubMineTool(GameObject user, Vector3 direction)
     {
         if (_subBehaviour != null)
         {
-            _subBehaviour.Use();
+            _subBehaviour.Use(direction);
         }
         else
         {
@@ -112,29 +114,56 @@ public class MiningToolsController : MonoBehaviour
     /// </summary>
     public void UpdateRotation(Vector3 direction, PlayerController.MoveMode moveMode)
     {
-        if (direction.sqrMagnitude > 0.1f)
+        if (direction.sqrMagnitude > 0.001f)
         {
-            Quaternion targetRotation;
-            if (moveMode == PlayerController.MoveMode.TopDown)
-            {
-                // TopDownモードの回転計算
-                float angle = Mathf.Atan2(-direction.z, direction.x) * Mathf.Rad2Deg;
-                targetRotation = Quaternion.AngleAxis(angle, Vector3.up);
-            }
-            else // SideScroller
-            {
-                // SideScrollerモードの回転計算
-                float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-                targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
-            }
-
-            // このオブジェクト（MiningTools）の向きを更新
-            transform.rotation = targetRotation;
+            _currentDirection = direction;
         }
 
-        // 照準の転送
-        _mainBehaviour?.UpdateAim(direction, moveMode);
-        _subBehaviour?.UpdateAim(direction, moveMode);
+        // メインツールの更新
+        if (_mainBehaviour != null)
+        {
+            // 照準の更新は常に行う
+            _mainBehaviour.UpdateAim(direction, moveMode);
+
+            // ツール自体の回転は PickaxeToolBehaviour 側で制御するため、ここからは削除
+            // if (!_mainBehaviour.IsMining)
+            // {
+            //     if (direction.sqrMagnitude > 0.1f)
+            //     {
+            //         UpdateToolRotation(direction, moveMode);
+            //     }
+            // }
+        }
+
+        // サブツールの更新
+        if (_subBehaviour != null)
+        {
+            // サブツールも照準更新は常に行う
+            _subBehaviour.UpdateAim(direction, moveMode);
+        }
+    }
+
+    /// <summary>
+    /// ツールホルダー自体の向きを更新する
+    /// </summary>
+    private void UpdateToolRotation(Vector3 direction, PlayerController.MoveMode moveMode)
+    {
+        Quaternion targetRotation;
+        if (moveMode == PlayerController.MoveMode.TopDown)
+        {
+            // TopDownモードの回転計算
+            float angle = Mathf.Atan2(-direction.z, direction.x) * Mathf.Rad2Deg;
+            targetRotation = Quaternion.AngleAxis(angle, Vector3.up);
+        }
+        else // SideScroller
+        {
+            // SideScrollerモードの回転計算
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
+        }
+
+        // このオブジェクト（MiningTools）の向きを更新
+        transform.rotation = targetRotation;
     }
 
     /// <summary>
