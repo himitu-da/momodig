@@ -89,6 +89,11 @@ public class Digger : MonoBehaviour
 
     public void Dig(int damagePerHit, MiningInfo info)
     {
+        DigAsync(damagePerHit, info).Forget();
+    }
+
+    private async UniTask DigAsync(int damagePerHit, MiningInfo info)
+    {
         if (diggingArea == null)
         {
             Debug.LogError("Digging Area is not set.");
@@ -128,11 +133,14 @@ public class Digger : MonoBehaviour
         points[6] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, size.y, size.z));
         points[7] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, size.y, size.z));
 
+        List<UniTask> diggingTasks = new List<UniTask>();
         foreach (var block in hitBlocks)
         {
-            // BoxCollider自体を渡して、より正確な判定をブロック側で行う
-            block.DigVoxels(diggingArea, damagePerHit).Forget();
+            diggingTasks.Add(block.DigVoxels(diggingArea, damagePerHit));
         }
+
+        // 全ての掘削処理が完了するのを待つ
+        await UniTask.WhenAll(diggingTasks);
 
         // 掘削範囲内のドロップアイテムに力を加える
         if (DroppedItemManager.Instance != null)
