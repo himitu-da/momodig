@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 
 /// <summary>
 /// ボクセルの面テクスチャ情報
@@ -128,9 +129,9 @@ public class Block : MonoBehaviour
         diggingSystem.TakeDamage(localPos, damage);
     }
 
-    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea, int damagePerHit)
+    public async UniTask DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
-        return diggingSystem.DigVoxels(diggingArea, damagePerHit);
+        await diggingSystem.DigVoxels(diggingArea, damagePerHit);
     }
 
     public void GenerateMesh()

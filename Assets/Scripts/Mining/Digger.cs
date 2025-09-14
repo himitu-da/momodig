@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 
 public class Digger : MonoBehaviour
 {
@@ -130,7 +131,7 @@ public class Digger : MonoBehaviour
         foreach (var block in hitBlocks)
         {
             // BoxCollider自体を渡して、より正確な判定をブロック側で行う
-            StartCoroutine(block.DigVoxels(diggingArea, damagePerHit));
+            block.DigVoxels(diggingArea, damagePerHit).Forget();
         }
 
         // 掘削範囲内のドロップアイテムに力を加える

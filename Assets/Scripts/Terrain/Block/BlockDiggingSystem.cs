@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 
 /// <summary>
 /// ブロックの掘削処理を担当するクラス
@@ -60,7 +61,7 @@ public class BlockDiggingSystem
     /// <summary>
     /// ボクセルを掘削する
     /// </summary>
-    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea, int damagePerHit)
+    public async UniTask DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
         const int sampleResolution = 3;
         const int totalSamples = sampleResolution * sampleResolution * sampleResolution;
@@ -116,7 +117,7 @@ public class BlockDiggingSystem
                 int delay = Mathf.Max(1, diggingFrameDelay);
                 for (int i = 0; i < delay; i++)
                 {
-                    yield return null;
+                    await UniTask.Yield();
                 }
             }
         }
@@ -147,7 +148,7 @@ public class BlockDiggingSystem
                 int delay = Mathf.Max(1, diggingFrameDelay);
                 for (int i = 0; i < delay; i++)
                 {
-                    yield return null;
+                    await UniTask.Yield();
                 }
             }
         }
