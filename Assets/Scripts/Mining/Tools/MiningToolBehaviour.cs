@@ -15,6 +15,9 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// <summary>掘削実行担当（コントローラーから注入）</summary>
     protected Digger digger;
 
+    /// <summary>採掘アニメーション中フラグ</summary>
+    public bool IsMining { get; protected set; } = false;
+
     /// <summary>装備中フラグ</summary>
     public bool IsEquipped { get; private set; }
 

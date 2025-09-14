@@ -13,6 +13,9 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
 
     public override void Use()
     {
+        // 既に採掘中の場合は、新たな呼び出しを無視する
+        if (IsMining) return;
+
         if (ToolData == null)
         {
             Debug.LogWarning("ToolData is not bound on PickaxeToolBehaviour.");
@@ -71,6 +74,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         // アニメーションを再生
         if (playerAnimator != null)
         {
+            IsMining = true;
             playerAnimator.SetInteger(pickaxeModule.DirectionStateName, directionState);
             playerAnimator.SetTrigger(pickaxeModule.MineTriggerName);
         }
@@ -78,6 +82,8 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
 
     public override void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
     {
+        if (IsMining) return;
+
         base.UpdateAim(direction, moveMode);
         if (direction.sqrMagnitude > 0.001f)
         {
@@ -114,6 +120,14 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         {
             Debug.LogError("Digger is not set on PickaxeToolBehaviour. Cannot execute dig from animation.");
         }
+    }
+
+    /// <summary>
+    /// アニメーションの終了時に呼び出されるメソッド。
+    /// </summary>
+    public void OnMineAnimationEnd()
+    {
+        IsMining = false;
     }
 
     private void OnDrawGizmos()
