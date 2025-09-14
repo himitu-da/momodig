@@ -1,7 +1,7 @@
 using UnityEngine;
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 
 public class DroppedItemManager : MonoBehaviour, IItemManager
 {
@@ -191,7 +191,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 itemsToWakeUp.Add(item);
             }
         }
-        StartCoroutine(ProcessWakeUpQueueCoroutine(itemsToWakeUp));
+        ProcessWakeUpQueueAsync(itemsToWakeUp).Forget();
     }
 
     public void ApplyForceToItemsInRadius(Vector3 center, Vector3 size, Quaternion rotation, MiningInfo info)
@@ -258,10 +258,10 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 itemsToWakeUp.Add(item);
             }
         }
-        StartCoroutine(ProcessWakeUpQueueCoroutine(itemsToWakeUp));
+        ProcessWakeUpQueueAsync(itemsToWakeUp).Forget();
     }
 
-    private IEnumerator ProcessWakeUpQueueCoroutine(HashSet<DroppedItem> initialItems)
+    private async UniTask ProcessWakeUpQueueAsync(HashSet<DroppedItem> initialItems)
     {
         if (initialItems != null && initialItems.Count > 0)
         {
@@ -333,7 +333,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 if (processedCountInStep >= MaxWakeUpPerStep)
                 {
                     processedCountInStep = 0;
-                    yield return new WaitForSeconds(WakeUpStepDelay);
+                    await UniTask.Delay(TimeSpan.FromSeconds(WakeUpStepDelay));
                 }
             }
         }

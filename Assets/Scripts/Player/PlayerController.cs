@@ -2,8 +2,9 @@ using UnityEngine;
 using UnityEngine.InputSystem; // Input Systemを使うために必要
 using UnityEngine.UI; // UIを使うために必要
 using System.Collections.Generic; // MinecartManager用
-using System.Collections; // Coroutine用
 using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Unity.VisualScripting;
 using UnityEditor; // Serializable用
 
@@ -94,7 +95,7 @@ public class PlayerController : MonoBehaviour
     
     // 接触中のアイテム管理用
     private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
-    private Coroutine pickupRetryCoroutine; // リトライコルーチン
+    private CancellationTokenSource pickupRetryCancellationTokenSource;
     
     // MinecartPlayerInteractionSystemへの参照
     [SerializeField] private MinecartPlayerInteractionSystem minecartInteraction;
@@ -240,6 +241,9 @@ public class PlayerController : MonoBehaviour
             controls.Player.MousePosition.performed -= ctx => mousePosition = ctx.ReadValue<Vector2>();
             controls.Player.MousePosition.canceled -= ctx => mousePosition = Vector2.zero;
         }
+        
+        pickupRetryCancellationTokenSource?.Cancel();
+        pickupRetryCancellationTokenSource?.Dispose();
     }
 
     // フレームごとに呼ばれる
@@ -360,10 +364,11 @@ public class PlayerController : MonoBehaviour
             // アイテム回収を試行
             TryPickupItem(collision.gameObject);
             
-            // リトライコルーチンが実行されていない場合は開始
-            if (pickupRetryCoroutine == null)
+            // リトライタスクが実行されていない場合は開始
+            if (pickupRetryCancellationTokenSource == null)
             {
-                pickupRetryCoroutine = StartCoroutine(PickupRetryCoroutine());
+                pickupRetryCancellationTokenSource = new CancellationTokenSource();
+                PickupRetryAsync(pickupRetryCancellationTokenSource.Token).Forget();
             }
         }
     }
@@ -376,11 +381,12 @@ public class PlayerController : MonoBehaviour
             // 接触中のアイテムリストから削除
             contactItems.Remove(collision.gameObject);
             
-            // 接触中のアイテムがなくなったらリトライコルーチンを停止
-            if (contactItems.Count == 0 && pickupRetryCoroutine != null)
+            // 接触中のアイテムがなくなったらリトライタスクを停止
+            if (contactItems.Count == 0 && pickupRetryCancellationTokenSource != null)
             {
-                StopCoroutine(pickupRetryCoroutine);
-                pickupRetryCoroutine = null;
+                pickupRetryCancellationTokenSource.Cancel();
+                pickupRetryCancellationTokenSource.Dispose();
+                pickupRetryCancellationTokenSource = null;
             }
         }
     }
@@ -388,11 +394,18 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// 定期的に接触中のアイテムの回収を再試行する
     /// </summary>
-    private IEnumerator PickupRetryCoroutine()
+    private async UniTask PickupRetryAsync(CancellationToken cancellationToken)
     {
-        while (contactItems.Count > 0)
+        while (!cancellationToken.IsCancellationRequested && contactItems.Count > 0)
         {
-            yield return new WaitForSeconds(itemPickupRetryInterval);
+            try
+            {
+                await UniTask.Delay(TimeSpan.FromSeconds(itemPickupRetryInterval), cancellationToken: cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
             
             // 接触中の全てのアイテムに対して回収を試行
             for (int i = contactItems.Count - 1; i >= 0; i--)
@@ -404,7 +417,8 @@ public class PlayerController : MonoBehaviour
             }
         }
         
-        pickupRetryCoroutine = null;
+        pickupRetryCancellationTokenSource?.Dispose();
+        pickupRetryCancellationTokenSource = null;
     }
     
     /// <summary>

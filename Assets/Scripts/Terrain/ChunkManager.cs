@@ -1,6 +1,7 @@
 using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using System.Threading;
 
 public class ChunkManager : MonoBehaviour
 {
@@ -15,6 +16,7 @@ public class ChunkManager : MonoBehaviour
     private readonly HashSet<Vector3Int> _processedBlocks = new HashSet<Vector3Int>(); // 生成済み or キュー済みのブロック
 
     private TerrainManager terrainManager;
+    private CancellationTokenSource cancellationTokenSource;
 
     public void Initialize(TerrainManager manager)
     {
@@ -24,8 +26,15 @@ public class ChunkManager : MonoBehaviour
 
     void Start()
     {
-        StartCoroutine(ProcessBlockGenerationQueue());
+        cancellationTokenSource = new CancellationTokenSource();
+        ProcessBlockGenerationQueue(cancellationTokenSource.Token).Forget();
         GenerateTerrain();
+    }
+
+    void OnDestroy()
+    {
+        cancellationTokenSource?.Cancel();
+        cancellationTokenSource?.Dispose();
     }
 
     void Update()
@@ -176,9 +185,9 @@ public class ChunkManager : MonoBehaviour
         }
     }
 
-    private IEnumerator ProcessBlockGenerationQueue()
+    private async UniTask ProcessBlockGenerationQueue(CancellationToken cancellationToken)
     {
-        while (true)
+        while (!cancellationToken.IsCancellationRequested)
         {
             int blocksToProcess = Mathf.Min(_blockGenerationList.Count, terrainManager.Settings.blocksPerFrame);
             for (int i = 0; i < blocksToProcess; i++)
@@ -190,7 +199,7 @@ public class ChunkManager : MonoBehaviour
                     GenerateSingleBlock(blockPos);
                 }
             }
-            yield return null;
+            await UniTask.Yield(cancellationToken);
         }
     }
 
@@ -249,8 +258,10 @@ public class ChunkManager : MonoBehaviour
 
     public void ClearChunks()
     {
-        StopAllCoroutines();
-        StartCoroutine(ProcessBlockGenerationQueue());
+        cancellationTokenSource?.Cancel();
+        cancellationTokenSource?.Dispose();
+        cancellationTokenSource = new CancellationTokenSource();
+        ProcessBlockGenerationQueue(cancellationTokenSource.Token).Forget();
         
         foreach (var chunk in activeChunks.Values)
         {
