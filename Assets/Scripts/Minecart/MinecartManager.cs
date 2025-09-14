@@ -37,7 +37,7 @@ public class MinecartManager : MonoBehaviour
         {
             addnewcart();
         }
-        updatevalue(0, ResourceType.Stone, 10);
+        // updatevalue(0, ResourceType.Stone, 10); // デバッグ用の初期リソース追加
         // 内容を確認
         foreach (Minecart cart in minecarts)
         {
@@ -59,7 +59,7 @@ public class MinecartManager : MonoBehaviour
     {
         if (minecartPrefab != null)
         {
-            GameObject newMinecartObject = Instantiate(minecartPrefab, Vector3.zero, Quaternion.identity);
+            GameObject newMinecartObject = Instantiate(minecartPrefab, Vector3.zero, Quaternion.identity, transform);
             // MinecartMovementコンポーネントがなければ追加する
             MinecartMovement movement = newMinecartObject.GetComponent<MinecartMovement>();
             if (movement == null)

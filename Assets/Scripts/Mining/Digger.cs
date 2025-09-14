@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 
 public class Digger : MonoBehaviour
 {
@@ -104,7 +105,7 @@ public class Digger : MonoBehaviour
             diggingArea.transform.rotation
         );
 
-        // ユニークなチャンクを収集（複数ヒット回避）
+        // ユニークなブロックを収集（複数ヒット回避）
         HashSet<Block> hitBlocks = new HashSet<Block>();
         foreach (var hitCollider in hitColliders)
         {
@@ -129,8 +130,8 @@ public class Digger : MonoBehaviour
 
         foreach (var block in hitBlocks)
         {
-            // BoxCollider自体を渡して、より正確な判定をチャンク側で行う
-            StartCoroutine(block.DigVoxels(diggingArea, damagePerHit));
+            // BoxCollider自体を渡して、より正確な判定をブロック側で行う
+            block.DigVoxels(diggingArea, damagePerHit).Forget();
         }
 
         // 掘削範囲内のドロップアイテムに力を加える

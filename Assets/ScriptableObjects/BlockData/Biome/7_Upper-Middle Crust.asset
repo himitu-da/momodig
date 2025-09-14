@@ -9,9 +9,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7780e8635ae6b2e40bb06a3c5370c67e, type: 3}
-  m_Name: BlockDataManager
+  m_Script: {fileID: 11500000, guid: 70f4ef4259c2889428f27d276d72457f, type: 3}
+  m_Name: 7_Upper-Middle Crust
   m_EditorClassIdentifier: 
-  blockDataMappings:
-  - resourceType: 0
-    blockData: {fileID: 11400000, guid: b72d8998d07556445be5daed7dd44989, type: 2}
+  biomeName: Upper-Middle Crust
+  biomeType: 0
+  maxHeight: -3001
+  minHeight: -4000
+  availableBlocks:
+  - {fileID: 11400000, guid: b72d8998d07556445be5daed7dd44989, type: 2}

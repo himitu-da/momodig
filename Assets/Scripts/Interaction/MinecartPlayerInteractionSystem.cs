@@ -1,12 +1,13 @@
 using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using System;
 
 /// <summary>
 /// プレイヤーとトロッコの相互作用を管理するシステム
 /// トロッコの検知、アイテム転送、アニメーション処理を担当
 /// </summary>
-public class MinecartInteractionSystem : MonoBehaviour
+public class MinecartPlayerInteractionSystem : MonoBehaviour
 {
     [Header("トロッコ相互作用設定")]
     [SerializeField] private float minecartDetectionRange = 3f; // トロッコ検出範囲
@@ -18,20 +19,16 @@ public class MinecartInteractionSystem : MonoBehaviour
     
     [Header("参照")]
     [SerializeField] private MinecartManager minecartManager; // MinecartManagerへの参照
+    [SerializeField] private PlayerController playerController; // PlayerControllerへの参照
     
     // プライベート変数
     private bool isTransferringItems = false; // アイテム転送中フラグ
     private float minecartOffset = 2f; // プレイヤーとトロッコの距離
     
-    // 外部から設定される依存関係
-    private PlayerController playerController;
-    
     #region Unity ライフサイクル
     
     void Awake()
     {
-        playerController = GetComponent<PlayerController>();
-        
         ValidateReferences();
     }
 
@@ -40,6 +37,7 @@ public class MinecartInteractionSystem : MonoBehaviour
         if (minecartManager != null && playerController != null)
         {
             minecartManager.UpdateMinecartPositions(playerController.transform.position, playerController.lastMoveDirection, minecartOffset);
+            CheckMinecartProximity();
         }
     }
     
@@ -58,12 +56,12 @@ public class MinecartInteractionSystem : MonoBehaviour
         GameObject nearestMinecart = GetNearestMinecart();
         if (nearestMinecart != null)
         {
-            float distance = Vector3.Distance(transform.position, nearestMinecart.transform.position);
+            float distance = Vector3.Distance(playerController.transform.position, nearestMinecart.transform.position);
             
             if (distance <= minecartDetectionRange)
             {
                 LogMinecartDetection(distance);
-                StartCoroutine(TransferItemsToMinecart(nearestMinecart));
+                TransferItemsToMinecart(nearestMinecart).Forget();
             }
         }
     }
@@ -103,7 +101,7 @@ public class MinecartInteractionSystem : MonoBehaviour
         
         if (playerController == null)
         {
-            Debug.LogError("MinecartInteractionSystem: PlayerControllerが見つかりません");
+            Debug.LogError("MinecartInteractionSystem: PlayerControllerが参照されていません");
         }
     }
     
@@ -121,7 +119,7 @@ public class MinecartInteractionSystem : MonoBehaviour
         {
             if (cart.gameObject != null)
             {
-                float distance = Vector3.Distance(transform.position, cart.gameObject.transform.position);
+                float distance = Vector3.Distance(playerController.transform.position, cart.gameObject.transform.position);
                 if (distance < nearestDistance)
                 {
                     nearestDistance = distance;
@@ -165,7 +163,7 @@ public class MinecartInteractionSystem : MonoBehaviour
     /// <summary>
     /// プレイヤーからトロッコにアイテムを転送
     /// </summary>
-    private IEnumerator TransferItemsToMinecart(GameObject targetMinecart)
+    private async UniTask TransferItemsToMinecart(GameObject targetMinecart)
     {
         isTransferringItems = true;
         Debug.Log("MinecartInteractionSystem: アイテム転送開始");
@@ -175,7 +173,7 @@ public class MinecartInteractionSystem : MonoBehaviour
         while (!playerController.Inventory.IsEmpty())
         {
             // トロッコが離れた場合は中断
-            float currentDistance = Vector3.Distance(transform.position, targetMinecart.transform.position);
+            float currentDistance = Vector3.Distance(playerController.transform.position, targetMinecart.transform.position);
             if (currentDistance > minecartDetectionRange)
             {
                 Debug.Log($"MinecartInteractionSystem: トロッコが離れたため転送中断 (距離: {currentDistance:F2}m)");
@@ -200,7 +198,7 @@ public class MinecartInteractionSystem : MonoBehaviour
             if (ProcessResourceTransfer(transferType, targetMinecart))
             {
                 // 転送速度に応じて待機
-                yield return new WaitForSeconds(1f / itemTransferSpeed);
+                await UniTask.Delay(TimeSpan.FromSeconds(1f / itemTransferSpeed));
             }
             else
             {
@@ -314,7 +312,7 @@ public class MinecartInteractionSystem : MonoBehaviour
             Debug.Log($"MinecartInteractionSystem: プレイヤーから{transferType}を{removedAmount}個削除");
             
             // アニメーション付きでトロッコに移動
-            StartCoroutine(AnimateItemTransfer(transform.position, targetMinecart.transform.position, transferType));
+            AnimateItemTransfer(playerController.transform.position, targetMinecart.transform.position, transferType).Forget();
             
             // トロッコに追加
             minecartManager.updatevalue(0, transferType, removedAmount);
@@ -338,15 +336,18 @@ public class MinecartInteractionSystem : MonoBehaviour
     /// <summary>
     /// アイテム転送のアニメーション
     /// </summary>
-    private IEnumerator AnimateItemTransfer(Vector3 startPos, Vector3 endPos, ResourceType resourceType)
+    private async UniTask AnimateItemTransfer(Vector3 startPos, Vector3 endPos, ResourceType resourceType)
     {
         GameObject animItem = CreateAnimationItem(startPos, resourceType);
         
         Vector3 targetPos = CalculateTargetPosition(endPos);
-        yield return StartCoroutine(MoveItemCoroutine(animItem, startPos, targetPos));
+        await MoveItemAsync(animItem, startPos, targetPos);
         
         // 完了後削除
-        Destroy(animItem);
+        if (animItem != null)
+        {
+            Destroy(animItem);
+        }
     }
     
     /// <summary>
@@ -355,6 +356,7 @@ public class MinecartInteractionSystem : MonoBehaviour
     private GameObject CreateAnimationItem(Vector3 position, ResourceType resourceType)
     {
         GameObject animItem = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        animItem.transform.SetParent(transform); // 親オブジェクトを設定
         animItem.transform.position = position;
         animItem.transform.localScale = Vector3.one * 0.3f;
         
@@ -386,9 +388,9 @@ public class MinecartInteractionSystem : MonoBehaviour
     }
     
     /// <summary>
-    /// アイテムを指定位置に移動させるコルーチン
+    /// アイテムを指定位置に移動させる
     /// </summary>
-    private IEnumerator MoveItemCoroutine(GameObject item, Vector3 startPos, Vector3 endPos)
+    private async UniTask MoveItemAsync(GameObject item, Vector3 startPos, Vector3 endPos)
     {
         float elapsedTime = 0f;
         float duration = Vector3.Distance(startPos, endPos) / itemMoveSpeed;
@@ -406,7 +408,7 @@ public class MinecartInteractionSystem : MonoBehaviour
             // 回転アニメーション
             item.transform.Rotate(0, 360f * Time.deltaTime, 0);
 
-            yield return null;
+            await UniTask.Yield();
         }
 
         // 最終位置に設定

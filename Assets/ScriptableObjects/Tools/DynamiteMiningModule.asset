@@ -17,6 +17,6 @@ MonoBehaviour:
   throwForce: 8
   maxThrowDistance: 15
   gravity: 9.81
-  explosionForce: 10
+  explosionForce: 250
   diggingCenter: {x: 0, y: 0, z: 0}
   diggingSize: {x: 2, y: 2, z: 2}

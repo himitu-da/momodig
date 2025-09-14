@@ -10,7 +10,7 @@ public class BlockMeshGenerator
     /// <summary>
     /// ブロックのメッシュを生成
     /// </summary>
-    public void GenerateMesh(Block block, VoxelManager voxelManager, Vector3Int blockPosition, int chunkSize, int maxHP, Color initialColor, Mesh mesh, MeshCollider collider)
+    public void GenerateMesh(Block block, VoxelManager voxelManager, Vector3Int blockPosition, int voxelsPerBlock, int maxHP, Color initialColor, Mesh mesh, MeshCollider collider)
     {
         mesh.Clear();
         List<Vector3> vertices = new List<Vector3>();
@@ -33,21 +33,21 @@ public class BlockMeshGenerator
             Color healthColor = Color.Lerp(Color.black, initialColor, healthPercentage);
             healthColor.a = healthPercentage; // ドット透過
 
-            Vector3 pos = new Vector3(x - chunkSize / 2.0f + 0.5f, y - chunkSize / 2.0f + 0.5f, z - chunkSize / 2.0f + 0.5f);
+            Vector3 pos = new Vector3(x - voxelsPerBlock / 2.0f + 0.5f, y - voxelsPerBlock / 2.0f + 0.5f, z - voxelsPerBlock / 2.0f + 0.5f);
 
             // 6面追加（露出チェック）
-            if (IsVoxelFaceExposed(voxelManager, blockPosition, x + 1, y, z, chunkSize))
-                AddFace(pos, Vector3.right, vertices, triangles, uvs, colors, healthColor, false, x, y, z, chunkSize);
-            if (IsVoxelFaceExposed(voxelManager, blockPosition, x - 1, y, z, chunkSize))
-                AddFace(pos, Vector3.left, vertices, triangles, uvs, colors, healthColor, false, x, y, z, chunkSize);
-            if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y + 1, z, chunkSize))
-                AddFace(pos, Vector3.up, vertices, triangles, uvs, colors, healthColor, false, x, y, z, chunkSize);
-            if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y - 1, z, chunkSize))
-                AddFace(pos, Vector3.down, vertices, triangles, uvs, colors, healthColor, false, x, y, z, chunkSize);
-            if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y, z + 1, chunkSize))
-                AddFace(pos, Vector3.forward, vertices, triangles, uvs, colors, healthColor, true, x, y, z, chunkSize);
-            if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y, z - 1, chunkSize))
-                AddFace(pos, Vector3.back, vertices, triangles, uvs, colors, healthColor, true, x, y, z, chunkSize);
+            if (IsVoxelFaceExposed(voxelManager, blockPosition, x + 1, y, z, voxelsPerBlock))
+                AddFace(pos, Vector3.right, vertices, triangles, uvs, colors, healthColor, false, x, y, z, voxelsPerBlock);
+            if (IsVoxelFaceExposed(voxelManager, blockPosition, x - 1, y, z, voxelsPerBlock))
+                AddFace(pos, Vector3.left, vertices, triangles, uvs, colors, healthColor, false, x, y, z, voxelsPerBlock);
+            if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y + 1, z, voxelsPerBlock))
+                AddFace(pos, Vector3.up, vertices, triangles, uvs, colors, healthColor, false, x, y, z, voxelsPerBlock);
+            if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y - 1, z, voxelsPerBlock))
+                AddFace(pos, Vector3.down, vertices, triangles, uvs, colors, healthColor, false, x, y, z, voxelsPerBlock);
+            if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y, z + 1, voxelsPerBlock))
+                AddFace(pos, Vector3.forward, vertices, triangles, uvs, colors, healthColor, true, x, y, z, voxelsPerBlock);
+            if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y, z - 1, voxelsPerBlock))
+                AddFace(pos, Vector3.back, vertices, triangles, uvs, colors, healthColor, true, x, y, z, voxelsPerBlock);
         }
 
         mesh.vertices = vertices.ToArray();
@@ -69,10 +69,10 @@ public class BlockMeshGenerator
     /// <summary>
     /// 指定されたローカル座標のボクセルの面が露出しているかチェック
     /// </summary>
-    private bool IsVoxelFaceExposed(VoxelManager voxelManager, Vector3Int blockPosition, int x, int y, int z, int chunkSize)
+    private bool IsVoxelFaceExposed(VoxelManager voxelManager, Vector3Int blockPosition, int x, int y, int z, int voxelsPerBlock)
     {
         // 座標がブロックの範囲外なら、その面は露出している
-        if (x < 0 || x >= chunkSize || y < 0 || y >= chunkSize || z < 0 || z >= chunkSize)
+        if (x < 0 || x >= voxelsPerBlock || y < 0 || y >= voxelsPerBlock || z < 0 || z >= voxelsPerBlock)
         {
             return true;
         }
@@ -85,7 +85,7 @@ public class BlockMeshGenerator
     /// <summary>
     /// ボクセル面を追加
     /// </summary>
-    private void AddFace(Vector3 pos, Vector3 normal, List<Vector3> verts, List<int> tris, List<Vector2> uvs, List<Color> colors, Color faceColor, bool reverse, int voxelX, int voxelY, int voxelZ, int chunkSize)
+    private void AddFace(Vector3 pos, Vector3 normal, List<Vector3> verts, List<int> tris, List<Vector2> uvs, List<Color> colors, Color faceColor, bool reverse, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock)
     {
         int vertCount = verts.Count;
 
@@ -116,24 +116,24 @@ public class BlockMeshGenerator
         }
 
         // UV（テクスチャ用）
-        float pixelSize = 1.0f / chunkSize;
+        float pixelSize = 1.0f / voxelsPerBlock;
         float u_base = 0;
         float v_base = 0;
 
         if (normal == Vector3.right || normal == Vector3.left) // X面
         {
-            u_base = (float)voxelZ / chunkSize;
-            v_base = (float)voxelY / chunkSize;
+            u_base = (float)voxelZ / voxelsPerBlock;
+            v_base = (float)voxelY / voxelsPerBlock;
         }
         else if (normal == Vector3.up || normal == Vector3.down) // Y面
         {
-            u_base = (float)voxelX / chunkSize;
-            v_base = (float)voxelZ / chunkSize;
+            u_base = (float)voxelX / voxelsPerBlock;
+            v_base = (float)voxelZ / voxelsPerBlock;
         }
         else if (normal == Vector3.forward || normal == Vector3.back) // Z面
         {
-            u_base = (float)voxelX / chunkSize;
-            v_base = (float)voxelY / chunkSize;
+            u_base = (float)voxelX / voxelsPerBlock;
+            v_base = (float)voxelY / voxelsPerBlock;
         }
 
         if (normal == Vector3.left || normal == Vector3.back)

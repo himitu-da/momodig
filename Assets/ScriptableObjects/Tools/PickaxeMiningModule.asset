@@ -15,6 +15,6 @@ MonoBehaviour:
   damagePerHit: 1
   centerOffset: {x: 1, y: 0, z: 0}
   size: {x: 1.2, y: 1.5, z: 1}
-  miningForce: 5
+  miningForce: 75
   mineTriggerName: Mine
   isFacingRightBool: IsFacingRight

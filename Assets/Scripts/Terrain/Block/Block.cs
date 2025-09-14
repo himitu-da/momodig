@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 
 /// <summary>
 /// ボクセルの面テクスチャ情報
@@ -32,7 +33,7 @@ public class Block : MonoBehaviour
     private VoxelManager voxelManager;
     private Vector3Int blockPosition; // このブロックの座標を保持
 
-    public int ChunkSize { get; private set; }
+    public int VoxelsPerBlock { get; private set; }
     private int maxHP;
     [Range(0.01f, 1.0f)]
     public float diggingThreshold = 0.1f; // 掘削判定の閾値（ボクセルとの重複率）
@@ -42,7 +43,7 @@ public class Block : MonoBehaviour
     [SerializeField] private Texture2D texture1, texture2;
     private bool[,,] useTexture1Pattern;
     
-    private float voxelSize; // BaseCubePlacerから受け取る
+    private float voxelWorldSize; // 1ボクセルのワールドサイズ
     
     // メッシュ生成システム
     private BlockMeshGenerator meshGenerator;
@@ -90,12 +91,12 @@ public class Block : MonoBehaviour
     /// ブロックを初期化
     /// </summary>
     public void Initialize(
-        VoxelManager manager, Vector3Int position, bool[,,] pattern, int newChunkSize, float worldChunkSize, BlockData data)
+        VoxelManager manager, Vector3Int position, bool[,,] pattern, int voxelsPerBlock, float worldBlockSize, BlockData data)
     {
         voxelManager = manager;
         blockPosition = position;
-        ChunkSize = newChunkSize;
-        voxelSize = worldChunkSize / ChunkSize;
+        VoxelsPerBlock = voxelsPerBlock;
+        voxelWorldSize = worldBlockSize / VoxelsPerBlock;
         blockData = data; // BlockDataアセットを保持
 
         // BlockDataから各種設定を読み込む
@@ -110,14 +111,14 @@ public class Block : MonoBehaviour
         texture2 = (blockData.textures != null && blockData.textures.Count > 1) ? blockData.textures[1] : null;
 
         // テクスチャパターンを設定
-        useTexture1Pattern = pattern ?? new bool[ChunkSize, ChunkSize, ChunkSize];
+        useTexture1Pattern = pattern ?? new bool[VoxelsPerBlock, VoxelsPerBlock, VoxelsPerBlock];
 
         // System initializations
-        itemDropper.Initialize(blockData, enableTextureExtraction, voxelSize, ChunkSize, 
+        itemDropper.Initialize(blockData, enableTextureExtraction, voxelWorldSize, VoxelsPerBlock, 
             textureExtractor, texture1, texture2, useTexture1Pattern);
 
         diggingSystem.Initialize(voxelManager, itemDropper, this, diggingThreshold, 
-            diggingFrameDelay, ChunkSize, blockPosition);
+            diggingFrameDelay, VoxelsPerBlock, blockPosition);
 
         // メッシュ生成はVoxelManagerへのデータ登録後に外部から呼び出す
         // GenerateMesh();
@@ -128,14 +129,14 @@ public class Block : MonoBehaviour
         diggingSystem.TakeDamage(localPos, damage);
     }
 
-    public System.Collections.IEnumerator DigVoxels(BoxCollider diggingArea, int damagePerHit)
+    public async UniTask DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
-        return diggingSystem.DigVoxels(diggingArea, damagePerHit);
+        await diggingSystem.DigVoxels(diggingArea, damagePerHit);
     }
 
     public void GenerateMesh()
     {
-        meshGenerator.GenerateMesh(this, voxelManager, blockPosition, ChunkSize, maxHP, initialColor, mesh, collider);
+        meshGenerator.GenerateMesh(this, voxelManager, blockPosition, VoxelsPerBlock, maxHP, initialColor, mesh, collider);
     }
 
 }

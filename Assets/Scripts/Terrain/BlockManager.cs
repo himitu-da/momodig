@@ -51,23 +51,23 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// ブロックを作成
     /// </summary>
-    public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, ResourceType resourceType, global::BlockData data, float blockSize, int voxelSize, Transform parent)
+    public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, bool[,,] pattern, BlockData data, float blockSize, int voxelsPerBlock, Transform parent)
     {
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockManager: Creating block at {blockPos} with type {resourceType}");
+            Debug.Log($"BlockManager: Creating block at {blockPos} with type {data.resourceType}");
         }
         
         // ブロックデータを作成
         BlockInstanceData blockInstance = new BlockInstanceData(blockPos, worldPos);
         
         // GameObjectとBlockを作成
-        GameObject blockObj = new GameObject($"Block_{resourceType}_{blockPos.x}_{blockPos.y}");
+        GameObject blockObj = new GameObject($"Block_{data.resourceType}_{blockPos.x}_{blockPos.y}");
         blockObj.transform.parent = parent;
         blockObj.transform.position = worldPos;
         
         // スケール調整
-        float scale = blockSize / voxelSize;
+        float scale = blockSize / voxelsPerBlock;
         blockObj.transform.localScale = new Vector3(scale, scale, scale);
         
         // Blockコンポーネントを追加
@@ -82,8 +82,8 @@ public class BlockManager : MonoBehaviour
             terrainManager.VoxelManager,
             blockPos,
             pattern,
-            voxelSize,
-            blockSize,
+            voxelsPerBlock, // voxelCountPerSide
+            blockSize, // worldBlockSize
             data
         );
         
@@ -104,7 +104,7 @@ public class BlockManager : MonoBehaviour
     /// <summary>
     /// ブロック用マテリアルを作成
     /// </summary>
-    private void CreateBlockMaterial(GameObject blockObj, global::BlockData data)
+    private void CreateBlockMaterial(GameObject blockObj, BlockData data)
     {
         var renderer = blockObj.GetComponent<MeshRenderer>();
         if (renderer == null)
@@ -112,10 +112,8 @@ public class BlockManager : MonoBehaviour
             renderer = blockObj.AddComponent<MeshRenderer>();
         }
         
-        // URP Transparentマテリアルを作成
-        Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        mat.SetFloat("_Surface", 1); // Transparent
-        mat.SetFloat("_AlphaClip", 1); // Alpha Clipping
+        // Custom Unlitマテリアルを作成
+        Material mat = new Material(Shader.Find("Custom/UnlitBlock"));
         
         // BlockDataにテクスチャが設定されていれば使用
         if (data.textures != null && data.textures.Count > 0)
@@ -213,7 +211,14 @@ public class BlockManager : MonoBehaviour
         {
             if (block.block != null)
             {
-                DestroyImmediate(block.block.gameObject);
+                if (Application.isPlaying)
+                {
+                    Destroy(block.block.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(block.block.gameObject);
+                }
             }
         }
         

@@ -9,6 +9,7 @@ using System.Collections.Generic;
 public class BlockData : ScriptableObject
 {
     [Header("Block Properties")]
+    public ResourceType resourceType;
     public int voxelHp = 2;
     
     // 複数のテクスチャに対応
@@ -19,4 +20,7 @@ public class BlockData : ScriptableObject
     public bool disableRotation = true;
     public bool autoScale = true;
     public float scaleMultiplier = 1.0f;
+
+    [Header("Voxel Physics")]
+    public float density = 2700f; // 密度 (kg/m^3) e.g. Stone
 }

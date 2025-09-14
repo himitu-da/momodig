@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a68e24076656284387d2bc0b4853206, type: 3}
+  m_Name: TerrainDataManager
+  m_EditorClassIdentifier: 
+  defaultBlockData: {fileID: 11400000, guid: b72d8998d07556445be5daed7dd44989, type: 2}
+  biomeDataMappings:
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 92942545c70d39142aa5dc220a0882cc, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: bb293338bc90e5640a8ab82187582fb2, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 73759dc94a6f6324e997433888a1ea00, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 6ec2f20eb6d1cad488fea9ec93380807, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: a21980f92cea50b4d8103cbb1f646cd3, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: ccfaa5a02bcbd1749ac609bf50308e5d, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 7cfe27176b55a444fabe7a4a5f94a5d3, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: f59e04db4dc03e34fae91e8112b03d18, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 452b225123a5d9546a941955dd757f24, type: 2}
+  - biomeType: 0
+    biomeData: {fileID: 11400000, guid: 244a9e753f43b074aaa2e2d9608974f0, type: 2}
