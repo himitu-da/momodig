@@ -16,5 +16,9 @@ MonoBehaviour:
   centerOffset: {x: 1, y: 0, z: 0}
   size: {x: 1.2, y: 1.5, z: 1}
   miningForce: 75
+  verticalCenterOffset: {x: 1, y: 0, z: 0}
+  verticalSize: {x: 1.2, y: 1, z: 1}
+  verticalMiningForce: 125
   mineTriggerName: Mine
   isFacingRightBool: IsFacingRight
+  directionStateName: DirectionState
