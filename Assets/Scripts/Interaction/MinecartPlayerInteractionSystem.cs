@@ -50,7 +50,7 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
     /// </summary>
     public void CheckMinecartProximity()
     {
-        if (isTransferringItems || playerController.Inventory.IsEmpty()) 
+        if (isTransferringItems || playerController == null || playerController.Inventory == null || playerController.Inventory.IsEmpty()) 
             return;
         
         GameObject nearestMinecart = GetNearestMinecart();

@@ -12,6 +12,9 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// <summary>装備者(GameObject)。装備時に設定されます。</summary>
     protected GameObject user;
 
+    /// <summary>プレイヤーのAnimator（コントローラーから注入）</summary>
+    protected Animator playerAnimator;
+
     /// <summary>掘削実行担当（コントローラーから注入）</summary>
     protected Digger digger;
 
@@ -53,6 +56,14 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     public void SetDigger(Digger digger)
     {
         this.digger = digger;
+    }
+
+    /// <summary>
+    /// コントローラー側から Player の Animator を注入します。
+    /// </summary>
+    public void SetPlayerAnimator(Animator animator)
+    {
+        this.playerAnimator = animator;
     }
 
     /// <summary>

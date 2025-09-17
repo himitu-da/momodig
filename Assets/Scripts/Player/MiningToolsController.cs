@@ -28,11 +28,19 @@ public class MiningToolsController : MonoBehaviour
     public MiningTool mainMiningTool => _mainMiningTool;
     public MiningTool subMiningTool => _subMiningTool;
 
+    private Animator _playerAnimator;
     private Vector3 _currentDirection = Vector3.right;
 
     private void Awake()
     {
         if (toolMount == null) toolMount = this.transform;
+
+        // 親オブジェクト（Player）からAnimatorを取得
+        _playerAnimator = GetComponentInParent<Animator>();
+        if (_playerAnimator == null)
+        {
+            Debug.LogError("PlayerのAnimatorが見つかりません。Player GameObjectにAnimatorコンポーネントをアタッチしてください。");
+        }
 
         // MainDiggerとSubDiggerをPrefabからインスタンス化
         if (_mainDiggerPrefab != null)
@@ -196,6 +204,7 @@ public class MiningToolsController : MonoBehaviour
         var behaviour = tool.InstantiateBehaviour(toolMount);
         if (behaviour != null)
         {
+            behaviour.gameObject.name = tool.name; // ツール名を設定
             behaviour.gameObject.SetActive(false);
             _behaviourCache[tool] = behaviour;
         }
@@ -218,6 +227,7 @@ public class MiningToolsController : MonoBehaviour
         _mainBehaviour = GetOrCreateBehaviour(tool);
         if (_mainBehaviour != null)
         {
+            _mainBehaviour.SetPlayerAnimator(_playerAnimator); // Animatorを注入
             _mainBehaviour.SetDigger(_mainDigger);  // MainDiggerを渡す
             _mainBehaviour.gameObject.SetActive(true);
             _mainBehaviour.OnEquip(user);
@@ -239,10 +249,37 @@ public class MiningToolsController : MonoBehaviour
         _subBehaviour = GetOrCreateBehaviour(tool);
         if (_subBehaviour != null)
         {
+            _subBehaviour.SetPlayerAnimator(_playerAnimator); // Animatorを注入
             _subBehaviour.SetDigger(_subDigger);  // SubDiggerを渡す
             _subBehaviour.gameObject.SetActive(active);
             _subBehaviour.OnEquip(user);
             if (!active) _subBehaviour.gameObject.SetActive(false);
+        }
+    }
+
+    // --- Animation Event Relays ---
+    // PlayerControllerから呼び出され、現在アクティブなツールのBehaviourに処理を中継する。
+    public void OpenBufferWindow()
+    {
+        if (_mainBehaviour is PickaxeToolBehaviour pickaxe)
+        {
+            pickaxe.OpenBufferWindow();
+        }
+    }
+
+    public void ExecuteDigFromAnimation()
+    {
+        if (_mainBehaviour is PickaxeToolBehaviour pickaxe)
+        {
+            pickaxe.ExecuteDigFromAnimation();
+        }
+    }
+
+    public void OnMineAnimationEnd()
+    {
+        if (_mainBehaviour is PickaxeToolBehaviour pickaxe)
+        {
+            pickaxe.OnMineAnimationEnd();
         }
     }
 }

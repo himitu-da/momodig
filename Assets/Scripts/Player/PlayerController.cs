@@ -215,6 +215,10 @@ public class PlayerController : MonoBehaviour
     // オブジェクトが有効になったときに呼ばれる
     void OnEnable()
     {
+        if (controls == null)
+        {
+            controls = new InputSystem_Actions();
+        }
         controls.Player.Enable();
     }
 
@@ -551,5 +555,32 @@ public class PlayerController : MonoBehaviour
     {
         // 総数変更時の処理（必要に応じて）
         // 例: 満杯状態の通知、パフォーマンス調整など
+    }
+
+    // --- Animation Event Relays ---
+    // PlayerにアタッチされたAnimatorのイベントから呼び出され、
+    // MiningToolsControllerに処理を中継する。
+    public void OpenBufferWindow()
+    {
+        if (miningToolsController != null)
+        {
+            miningToolsController.OpenBufferWindow();
+        }
+    }
+
+    public void ExecuteDigFromAnimation()
+    {
+        if (miningToolsController != null)
+        {
+            miningToolsController.ExecuteDigFromAnimation();
+        }
+    }
+
+    public void OnMineAnimationEnd()
+    {
+        if (miningToolsController != null)
+        {
+            miningToolsController.OnMineAnimationEnd();
+        }
     }
 }

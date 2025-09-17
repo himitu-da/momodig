@@ -2,7 +2,6 @@ using UnityEngine;
 
 public class PickaxeToolBehaviour : MiningToolBehaviour
 {
-    private Animator playerAnimator;
     private Transform toolMount; // Diggerの親 = MiningToolsController
     private PlayerController.MoveMode currentMoveMode; // 現在の移動モード
     private Vector3 currentAimDirection = Vector3.right; // 現在の照準方向
@@ -12,7 +11,6 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
     public override void OnEquip(GameObject user)
     {
         base.OnEquip(user);
-        playerAnimator = user != null ? user.GetComponentInChildren<Animator>() : null;
         if (digger != null)
         {
             toolMount = digger.transform.parent;
@@ -23,6 +21,8 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
     {
         // direction パラメータはインターフェース互換性のために残すが、ここでは使用しない。
         // currentAimDirection は UpdateAim によって常に最新に保たれている。
+
+        Debug.Log($"[PickaxeToolBehaviour] Use called. IsMining: {IsMining}, canBufferUse: {canBufferUse}, useBuffered: {useBuffered}");
 
         // 既に採掘中の場合は、受付期間中であれば入力をバッファリングする
         if (IsMining)
