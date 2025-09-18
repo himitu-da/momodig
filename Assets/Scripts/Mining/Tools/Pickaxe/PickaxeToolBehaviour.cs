@@ -42,7 +42,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         canBufferUse = false;
 
         // Playerのアニメーションを開始するよう通知
-        playerController.TriggerMineAnimation();
+        playerController.TriggerMineAnimation(currentAimDirection);
 
         // 採掘の向きを物理的に反映させる
         UpdateToolRotation(currentAimDirection, currentMoveMode);

@@ -18,9 +18,6 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     {
         if (!IsEquipped) return;
 
-        // Playerのアニメーションを開始するよう通知 (投げるモーションなど)
-        playerController.TriggerMineAnimation();
-
         if (owner == null)
         {
             Debug.LogWarning("DynamiteToolBehaviour: owner is null.");

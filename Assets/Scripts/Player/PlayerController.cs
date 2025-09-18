@@ -577,21 +577,66 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// 外部（MiningToolBehaviour）から呼び出され、採掘アニメーションを開始する
     /// </summary>
-    public void TriggerMineAnimation()
+    public void TriggerMineAnimation(Vector3 direction)
     {
         if (_animator != null && miningToolsController != null)
         {
             string stateName = miningToolsController.GetCurrentToolStateName();
             if (!string.IsNullOrEmpty(stateName))
             {
+                // 8方向入力を4方向（上、下、左、右）に変換
+                Vector2 animDirection = GetAnimationDirection(direction); // TODO: これは汎用性がないので、ポリモーフィズムで個々のToolごとに振る舞いを変えるようにするなどが必要
+
                 // 向きを設定
-                _animator.SetFloat("DirectionX", lastMoveDirection.x);
-                // TopDownモードではZ軸、SideScrollerではY軸をYパラメータに渡す
-                float yParam = currentMoveMode == MoveMode.TopDown ? lastMoveDirection.z : lastMoveDirection.y;
-                _animator.SetFloat("DirectionY", yParam);
+                _animator.SetFloat("DirectionX", animDirection.x);
+                _animator.SetFloat("DirectionY", animDirection.y);
                 
                 // アニメーションを強制的に最初から再生
                 _animator.Play(stateName, 0, 0f);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 8方向のベクトルを、アニメーション用の4方向（上下左右）のベクトルに変換する
+    /// </summary>
+    /// <param name="direction">入力方向ベクトル</param>
+    /// <returns>アニメーション用の(x, y)ベクトル</returns>
+    private Vector2 GetAnimationDirection(Vector3 direction)
+    {
+        // TopDownモードではZ軸をYとして扱う
+        float y = (currentMoveMode == MoveMode.TopDown) ? direction.z : direction.y;
+        float x = direction.x;
+
+        // 非常に小さい入力は無視
+        if (x * x + y * y < 0.1f)
+        {
+            // ゼロベクトルに近い場合は、デフォルトの向き（例：右）を返すか、ゼロを返す
+            return new Vector2(1, 0); 
+        }
+
+        // 垂直方向の入力が水平方向より明らかに強い場合のみ上下と判定
+        // これにより、斜め入力は左右に分類される
+        if (Mathf.Abs(y) > Mathf.Abs(x) * 2) // yがxの2倍以上大きい場合
+        {
+            if (y > 0)
+            {
+                return Vector2.up; // 上
+            }
+            else
+            {
+                return Vector2.down; // 下
+            }
+        }
+        else // それ以外はすべて左右で判定
+        {
+            if (x > 0)
+            {
+                return Vector2.right; // 右
+            }
+            else
+            {
+                return Vector2.left; // 左
             }
         }
     }
