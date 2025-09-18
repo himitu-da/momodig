@@ -92,6 +92,7 @@ public class PlayerController : MonoBehaviour
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
+    private Animator _animator; // Player自身のAnimator
     
     // 接触中のアイテム管理用
     private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
@@ -107,6 +108,7 @@ public class PlayerController : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        _animator = GetComponent<Animator>();
         if (rb != null)
         {
             rb.useGravity = false; // Rigidbodyの重力を無効にする
@@ -340,6 +342,7 @@ public class PlayerController : MonoBehaviour
 
     private void OnMainMine(InputAction.CallbackContext context)
     {
+        // 道具自身のBehaviourを呼び出すだけにする
         if (miningToolsController != null)
         {
             miningToolsController.UseMainMineTool(this.gameObject, lastMoveDirection);
@@ -557,30 +560,39 @@ public class PlayerController : MonoBehaviour
         // 例: 満杯状態の通知、パフォーマンス調整など
     }
 
-    // --- Animation Event Relays ---
-    // PlayerにアタッチされたAnimatorのイベントから呼び出され、
-    // MiningToolsControllerに処理を中継する。
-    public void OpenBufferWindow()
+    /// <summary>
+    /// MiningToolsControllerから呼び出され、Animatorに道具の種類を教える
+    /// </summary>
+    public void SetToolAnimationType(int toolId)
     {
-        if (miningToolsController != null)
+        if (_animator != null)
         {
-            miningToolsController.OpenBufferWindow();
+            // HACK: パラメータが存在しないエラーが出るため、一時的に無効化。
+            //       Animatorに "ToolType" (Float) パラメータが存在することを確認してください。
+            // // Blend TreeはFloatしか受け付けないため、intをfloatにキャストして設定する
+            // _animator.SetFloat("ToolType", (float)toolId);
         }
     }
 
-    public void ExecuteDigFromAnimation()
+    /// <summary>
+    /// 外部（MiningToolBehaviour）から呼び出され、採掘アニメーションを開始する
+    /// </summary>
+    public void TriggerMineAnimation()
     {
-        if (miningToolsController != null)
+        if (_animator != null && miningToolsController != null)
         {
-            miningToolsController.ExecuteDigFromAnimation();
-        }
-    }
-
-    public void OnMineAnimationEnd()
-    {
-        if (miningToolsController != null)
-        {
-            miningToolsController.OnMineAnimationEnd();
+            string stateName = miningToolsController.GetCurrentToolStateName();
+            if (!string.IsNullOrEmpty(stateName))
+            {
+                // 向きを設定
+                _animator.SetFloat("DirectionX", lastMoveDirection.x);
+                // TopDownモードではZ軸、SideScrollerではY軸をYパラメータに渡す
+                float yParam = currentMoveMode == MoveMode.TopDown ? lastMoveDirection.z : lastMoveDirection.y;
+                _animator.SetFloat("DirectionY", yParam);
+                
+                // アニメーションを強制的に最初から再生
+                _animator.Play(stateName, 0, 0f);
+            }
         }
     }
 }

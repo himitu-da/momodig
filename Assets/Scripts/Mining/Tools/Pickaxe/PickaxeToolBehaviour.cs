@@ -7,6 +7,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
     private Vector3 currentAimDirection = Vector3.right; // 現在の照準方向
     private bool useBuffered = false; // 先行入力用のバッファフラグ
     private bool canBufferUse = false; // 先行入力の受付期間フラグ
+    private PlayerController _playerController; // 同期コールバック用にキャッシュ
 
     public override void OnEquip(GameObject user)
     {
@@ -17,8 +18,11 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         }
     }
 
-    public override void Use(Vector3 direction)
+    public override void Use(Vector3 direction, PlayerController playerController)
     {
+        // PlayerControllerをキャッシュ
+        _playerController = playerController;
+
         // direction パラメータはインターフェース互換性のために残すが、ここでは使用しない。
         // currentAimDirection は UpdateAim によって常に最新に保たれている。
 
@@ -36,6 +40,9 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
 
         // 新しい採掘を開始する前に、バッファ受付フラグをリセット
         canBufferUse = false;
+
+        // Playerのアニメーションを開始するよう通知
+        playerController.TriggerMineAnimation();
 
         // 採掘の向きを物理的に反映させる
         UpdateToolRotation(currentAimDirection, currentMoveMode);
@@ -97,8 +104,6 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         else
         {
             // 左右方向の掘削
-            // Diggerはアニメーションイベントでモジュールのデフォルト値(Horizontal)を使用するため、
-            // ここで掘削範囲を明示的に設定する必要はない。
             bool isFacingRight = dir.x >= 0;
             miningInfo = MiningInfo.ArcSwing(
                 digger.transform.position,
@@ -108,15 +113,22 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             directionState = isFacingRight ? 0 : 1; // 0: 右, 1: 左
         }
 
-        // 掘削モジュールと掘削情報をセット（アニメイベントでExecuteDigFromAnimationが呼ばれる想定）
+        // 掘削モジュールと掘削情報をセット
         digger.SetPendingMining(pickaxeModule, miningInfo);
 
         // アニメーションを再生
-        if (playerAnimator != null)
+        if (toolAnimator != null)
         {
             IsMining = true;
-            playerAnimator.SetInteger(pickaxeModule.DirectionStateName, directionState);
-            playerAnimator.SetTrigger(pickaxeModule.MineTriggerName);
+            // ここで使うパラメータ名はPickaxeのAnimator Controllerに合わせる必要があります
+            toolAnimator.SetInteger("DirectionState", directionState);
+            toolAnimator.SetTrigger("Mine");
+        }
+        else
+        {
+            // Animatorがない場合は即時実行
+            ExecuteDigFromAnimation();
+            OnMineAnimationEnd();
         }
     }
 
@@ -133,21 +145,6 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         if (!IsMining)
         {
             UpdateToolRotation(currentAimDirection, currentMoveMode);
-        }
-
-        if (playerAnimator == null) return;
-
-        // 横スク用の簡易向きフラグ
-        if (moveMode == PlayerController.MoveMode.SideScroller)
-        {
-            if (ToolData.miningModule is PickaxeMiningModule pickaxeModule)
-            {
-                if (direction.sqrMagnitude > 0.0001f)
-                {
-                    bool facingRight = direction.x >= 0f;
-                    playerAnimator.SetBool(pickaxeModule.IsFacingRightBool, facingRight);
-                }
-            }
         }
     }
 
@@ -178,8 +175,8 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         if (useBuffered)
         {
             useBuffered = false;
-            // バッファされた入力でUseを呼び出す際は、最後に更新された向き(currentAimDirection)をそのまま使う
-            Use(currentAimDirection);
+            // バッファされた入力でUseを呼び出す際は、最後に更新された向きとキャッシュしたPlayerControllerを渡す
+            Use(currentAimDirection, _playerController);
         }
         else
         {

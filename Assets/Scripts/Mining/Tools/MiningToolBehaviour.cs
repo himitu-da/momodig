@@ -12,8 +12,8 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// <summary>装備者(GameObject)。装備時に設定されます。</summary>
     protected GameObject user;
 
-    /// <summary>プレイヤーのAnimator（コントローラーから注入）</summary>
-    protected Animator playerAnimator;
+    /// <summary>ツール自身のAnimator（コントローラーから注入）</summary>
+    protected Animator toolAnimator;
 
     /// <summary>掘削実行担当（コントローラーから注入）</summary>
     protected Digger digger;
@@ -59,17 +59,17 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     }
 
     /// <summary>
-    /// コントローラー側から Player の Animator を注入します。
+    /// コントローラー側から Tool の Animator を注入します。
     /// </summary>
-    public void SetPlayerAnimator(Animator animator)
+    public void SetToolAnimator(Animator animator)
     {
-        this.playerAnimator = animator;
+        this.toolAnimator = animator;
     }
 
     /// <summary>
     /// ツール使用（入力に応じてコントローラーから呼ばれる）
     /// </summary>
-    public abstract void Use(Vector3 direction);
+    public abstract void Use(Vector3 direction, PlayerController playerController);
 
     /// <summary>
     /// 照準・向きの更新（プレイヤーの移動/入力から転送される）
