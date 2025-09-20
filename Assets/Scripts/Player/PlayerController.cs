@@ -92,6 +92,7 @@ public class PlayerController : MonoBehaviour
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
+    private Animator _animator; // Player自身のAnimator
     
     // 接触中のアイテム管理用
     private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
@@ -107,6 +108,7 @@ public class PlayerController : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        _animator = GetComponent<Animator>();
         if (rb != null)
         {
             rb.useGravity = false; // Rigidbodyの重力を無効にする
@@ -215,6 +217,10 @@ public class PlayerController : MonoBehaviour
     // オブジェクトが有効になったときに呼ばれる
     void OnEnable()
     {
+        if (controls == null)
+        {
+            controls = new InputSystem_Actions();
+        }
         controls.Player.Enable();
     }
 
@@ -336,6 +342,7 @@ public class PlayerController : MonoBehaviour
 
     private void OnMainMine(InputAction.CallbackContext context)
     {
+        // 道具自身のBehaviourを呼び出すだけにする
         if (miningToolsController != null)
         {
             miningToolsController.UseMainMineTool(this.gameObject, lastMoveDirection);
@@ -551,5 +558,86 @@ public class PlayerController : MonoBehaviour
     {
         // 総数変更時の処理（必要に応じて）
         // 例: 満杯状態の通知、パフォーマンス調整など
+    }
+
+    /// <summary>
+    /// MiningToolsControllerから呼び出され、Animatorに道具の種類を教える
+    /// </summary>
+    public void SetToolAnimationType(int toolId)
+    {
+        if (_animator != null)
+        {
+            // HACK: パラメータが存在しないエラーが出るため、一時的に無効化。
+            //       Animatorに "ToolType" (Float) パラメータが存在することを確認してください。
+            // // Blend TreeはFloatしか受け付けないため、intをfloatにキャストして設定する
+            // _animator.SetFloat("ToolType", (float)toolId);
+        }
+    }
+
+    /// <summary>
+    /// 外部（MiningToolBehaviour）から呼び出され、採掘アニメーションを開始する
+    /// </summary>
+    public void TriggerMineAnimation(Vector3 direction)
+    {
+        if (_animator != null && miningToolsController != null)
+        {
+            string stateName = miningToolsController.GetCurrentToolStateName();
+            if (!string.IsNullOrEmpty(stateName))
+            {
+                // 8方向入力を4方向（上、下、左、右）に変換
+                Vector2 animDirection = GetAnimationDirection(direction); // TODO: これは汎用性がないので、ポリモーフィズムで個々のToolごとに振る舞いを変えるようにするなどが必要
+
+                // 向きを設定
+                _animator.SetFloat("DirectionX", animDirection.x);
+                _animator.SetFloat("DirectionY", animDirection.y);
+                
+                // アニメーションを強制的に最初から再生
+                _animator.Play(stateName, 0, 0f);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 8方向のベクトルを、アニメーション用の4方向（上下左右）のベクトルに変換する
+    /// </summary>
+    /// <param name="direction">入力方向ベクトル</param>
+    /// <returns>アニメーション用の(x, y)ベクトル</returns>
+    private Vector2 GetAnimationDirection(Vector3 direction)
+    {
+        // TopDownモードではZ軸をYとして扱う
+        float y = (currentMoveMode == MoveMode.TopDown) ? direction.z : direction.y;
+        float x = direction.x;
+
+        // 非常に小さい入力は無視
+        if (x * x + y * y < 0.1f)
+        {
+            // ゼロベクトルに近い場合は、デフォルトの向き（例：右）を返すか、ゼロを返す
+            return new Vector2(1, 0); 
+        }
+
+        // 垂直方向の入力が水平方向より明らかに強い場合のみ上下と判定
+        // これにより、斜め入力は左右に分類される
+        if (Mathf.Abs(y) > Mathf.Abs(x) * 2) // yがxの2倍以上大きい場合
+        {
+            if (y > 0)
+            {
+                return Vector2.up; // 上
+            }
+            else
+            {
+                return Vector2.down; // 下
+            }
+        }
+        else // それ以外はすべて左右で判定
+        {
+            if (x > 0)
+            {
+                return Vector2.right; // 右
+            }
+            else
+            {
+                return Vector2.left; // 左
+            }
+        }
     }
 }

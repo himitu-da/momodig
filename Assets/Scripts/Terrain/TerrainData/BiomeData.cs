@@ -17,6 +17,9 @@ public class BiomeData : ScriptableObject
     [Header("Block Composition")]
     // このバイオームで生成されるブロックのリスト
     public List<BlockDistribution> availableBlocks;
+
+    [Header("Visuals")]
+    public Texture2D backgroundTexture; // 背景テクスチャ
 }
 
 /// <summary>

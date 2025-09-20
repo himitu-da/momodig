@@ -28,11 +28,19 @@ public class MiningToolsController : MonoBehaviour
     public MiningTool mainMiningTool => _mainMiningTool;
     public MiningTool subMiningTool => _subMiningTool;
 
+    private PlayerController _playerController; // PlayerControllerへの参照
     private Vector3 _currentDirection = Vector3.right;
 
     private void Awake()
     {
         if (toolMount == null) toolMount = this.transform;
+
+        // 親オブジェクト（Player）からPlayerControllerを取得
+        _playerController = GetComponentInParent<PlayerController>();
+        if (_playerController == null)
+        {
+            Debug.LogError("PlayerControllerが見つかりません。");
+        }
 
         // MainDiggerとSubDiggerをPrefabからインスタンス化
         if (_mainDiggerPrefab != null)
@@ -86,7 +94,8 @@ public class MiningToolsController : MonoBehaviour
     {
         if (_mainBehaviour != null)
         {
-            _mainBehaviour.Use(direction);
+            // UseメソッドにPlayerControllerを渡して、コールバックを可能にする
+            _mainBehaviour.Use(direction, _playerController);
         }
         else
         {
@@ -101,7 +110,8 @@ public class MiningToolsController : MonoBehaviour
     {
         if (_subBehaviour != null)
         {
-            _subBehaviour.Use(direction);
+            // こちらも同様にPlayerControllerを渡す（もしサブツールも同期させるなら）
+            _subBehaviour.Use(direction, _playerController);
         }
         else
         {
@@ -167,6 +177,22 @@ public class MiningToolsController : MonoBehaviour
     }
 
     /// <summary>
+    /// 現在のメインツールのAnimationTriggerNameを取得する
+    /// </summary>
+    public string GetCurrentToolTriggerName()
+    {
+        return _mainMiningTool != null ? _mainMiningTool.AnimationTriggerName : string.Empty;
+    }
+
+    /// <summary>
+    /// 現在のメインツールのAnimationStateNameを取得する
+    /// </summary>
+    public string GetCurrentToolStateName()
+    {
+        return _mainMiningTool != null ? _mainMiningTool.AnimationStateName : string.Empty;
+    }
+
+    /// <summary>
     /// 外部からメインツールを切り替える API
     /// </summary>
     public void SetMainTool(MiningTool tool)
@@ -196,6 +222,7 @@ public class MiningToolsController : MonoBehaviour
         var behaviour = tool.InstantiateBehaviour(toolMount);
         if (behaviour != null)
         {
+            behaviour.gameObject.name = tool.name; // ツール名を設定
             behaviour.gameObject.SetActive(false);
             _behaviourCache[tool] = behaviour;
         }
@@ -218,9 +245,17 @@ public class MiningToolsController : MonoBehaviour
         _mainBehaviour = GetOrCreateBehaviour(tool);
         if (_mainBehaviour != null)
         {
+            _mainBehaviour.SetToolAnimator(_mainBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _mainBehaviour.SetDigger(_mainDigger);  // MainDiggerを渡す
             _mainBehaviour.gameObject.SetActive(true);
             _mainBehaviour.OnEquip(user);
+        }
+
+        // PlayerControllerにToolTypeIDを通知
+        if (_playerController != null)
+        {
+            int toolId = _mainMiningTool != null ? _mainMiningTool.ToolTypeID : 0;
+            _playerController.SetToolAnimationType(toolId);
         }
     }
 
@@ -239,10 +274,15 @@ public class MiningToolsController : MonoBehaviour
         _subBehaviour = GetOrCreateBehaviour(tool);
         if (_subBehaviour != null)
         {
+            _subBehaviour.SetToolAnimator(_subBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _subBehaviour.SetDigger(_subDigger);  // SubDiggerを渡す
             _subBehaviour.gameObject.SetActive(active);
             _subBehaviour.OnEquip(user);
             if (!active) _subBehaviour.gameObject.SetActive(false);
         }
     }
+
+    // --- Animation Event Relays ---
+    // PlayerControllerから呼び出され、現在アクティブなツールのBehaviourに処理を中継する。
+    // ↑ このセクションは不要になったため削除
 }

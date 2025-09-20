@@ -22,6 +22,8 @@ public class BiomeDataCustomEditor : Editor
         // Unityが自動的にBlockDistributionDrawerを使用して各要素を描画する
         EditorGUILayout.PropertyField(serializedObject.FindProperty("availableBlocks"), true);
 
+        EditorGUILayout.PropertyField(serializedObject.FindProperty("backgroundTexture"));
+
         // 変更を適用
         serializedObject.ApplyModifiedProperties();
     }

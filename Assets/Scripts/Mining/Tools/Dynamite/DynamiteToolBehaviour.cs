@@ -14,9 +14,10 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         playerController = user != null ? user.GetComponentInParent<PlayerController>() : null;
     }
 
-    public override void Use(Vector3 direction)
+    public override void Use(Vector3 direction, PlayerController playerController)
     {
         if (!IsEquipped) return;
+
         if (owner == null)
         {
             Debug.LogWarning("DynamiteToolBehaviour: owner is null.");

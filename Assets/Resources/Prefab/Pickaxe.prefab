@@ -9,8 +9,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2453663157890413454}
-  - component: {fileID: 2385034840633777542}
   - component: {fileID: 824175882569183173}
+  - component: {fileID: 1855651682928951921}
   m_Layer: 3
   m_Name: Pickaxe
   m_TagString: Untagged
@@ -35,7 +35,19 @@ Transform:
   - {fileID: 5878624248671502650}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!95 &2385034840633777542
+--- !u!114 &824175882569183173
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 283676005089803581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ecef249776bf03642b46cc0607c0f2dd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!95 &1855651682928951921
 Animator:
   serializedVersion: 7
   m_ObjectHideFlags: 0
@@ -57,18 +69,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &824175882569183173
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 283676005089803581}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ecef249776bf03642b46cc0607c0f2dd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &4400085338252718330
 GameObject:
   m_ObjectHideFlags: 0

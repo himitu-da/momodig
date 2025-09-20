@@ -8,6 +8,7 @@ public class Digger : MonoBehaviour
     private BoxCollider diggingArea;
     private MiningModule pendingMiningModule; // 実行待機中の掘削モジュール
     private MiningInfo pendingMiningInfo; // 実行待機中の掘削情報
+    private bool isDiggingAreaOverridden = false; // 掘削範囲が外部から上書きされたか
 
     void Awake()
     {
@@ -39,14 +40,18 @@ public class Digger : MonoBehaviour
     {
         if (pendingMiningModule != null)
         {
-            // 掘削範囲をモジュールの設定で更新
-            SetDiggingAreaParameters(pendingMiningModule.DiggingCenter, pendingMiningModule.DiggingSize);
-            
+            // 掘削範囲が外部から上書きされていない場合のみ、モジュールのデフォルト値を使用
+            if (!isDiggingAreaOverridden)
+            {
+                SetDiggingAreaParameters(pendingMiningModule.DiggingCenter, pendingMiningModule.DiggingSize);
+            }
+
             // 掘削を実行
             Dig(pendingMiningModule.DamagePerHit, pendingMiningInfo);
 
-            // 実行後に保留中のモジュールをクリア
+            // 実行後に保留中のモジュールとフラグをクリア
             pendingMiningModule = null;
+            isDiggingAreaOverridden = false;
         }
         else
         {
@@ -79,6 +84,7 @@ public class Digger : MonoBehaviour
         {
             diggingArea.center = center;
             diggingArea.size = size;
+            isDiggingAreaOverridden = true; // 範囲が設定されたことをマーク
         }
     }
 
