@@ -9,6 +9,7 @@ public class TerrainDataManager : ScriptableObject
 {
     [Header("Default Settings")]
     public BlockData defaultBlockData;
+    public Texture2D defaultBackgroundTexture;
 
     [System.Serializable]
     public class BiomeDataMapping
