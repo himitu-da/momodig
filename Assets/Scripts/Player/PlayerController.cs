@@ -92,7 +92,7 @@ public class PlayerController : MonoBehaviour
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
-    private Animator _animator; // Player自身のAnimator
+    private PlayerVisualsController playerVisualsController; // ビジュアル担当
     
     // 接触中のアイテム管理用
     private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
@@ -108,7 +108,7 @@ public class PlayerController : MonoBehaviour
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
-        _animator = GetComponent<Animator>();
+        playerVisualsController = GetComponentInChildren<PlayerVisualsController>();
         if (rb != null)
         {
             rb.useGravity = false; // Rigidbodyの重力を無効にする
@@ -338,6 +338,12 @@ public class PlayerController : MonoBehaviour
         {
             miningToolsController.UpdateRotation(lastMoveDirection, currentMoveMode);
         }
+
+        // PlayerVisualsControllerに移動アニメーションの更新を委譲
+        if (playerVisualsController != null)
+        {
+            playerVisualsController.UpdateMovementAnimation(lastMoveDirection);
+        }
     }
 
     private void OnMainMine(InputAction.CallbackContext context)
@@ -565,12 +571,9 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     public void SetToolAnimationType(int toolId)
     {
-        if (_animator != null)
+        if (playerVisualsController != null)
         {
-            // HACK: パラメータが存在しないエラーが出るため、一時的に無効化。
-            //       Animatorに "ToolType" (Float) パラメータが存在することを確認してください。
-            // // Blend TreeはFloatしか受け付けないため、intをfloatにキャストして設定する
-            // _animator.SetFloat("ToolType", (float)toolId);
+            playerVisualsController.SetToolAnimationType(toolId);
         }
     }
 
@@ -579,64 +582,12 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     public void TriggerMineAnimation(Vector3 direction)
     {
-        if (_animator != null && miningToolsController != null)
+        if (playerVisualsController != null && miningToolsController != null)
         {
             string stateName = miningToolsController.GetCurrentToolStateName();
             if (!string.IsNullOrEmpty(stateName))
             {
-                // 8方向入力を4方向（上、下、左、右）に変換
-                Vector2 animDirection = GetAnimationDirection(direction); // TODO: これは汎用性がないので、ポリモーフィズムで個々のToolごとに振る舞いを変えるようにするなどが必要
-
-                // 向きを設定
-                _animator.SetFloat("DirectionX", animDirection.x);
-                _animator.SetFloat("DirectionY", animDirection.y);
-                
-                // アニメーションを強制的に最初から再生
-                _animator.Play(stateName, 0, 0f);
-            }
-        }
-    }
-
-    /// <summary>
-    /// 8方向のベクトルを、アニメーション用の4方向（上下左右）のベクトルに変換する
-    /// </summary>
-    /// <param name="direction">入力方向ベクトル</param>
-    /// <returns>アニメーション用の(x, y)ベクトル</returns>
-    private Vector2 GetAnimationDirection(Vector3 direction)
-    {
-        // TopDownモードではZ軸をYとして扱う
-        float y = (currentMoveMode == MoveMode.TopDown) ? direction.z : direction.y;
-        float x = direction.x;
-
-        // 非常に小さい入力は無視
-        if (x * x + y * y < 0.1f)
-        {
-            // ゼロベクトルに近い場合は、デフォルトの向き（例：右）を返すか、ゼロを返す
-            return new Vector2(1, 0); 
-        }
-
-        // 垂直方向の入力が水平方向より明らかに強い場合のみ上下と判定
-        // これにより、斜め入力は左右に分類される
-        if (Mathf.Abs(y) > Mathf.Abs(x) * 2) // yがxの2倍以上大きい場合
-        {
-            if (y > 0)
-            {
-                return Vector2.up; // 上
-            }
-            else
-            {
-                return Vector2.down; // 下
-            }
-        }
-        else // それ以外はすべて左右で判定
-        {
-            if (x > 0)
-            {
-                return Vector2.right; // 右
-            }
-            else
-            {
-                return Vector2.left; // 左
+                playerVisualsController.TriggerMineAnimation(stateName, direction);
             }
         }
     }
