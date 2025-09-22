@@ -1721,6 +1721,7 @@ GameObject:
   - component: {fileID: 1656626417}
   - component: {fileID: 1656626418}
   - component: {fileID: 1656626419}
+  - component: {fileID: 1656626420}
   m_Layer: 5
   m_Name: Buttons
   m_TagString: Untagged
@@ -1788,7 +1789,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 81d2a6810cff9d045b6d91202eb35841, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  changescene: {fileID: 0}
+  changescene: {fileID: 1656626420}
+--- !u!114 &1656626420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1656626416}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7da5888a79ac2eb459a57b121dba5bbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &2064240007
 GameObject:
   m_ObjectHideFlags: 0
