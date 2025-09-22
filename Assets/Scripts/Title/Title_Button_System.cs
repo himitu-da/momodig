@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 public class Title_Button_System : MonoBehaviour
 {
+    /*
     public SpriteRenderer startbutton;
     public SpriteRenderer settingbutton;
     public SpriteRenderer finishbutton;
@@ -12,6 +13,7 @@ public class Title_Button_System : MonoBehaviour
     public Sprite SettingSpriteChoice;
     public Sprite FinishSprite;
     public Sprite FinishSpriteChoice;
+    public ChangeScene changescene;
     private int keyplace = 0;
     public void OnMove(InputAction.CallbackContext value)       //タイトルにおけるキー取得、現在上下矢印キーのみ認識
     {
@@ -44,5 +46,45 @@ public class Title_Button_System : MonoBehaviour
         {
             button.sprite = inactivebutton;
         }
+    }
+    public void Onselect(InputAction.CallbackContext value)
+    {
+        if(value.performed){
+            SelectAction(keyplace);
+        }
+    }
+    void SelectAction(int SelectKey){
+        //開始ボタンが押されている
+        if(SelectKey % 3 == 0){
+            changescene.OnClickToChangeScene("OverWorldScene");
+        }
+        //設定ボタンが押されている
+        if(keyplace % 3 == 1 || keyplace % 3 == -2){
+
+        }
+        //終了ボタンが押されている
+        if(keyplace % 3 == 2 || keyplace % 3 == -1){
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
+    }
+    */
+    public ChangeScene changescene;
+
+    public void SelectStartKey(){
+        changescene.OnClickToChangeScene("OverWorldScene");
+    }
+    public void SelectSettingKey(){
+    }
+    public void SelectFinishKey(){
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 }
