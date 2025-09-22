@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.InputSystem;
 public class Title_Button_System : MonoBehaviour
 {
+    /*
     public SpriteRenderer startbutton;
     public SpriteRenderer settingbutton;
     public SpriteRenderer finishbutton;
@@ -70,5 +71,20 @@ public class Title_Button_System : MonoBehaviour
 #endif
         }
 
+    }
+    */
+    public ChangeScene changescene;
+
+    public void SelectStartKey(){
+        changescene.OnClickToChangeScene("OverWorldScene");
+    }
+    public void SelectSettingKey(){
+    }
+    public void SelectFinishKey(){
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 }
