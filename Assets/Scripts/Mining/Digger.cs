@@ -36,7 +36,7 @@ public class Digger : MonoBehaviour
     /// <summary>
     /// アニメーションイベントから呼び出され、保留中の掘削を実行します。
     /// </summary>
-    public HashSet<Block> ExecuteDigFromAnimation()
+    public async UniTask<(HashSet<Block> hitBlocks, int destroyedVoxelCount)> ExecuteDigFromAnimation()
     {
         if (pendingMiningModule != null)
         {
@@ -47,18 +47,18 @@ public class Digger : MonoBehaviour
             }
 
             // 掘削を実行し、ヒットしたブロックの情報を取得
-            var hitBlocks = Dig(pendingMiningModule.DamagePerHit, pendingMiningInfo);
+            var (hitBlocks, destroyedVoxelCount) = await Dig(pendingMiningModule.DamagePerHit, pendingMiningInfo);
 
             // 実行後に保留中のモジュールとフラグをクリア
             pendingMiningModule = null;
             isDiggingAreaOverridden = false;
 
-            return hitBlocks;
+            return (hitBlocks, destroyedVoxelCount);
         }
         else
         {
             Debug.LogWarning("Pending mining module is not set. Cannot execute dig.");
-            return new HashSet<Block>();
+            return (new HashSet<Block>(), 0);
         }
     }
 
@@ -96,13 +96,11 @@ public class Digger : MonoBehaviour
     {
     }
 
-    public HashSet<Block> Dig(int damagePerHit, MiningInfo info)
+    public async UniTask<(HashSet<Block> hitBlocks, int destroyedVoxelCount)> Dig(int damagePerHit, MiningInfo info)
     {
-        // 非同期処理を開始し、結果を待たずに即座にhitBlocksを返す（SE再生用）
-        // 実際の掘削処理はバックグラウンドで実行される
         var hitBlocks = GetHitBlocks();
-        DigAsyncTask(damagePerHit, info, hitBlocks).Forget();
-        return hitBlocks;
+        int destroyedVoxelCount = await DigAsyncTask(damagePerHit, info, hitBlocks);
+        return (hitBlocks, destroyedVoxelCount);
     }
 
     private HashSet<Block> GetHitBlocks()
@@ -130,24 +128,29 @@ public class Digger : MonoBehaviour
         return hitBlocks;
     }
 
-    private async UniTask DigAsyncTask(int damagePerHit, MiningInfo info, HashSet<Block> hitBlocks)
+    private async UniTask<int> DigAsyncTask(int damagePerHit, MiningInfo info, HashSet<Block> hitBlocks)
     {
         if (diggingArea == null)
         {
             Debug.LogError("Digging Area is not set.");
-            return;
+            return 0;
         }
         
         Vector3 worldCenter = diggingArea.transform.TransformPoint(diggingArea.center);
 
-        List<UniTask> diggingTasks = new List<UniTask>();
+        List<UniTask<int>> diggingTasks = new List<UniTask<int>>();
         foreach (var block in hitBlocks)
         {
             diggingTasks.Add(block.DigVoxels(diggingArea, damagePerHit));
         }
 
-        // 全ての掘削処理が完了するのを待つ
-        await UniTask.WhenAll(diggingTasks);
+        // 全ての掘削処理が完了するのを待ち、結果を集計
+        var results = await UniTask.WhenAll(diggingTasks);
+        int totalDestroyedVoxels = 0;
+        foreach (var count in results)
+        {
+            totalDestroyedVoxels += count;
+        }
 
         // 掘削範囲内のドロップアイテムに力を加える
         if (DroppedItemManager.Instance != null)
@@ -155,6 +158,8 @@ public class Digger : MonoBehaviour
             Vector3 expandedSize = diggingArea.size + new Vector3(2, 2, 2);
             DroppedItemManager.Instance.ApplyForceToItemsInRadius(worldCenter, expandedSize, diggingArea.transform.rotation, info);
         }
+
+        return totalDestroyedVoxels;
     }
 
 }

@@ -8,10 +8,10 @@ public class AudioManager : MonoBehaviour
 {
     public static AudioManager Instance { get; private set; }
 
-    [Header("Digging Sound Settings")]
-    [SerializeField] private float minDiggingVolume = 1.0f;
-    [SerializeField] private float volumePerBlock = 0.1f;
-    [SerializeField] private float maxDiggingVolume = 2.0f;
+    [Header("Voxel Destruction Sound Settings")]
+    [SerializeField] private float minDestructionVolume = 1.0f;
+    [SerializeField] private float volumePerVoxel = 0.05f;
+    [SerializeField] private float maxDestructionVolume = 2.5f;
 
     private AudioSource _seSource;
 
@@ -64,9 +64,24 @@ public class AudioManager : MonoBehaviour
     {
         if (clip != null)
         {
-            float volume = minDiggingVolume + (hitBlockCount * volumePerBlock);
-            volume = Mathf.Min(volume, maxDiggingVolume);
-            _seSource.PlayOneShot(clip, volume * toolVolume);
+            // 掘削音はツールごとの音量設定をそのまま使うシンプルな形に変更
+            _seSource.PlayOneShot(clip, toolVolume);
+        }
+    }
+
+    /// <summary>
+    /// ボクセル破壊SEを再生します。音量は破壊されたボクセル数とブロック固有の音量に応じて計算されます。
+    /// </summary>
+    /// <param name="clip">再生するAudioClip</param>
+    /// <param name="destroyedVoxelCount">破壊されたボクセルの数</param>
+    /// <param name="blockVolume">ブロックデータに設定された基本音量</param>
+    public void PlayVoxelDestroyedSE(AudioClip clip, int destroyedVoxelCount, float blockVolume)
+    {
+        if (clip != null && destroyedVoxelCount > 0)
+        {
+            float volume = minDestructionVolume + (destroyedVoxelCount * volumePerVoxel);
+            volume = Mathf.Min(volume, maxDestructionVolume);
+            _seSource.PlayOneShot(clip, volume * blockVolume);
         }
     }
 }

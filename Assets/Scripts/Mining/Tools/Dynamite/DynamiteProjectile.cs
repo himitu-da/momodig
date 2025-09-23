@@ -47,7 +47,7 @@ public class DynamiteProjectile : MonoBehaviour
         Destroy(gameObject);
     }
     
-    private void PerformMining()
+    private async void PerformMining()
     {
         if (behaviour == null || behaviour.ToolData == null)
         {
@@ -60,8 +60,8 @@ public class DynamiteProjectile : MonoBehaviour
         {
             if (enableDebugLogs) Debug.LogWarning("DynamiteProjectile: No mining module from behaviour, using default explosion size");
             // デフォルト値での爆発
-            var hitBlocks = behaviour.PerformExplosionMining(transform.position, Vector3.zero, new Vector3(3f, 3f, 3f), 999, 5f);
-            PlayExplosionSound(hitBlocks);
+            var (hitBlocks, destroyedVoxelCount) = await behaviour.PerformExplosionMining(transform.position, Vector3.zero, new Vector3(3f, 3f, 3f), 999, 5f);
+            PlayExplosionSound(hitBlocks, destroyedVoxelCount);
             return;
         }
 
@@ -73,37 +73,20 @@ public class DynamiteProjectile : MonoBehaviour
         
         // Behaviour の Digger を使用して掘削実行
         int explosionDamage = module.DamagePerHit;
-        var hitBlocksWithSound = behaviour.PerformExplosionMining(transform.position, module.DiggingCenter, module.DiggingSize, explosionDamage, explosionForce);
-        PlayExplosionSound(hitBlocksWithSound);
+        var (hitBlocksWithSound, destroyedVoxelCountWithSound) = await behaviour.PerformExplosionMining(transform.position, module.DiggingCenter, module.DiggingSize, explosionDamage, explosionForce);
+        PlayExplosionSound(hitBlocksWithSound, destroyedVoxelCountWithSound);
     }
 
-    private void PlayExplosionSound(HashSet<Block> hitBlocks)
+    private void PlayExplosionSound(HashSet<Block> hitBlocks, int destroyedVoxelCount)
     {
-        AudioClip soundToPlay = null;
-
-        // ヒットしたブロックがあれば、その素材に応じた音を取得
-        if (hitBlocks.Count > 0)
+        // 掘削音を再生
+        AudioClip diggingSound = behaviour.ToolData.DefaultMiningSound; // ダイナマイトは素材別の音は不要と想定
+        if (diggingSound != null)
         {
-            // 最初のブロックを代表として音を決定
-            var firstBlock = new List<Block>(hitBlocks)[0];
-            if (firstBlock != null && firstBlock.BlockData != null)
-            {
-                var materialType = firstBlock.BlockData.materialType;
-                soundToPlay = behaviour.ToolData.GetMiningSound(materialType);
-            }
-        }
-        
-        // 再生する音がまだ決まっていない場合（空振りなど）、デフォルトの音を使用
-        if (soundToPlay == null)
-        {
-            soundToPlay = behaviour.ToolData.DefaultMiningSound;
+            AudioManager.Instance.PlayDiggingSE(diggingSound, hitBlocks.Count, behaviour.ToolData.Volume);
         }
 
-        // 最終的に決まった音を再生
-        if (soundToPlay != null)
-        {
-            AudioManager.Instance.PlayDiggingSE(soundToPlay, hitBlocks.Count, behaviour.ToolData.Volume);
-        }
+        // 破壊音は再生しない（BlockDiggingSystemが担当するため）
     }
     
     private void OnDestroy()

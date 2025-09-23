@@ -130,9 +130,9 @@ public class Block : MonoBehaviour
         diggingSystem.TakeDamage(localPos, damage);
     }
 
-    public async UniTask DigVoxels(BoxCollider diggingArea, int damagePerHit)
+    public async UniTask<int> DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
-        await diggingSystem.DigVoxels(diggingArea, damagePerHit);
+        return await diggingSystem.DigVoxels(diggingArea, damagePerHit);
     }
 
     public void GenerateMesh()

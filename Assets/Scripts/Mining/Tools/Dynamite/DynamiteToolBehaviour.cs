@@ -270,12 +270,12 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     /// <summary>
     /// 爆発による掘削を実行（Projectile から呼び出し）
     /// </summary>
-    public System.Collections.Generic.HashSet<Block> PerformExplosionMining(Vector3 explosionPosition, Vector3 center, Vector3 size, int damage, float force)
+    public async Cysharp.Threading.Tasks.UniTask<(System.Collections.Generic.HashSet<Block> hitBlocks, int destroyedVoxelCount)> PerformExplosionMining(Vector3 explosionPosition, Vector3 center, Vector3 size, int damage, float force)
     {
         if (digger == null)
         {
             Debug.LogWarning("DynamiteToolBehaviour: Digger is not set.");
-            return new System.Collections.Generic.HashSet<Block>();
+            return (new System.Collections.Generic.HashSet<Block>(), 0);
         }
 
         // Digger の位置を爆発位置に一時的に設定
@@ -295,11 +295,11 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         var miningInfo = MiningInfo.Explosive(explosionPosition, force);
 
         // 掘削実行
-        var hitBlocks = digger.Dig(damage, miningInfo);
+        var (hitBlocks, destroyedVoxelCount) = await digger.Dig(damage, miningInfo);
 
         // 位置を元に戻す
         digger.transform.position = originalPosition;
 
-        return hitBlocks;
+        return (hitBlocks, destroyedVoxelCount);
     }
 }

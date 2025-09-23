@@ -83,11 +83,11 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// 掘削SEを再生する共通処理。
     /// アニメーションイベントから呼び出されることを想定しています。
     /// </summary>
-    protected virtual void PlayMiningSound()
+    protected virtual async void PlayMiningSound()
     {
         if (digger != null)
         {
-            var hitBlocks = digger.ExecuteDigFromAnimation();
+            var (hitBlocks, destroyedVoxelCount) = await digger.ExecuteDigFromAnimation();
 
             AudioClip soundToPlay = null;
 

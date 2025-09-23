@@ -61,10 +61,12 @@ public class BlockDiggingSystem
     /// <summary>
     /// ボクセルを掘削する
     /// </summary>
-    public async UniTask DigVoxels(BoxCollider diggingArea, int damagePerHit)
+    public async UniTask<int> DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
-        // この掘削アクションで既に破壊音を再生した素材タイプを記録するリスト
-        HashSet<MaterialType> playedSoundTypes = new HashSet<MaterialType>();
+        int destroyedVoxelCount = 0;
+        // この掘削アクションで再生する破壊音関連の情報を決定するための変数
+        AudioClip destructionSound = null;
+        float destructionSoundVolume = 1.0f;
 
         const int sampleResolution = 3;
         const int totalSamples = sampleResolution * sampleResolution * sampleResolution;
@@ -104,9 +106,10 @@ public class BlockDiggingSystem
                 {
                     for (int y = startY; y <= endY; y++)
                     {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, playedSoundTypes))
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, ref destructionSound, ref destructionSoundVolume))
                         {
                             layerModified = true;
+                            destroyedVoxelCount++;
                         }
                     }
                 }
@@ -135,9 +138,10 @@ public class BlockDiggingSystem
                 {
                     for (int z = startZ; z <= endZ; z++)
                     {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, playedSoundTypes))
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, ref destructionSound, ref destructionSoundVolume))
                         {
                             layerModified = true;
+                            destroyedVoxelCount++;
                         }
                     }
                 }
@@ -155,12 +159,20 @@ public class BlockDiggingSystem
                 }
             }
         }
+
+        // 掘削処理の最後に破壊音を再生
+        if (destructionSound != null)
+        {
+            AudioManager.Instance.PlayVoxelDestroyedSE(destructionSound, destroyedVoxelCount, destructionSoundVolume);
+        }
+
+        return destroyedVoxelCount;
     }
 
     /// <summary>
     /// 個別ボクセルの掘削処理
     /// </summary>
-    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions, int damagePerHit, HashSet<MaterialType> playedSoundTypes)
+    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions, int damagePerHit, ref AudioClip destructionSound, ref float destructionSoundVolume)
     {
         Vector3Int localVoxelPos = new Vector3Int(x, y, z);
         var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
@@ -197,15 +209,11 @@ public class BlockDiggingSystem
         {
             if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, damagePerHit))
             {
-                // ボクセルが破壊されたら音を再生
-                if (targetBlock.BlockData != null && targetBlock.BlockData.destroyedSound != null)
+                // 破壊音をまだ設定していなければ、このボクセルの破壊音と音量を設定する
+                if (destructionSound == null && targetBlock.BlockData != null && targetBlock.BlockData.destroyedSound != null)
                 {
-                    // この素材タイプの音をまだ再生していなければ再生する
-                    if (!playedSoundTypes.Contains(targetBlock.BlockData.materialType))
-                    {
-                        AudioManager.Instance.PlaySE(targetBlock.BlockData.destroyedSound);
-                        playedSoundTypes.Add(targetBlock.BlockData.materialType);
-                    }
+                    destructionSound = targetBlock.BlockData.destroyedSound;
+                    destructionSoundVolume = targetBlock.BlockData.destroyedSoundVolume;
                 }
 
                 dropActions.Add(() => itemDropper.DropItem(voxelData.worldPosition, x, y, z));
