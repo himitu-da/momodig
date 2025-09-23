@@ -3,41 +3,25 @@ using UnityEngine;
 /// <summary>
 /// ゲーム全体のオーディオを管理するシングルトンクラス。
 /// </summary>
+[RequireComponent(typeof(AudioSource))]
 public class AudioManager : MonoBehaviour
 {
-    private static AudioManager _instance;
-
-    public static AudioManager Instance
-    {
-        get
-        {
-            if (_instance == null)
-            {
-                _instance = FindObjectOfType<AudioManager>();
-                if (_instance == null)
-                {
-                    GameObject go = new GameObject("AudioManager");
-                    _instance = go.AddComponent<AudioManager>();
-                }
-            }
-            return _instance;
-        }
-    }
+    public static AudioManager Instance { get; private set; }
 
     private AudioSource _seSource;
 
     void Awake()
     {
-        if (_instance != null && _instance != this)
+        if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
-        _instance = this;
+        Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        // SE再生用のAudioSourceを追加
-        _seSource = gameObject.AddComponent<AudioSource>();
+        // SE再生用のAudioSourceを取得
+        _seSource = GetComponent<AudioSource>();
     }
 
     /// <summary>
