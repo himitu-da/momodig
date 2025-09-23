@@ -472,7 +472,7 @@ public class PlayerController : MonoBehaviour
                 // インベントリUI更新
                 UpdateInventoryUI();
                 
-                Debug.Log($"プレイヤーが{resourceType}を回収しました。持ち物: {inventory.GetTotalItemCount()}/{inventory.maxCapacity}");
+                // Debug.Log($"プレイヤーが{resourceType}を回収しました。持ち物: {inventory.GetTotalItemCount()}/{inventory.maxCapacity}");
                 
                 // インベントリの詳細を出力（インターフェース経由）
                 var allRes = inventory.GetAllResources();
@@ -481,12 +481,12 @@ public class PlayerController : MonoBehaviour
                 {
                     if (kvp.Value > 0) detailInfo += $"{kvp.Key}:{kvp.Value} ";
                 }
-                Debug.Log(detailInfo);
+                // Debug.Log(detailInfo);
             }
         }
         else
         {
-            Debug.Log("インベントリが満杯です！");
+            // Debug.Log("インベントリが満杯です！");
             // TODO: 満杯時のフィードバック（UI表示、音声など）
         }
     }
