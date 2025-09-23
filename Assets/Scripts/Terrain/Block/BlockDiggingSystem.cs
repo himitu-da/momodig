@@ -63,6 +63,9 @@ public class BlockDiggingSystem
     /// </summary>
     public async UniTask DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
+        // この掘削アクションで既に破壊音を再生した素材タイプを記録するリスト
+        HashSet<MaterialType> playedSoundTypes = new HashSet<MaterialType>();
+
         const int sampleResolution = 3;
         const int totalSamples = sampleResolution * sampleResolution * sampleResolution;
 
@@ -101,7 +104,7 @@ public class BlockDiggingSystem
                 {
                     for (int y = startY; y <= endY; y++)
                     {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit))
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, playedSoundTypes))
                         {
                             layerModified = true;
                         }
@@ -132,7 +135,7 @@ public class BlockDiggingSystem
                 {
                     for (int z = startZ; z <= endZ; z++)
                     {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit))
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, playedSoundTypes))
                         {
                             layerModified = true;
                         }
@@ -157,7 +160,7 @@ public class BlockDiggingSystem
     /// <summary>
     /// 個別ボクセルの掘削処理
     /// </summary>
-    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions, int damagePerHit)
+    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions, int damagePerHit, HashSet<MaterialType> playedSoundTypes)
     {
         Vector3Int localVoxelPos = new Vector3Int(x, y, z);
         var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
@@ -194,6 +197,17 @@ public class BlockDiggingSystem
         {
             if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, damagePerHit))
             {
+                // ボクセルが破壊されたら音を再生
+                if (targetBlock.BlockData != null && targetBlock.BlockData.destroyedSound != null)
+                {
+                    // この素材タイプの音をまだ再生していなければ再生する
+                    if (!playedSoundTypes.Contains(targetBlock.BlockData.materialType))
+                    {
+                        AudioManager.Instance.PlaySE(targetBlock.BlockData.destroyedSound);
+                        playedSoundTypes.Add(targetBlock.BlockData.materialType);
+                    }
+                }
+
                 dropActions.Add(() => itemDropper.DropItem(voxelData.worldPosition, x, y, z));
                 return true;
             }
