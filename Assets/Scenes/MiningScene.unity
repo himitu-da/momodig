@@ -119,6 +119,55 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &123774556
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 123774558}
+  - component: {fileID: 123774557}
+  m_Layer: 0
+  m_Name: Background
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &123774557
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 123774556}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6dea85fb09e70dd44aefd9d70f53da30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  terrainDataManager: {fileID: 11400000, guid: dac20b2304c3f1043a3cf6f0dbd2e30d, type: 2}
+  playerTransform: {fileID: 672003891}
+  backgroundTilePrefab: {fileID: 9132363438655162761, guid: 0fba5c71f82d16e4e9e8becd6053582e, type: 3}
+  viewDistance: {x: 15, y: 8}
+  tileSize: {x: 1, y: 1}
+--- !u!4 &123774558
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 123774556}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &291085688
 GameObject:
   m_ObjectHideFlags: 0
@@ -1414,7 +1463,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9fe183102d2012246944e361319f54fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  minDestructionVolume: 0.6
+  minDestructionVolume: 0.3
   volumePerVoxel: 0.01
   maxDestructionVolume: 1
 --- !u!4 &1674382979
@@ -1445,7 +1494,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 0.5
+  m_Volume: 1
   m_Pitch: 1.2
   Loop: 0
   Mute: 0
@@ -1782,3 +1831,4 @@ SceneRoots:
   - {fileID: 2071865105}
   - {fileID: 1375720078}
   - {fileID: 1674382979}
+  - {fileID: 123774558}
