@@ -136,16 +136,16 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
     /// </summary>
     private void LogMinecartDetection(float distance)
     {
-        Debug.Log($"MinecartInteractionSystem: 最寄りトロッコとの距離: {distance:F2}m (検出範囲: {minecartDetectionRange}m)");
-        Debug.Log("MinecartInteractionSystem: トロッコが検出範囲内に入りました！");
+        // Debug.Log($"MinecartInteractionSystem: 最寄りトロッコとの距離: {distance:F2}m (検出範囲: {minecartDetectionRange}m)");
+        // Debug.Log("MinecartInteractionSystem: トロッコが検出範囲内に入りました！");
         
         if (minecartManager != null)
         {
-            Debug.Log($"MinecartInteractionSystem: MinecartManager状態 - digable: {minecartManager.digable}, トロッコ数: {minecartManager.minecarts.Count}");
+            // Debug.Log($"MinecartInteractionSystem: MinecartManager状態 - digable: {minecartManager.digable}, トロッコ数: {minecartManager.minecarts.Count}");
             if (minecartManager.minecarts.Count > 0)
             {
                 var cart = minecartManager.minecarts[0];
-                Debug.Log($"MinecartInteractionSystem: トロッコ0の資源状況 - Stone:{cart.resources[ResourceType.Stone]}, Iron:{cart.resources[ResourceType.Iron]}, Gold:{cart.resources[ResourceType.Gold]}, Diamond:{cart.resources[ResourceType.Diamond]}");
+                // Debug.Log($"MinecartInteractionSystem: トロッコ0の資源状況 - Stone:{cart.resources[ResourceType.Stone]}, Iron:{cart.resources[ResourceType.Iron]}, Gold:{cart.resources[ResourceType.Gold]}, Diamond:{cart.resources[ResourceType.Diamond]}");
             }
         }
         else
@@ -153,7 +153,7 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
             Debug.LogError("MinecartInteractionSystem: MinecartManagerがnullです！");
         }
         
-        Debug.Log("MinecartInteractionSystem: アイテム転送を開始しようとしています...");
+        // Debug.Log("MinecartInteractionSystem: アイテム転送を開始しようとしています...");
     }
     
     #endregion
@@ -166,9 +166,9 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
     private async UniTask TransferItemsToMinecart(GameObject targetMinecart)
     {
         isTransferringItems = true;
-        Debug.Log("MinecartInteractionSystem: アイテム転送開始");
+        // Debug.Log("MinecartInteractionSystem: アイテム転送開始");
         
-        Debug.Log($"MinecartInteractionSystem: プレイヤーインベントリ総数: {playerController.Inventory.GetTotalItemCount()}");
+        // Debug.Log($"MinecartInteractionSystem: プレイヤーインベントリ総数: {playerController.Inventory.GetTotalItemCount()}");
         
         while (!playerController.Inventory.IsEmpty())
         {
@@ -208,7 +208,7 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
         }
         
         isTransferringItems = false;
-        Debug.Log("MinecartInteractionSystem: アイテム転送終了");
+        // Debug.Log("MinecartInteractionSystem: アイテム転送終了");
     }
     
     /// <summary>
@@ -247,7 +247,7 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
         {
             if (kvp.Value > 0)
             {
-                Debug.Log($"MinecartInteractionSystem: 転送予定リソース: {kvp.Key} (持ち数: {kvp.Value})");
+                // Debug.Log($"MinecartInteractionSystem: 転送予定リソース: {kvp.Key} (持ち数: {kvp.Value})");
                 return kvp.Key;
             }
         }
@@ -263,7 +263,7 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
         int currentAmount = targetCart.resources[transferType];
         int capacity = minecartManager.CartCapacity;
         
-        Debug.Log($"MinecartInteractionSystem: トロッコ容量チェック - {transferType}: {currentAmount}/{capacity}");
+        // Debug.Log($"MinecartInteractionSystem: トロッコ容量チェック - {transferType}: {currentAmount}/{capacity}");
         
         // 容量が満杯の場合、他のリソースタイプをチェック
         if (currentAmount >= capacity)
@@ -309,14 +309,14 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
         int removedAmount = playerController.Inventory.RemoveResource(transferType, 1);
         if (removedAmount > 0)
         {
-            Debug.Log($"MinecartInteractionSystem: プレイヤーから{transferType}を{removedAmount}個削除");
+            // Debug.Log($"MinecartInteractionSystem: プレイヤーから{transferType}を{removedAmount}個削除");
             
             // アニメーション付きでトロッコに移動
             AnimateItemTransfer(playerController.transform.position, targetMinecart.transform.position, transferType).Forget();
             
             // トロッコに追加
             minecartManager.updatevalue(0, transferType, removedAmount);
-            Debug.Log($"MinecartInteractionSystem: {transferType}をトロッコに{removedAmount}個転送完了");
+            // Debug.Log($"MinecartInteractionSystem: {transferType}をトロッコに{removedAmount}個転送完了");
             
             // 満載チェックはMinecartManagerのupdatevalue内で行われるため、ここでの追加処理は不要
             
