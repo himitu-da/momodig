@@ -27,4 +27,6 @@ public class BlockData : ScriptableObject
 
     [Header("Sound")]
     public AudioClip destroyedSound;
+    [Range(0.0f, 2.0f)]
+    public float destroyedSoundVolume = 1.0f;
 }
