@@ -1463,7 +1463,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9fe183102d2012246944e361319f54fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  minDestructionVolume: 0.6
+  minDestructionVolume: 0.3
   volumePerVoxel: 0.01
   maxDestructionVolume: 1
 --- !u!4 &1674382979
@@ -1494,7 +1494,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 0.5
+  m_Volume: 1
   m_Pitch: 1.2
   Loop: 0
   Mute: 0
@@ -1831,3 +1831,4 @@ SceneRoots:
   - {fileID: 2071865105}
   - {fileID: 1375720078}
   - {fileID: 1674382979}
+  - {fileID: 123774558}
