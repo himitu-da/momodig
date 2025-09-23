@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class PickaxeToolBehaviour : MiningToolBehaviour
 {
@@ -154,14 +155,8 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
     /// </summary>
     public void ExecuteDigFromAnimation()
     {
-        if (digger != null)
-        {
-            digger.ExecuteDigFromAnimation();
-        }
-        else
-        {
-            Debug.LogError("Digger is not set on PickaxeToolBehaviour. Cannot execute dig from animation.");
-        }
+        // 基底クラスのSE再生処理を呼び出す
+        PlayMiningSound();
     }
 
     /// <summary>
