@@ -55,17 +55,18 @@ public class AudioManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 掘削SEを再生します。音量は掘削したブロック数に応じて計算されます。
+    /// 掘削SEを再生します。音量は掘削したブロック数とツールの基本音量に応じて計算されます。
     /// </summary>
     /// <param name="clip">再生するAudioClip</param>
     /// <param name="hitBlockCount">ヒットしたブロックの数</param>
-    public void PlayDiggingSE(AudioClip clip, int hitBlockCount)
+    /// <param name="toolVolume">ツールの基本音量</param>
+    public void PlayDiggingSE(AudioClip clip, int hitBlockCount, float toolVolume)
     {
         if (clip != null)
         {
             float volume = minDiggingVolume + (hitBlockCount * volumePerBlock);
             volume = Mathf.Min(volume, maxDiggingVolume);
-            _seSource.PlayOneShot(clip, volume);
+            _seSource.PlayOneShot(clip, volume * toolVolume);
         }
     }
 }

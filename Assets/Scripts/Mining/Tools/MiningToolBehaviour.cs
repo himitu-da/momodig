@@ -110,7 +110,7 @@ public abstract class MiningToolBehaviour : MonoBehaviour
             }
 
             // AudioManagerに再生を依頼
-            AudioManager.Instance.PlayDiggingSE(soundToPlay, hitBlocks.Count);
+            AudioManager.Instance.PlayDiggingSE(soundToPlay, hitBlocks.Count, ToolData.Volume);
         }
         else
         {

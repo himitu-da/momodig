@@ -34,6 +34,8 @@ public abstract class MiningTool : ScriptableObject
     public MiningModule miningModule;
 
     [Header("サウンド設定")]
+    [Tooltip("ツールの基本音量")]
+    [SerializeField] private float volume = 1.0f;
     [Tooltip("標準の掘削音")]
     [SerializeField] private AudioClip defaultMiningSound;
     [Tooltip("ブロックの素材タイプごとの掘削音")]
@@ -44,6 +46,7 @@ public abstract class MiningTool : ScriptableObject
     public string AnimationTriggerName => animationTriggerName;
     public string AnimationStateName => animationStateName;
     public AudioClip DefaultMiningSound => defaultMiningSound;
+    public float Volume => volume;
 
     /// <summary>
     /// 指定された素材タイプに対応する掘削音を取得します。

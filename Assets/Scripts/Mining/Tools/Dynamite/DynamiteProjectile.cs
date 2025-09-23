@@ -102,7 +102,7 @@ public class DynamiteProjectile : MonoBehaviour
         // 最終的に決まった音を再生
         if (soundToPlay != null)
         {
-            AudioManager.Instance.PlaySE(soundToPlay);
+            AudioManager.Instance.PlayDiggingSE(soundToPlay, hitBlocks.Count, behaviour.ToolData.Volume);
         }
     }
     
