@@ -155,37 +155,8 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
     /// </summary>
     public void ExecuteDigFromAnimation()
     {
-        if (digger != null)
-        {
-            var hitBlocks = digger.ExecuteDigFromAnimation();
-
-            AudioClip soundToPlay = null;
-
-            // ヒットしたブロックがあれば、その素材に応じた音を取得
-            if (hitBlocks.Count > 0)
-            {
-                // 最初のブロックを代表として音を決定
-                var firstBlock = new List<Block>(hitBlocks)[0];
-                if (firstBlock != null && firstBlock.BlockData != null)
-                {
-                    var materialType = firstBlock.BlockData.materialType;
-                    soundToPlay = ToolData.GetMiningSound(materialType);
-                }
-            }
-            
-            // 再生する音がまだ決まっていない場合（空振りなど）、デフォルトの音を使用
-            if (soundToPlay == null)
-            {
-                soundToPlay = ToolData.DefaultMiningSound;
-            }
-
-            // 最終的に決まった音を再生
-            AudioManager.Instance.PlaySE(soundToPlay);
-        }
-        else
-        {
-            Debug.LogError("Digger is not set on PickaxeToolBehaviour. Cannot execute dig from animation.");
-        }
+        // 基底クラスのSE再生処理を呼び出す
+        PlayMiningSound();
     }
 
     /// <summary>

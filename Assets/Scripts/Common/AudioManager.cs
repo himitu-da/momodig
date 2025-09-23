@@ -8,6 +8,11 @@ public class AudioManager : MonoBehaviour
 {
     public static AudioManager Instance { get; private set; }
 
+    [Header("Digging Sound Settings")]
+    [SerializeField] private float minDiggingVolume = 1.0f;
+    [SerializeField] private float volumePerBlock = 0.1f;
+    [SerializeField] private float maxDiggingVolume = 2.0f;
+
     private AudioSource _seSource;
 
     void Awake()
@@ -33,6 +38,34 @@ public class AudioManager : MonoBehaviour
         if (clip != null)
         {
             _seSource.PlayOneShot(clip);
+        }
+    }
+
+    /// <summary>
+    /// SEを音量を指定して再生します。
+    /// </summary>
+    /// <param name="clip">再生するAudioClip</param>
+    /// <param name="volumeScale">音量スケール</param>
+    public void PlaySE(AudioClip clip, float volumeScale)
+    {
+        if (clip != null)
+        {
+            _seSource.PlayOneShot(clip, volumeScale);
+        }
+    }
+
+    /// <summary>
+    /// 掘削SEを再生します。音量は掘削したブロック数に応じて計算されます。
+    /// </summary>
+    /// <param name="clip">再生するAudioClip</param>
+    /// <param name="hitBlockCount">ヒットしたブロックの数</param>
+    public void PlayDiggingSE(AudioClip clip, int hitBlockCount)
+    {
+        if (clip != null)
+        {
+            float volume = minDiggingVolume + (hitBlockCount * volumePerBlock);
+            volume = Mathf.Min(volume, maxDiggingVolume);
+            _seSource.PlayOneShot(clip, volume);
         }
     }
 }
