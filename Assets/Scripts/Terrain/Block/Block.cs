@@ -85,6 +85,7 @@ public class Block : MonoBehaviour
     }
 
     private BlockData blockData; // このブロックの種類を定義するデータ
+    public BlockData BlockData => blockData; // 外部からBlockDataを参照するためのプロパティ
 
     // Initializeメソッドをオーバーロードではなく、オプション引数を持つ単一のメソッドに統合
     /// <summary>
@@ -129,9 +130,9 @@ public class Block : MonoBehaviour
         diggingSystem.TakeDamage(localPos, damage);
     }
 
-    public async UniTask DigVoxels(BoxCollider diggingArea, int damagePerHit)
+    public async UniTask<int> DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
-        await diggingSystem.DigVoxels(diggingArea, damagePerHit);
+        return await diggingSystem.DigVoxels(diggingArea, damagePerHit);
     }
 
     public void GenerateMesh()

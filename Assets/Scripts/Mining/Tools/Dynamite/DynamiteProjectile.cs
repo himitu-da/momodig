@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class DynamiteProjectile : MonoBehaviour
 {
@@ -46,7 +47,7 @@ public class DynamiteProjectile : MonoBehaviour
         Destroy(gameObject);
     }
     
-    private void PerformMining()
+    private async void PerformMining()
     {
         if (behaviour == null || behaviour.ToolData == null)
         {
@@ -59,7 +60,8 @@ public class DynamiteProjectile : MonoBehaviour
         {
             if (enableDebugLogs) Debug.LogWarning("DynamiteProjectile: No mining module from behaviour, using default explosion size");
             // デフォルト値での爆発
-            behaviour.PerformExplosionMining(transform.position, Vector3.zero, new Vector3(3f, 3f, 3f), 999, 5f);
+            var (hitBlocks, destroyedVoxelCount) = await behaviour.PerformExplosionMining(transform.position, Vector3.zero, new Vector3(3f, 3f, 3f), 999, 5f);
+            PlayExplosionSound(hitBlocks, destroyedVoxelCount);
             return;
         }
 
@@ -71,7 +73,20 @@ public class DynamiteProjectile : MonoBehaviour
         
         // Behaviour の Digger を使用して掘削実行
         int explosionDamage = module.DamagePerHit;
-        behaviour.PerformExplosionMining(transform.position, module.DiggingCenter, module.DiggingSize, explosionDamage, explosionForce);
+        var (hitBlocksWithSound, destroyedVoxelCountWithSound) = await behaviour.PerformExplosionMining(transform.position, module.DiggingCenter, module.DiggingSize, explosionDamage, explosionForce);
+        PlayExplosionSound(hitBlocksWithSound, destroyedVoxelCountWithSound);
+    }
+
+    private void PlayExplosionSound(HashSet<Block> hitBlocks, int destroyedVoxelCount)
+    {
+        // 掘削音を再生
+        AudioClip diggingSound = behaviour.ToolData.DefaultMiningSound; // ダイナマイトは素材別の音は不要と想定
+        if (diggingSound != null)
+        {
+            AudioManager.Instance.PlayDiggingSE(diggingSound, hitBlocks.Count, behaviour.ToolData.Volume);
+        }
+
+        // 破壊音は再生しない（BlockDiggingSystemが担当するため）
     }
     
     private void OnDestroy()

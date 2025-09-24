@@ -1,4 +1,16 @@
 using UnityEngine;
+using System.Collections.Generic;
+using System.Linq;
+
+/// <summary>
+/// 素材タイプとそれに対応するAudioClipを関連付けるためのシリアライズ可能なクラス。
+/// </summary>
+[System.Serializable]
+public class MaterialSound
+{
+    public MaterialType materialType;
+    public AudioClip sound;
+}
 
 [CreateAssetMenu(fileName = "MiningTool", menuName = "Scriptable Objects/MiningTool")]
 public abstract class MiningTool : ScriptableObject
@@ -21,10 +33,34 @@ public abstract class MiningTool : ScriptableObject
     [Header("掘削モジュール")]
     public MiningModule miningModule;
 
+    [Header("サウンド設定")]
+    [Tooltip("ツールの基本音量")]
+    [SerializeField] private float volume = 1.0f;
+    [Tooltip("標準の掘削音")]
+    [SerializeField] private AudioClip defaultMiningSound;
+    [Tooltip("ブロックの素材タイプごとの掘削音")]
+    [SerializeField] private List<MaterialSound> materialSounds;
+
     public GameObject ToolPrefab => toolPrefab;
     public int ToolTypeID => toolTypeID;
     public string AnimationTriggerName => animationTriggerName;
     public string AnimationStateName => animationStateName;
+    public AudioClip DefaultMiningSound => defaultMiningSound;
+    public float Volume => volume;
+
+    /// <summary>
+    /// 指定された素材タイプに対応する掘削音を取得します。
+    /// 対応する音がない場合は、標準の掘削音を返します。
+    /// </summary>
+    public AudioClip GetMiningSound(MaterialType materialType)
+    {
+        var materialSound = materialSounds.FirstOrDefault(s => s.materialType == materialType);
+        if (materialSound != null && materialSound.sound != null)
+        {
+            return materialSound.sound;
+        }
+        return defaultMiningSound;
+    }
 
     /// <summary>
     /// コントローラから呼ばれ、ツールPrefabを生成して MiningToolBehaviour を返します。

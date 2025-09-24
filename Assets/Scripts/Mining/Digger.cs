@@ -36,7 +36,7 @@ public class Digger : MonoBehaviour
     /// <summary>
     /// アニメーションイベントから呼び出され、保留中の掘削を実行します。
     /// </summary>
-    public void ExecuteDigFromAnimation()
+    public async UniTask<(HashSet<Block> hitBlocks, int destroyedVoxelCount)> ExecuteDigFromAnimation()
     {
         if (pendingMiningModule != null)
         {
@@ -46,16 +46,19 @@ public class Digger : MonoBehaviour
                 SetDiggingAreaParameters(pendingMiningModule.DiggingCenter, pendingMiningModule.DiggingSize);
             }
 
-            // 掘削を実行
-            Dig(pendingMiningModule.DamagePerHit, pendingMiningInfo);
+            // 掘削を実行し、ヒットしたブロックの情報を取得
+            var (hitBlocks, destroyedVoxelCount) = await Dig(pendingMiningModule.DamagePerHit, pendingMiningInfo);
 
             // 実行後に保留中のモジュールとフラグをクリア
             pendingMiningModule = null;
             isDiggingAreaOverridden = false;
+
+            return (hitBlocks, destroyedVoxelCount);
         }
         else
         {
             Debug.LogWarning("Pending mining module is not set. Cannot execute dig.");
+            return (new HashSet<Block>(), 0);
         }
     }
 
@@ -93,30 +96,28 @@ public class Digger : MonoBehaviour
     {
     }
 
-    public void Dig(int damagePerHit, MiningInfo info)
+    public async UniTask<(HashSet<Block> hitBlocks, int destroyedVoxelCount)> Dig(int damagePerHit, MiningInfo info)
     {
-        DigAsync(damagePerHit, info).Forget();
+        var hitBlocks = GetHitBlocks();
+        int destroyedVoxelCount = await DigAsyncTask(damagePerHit, info, hitBlocks);
+        return (hitBlocks, destroyedVoxelCount);
     }
 
-    private async UniTask DigAsync(int damagePerHit, MiningInfo info)
+    private HashSet<Block> GetHitBlocks()
     {
         if (diggingArea == null)
         {
             Debug.LogError("Digging Area is not set.");
-            return;
+            return new HashSet<Block>();
         }
 
-        // diggingAreaのワールド中心を計算
         Vector3 worldCenter = diggingArea.transform.TransformPoint(diggingArea.center);
-
-        // OverlapBoxで範囲内のすべてのコライダーを取得（中心を正しく使用）
         Collider[] hitColliders = Physics.OverlapBox(
             worldCenter,
             diggingArea.size / 2,
             diggingArea.transform.rotation
         );
 
-        // ユニークなブロックを収集（複数ヒット回避）
         HashSet<Block> hitBlocks = new HashSet<Block>();
         foreach (var hitCollider in hitColliders)
         {
@@ -124,29 +125,32 @@ public class Digger : MonoBehaviour
             if (block != null)
                 hitBlocks.Add(block);
         }
+        return hitBlocks;
+    }
 
-        // BoxColliderのワールド空間での8つの頂点を計算し、それらを完全に含むAABB (Axis-Aligned Bounding Box) を作成します。
-        // これにより、回転したBoxColliderも正確に表現できます。
-        var points = new Vector3[8];
-        var center = diggingArea.center;
-        var size = diggingArea.size / 2;
-        points[0] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, -size.y, -size.z));
-        points[1] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, -size.y, -size.z));
-        points[2] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, -size.y, size.z));
-        points[3] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, -size.y, size.z));
-        points[4] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, size.y, -size.z));
-        points[5] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, size.y, -size.z));
-        points[6] = diggingArea.transform.TransformPoint(center + new Vector3(size.x, size.y, size.z));
-        points[7] = diggingArea.transform.TransformPoint(center + new Vector3(-size.x, size.y, size.z));
+    private async UniTask<int> DigAsyncTask(int damagePerHit, MiningInfo info, HashSet<Block> hitBlocks)
+    {
+        if (diggingArea == null)
+        {
+            Debug.LogError("Digging Area is not set.");
+            return 0;
+        }
+        
+        Vector3 worldCenter = diggingArea.transform.TransformPoint(diggingArea.center);
 
-        List<UniTask> diggingTasks = new List<UniTask>();
+        List<UniTask<int>> diggingTasks = new List<UniTask<int>>();
         foreach (var block in hitBlocks)
         {
             diggingTasks.Add(block.DigVoxels(diggingArea, damagePerHit));
         }
 
-        // 全ての掘削処理が完了するのを待つ
-        await UniTask.WhenAll(diggingTasks);
+        // 全ての掘削処理が完了するのを待ち、結果を集計
+        var results = await UniTask.WhenAll(diggingTasks);
+        int totalDestroyedVoxels = 0;
+        foreach (var count in results)
+        {
+            totalDestroyedVoxels += count;
+        }
 
         // 掘削範囲内のドロップアイテムに力を加える
         if (DroppedItemManager.Instance != null)
@@ -154,6 +158,8 @@ public class Digger : MonoBehaviour
             Vector3 expandedSize = diggingArea.size + new Vector3(2, 2, 2);
             DroppedItemManager.Instance.ApplyForceToItemsInRadius(worldCenter, expandedSize, diggingArea.transform.rotation, info);
         }
+
+        return totalDestroyedVoxels;
     }
 
 }

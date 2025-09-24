@@ -14,8 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   toolName: Dynamite
   toolIcon: {fileID: 0}
+  toolTypeID: 0
+  animationTriggerName: Mine
+  animationStateName: Mine
   toolPrefab: {fileID: 2706890340770007549, guid: 02a77ce824db73d498593d06896cd36e, type: 3}
   miningModule: {fileID: 11400000, guid: 42d9c412469605a43ab3df9bb1192775, type: 2}
-  dynamitePrefab: {fileID: 2706890340770007549, guid: 9a245cfbacf933a44a658cb7d0b3d55d, type: 3}
-  throwForce: 8
-  upwardForce: 2
+  volume: 1
+  defaultMiningSound: {fileID: 8300000, guid: 0b30532373a8f224687f1f6316853005, type: 3}
+  materialSounds: []

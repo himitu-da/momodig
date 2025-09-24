@@ -78,4 +78,43 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     {
         // 派生クラスで照準の更新を実装
     }
+
+    /// <summary>
+    /// 掘削SEを再生する共通処理。
+    /// アニメーションイベントから呼び出されることを想定しています。
+    /// </summary>
+    protected virtual async void PlayMiningSound()
+    {
+        if (digger != null)
+        {
+            var (hitBlocks, destroyedVoxelCount) = await digger.ExecuteDigFromAnimation();
+
+            AudioClip soundToPlay = null;
+
+            // ヒットしたブロックがあれば、その素材に応じた音を取得
+            if (hitBlocks.Count > 0)
+            {
+                // 最初のブロックを代表として音を決定
+                var firstBlock = new System.Collections.Generic.List<Block>(hitBlocks)[0];
+                if (firstBlock != null && firstBlock.BlockData != null)
+                {
+                    var materialType = firstBlock.BlockData.materialType;
+                    soundToPlay = ToolData.GetMiningSound(materialType);
+                }
+            }
+            
+            // 再生する音がまだ決まっていない場合（空振りなど）、デフォルトの音を使用
+            if (soundToPlay == null)
+            {
+                soundToPlay = ToolData.DefaultMiningSound;
+            }
+
+            // AudioManagerに再生を依頼
+            AudioManager.Instance.PlayDiggingSE(soundToPlay, hitBlocks.Count, ToolData.Volume);
+        }
+        else
+        {
+            Debug.LogError("Digger is not set on MiningToolBehaviour. Cannot play mining sound.");
+        }
+    }
 }
