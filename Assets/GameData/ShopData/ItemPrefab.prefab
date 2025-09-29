@@ -85,7 +85,19 @@ MonoBehaviour:
   m_Group: {fileID: 0}
   onValueChanged:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 8232198620141962541}
+        m_TargetAssemblyTypeName: ItemUI, Assembly-CSharp
+        m_MethodName: ChangeInfo
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   m_IsOn: 1
 --- !u!114 &8232198620141962541
 MonoBehaviour:
@@ -99,6 +111,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7eba7e53d16dc0748b17bc5899def04b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  productname: {fileID: 0}
+  contentdescription: {fileID: 0}
+  item_name: 
+  FlavorText: 
   nametext: {fileID: 874149585522492873}
 --- !u!1 &4622566607248007063
 GameObject:

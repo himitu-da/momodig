@@ -2049,6 +2049,8 @@ MonoBehaviour:
   items:
   - {fileID: 11400000, guid: 7a510cc23e2d91346895a11274e94599, type: 2}
   - {fileID: 11400000, guid: 14d811827ad3d8d44ab3f42920608b37, type: 2}
+  productname: {fileID: 1032063625}
+  flavortext: {fileID: 1822774028}
 --- !u!1 &394166007
 GameObject:
   m_ObjectHideFlags: 0
@@ -2318,6 +2320,8 @@ MonoBehaviour:
   itemUIPrefab: {fileID: 3513343272586606519, guid: 5ffb06caf2ba4224da541bdef92f05e8, type: 3}
   group: {fileID: 483718714}
   items: []
+  productname: {fileID: 1032063625}
+  flavortext: {fileID: 1822774028}
 --- !u!1 &495572250
 GameObject:
   m_ObjectHideFlags: 0
@@ -2823,7 +2827,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 805963399}
   m_Direction: 2
   m_Value: 0
-  m_Size: 0.9999931
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -2878,7 +2882,7 @@ GameObject:
   - component: {fileID: 656405400}
   - component: {fileID: 656405399}
   m_Layer: 5
-  m_Name: ProductName
+  m_Name: RequestMaterial
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4104,6 +4108,8 @@ MonoBehaviour:
   itemUIPrefab: {fileID: 3513343272586606519, guid: 5ffb06caf2ba4224da541bdef92f05e8, type: 3}
   group: {fileID: 926266190}
   items: []
+  productname: {fileID: 1032063625}
+  flavortext: {fileID: 1822774028}
 --- !u!1 &931929455
 GameObject:
   m_ObjectHideFlags: 0
@@ -4752,7 +4758,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0.000015258789}
+  m_AnchoredPosition: {x: 0, y: 0.00079345703}
   m_SizeDelta: {x: 219, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1238997012
@@ -4825,6 +4831,8 @@ MonoBehaviour:
   group: {fileID: 1238997012}
   items:
   - {fileID: 11400000, guid: 7a510cc23e2d91346895a11274e94599, type: 2}
+  productname: {fileID: 1032063625}
+  flavortext: {fileID: 1822774028}
 --- !u!1 &1247594662
 GameObject:
   m_ObjectHideFlags: 0
@@ -5622,7 +5630,7 @@ GameObject:
   - component: {fileID: 1536252976}
   - component: {fileID: 1536252975}
   m_Layer: 5
-  m_Name: ContentDescription
+  m_Name: MaterialDescription
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
