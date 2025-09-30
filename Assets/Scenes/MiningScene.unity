@@ -1906,6 +1906,7 @@ MonoBehaviour:
     voxelsPerBlock: 4
     generationType: 0
     blocksPerFrame: 16
+    itemLoadDelay: 0.35
   playerTransform: {fileID: 672003891}
   chunkManager: {fileID: 2014132665}
   blockManager: {fileID: 413879696}

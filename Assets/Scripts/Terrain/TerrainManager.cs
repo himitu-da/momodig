@@ -35,6 +35,9 @@ public class TerrainSettings
     
     [Header("Performance")]
     public int blocksPerFrame = 16; // 1フレームあたりのブロック生成数
+    
+    [Header("Item Loading")]
+    public float itemLoadDelay = 0.1f; // チャンク生成後のアイテムロード遅延
 }
 
 /// <summary>

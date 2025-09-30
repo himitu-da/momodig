@@ -13,4 +13,5 @@ public struct DroppedItemData
     public Vector2 uvBase;
     public Vector2 uvSize;
     public bool useTexture1;
+    public bool isKinematic;
 }

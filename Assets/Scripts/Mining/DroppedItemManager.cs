@@ -71,10 +71,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         }
     }
 
+    private Dictionary<Vector3Int, List<DroppedItemData>> itemsByChunk = new Dictionary<Vector3Int, List<DroppedItemData>>();
+
     void Start()
     {
         // 永続化データからアイテムをロード
-        LoadItems();
+        PrepareItemLoading();
     }
 
     void OnDestroy()
@@ -444,16 +446,50 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 blockDataName = item.blockDataName,
                 uvBase = item.uvBase,
                 uvSize = item.uvSize,
-                useTexture1 = item.useTexture1
+                useTexture1 = item.useTexture1,
+                isKinematic = item.rb != null && item.rb.isKinematic
             };
             persistenceManager.droppedItems.Add(data);
         }
     }
 
-    private void LoadItems()
+    private void PrepareItemLoading()
     {
         var persistenceManager = GameDataPersistenceManager.Instance;
         if (persistenceManager.droppedItems == null || persistenceManager.droppedItems.Count == 0) return;
+
+        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
+        if (terrainManager == null)
+        {
+            Debug.LogError("TerrainManager not found. Cannot prepare item loading.");
+            return;
+        }
+
+        itemsByChunk.Clear();
+        var settings = terrainManager.Settings;
+
+        foreach (var itemData in persistenceManager.droppedItems)
+        {
+            int blockX = Mathf.RoundToInt(itemData.position.x / settings.blockSize);
+            int blockY = Mathf.RoundToInt(itemData.position.y / settings.blockSize);
+            
+            int chunkX = Mathf.FloorToInt((float)blockX / settings.blocksPerChunk.x);
+            int chunkY = Mathf.FloorToInt((float)blockY / settings.blocksPerChunk.y);
+            Vector3Int chunkPos = new Vector3Int(chunkX, chunkY, 0);
+
+            if (!itemsByChunk.ContainsKey(chunkPos))
+            {
+                itemsByChunk[chunkPos] = new List<DroppedItemData>();
+            }
+            itemsByChunk[chunkPos].Add(itemData);
+        }
+        
+        persistenceManager.droppedItems.Clear();
+    }
+
+    public void LoadItemsInChunk(Vector3Int chunkPosition)
+    {
+        if (!itemsByChunk.TryGetValue(chunkPosition, out var itemsToLoad)) return;
 
         TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
         if (terrainManager == null || terrainManager.TerrainDataManager == null)
@@ -462,7 +498,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             return;
         }
 
-        foreach (var data in persistenceManager.droppedItems)
+        foreach (var data in itemsToLoad)
         {
             BlockData blockData = terrainManager.TerrainDataManager.GetBlockDataByName(data.blockDataName);
             if (blockData == null)
@@ -478,14 +514,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             item.transform.rotation = data.rotation;
             item.transform.localScale = data.scale;
 
-            // --- BlockItemDropperから移植したロジック ---
             Rigidbody itemRigidbody = item.GetComponent<Rigidbody>();
             if (itemRigidbody == null)
             {
                 itemRigidbody = item.AddComponent<Rigidbody>();
             }
 
-            // 質量を設定 (voxelWorldSizeはTerrainManagerから取得)
             if (terrainManager != null)
             {
                  float voxelWorldSize = terrainManager.Settings.blockSize / terrainManager.Settings.voxelsPerBlock;
@@ -499,7 +533,6 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             {
                 item.tag = "DroppedItem";
             }
-            // --- 移植ここまで ---
 
             DroppedItem droppedItem = item.GetComponent<DroppedItem>();
             if (droppedItem != null)
@@ -509,9 +542,17 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 droppedItem.uvSize = data.uvSize;
                 droppedItem.useTexture1 = data.useTexture1;
                 droppedItem.resourceType = blockData.resourceType;
+
+                if (itemRigidbody != null)
+                {
+                    itemRigidbody.isKinematic = data.isKinematic;
+                }
+                if (itemStates.TryGetValue(droppedItem, out var state))
+                {
+                    state.isSleeping = data.isKinematic;
+                }
             }
 
-            // テクスチャを再生成
             var itemRenderer = item.GetComponent<Renderer>();
             if (itemRenderer != null)
             {
@@ -519,7 +560,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 Texture2D tex2 = (blockData.textures != null && blockData.textures.Count > 1) ? blockData.textures[1] : null;
                 
                 VoxelFaceTextureInfo faceInfo = new VoxelFaceTextureInfo(
-                    Vector3.up, // 代表面としてupを使用（見た目のみなのでどの面でも良い）
+                    Vector3.up,
                     data.uvBase,
                     data.uvSize,
                     data.useTexture1 ? tex1 : tex2,
@@ -538,8 +579,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             }
         }
         
-        // ロード後は永続化データをクリア
-        persistenceManager.droppedItems.Clear();
+        itemsByChunk.Remove(chunkPosition);
     }
 
     /// <summary>
