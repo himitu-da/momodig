@@ -23,6 +23,8 @@ public class TerrainSettings
 {
     [Header("Basic Settings")]
     public Vector3Int center = Vector3Int.zero;
+    public int seed;
+    public bool useRandomSeed = true;
     public Vector2Int initialChunkCount = new Vector2Int(2, 5);
     public Vector2Int blocksPerChunk = new Vector2Int(5, 5);
     public float blockSize = 1.0f; // ブロックのサイズ
@@ -79,6 +81,11 @@ public class TerrainManager : MonoBehaviour
 
     void Awake()
     {
+        if (settings.useRandomSeed)
+        {
+            settings.seed = Random.Range(int.MinValue, int.MaxValue);
+        }
+        
         InitializeHierarchicalSystem();
     }
 
@@ -109,7 +116,7 @@ public class TerrainManager : MonoBehaviour
         // 各マネージャーを初期化
         chunkManager.Initialize(this);
         blockManager.Initialize(this);
-        blockGenerator.Initialize(this);
+        blockGenerator.Initialize(this, settings.seed);
         voxelManager.Initialize(this);
         
         // TerrainDataManagerを初期化
