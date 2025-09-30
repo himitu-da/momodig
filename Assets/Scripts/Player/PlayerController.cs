@@ -87,12 +87,16 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
+    public Vector2 MoveInput => moveInput; // PassageControllerから入力を取得するため
     private Vector2 mousePosition; // マウスのスクリーン座標
     private float currentFallSpeed = 0f; // 現在の落下速度
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
     private PlayerVisualsController playerVisualsController; // ビジュアル担当
+    
+    // PassageControllerからの制御用
+    public bool IsInPassage { get; set; } = false;
     
     // 接触中のアイテム管理用
     private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
@@ -306,7 +310,15 @@ public class PlayerController : MonoBehaviour
         float smoothTime = moveDirection.sqrMagnitude > 0 ? acceleration : deceleration;
 
         // SmoothDampを使用して速度を滑らかに変化させる
-        rb.linearVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+        // Passageに入っている間は移動を無効化
+        if (IsInPassage)
+        {
+            rb.linearVelocity = Vector3.zero;
+        }
+        else
+        {
+            rb.linearVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+        }
 
         // SideScrollerモードで左右の入力があった場合、向きを更新
         if (currentMoveMode == MoveMode.SideScroller && moveInput.x != 0)
@@ -348,6 +360,9 @@ public class PlayerController : MonoBehaviour
 
     private void OnMainMine(InputAction.CallbackContext context)
     {
+        // Passageに入っている間は掘削を無効化
+        if (IsInPassage) return;
+
         // 道具自身のBehaviourを呼び出すだけにする
         if (miningToolsController != null)
         {
@@ -357,6 +372,9 @@ public class PlayerController : MonoBehaviour
 
     private void OnSubMine(InputAction.CallbackContext context)
     {
+        // Passageに入っている間は掘削を無効化
+        if (IsInPassage) return;
+        
         if (miningToolsController != null)
         {
             miningToolsController.UseSubMineTool(this.gameObject, lastMoveDirection);
