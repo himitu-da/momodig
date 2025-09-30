@@ -81,10 +81,21 @@ public class TerrainManager : MonoBehaviour
 
     void Awake()
     {
-        if (settings.useRandomSeed)
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (!persistenceManager.hasInitializedSeed)
         {
-            settings.seed = Random.Range(int.MinValue, int.MaxValue);
+            if (settings.useRandomSeed)
+            {
+                persistenceManager.terrainSeed = Random.Range(int.MinValue, int.MaxValue);
+            }
+            else
+            {
+                persistenceManager.terrainSeed = settings.seed;
+            }
+            persistenceManager.hasInitializedSeed = true;
         }
+        
+        settings.seed = persistenceManager.terrainSeed;
         
         InitializeHierarchicalSystem();
     }
