@@ -36,6 +36,9 @@ public class GameDataPersistenceManager : MonoBehaviour
     public HashSet<Vector3Int> destroyedBlockPositions = new HashSet<Vector3Int>();
     public Dictionary<Vector3Int, HashSet<Vector3Int>> partiallyDestroyedBlocks = new Dictionary<Vector3Int, HashSet<Vector3Int>>();
 
+    [Header("プレイヤーデータ")]
+    public Dictionary<ResourceType, int> storedResources = new Dictionary<ResourceType, int>();
+
 
     void Awake()
     {
