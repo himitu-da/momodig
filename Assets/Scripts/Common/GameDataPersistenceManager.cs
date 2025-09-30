@@ -39,6 +39,9 @@ public class GameDataPersistenceManager : MonoBehaviour
     [Header("プレイヤーデータ")]
     public Dictionary<ResourceType, int> storedResources = new Dictionary<ResourceType, int>();
 
+    [Header("ドロップアイテムデータ")]
+    public List<DroppedItemData> droppedItems = new List<DroppedItemData>();
+
 
     void Awake()
     {
