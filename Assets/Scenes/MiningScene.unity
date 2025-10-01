@@ -1898,6 +1898,8 @@ MonoBehaviour:
   terrainDataManager: {fileID: 11400000, guid: dac20b2304c3f1043a3cf6f0dbd2e30d, type: 2}
   settings:
     center: {x: 0, y: 0, z: 0}
+    seed: 65536
+    useRandomSeed: 0
     initialChunkCount: {x: 2, y: 5}
     blocksPerChunk: {x: 5, y: 5}
     blockSize: 1
@@ -1981,7 +1983,7 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5
+  m_Radius: 0.495
   m_Height: 1
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}

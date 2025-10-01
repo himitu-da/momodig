@@ -51,6 +51,7 @@ public class ChunkManager : MonoBehaviour
 
     public void GenerateTerrain()
     {
+        terrainManager.BlockGenerator.ResetRandom(terrainManager.Settings.seed);
         if (terrainManager.showDebugInfo)
         {
             Debug.Log($"ChunkManager: Generating initial terrain with type {terrainManager.Settings.generationType}");
