@@ -60,6 +60,15 @@ public class VoxelTextureExtractor
         // 現在は代表面（上面優先）のテクスチャを使用
         VoxelFaceTextureInfo representativeFace = GetRepresentativeFace(faceInfos);
         
+        // 永続化のために情報をDroppedItemコンポーネントに保存
+        DroppedItem droppedItem = item.GetComponent<DroppedItem>();
+        if (droppedItem != null)
+        {
+            droppedItem.uvBase = representativeFace.uvBase;
+            droppedItem.uvSize = representativeFace.uvSize;
+            droppedItem.useTexture1 = representativeFace.sourceTexture == texture1;
+        }
+
         if (representativeFace.sourceTexture != null)
         {
             // ブロックテクスチャから該当部分を切り出して新しいテクスチャを作成

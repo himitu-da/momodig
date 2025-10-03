@@ -35,6 +35,9 @@ public class TerrainSettings
     
     [Header("Performance")]
     public int blocksPerFrame = 16; // 1フレームあたりのブロック生成数
+    
+    [Header("Item Loading")]
+    public float itemLoadDelay = 0.1f; // チャンク生成後のアイテムロード遅延
 }
 
 /// <summary>
@@ -81,10 +84,21 @@ public class TerrainManager : MonoBehaviour
 
     void Awake()
     {
-        if (settings.useRandomSeed)
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (!persistenceManager.hasInitializedSeed)
         {
-            settings.seed = Random.Range(int.MinValue, int.MaxValue);
+            if (settings.useRandomSeed)
+            {
+                persistenceManager.terrainSeed = Random.Range(int.MinValue, int.MaxValue);
+            }
+            else
+            {
+                persistenceManager.terrainSeed = settings.seed;
+            }
+            persistenceManager.hasInitializedSeed = true;
         }
+        
+        settings.seed = persistenceManager.terrainSeed;
         
         InitializeHierarchicalSystem();
     }

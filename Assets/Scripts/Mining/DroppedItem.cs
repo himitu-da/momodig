@@ -6,6 +6,13 @@ public class DroppedItem : MonoBehaviour
     public Rigidbody rb { get; private set; }
     public ResourceType resourceType = ResourceType.Stone; // デフォルトはStone
 
+    // --- For Persistence ---
+    public Vector3 scale;
+    public string blockDataName;
+    public Vector2 uvBase;
+    public Vector2 uvSize;
+    public bool useTexture1;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody>();

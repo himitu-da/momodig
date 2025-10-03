@@ -70,6 +70,19 @@ public class VoxelManager : MonoBehaviour
             }
         }
         
+        // 壊れかけのブロック情報を適用
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager.partiallyDestroyedBlocks.TryGetValue(blockPos, out var destroyedVoxels))
+        {
+            foreach (var localVoxelPos in destroyedVoxels)
+            {
+                if (trackedVoxels.ContainsKey(blockPos) && trackedVoxels[blockPos].ContainsKey(localVoxelPos))
+                {
+                    trackedVoxels[blockPos][localVoxelPos].isActive = false;
+                }
+            }
+        }
+
         if (showVoxelDebugInfo)
         {
             Debug.Log($"VoxelManager: Registered {CountVoxelsInBlock(blockPos)} voxels for block {blockPos}");
@@ -173,6 +186,30 @@ public class VoxelManager : MonoBehaviour
             if (showVoxelDebugInfo)
             {
                 Debug.Log($"VoxelManager: Destroyed voxel at {blockPos},{localPos}");
+            }
+
+            // 永続化マネージャーに状態を記録
+            var persistenceManager = GameDataPersistenceManager.Instance;
+
+            // ブロック内の残りのボクセル数を確認
+            if (CountVoxelsInBlock(blockPos) == 0)
+            {
+                // 完全に破壊された
+                terrainManager.BlockManager.DestroyBlock(blockPos);
+                // 壊れかけリストからは削除
+                if (persistenceManager.partiallyDestroyedBlocks.ContainsKey(blockPos))
+                {
+                    persistenceManager.partiallyDestroyedBlocks.Remove(blockPos);
+                }
+            }
+            else
+            {
+                // 部分的に破壊された
+                if (!persistenceManager.partiallyDestroyedBlocks.ContainsKey(blockPos))
+                {
+                    persistenceManager.partiallyDestroyedBlocks[blockPos] = new HashSet<Vector3Int>();
+                }
+                persistenceManager.partiallyDestroyedBlocks[blockPos].Add(localPos);
             }
             
             return true;
