@@ -8,7 +8,7 @@ public class ContentManager : MonoBehaviour
     [SerializeField] private GameObject itemUIPrefab;
     [SerializeField] private ToggleGroup group;
     [Header("Assets/GameData/ShopDataにアイテムのデータ")] 
-    [SerializeField] private ItemData[] items;
+    [SerializeField] private ItemData[] items;  //ItemDataManagerを確認
     [SerializeField] private TMPro.TMP_Text productname;
     [SerializeField] private TMPro.TMP_Text flavortext;
     [SerializeField] private GameObject Stone_Request;

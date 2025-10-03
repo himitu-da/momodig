@@ -9,6 +9,7 @@ public class ItemUI : MonoBehaviour
     public string item_name;
     [TextArea] public string FlavorText;
     [SerializeField] private Text nametext;
+    private List<RequestMaterial> requestmaterials;
     private GameObject Stone_Request;
     private GameObject DragonOre_Request;
     private GameObject Iron_Request;
@@ -23,12 +24,19 @@ public class ItemUI : MonoBehaviour
     private GameObject Gold_Request;
     private GameObject Rareearth_Request;
     private List<RequestMaterial> materiallist;
+    private GameObject[] requests;
+    void Start()
+    {
+        requests = GameObject.FindGameObjectsWithTag("MaterialRequest");
+    }
     public void SetItem(ItemData item, TMPro.TMP_Text product, TMPro.TMP_Text content, GameObject Stone_Request, GameObject DragonOre_Request, GameObject Iron_Request, GameObject Tin_Request, GameObject Nickel_Request, GameObject Sillicon_Request, GameObject Cobalt_Request, GameObject Titanium_Request, GameObject Sulfur_Request, GameObject Tungsten_Request, GameObject Hihiirokane_Request, GameObject Gold_Request, GameObject Rareearth_Request)
     {
         nametext.text = item.Itemname;
         productname = product;
         contentdescription = content;
         materiallist = item.requestmaterials;
+        requestmaterials = item.requestmaterials;
+        //要求素材表示のゲームオブジェクト
         this.Stone_Request = Stone_Request;
         this.DragonOre_Request = DragonOre_Request;
         this.Iron_Request = Iron_Request;
@@ -53,6 +61,36 @@ public class ItemUI : MonoBehaviour
         else
         {
             Debug.Log("Productname or contentdescription is not set");
+        }
+        foreach (GameObject request in requests)
+        {
+            if (request.activeSelf)
+            {
+                request.SetActive(false);
+            }
+        }
+        foreach (RequestMaterial material in materiallist)
+        {
+            SetRequest(material.type == ResourceType.Stone, Stone_Request);
+            //SetRequest(material.type == ResourceType.DragonOre, DragonOre_Request);
+            SetRequest(material.type == ResourceType.Iron, Iron_Request);
+            //SetRequest(material.type == ResourceType.Tin, Tin_Request);
+            //SetRequest(material.type == ResourceType.Nickel, Nickel_Request);
+            //SetRequest(material.type == ResourceType.Sillicon, Sillicon_Request);
+            //SetRequest(material.type == ResourceType.Cobalt, Cobalt_Request);
+            //SetRequest(material.type == ResourceType.Titanium, Titanium_Request);
+            //SetRequest(material.type == ResourceType.Sulfur, Sulfur_Request);
+            //SetRequest(material.type == ResourceType.Tungsten, Tungsten_Request);
+            //SetRequest(material.type == ResourceType.Hihiirokane, Hihiirokane_Request);
+            SetRequest(material.type == ResourceType.Gold, Gold_Request);
+            //SetRequest(material.type == ResourceType.Rareearth, Rareearth_Request);
+        }
+    }
+    void SetRequest(bool typecheck, GameObject request)
+    {
+        if (typecheck && !request.activeSelf)
+        {
+            request.SetActive(true);
         }
     }
 }

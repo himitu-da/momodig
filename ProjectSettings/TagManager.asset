@@ -6,6 +6,7 @@ TagManager:
   tags:
   - Block
   - DroppedItem
+  - MaterialRequest
   layers:
   - Default
   - TransparentFX

@@ -872,7 +872,7 @@ GameObject:
   - component: {fileID: 121159948}
   m_Layer: 5
   m_Name: Tungsten_Request
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1958,7 +1958,7 @@ GameObject:
   - component: {fileID: 394853534}
   m_Layer: 5
   m_Name: Copper_Request
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2389,7 +2389,7 @@ GameObject:
   - component: {fileID: 596512226}
   m_Layer: 5
   m_Name: 'Tin_Request '
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2779,7 +2779,7 @@ MonoBehaviour:
   m_ChildAlignment: 0
   m_StartCorner: 0
   m_StartAxis: 0
-  m_CellSize: {x: 200, y: 35}
+  m_CellSize: {x: 230, y: 35}
   m_Spacing: {x: 0, y: 0}
   m_Constraint: 0
   m_ConstraintCount: 2
@@ -3633,7 +3633,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u77F3"
+  m_text: "\u77F3 495 (514)"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: e01bbe2be5b406f41863a80093f6566a, type: 2}
   m_sharedMaterial: {fileID: -8321257022249823599, guid: e01bbe2be5b406f41863a80093f6566a, type: 2}
@@ -4447,7 +4447,7 @@ GameObject:
   - component: {fileID: 1093763671}
   m_Layer: 5
   m_Name: DragonOre_Request
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5275,7 +5275,7 @@ GameObject:
   - component: {fileID: 1339490793}
   m_Layer: 5
   m_Name: Rareearth_Request
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5311,7 +5311,7 @@ GameObject:
   - component: {fileID: 1421274628}
   m_Layer: 5
   m_Name: 'Sillicon_Request '
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5581,7 +5581,7 @@ GameObject:
   - component: {fileID: 1460368296}
   m_Layer: 5
   m_Name: Stone_Request
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5689,7 +5689,7 @@ GameObject:
   - component: {fileID: 1553129848}
   m_Layer: 5
   m_Name: 'Nickel_Request '
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5924,7 +5924,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: WorlShopToggle01
+  m_Text: "\u30C4\u30EB\u30CF\u30B7"
 --- !u!222 &1594872599
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -6053,7 +6053,7 @@ GameObject:
   - component: {fileID: 1608022683}
   m_Layer: 5
   m_Name: 'Cobalt_Request '
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6255,7 +6255,7 @@ GameObject:
   - component: {fileID: 1656669146}
   m_Layer: 5
   m_Name: 'Titanium_Request '
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6291,7 +6291,7 @@ GameObject:
   - component: {fileID: 1674456737}
   m_Layer: 5
   m_Name: Gold_Request
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -6386,9 +6386,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 'WorkShopToggle02
-
-'
+  m_Text: "\u7206\u5F3E"
 --- !u!222 &1693425755
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -6983,7 +6981,7 @@ GameObject:
   - component: {fileID: 1878800317}
   m_Layer: 5
   m_Name: 'Iron_Request '
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7127,7 +7125,7 @@ GameObject:
   - component: {fileID: 1888966726}
   m_Layer: 5
   m_Name: Sulfur_Request
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -7593,7 +7591,7 @@ GameObject:
   - component: {fileID: 2091396715}
   m_Layer: 5
   m_Name: Hihiirokane_Request
-  m_TagString: Untagged
+  m_TagString: MaterialRequest
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
