@@ -180,7 +180,6 @@ public class PlayerController : MonoBehaviour
                 inventoryText = inventoryTextObject.GetComponent<TextMeshProUGUI>();
             }
         }
-        UpdateInventoryUI(); // 初期化
 
         // inventoryCapacityTextを探して設定
         if (inventoryCapacityText == null)
@@ -191,6 +190,18 @@ public class PlayerController : MonoBehaviour
                 inventoryCapacityText = inventoryCapacityTextObject.GetComponent<TextMeshProUGUI>();
             }
         }
+        
+        // 依存関係の初期化（インターフェース経由）
+        inventory = new PlayerInventory();
+        itemManager = DroppedItemManager.Instance;
+        
+        // インベントリイベントの購読
+        if (inventory != null)
+        {
+            inventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
+        }
+
+        UpdateInventoryUI(); // 初期化
         UpdateInventoryCapacityUI(); // 初期化
 
         // Rigidbodyの制約を更新
@@ -203,16 +214,6 @@ public class PlayerController : MonoBehaviour
         if (miningToolsController == null)
         {
             Debug.LogError("MiningToolsControllerが見つかりません。Playerの子オブジェクトにアタッチしてください。");
-        }
-        
-        // 依存関係の初期化（インターフェース経由）
-        inventory = new PlayerInventory();
-        itemManager = DroppedItemManager.Instance;
-        
-        // インベントリイベントの購読
-        if (inventory != null)
-        {
-            inventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
         }
     }
 
@@ -557,13 +558,13 @@ public class PlayerController : MonoBehaviour
         if (inventoryText != null)
         {
             var resources = inventory.GetAllResources();
-            string inventoryInfo = $"持ち物 ({inventory.GetTotalItemCount()}/{inventory.maxCapacity}):\n";
+            string inventoryInfo = "";
             
             foreach (var kvp in resources)
             {
                 if (kvp.Value > 0)
                 {
-                    inventoryInfo += $"{kvp.Key}: {kvp.Value}個 ";
+                    inventoryInfo += $"{kvp.Key}: {kvp.Value}\n";
                 }
             }
             
