@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem; // Input Systemを使うために必要
@@ -36,9 +37,9 @@ public class PlayerController : MonoBehaviour
     }
 
     [Header("UI設定")]
-    [SerializeField] private Text scoreText; // スコア表示用のText
-    [SerializeField] private Text depthText; // 深度表示用のText
-    [SerializeField] private Text inventoryText; // インベントリ表示用UI
+    [SerializeField] private TextMeshProUGUI scoreText; // スコア表示用のText
+    [SerializeField] private TextMeshProUGUI depthText; // 深度表示用のText
+    [SerializeField] private TextMeshProUGUI inventoryText; // インベントリ表示用UI
 
     [Header("インベントリ設定")]
     private IInventory inventory;
@@ -154,7 +155,7 @@ public class PlayerController : MonoBehaviour
             var scoreTextObject = GameObject.Find("ScoreText");
             if (scoreTextObject != null)
             {
-                scoreText = scoreTextObject.GetComponent<Text>();
+                scoreText = scoreTextObject.GetComponent<TextMeshProUGUI>();
             }
         }
         UpdateScoreText();
@@ -165,7 +166,7 @@ public class PlayerController : MonoBehaviour
             var depthTextObject = GameObject.Find("DepthText");
             if (depthTextObject != null)
             {
-                depthText = depthTextObject.GetComponent<Text>();
+                depthText = depthTextObject.GetComponent<TextMeshProUGUI>();
             }
         }
 
@@ -175,7 +176,7 @@ public class PlayerController : MonoBehaviour
             var inventoryTextObject = GameObject.Find("InventoryText");
             if (inventoryTextObject != null)
             {
-                inventoryText = inventoryTextObject.GetComponent<Text>();
+                inventoryText = inventoryTextObject.GetComponent<TextMeshProUGUI>();
             }
         }
         UpdateInventoryUI(); // 初期化
@@ -536,7 +537,7 @@ public class PlayerController : MonoBehaviour
         {
             // プレイヤーのY座標を整数に変換して深度として表示
             int depth = Mathf.FloorToInt(transform.position.y);
-            depthText.text = "Depth: " + depth;
+            depthText.text = Math.Abs(depth) + "m";//"Depth: " + depth;
         }
     }
 
