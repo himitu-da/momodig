@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem; // Input Systemを使うために必要
 using UnityEngine.UI; // UIを使うために必要
 using System.Collections.Generic; // MinecartManager用
@@ -360,6 +361,12 @@ public class PlayerController : MonoBehaviour
 
     private void OnMainMine(InputAction.CallbackContext context)
     {
+        // UI要素上をクリックした場合は、採掘処理を行わない
+        if (EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+        
         // Passageに入っている間は掘削を無効化
         if (IsInPassage) return;
 
@@ -372,6 +379,12 @@ public class PlayerController : MonoBehaviour
 
     private void OnSubMine(InputAction.CallbackContext context)
     {
+        // UI要素上をクリックした場合は、採掘処理を行わない
+        if (EventSystem.current.IsPointerOverGameObject())
+        {
+            return;
+        }
+        
         // Passageに入っている間は掘削を無効化
         if (IsInPassage) return;
         
