@@ -40,6 +40,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private TextMeshProUGUI scoreText; // スコア表示用のText
     [SerializeField] private TextMeshProUGUI depthText; // 深度表示用のText
     [SerializeField] private TextMeshProUGUI inventoryText; // インベントリ表示用UI
+    [SerializeField] private TextMeshProUGUI inventoryCapacityText; // インベントリ容量表示用UI
 
     [Header("インベントリ設定")]
     private IInventory inventory;
@@ -181,6 +182,17 @@ public class PlayerController : MonoBehaviour
         }
         UpdateInventoryUI(); // 初期化
 
+        // inventoryCapacityTextを探して設定
+        if (inventoryCapacityText == null)
+        {
+            var inventoryCapacityTextObject = GameObject.Find("InventoryCapacityText");
+            if (inventoryCapacityTextObject != null)
+            {
+                inventoryCapacityText = inventoryCapacityTextObject.GetComponent<TextMeshProUGUI>();
+            }
+        }
+        UpdateInventoryCapacityUI(); // 初期化
+
         // Rigidbodyの制約を更新
         UpdateConstraints();
 
@@ -200,7 +212,6 @@ public class PlayerController : MonoBehaviour
         // インベントリイベントの購読
         if (inventory != null)
         {
-            inventory.OnResourceAdded += OnInventoryResourceAdded;
             inventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
         }
     }
@@ -242,7 +253,6 @@ public class PlayerController : MonoBehaviour
         // イベント購読解除
         if (inventory != null)
         {
-            inventory.OnResourceAdded -= OnInventoryResourceAdded;
             inventory.OnTotalCountChanged -= OnInventoryTotalCountChanged;
         }
         
@@ -503,6 +513,7 @@ public class PlayerController : MonoBehaviour
                 
                 // インベントリUI更新
                 UpdateInventoryUI();
+                UpdateInventoryCapacityUI();
                 
                 // Debug.Log($"プレイヤーが{resourceType}を回収しました。持ち物: {inventory.GetTotalItemCount()}/{inventory.maxCapacity}");
                 
@@ -560,6 +571,14 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    void UpdateInventoryCapacityUI()
+    {
+        if (inventoryCapacityText != null && inventory != null)
+        {
+            inventoryCapacityText.text = $"Item: {inventory.GetTotalItemCount()}/{inventory.maxCapacity}";
+        }
+    }
+
     private void UpdateConstraints()
     {
         if (rb == null) return;
@@ -581,21 +600,13 @@ public class PlayerController : MonoBehaviour
     }
     
     /// <summary>
-    /// インベントリにリソースが追加されたときの処理
-    /// </summary>
-    private void OnInventoryResourceAdded(ResourceType type, int amount)
-    {
-        // リソース追加時の追加処理があれば実装
-        UpdateInventoryUI(); // UI更新を呼び出し
-    }
-    
-    /// <summary>
     /// インベントリの総数が変更されたときの処理
     /// </summary>
     private void OnInventoryTotalCountChanged(int newTotal)
     {
-        // 総数変更時の処理（必要に応じて）
-        // 例: 満杯状態の通知、パフォーマンス調整など
+        // 総数変更時にUIを更新
+        UpdateInventoryUI();
+        UpdateInventoryCapacityUI();
     }
 
     /// <summary>
