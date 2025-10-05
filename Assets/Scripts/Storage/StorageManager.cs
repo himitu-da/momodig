@@ -37,9 +37,11 @@ public class StorageManager : MonoBehaviour
             return;
         }
         _instance = this;
-        DontDestroyOnLoad(gameObject);
+        
+        // GameDataPersistenceManagerからリソースをロード
+        storedResources = new Dictionary<ResourceType, int>(GameDataPersistenceManager.Instance.storedResources);
 
-        // 全てのリソースタイプを0で初期化
+        // 全てのリソースタイプを0で初期化（もし永続化データになければ）
         foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
         {
             if (!storedResources.ContainsKey(type))
@@ -64,6 +66,9 @@ public class StorageManager : MonoBehaviour
                 storedResources[resource.Key] += resource.Value;
             }
         }
+        
+        // 永続化データも更新
+        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
 
         // 現在の貯蔵量を表示
         string storageInfo = "[StorageManager] 現在の貯蔵量: ";

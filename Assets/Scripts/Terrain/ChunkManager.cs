@@ -254,6 +254,10 @@ public class ChunkManager : MonoBehaviour
         Chunk newChunk = chunkObj.AddComponent<Chunk>();
         newChunk.Initialize(chunkPos);
         activeChunks.Add(chunkPos, newChunk);
+
+        // このチャンクに対応するドロップアイテムを遅延ロード
+        LoadItemsWithDelay(chunkPos).Forget();
+
         return newChunk;
     }
 
@@ -318,5 +322,21 @@ public class ChunkManager : MonoBehaviour
         float worldY = blockPos.y * settings.blockSize;
 
         return new Vector3(worldX, worldY, settings.center.z);
+    }
+
+    private async UniTask LoadItemsWithDelay(Vector3Int chunkPos)
+    {
+        if (terrainManager == null) return;
+        
+        // 指定された時間だけ待機
+        await UniTask.Delay(System.TimeSpan.FromSeconds(terrainManager.Settings.itemLoadDelay), cancellationToken: cancellationTokenSource.Token);
+
+        if (cancellationTokenSource.IsCancellationRequested) return;
+
+        // ドロップアイテムをロード
+        if (DroppedItemManager.Instance != null)
+        {
+            DroppedItemManager.Instance.LoadItemsInChunk(chunkPos);
+        }
     }
 }

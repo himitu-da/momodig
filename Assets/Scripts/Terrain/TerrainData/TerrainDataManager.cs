@@ -57,4 +57,22 @@ public class TerrainDataManager : ScriptableObject
         }
         return null; // No suitable biome found
     }
+
+    public BlockData GetBlockDataByName(string name)
+    {
+        foreach (var mapping in biomeDataMappings)
+        {
+            if (mapping.biomeData != null)
+            {
+                foreach (var blockDist in mapping.biomeData.availableBlocks)
+                {
+                    if (blockDist.blockData != null && blockDist.blockData.name == name)
+                    {
+                        return blockDist.blockData;
+                    }
+                }
+            }
+        }
+        return null;
+    }
 }
