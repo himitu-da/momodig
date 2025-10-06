@@ -10,7 +10,7 @@ public class ItemData : ScriptableObject
     [TextArea] public string FlavorText;
     public int price;
     [Header("必要素材")]
-    public List<RequestMaterial> requestmaterials;
+    public List<RequestMaterial> requestmaterials = new List<RequestMaterial>();
 }
 [System.Serializable]
 public class RequestMaterial
