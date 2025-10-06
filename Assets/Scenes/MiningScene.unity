@@ -619,7 +619,7 @@ GameObject:
   - component: {fileID: 335452131}
   m_Layer: 5
   m_Name: InventoryText
-  m_TagString: Untagged
+  m_TagString: MineableUI
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1494,7 +1494,7 @@ GameObject:
   - component: {fileID: 888950717}
   m_Layer: 5
   m_Name: Depth
-  m_TagString: Untagged
+  m_TagString: MineableUI
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1570,7 +1570,7 @@ GameObject:
   - component: {fileID: 1046567924}
   m_Layer: 5
   m_Name: Inventory
-  m_TagString: Untagged
+  m_TagString: MineableUI
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1811,7 +1811,7 @@ GameObject:
   - component: {fileID: 1244569037}
   m_Layer: 5
   m_Name: DepthText
-  m_TagString: Untagged
+  m_TagString: MineableUI
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2047,12 +2047,12 @@ MonoBehaviour:
   CartCapacity: 100
   minecartCapacityUIPrefab: {fileID: 389274024485993804, guid: 393ff803e241034418760f2c9c02f0e5, type: 3}
   worldCanvasTransform: {fileID: 503054372}
-  uiOffset: {x: 0, y: 0, z: 0}
+  uiOffset: {x: 0, y: 1, z: 0}
   groundStationPosition: {x: 0, y: 2, z: 0}
   followMoveSpeed: 5
   groundMoveSpeed: 15
   unloadTime: 2
-  cartunit: 1
+  cartunit: 5
   pathRecordInterval: 0.2
   cartDistanceInPoints: 5
   maxPathPoints: 100
@@ -2085,7 +2085,7 @@ GameObject:
   - component: {fileID: 1336696429}
   m_Layer: 5
   m_Name: InventoryCapacityText
-  m_TagString: Untagged
+  m_TagString: MineableUI
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -2270,7 +2270,7 @@ GameObject:
   - component: {fileID: 1392169859}
   m_Layer: 5
   m_Name: InventoryCapacity
-  m_TagString: Untagged
+  m_TagString: MineableUI
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3033,6 +3033,7 @@ SceneRoots:
   - {fileID: 410087041}
   - {fileID: 832575519}
   - {fileID: 421652223}
+  - {fileID: 503054372}
   - {fileID: 1317042596}
   - {fileID: 1700130090}
   - {fileID: 123774558}
@@ -3043,4 +3044,3 @@ SceneRoots:
   - {fileID: 1375720078}
   - {fileID: 1674382979}
   - {fileID: 168293943}
-  - {fileID: 503054372}

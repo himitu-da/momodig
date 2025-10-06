@@ -374,7 +374,7 @@ public class PlayerController : MonoBehaviour
     private void OnMainMine(InputAction.CallbackContext context)
     {
         // UI要素上をクリックした場合は、採掘処理を行わない
-        if (EventSystem.current.IsPointerOverGameObject())
+        if (IsPointerOverNonMineableUI())
         {
             return;
         }
@@ -392,7 +392,7 @@ public class PlayerController : MonoBehaviour
     private void OnSubMine(InputAction.CallbackContext context)
     {
         // UI要素上をクリックした場合は、採掘処理を行わない
-        if (EventSystem.current.IsPointerOverGameObject())
+        if (IsPointerOverNonMineableUI())
         {
             return;
         }
@@ -404,6 +404,36 @@ public class PlayerController : MonoBehaviour
         {
             miningToolsController.UseSubMineTool(this.gameObject, lastMoveDirection);
         }
+    }
+
+    /// <summary>
+    /// マウスカーソルが特定のタグを持たないUI要素上にあるかを判定する
+    /// </summary>
+    /// <returns>特定のタグを持たないUI上にあればtrue</returns>
+    private bool IsPointerOverNonMineableUI()
+    {
+        // PointerEventDataを作成
+        PointerEventData eventData = new PointerEventData(EventSystem.current);
+        // 現在のマウス位置を設定
+        eventData.position = mousePosition;
+
+        // レイキャスト結果を格納するリスト
+        List<RaycastResult> results = new List<RaycastResult>();
+        // UIレイキャストを実行
+        EventSystem.current.RaycastAll(eventData, results);
+
+        // レイキャストにヒットしたUI要素をチェック
+        foreach (RaycastResult result in results)
+        {
+            // "MineableUI" タグが付いていないUI要素であれば、採掘をキャンセル
+            if (!result.gameObject.CompareTag("MineableUI"))
+            {
+                return true;
+            }
+        }
+
+        // "MineableUI" タグが付いている、またはUIがない場合は採掘を許可
+        return false;
     }
 
     void OnCollisionEnter(Collision collision)
