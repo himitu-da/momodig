@@ -12,6 +12,7 @@ public class ItemUI : MonoBehaviour
     private List<RequestMaterial> requestmaterials;
     private GameObject Stone_Request;
     private GameObject DragonOre_Request;
+    private GameObject Copper_Request;
     private GameObject Iron_Request;
     private GameObject Tin_Request;
     private GameObject Nickel_Request;
@@ -23,13 +24,14 @@ public class ItemUI : MonoBehaviour
     private GameObject Hihiirokane_Request;
     private GameObject Gold_Request;
     private GameObject Rareearth_Request;
+    private GameObject Diamond_Request;
     private List<RequestMaterial> materiallist;
     private GameObject[] requests;
     void Start()
     {
         requests = GameObject.FindGameObjectsWithTag("MaterialRequest");
     }
-    public void SetItem(ItemData item, TMPro.TMP_Text product, TMPro.TMP_Text content, GameObject Stone_Request, GameObject DragonOre_Request, GameObject Iron_Request, GameObject Tin_Request, GameObject Nickel_Request, GameObject Sillicon_Request, GameObject Cobalt_Request, GameObject Titanium_Request, GameObject Sulfur_Request, GameObject Tungsten_Request, GameObject Hihiirokane_Request, GameObject Gold_Request, GameObject Rareearth_Request)
+    public void SetItem(ItemData item, TMPro.TMP_Text product, TMPro.TMP_Text content, GameObject Stone_Request, GameObject DragonOre_Request, GameObject Copper_Request, GameObject Iron_Request, GameObject Tin_Request, GameObject Nickel_Request, GameObject Sillicon_Request, GameObject Cobalt_Request, GameObject Titanium_Request, GameObject Sulfur_Request, GameObject Tungsten_Request, GameObject Hihiirokane_Request, GameObject Gold_Request, GameObject Rareearth_Request,GameObject Diamond_Request)
     {
         nametext.text = item.Itemname;
         productname = product;
@@ -39,6 +41,7 @@ public class ItemUI : MonoBehaviour
         //要求素材表示のゲームオブジェクト
         this.Stone_Request = Stone_Request;
         this.DragonOre_Request = DragonOre_Request;
+        this.Copper_Request = Copper_Request;
         this.Iron_Request = Iron_Request;
         this.Tin_Request = Tin_Request;
         this.Nickel_Request = Nickel_Request;
@@ -50,6 +53,7 @@ public class ItemUI : MonoBehaviour
         this.Hihiirokane_Request = Hihiirokane_Request;
         this.Gold_Request = Gold_Request;
         this.Rareearth_Request = Rareearth_Request;
+        this.Diamond_Request = Diamond_Request;
     }
     public void ChangeInfo()
     {
@@ -64,6 +68,7 @@ public class ItemUI : MonoBehaviour
         }
         foreach (GameObject request in requests)
         {
+            Debug.Log(request);
             if (request.activeSelf)
             {
                 request.SetActive(false);
@@ -72,17 +77,20 @@ public class ItemUI : MonoBehaviour
         foreach (RequestMaterial material in materiallist)
         {
             SetRequest(material.type == ResourceType.Stone, Stone_Request);
-            //SetRequest(material.type == ResourceType.DragonOre, DragonOre_Request);
+            SetRequest(material.type == ResourceType.DragonGem, DragonOre_Request);
+            SetRequest(material.type == ResourceType.Copper, Copper_Request);
             SetRequest(material.type == ResourceType.Iron, Iron_Request);
-            //SetRequest(material.type == ResourceType.Tin, Tin_Request);
-            //SetRequest(material.type == ResourceType.Nickel, Nickel_Request);
-            //SetRequest(material.type == ResourceType.Sillicon, Sillicon_Request);
-            //SetRequest(material.type == ResourceType.Cobalt, Cobalt_Request);
-            //SetRequest(material.type == ResourceType.Titanium, Titanium_Request);
+            SetRequest(material.type == ResourceType.Tin, Tin_Request);
+            SetRequest(material.type == ResourceType.Nickel, Nickel_Request);
+            SetRequest(material.type == ResourceType.Silicon, Sillicon_Request);
+            SetRequest(material.type == ResourceType.Cobalt, Cobalt_Request);
+            SetRequest(material.type == ResourceType.Titanium, Titanium_Request);
             //SetRequest(material.type == ResourceType.Sulfur, Sulfur_Request);
             //SetRequest(material.type == ResourceType.Tungsten, Tungsten_Request);
             //SetRequest(material.type == ResourceType.Hihiirokane, Hihiirokane_Request);
             SetRequest(material.type == ResourceType.Gold, Gold_Request);
+            SetRequest(material.type == ResourceType.Diamond, Diamond_Request);
+
             //SetRequest(material.type == ResourceType.Rareearth, Rareearth_Request);
         }
     }
