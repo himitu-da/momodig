@@ -1,4 +1,4 @@
-Shader "Custom/UnlitBlock"
+Shader "Custom/Default"
 {
     Properties
     {
@@ -8,7 +8,7 @@ Shader "Custom/UnlitBlock"
     }
     SubShader
     {
-        Tags { "RenderType"="TransparentCutout" "Queue"="AlphaTest" }
+        Tags { "RenderType"="TransparentCutout" "Queue"="Geometry" }
 
         Pass
         {

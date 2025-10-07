@@ -572,7 +572,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
 
                 if (extractedTexture != null)
                 {
-                    var material = new Material(Shader.Find("Custom/UnlitBlock"));
+                    var material = new Material(Shader.Find("Custom/Default"));
                     material.mainTexture = extractedTexture;
                     itemRenderer.material = material;
                 }

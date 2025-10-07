@@ -1,4 +1,4 @@
-Shader "Custom/AlwaysVisibleUnlit"
+Shader "Custom/AlwaysVisible"
 {
     Properties
     {
