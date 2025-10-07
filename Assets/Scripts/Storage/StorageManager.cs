@@ -83,6 +83,24 @@ public class StorageManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 貯蔵庫に単一のリソースを追加する
+    /// </summary>
+    /// <param name="type">リソースタイプ</param>
+    /// <param name="amount">追加する量</param>
+    public void AddResource(ResourceType type, int amount)
+    {
+        if (storedResources.ContainsKey(type))
+        {
+            storedResources[type] += amount;
+        }
+        else
+        {
+            storedResources[type] = amount;
+        }
+        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+    }
+
+    /// <summary>
     /// 指定されたリソースの現在の貯蔵量を取得する
     /// </summary>
     /// <param name="type">リソースタイプ</param>
