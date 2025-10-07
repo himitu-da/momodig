@@ -19,16 +19,16 @@ MonoBehaviour:
   - type: 0
     amount: 1
   - type: 1
-    amount: 1
+    amount: 2
   - type: 2
-    amount: 1
+    amount: 3
   - type: 3
-    amount: 1
+    amount: 4
   - type: 4
-    amount: 1
+    amount: 5
   - type: 5
-    amount: 1
+    amount: 6
   - type: 6
-    amount: 1
+    amount: 7
   - type: 7
-    amount: 1
+    amount: 8
