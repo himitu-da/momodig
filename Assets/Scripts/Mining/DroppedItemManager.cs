@@ -399,6 +399,11 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         return itemInstance;
     }
 
+    public List<DroppedItem> GetActiveItems()
+    {
+        return new List<DroppedItem>(activeItems);
+    }
+
     public void ReturnItem(GameObject itemInstance)
     {
         if (itemInstance == null) return;
