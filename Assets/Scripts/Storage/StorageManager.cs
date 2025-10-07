@@ -98,6 +98,17 @@ public class StorageManager : MonoBehaviour
             storedResources[type] = amount;
         }
         GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+
+        // 現在の貯蔵量を表示
+        string storageInfo = "[StorageManager] 現在の貯蔵量: ";
+        foreach (var resource in storedResources)
+        {
+            if (resource.Value > 0)
+            {
+                storageInfo += $"{resource.Key}: {resource.Value} ";
+            }
+        }
+        Debug.Log(storageInfo);
     }
 
     /// <summary>
