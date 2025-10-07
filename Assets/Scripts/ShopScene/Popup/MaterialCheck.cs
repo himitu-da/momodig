@@ -1,8 +1,6 @@
 using UnityEngine;
-using UnityEngine.UI;
 using System.Collections.Generic;
-
-public class BuyManager : MonoBehaviour
+public class MaterialCheck : MonoBehaviour
 {
     [SerializeField] private GameObject Stone_Request;
     [SerializeField] private GameObject DragonOre_Request;
@@ -21,20 +19,8 @@ public class BuyManager : MonoBehaviour
     [SerializeField] private GameObject Diamond_Request;
 
     [SerializeField] private StorageManager storage;
-
-    [SerializeField] private MaterialCheck CheckList;
-    [SerializeField] private GameObject popup;
-    private List<RequestMaterial> requestmaterials;
     private List<GameObject> requests;
-    public void setmaterials(List<RequestMaterial> materialrequest)
-    {
-        requestmaterials = materialrequest;
-    }
-    void Start()
-    {
-        requests = new List<GameObject>(){Stone_Request,DragonOre_Request,Copper_Request,Iron_Request,Tin_Request,Nickel_Request,Sillicon_Request,Cobalt_Request,Titanium_Request,Sulfur_Request,Tungsten_Request,Hihiirokane_Request,Gold_Request,Rareearth_Request,Diamond_Request};
-    }
-    public void ChangeRequest()
+    public void requestchange(List<RequestMaterial> materialrequest)
     {
         foreach (GameObject request in requests)
         {
@@ -47,8 +33,9 @@ public class BuyManager : MonoBehaviour
                 Debug.Log(request);
             }
         }
-        foreach (RequestMaterial material in requestmaterials)
+        foreach (RequestMaterial material in  materialrequest)
         {
+            //ここを修正して、現在の素材、要求素材、利用後の素材が映るようにする
             SetRequest(material.type == ResourceType.Stone, Stone_Request, material.amount, material.type);
             SetRequest(material.type == ResourceType.DragonGem, DragonOre_Request, material.amount, material.type);
             SetRequest(material.type == ResourceType.Copper, Copper_Request, material.amount, material.type);
@@ -67,18 +54,16 @@ public class BuyManager : MonoBehaviour
             //SetRequest(material.type == ResourceType.Rareearth, Rareearth_Request);
         }
     }
-    public void BuyClick()
+    void Awake()
     {
-        popup.SetActive(true);
-        CheckList.requestchange(requestmaterials);
-        //CheckList.ChangeRequest();
+        requests = new List<GameObject>() { Stone_Request, DragonOre_Request, Copper_Request, Iron_Request, Tin_Request, Nickel_Request, Sillicon_Request, Cobalt_Request, Titanium_Request, Sulfur_Request, Tungsten_Request, Hihiirokane_Request, Gold_Request, Rareearth_Request, Diamond_Request };
     }
     void SetRequest(bool typecheck, GameObject request, int amount,ResourceType type)
     {
         if (typecheck)
         {
             request.SetActive(true);
-            RequestTextManager requesttext = request.GetComponentInChildren<RequestTextManager>();
+            RequestTextManager requesttext = request.GetComponentInChildren<RequestTextManager>();  //ここは変更必須
             if (requesttext != null)
             {
                 requesttext.TextSet(amount,type);
