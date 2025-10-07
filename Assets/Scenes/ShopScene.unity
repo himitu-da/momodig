@@ -1999,21 +1999,6 @@ MonoBehaviour:
   productname: {fileID: 1032063625}
   flavortext: {fileID: 1822774028}
   buymanager: {fileID: 882006948}
-  Stone_Request: {fileID: 1460368295}
-  DragonOre_Request: {fileID: 1093763670}
-  Copper_Request: {fileID: 394853533}
-  Iron_Request: {fileID: 1878800316}
-  Tin_Request: {fileID: 596512225}
-  Nickel_Request: {fileID: 1553129847}
-  Sillicon_Request: {fileID: 1421274627}
-  Cobalt_Request: {fileID: 1608022682}
-  Titanium_Request: {fileID: 1656669145}
-  Sulfur_Request: {fileID: 1888966725}
-  Tungsten_Request: {fileID: 121159947}
-  Hihiirokane_Request: {fileID: 2091396714}
-  Gold_Request: {fileID: 1674456736}
-  Rareearth_Request: {fileID: 1339490792}
-  Diamond_Request: {fileID: 1381152165}
 --- !u!1 &394853533
 GameObject:
   m_ObjectHideFlags: 0
@@ -2313,21 +2298,6 @@ MonoBehaviour:
   productname: {fileID: 1032063625}
   flavortext: {fileID: 1822774028}
   buymanager: {fileID: 882006948}
-  Stone_Request: {fileID: 1460368295}
-  DragonOre_Request: {fileID: 1093763670}
-  Copper_Request: {fileID: 394853533}
-  Iron_Request: {fileID: 1878800316}
-  Tin_Request: {fileID: 596512225}
-  Nickel_Request: {fileID: 1553129847}
-  Sillicon_Request: {fileID: 1421274627}
-  Cobalt_Request: {fileID: 1608022682}
-  Titanium_Request: {fileID: 1656669145}
-  Sulfur_Request: {fileID: 1888966725}
-  Tungsten_Request: {fileID: 121159947}
-  Hihiirokane_Request: {fileID: 2091396714}
-  Gold_Request: {fileID: 1674456736}
-  Rareearth_Request: {fileID: 1339490792}
-  Diamond_Request: {fileID: 1381152165}
 --- !u!1 &506058995
 GameObject:
   m_ObjectHideFlags: 0
@@ -3828,6 +3798,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 70e1f77ad800c7946925b35b329cffc7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  Stone_Request: {fileID: 1460368295}
+  DragonOre_Request: {fileID: 1093763670}
+  Copper_Request: {fileID: 394853533}
+  Iron_Request: {fileID: 1878800316}
+  Tin_Request: {fileID: 596512225}
+  Nickel_Request: {fileID: 1553129847}
+  Sillicon_Request: {fileID: 1421274627}
+  Cobalt_Request: {fileID: 1608022682}
+  Titanium_Request: {fileID: 1656669145}
+  Sulfur_Request: {fileID: 1888966725}
+  Tungsten_Request: {fileID: 121159947}
+  Hihiirokane_Request: {fileID: 2091396714}
+  Gold_Request: {fileID: 1674456736}
+  Rareearth_Request: {fileID: 1339490792}
+  Diamond_Request: {fileID: 1381152165}
 --- !u!1 &883836930
 GameObject:
   m_ObjectHideFlags: 0
@@ -4264,21 +4249,6 @@ MonoBehaviour:
   productname: {fileID: 1032063625}
   flavortext: {fileID: 1822774028}
   buymanager: {fileID: 882006948}
-  Stone_Request: {fileID: 1460368295}
-  DragonOre_Request: {fileID: 1093763670}
-  Copper_Request: {fileID: 394853533}
-  Iron_Request: {fileID: 1878800316}
-  Tin_Request: {fileID: 596512225}
-  Nickel_Request: {fileID: 1553129847}
-  Sillicon_Request: {fileID: 1421274627}
-  Cobalt_Request: {fileID: 1608022682}
-  Titanium_Request: {fileID: 1656669145}
-  Sulfur_Request: {fileID: 1888966725}
-  Tungsten_Request: {fileID: 121159947}
-  Hihiirokane_Request: {fileID: 2091396714}
-  Gold_Request: {fileID: 1674456736}
-  Rareearth_Request: {fileID: 1339490792}
-  Diamond_Request: {fileID: 1381152165}
 --- !u!1 &931929455
 GameObject:
   m_ObjectHideFlags: 0
@@ -5489,21 +5459,6 @@ MonoBehaviour:
   productname: {fileID: 1032063625}
   flavortext: {fileID: 1822774028}
   buymanager: {fileID: 882006948}
-  Stone_Request: {fileID: 1460368295}
-  DragonOre_Request: {fileID: 1093763670}
-  Copper_Request: {fileID: 394853533}
-  Iron_Request: {fileID: 1878800316}
-  Tin_Request: {fileID: 596512225}
-  Nickel_Request: {fileID: 1553129847}
-  Sillicon_Request: {fileID: 1421274627}
-  Cobalt_Request: {fileID: 1608022682}
-  Titanium_Request: {fileID: 1656669145}
-  Sulfur_Request: {fileID: 1888966725}
-  Tungsten_Request: {fileID: 121159947}
-  Hihiirokane_Request: {fileID: 2091396714}
-  Gold_Request: {fileID: 1674456736}
-  Rareearth_Request: {fileID: 1339490792}
-  Diamond_Request: {fileID: 1381152165}
 --- !u!1 &1299221254
 GameObject:
   m_ObjectHideFlags: 0
