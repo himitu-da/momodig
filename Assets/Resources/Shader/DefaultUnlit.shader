@@ -8,7 +8,7 @@ Shader "Custom/Default"
     }
     SubShader
     {
-        Tags { "RenderType"="TransparentCutout" "Queue"="Geometry" }
+        Tags { "RenderType"="TransparentCutout" "Queue"="4100" }
 
         Pass
         {
