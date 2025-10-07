@@ -5,12 +5,18 @@ using UnityEngine.UI;
 public class ContentManager : MonoBehaviour
 {
     [SerializeField] private Transform scrollview;
+
     [SerializeField] private GameObject itemUIPrefab;
+
     [SerializeField] private ToggleGroup group;
     [Header("Assets/GameData/ShopDataにアイテムのデータ")] 
     [SerializeField] private ItemData[] items;  //ItemDataManagerを確認
+
     [SerializeField] private TMPro.TMP_Text productname;
     [SerializeField] private TMPro.TMP_Text flavortext;
+
+    [SerializeField] private BuyManager buymanager;
+
     [SerializeField] private GameObject Stone_Request;
     [SerializeField] private GameObject DragonOre_Request;
     [SerializeField] private GameObject Copper_Request;
@@ -33,7 +39,23 @@ public class ContentManager : MonoBehaviour
             GameObject setitem = Instantiate(itemUIPrefab, scrollview);
             ItemUI ui = setitem.GetComponent<ItemUI>();
             Toggle toggleset = setitem.GetComponent<Toggle>();
-            ui.SetItem(item,productname,flavortext,Stone_Request,DragonOre_Request,Copper_Request,Iron_Request,Tin_Request,Nickel_Request,Sillicon_Request,Cobalt_Request,Titanium_Request,Sulfur_Request,Tungsten_Request,Hihiirokane_Request,Gold_Request,Rareearth_Request,Diamond_Request);
+            ui.SetItem(item,productname,flavortext,
+            Stone_Request,
+            DragonOre_Request,
+            Copper_Request,
+            Iron_Request,
+            Tin_Request,
+            Nickel_Request,
+            Sillicon_Request,
+            Cobalt_Request,
+            Titanium_Request,
+            Sulfur_Request,
+            Tungsten_Request,
+            Hihiirokane_Request,
+            Gold_Request,
+            Rareearth_Request,
+            Diamond_Request,
+            buymanager);
             ui.item_name = item.Itemname;
             ui.FlavorText = item.FlavorText;
             toggleset.group = group;

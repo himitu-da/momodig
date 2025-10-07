@@ -9,6 +9,7 @@ public class ItemUI : MonoBehaviour
     public string item_name;
     [TextArea] public string FlavorText;
     [SerializeField] private Text nametext;
+    private BuyManager buymanager;
     private List<RequestMaterial> requestmaterials;
     private GameObject Stone_Request;
     private GameObject DragonOre_Request;
@@ -31,7 +32,7 @@ public class ItemUI : MonoBehaviour
     {
         requests = new List<GameObject>(){Stone_Request,DragonOre_Request,Copper_Request,Iron_Request,Tin_Request,Nickel_Request,Sillicon_Request,Cobalt_Request,Titanium_Request,Sulfur_Request,Tungsten_Request,Hihiirokane_Request,Gold_Request,Rareearth_Request,Diamond_Request};
     }
-    public void SetItem(ItemData item, TMPro.TMP_Text product, TMPro.TMP_Text content, GameObject Stone_Request, GameObject DragonOre_Request, GameObject Copper_Request, GameObject Iron_Request, GameObject Tin_Request, GameObject Nickel_Request, GameObject Sillicon_Request, GameObject Cobalt_Request, GameObject Titanium_Request, GameObject Sulfur_Request, GameObject Tungsten_Request, GameObject Hihiirokane_Request, GameObject Gold_Request, GameObject Rareearth_Request, GameObject Diamond_Request)
+    public void SetItem(ItemData item, TMPro.TMP_Text product, TMPro.TMP_Text content, GameObject Stone_Request, GameObject DragonOre_Request, GameObject Copper_Request, GameObject Iron_Request, GameObject Tin_Request, GameObject Nickel_Request, GameObject Sillicon_Request, GameObject Cobalt_Request, GameObject Titanium_Request, GameObject Sulfur_Request, GameObject Tungsten_Request, GameObject Hihiirokane_Request, GameObject Gold_Request, GameObject Rareearth_Request, GameObject Diamond_Request,BuyManager buymanager)
     {
         nametext.text = item.Itemname;
         productname = product;
@@ -54,6 +55,8 @@ public class ItemUI : MonoBehaviour
         this.Gold_Request = Gold_Request;
         this.Rareearth_Request = Rareearth_Request;
         this.Diamond_Request = Diamond_Request;
+
+        this.buymanager = buymanager;
     }
     public void ChangeInfo()
     {
@@ -96,6 +99,7 @@ public class ItemUI : MonoBehaviour
 
             //SetRequest(material.type == ResourceType.Rareearth, Rareearth_Request);
         }
+        buymanager.setmaterials(requestmaterials);
     }
     void SetRequest(bool typecheck, GameObject request, int amount,ResourceType type)
     {
