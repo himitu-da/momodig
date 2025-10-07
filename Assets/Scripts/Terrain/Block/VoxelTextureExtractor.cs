@@ -78,6 +78,7 @@ public class VoxelTextureExtractor
             {
                 // Custom Unlitマテリアルを作成
                 var material = new Material(Shader.Find("Custom/Default"));
+                material.renderQueue = RenderQueue.Geometry;
                 material.mainTexture = extractedTexture;
                 itemRenderer.material = material;
                 
@@ -285,6 +286,7 @@ public class VoxelTextureExtractor
     private void ApplyDefaultMaterial(Renderer renderer)
     {
         var material = new Material(Shader.Find("Custom/Default"));
+        material.renderQueue = RenderQueue.Geometry;
         material.color = Color.white; // Unlitなのでテクスチャの色をそのまま出すために白に
         renderer.material = material;
     }

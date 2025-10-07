@@ -120,6 +120,7 @@ public class BlockManager : MonoBehaviour
         
         // Custom Unlitマテリアルを作成
         Material mat = new Material(Shader.Find("Custom/Default"));
+        mat.renderQueue = RenderQueue.Geometry;
         
         // BlockDataにテクスチャが設定されていれば使用
         if (data.textures != null && data.textures.Count > 0)

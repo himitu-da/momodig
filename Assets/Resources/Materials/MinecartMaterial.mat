@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: MinecartMaterial
-  m_Shader: {fileID: 4800000, guid: 1b3c3da776f9a4742be198791b5c16b8, type: 3}
+  m_Shader: {fileID: 4800000, guid: 05f5dffd08dadd746a4e4aeb70ba191b, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -16,7 +16,7 @@ Material:
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 4101
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
