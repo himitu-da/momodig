@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using TMPro;
 
 // トロッコ管理クラス
 public class MinecartManager : MonoBehaviour
@@ -10,6 +11,11 @@ public class MinecartManager : MonoBehaviour
     [Header("トロッコ設定")]
     public GameObject minecartPrefab; // トロッコのプレハブ
     public int CartCapacity = 500;
+
+    [Header("UI設定")]
+    public GameObject minecartCapacityUIPrefab; // UIプレハブ
+    public Transform worldCanvasTransform; // UIを配置するCanvas
+    public Vector3 uiOffset; // UIのオフセット
     [Header("トロッコ移動設定")]
     public Vector3 groundStationPosition = Vector3.zero; // 地上の停留点
     public float followMoveSpeed = 5f; // プレイヤー追従時の速度
@@ -60,14 +66,27 @@ public class MinecartManager : MonoBehaviour
         if (minecartPrefab != null)
         {
             GameObject newMinecartObject = Instantiate(minecartPrefab, Vector3.zero, Quaternion.identity, transform);
-            // MinecartMovementコンポーネントがなければ追加する
             MinecartMovement movement = newMinecartObject.GetComponent<MinecartMovement>();
             if (movement == null)
             {
                 movement = newMinecartObject.AddComponent<MinecartMovement>();
             }
-            movement.moveSpeed = followMoveSpeed; // 初期速度を設定
-            minecarts.Add(new Minecart(newMinecartObject));
+            movement.moveSpeed = followMoveSpeed;
+
+            Minecart newMinecart = new Minecart(newMinecartObject);
+
+            // UIの生成
+            if (minecartCapacityUIPrefab != null && worldCanvasTransform != null)
+            {
+                GameObject uiObject = Instantiate(minecartCapacityUIPrefab, worldCanvasTransform);
+                newMinecart.capacityText = uiObject.GetComponent<TextMeshProUGUI>();
+            }
+            else
+            {
+                Debug.LogWarning("UIプレハブまたはCanvasが設定されていません。");
+            }
+
+            minecarts.Add(newMinecart);
         }
         else
         {
@@ -187,9 +206,24 @@ public class MinecartManager : MonoBehaviour
         // トロッコの位置を更新
         UpdateMinecartPositions();
 
-        // トロッコの状態を更新
+        // トロッコの状態とUIを更新
         foreach (Minecart cart in minecarts)
         {
+            // UIの更新
+            if (cart.capacityText != null)
+            {
+                if (cart.gameObject.activeSelf)
+                {
+                    cart.capacityText.gameObject.SetActive(true);
+                    cart.capacityText.transform.position = cart.gameObject.transform.position + uiOffset;
+                    cart.capacityText.text = $"{cart.CurrentLoad} / {CartCapacity}";
+                }
+                else
+                {
+                    cart.capacityText.gameObject.SetActive(false);
+                }
+            }
+
             switch (cart.state)
             {
                 case MinecartState.GoingToGround:

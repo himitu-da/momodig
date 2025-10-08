@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using TMPro;
 
 // トロッコクラス
 
@@ -17,6 +18,7 @@ public class Minecart
     public Dictionary<ResourceType, int> resources; // 資源と量
     public float time;
     public MinecartState state; // トロッコの現在の状態
+    public TextMeshProUGUI capacityText; // UIテキストへの参照
 
     // コンストラクタで初期化
     public Minecart(GameObject obj)
