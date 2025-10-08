@@ -25,7 +25,7 @@ public class SurfaceInteractionSystem : MonoBehaviour
 
     void Awake()
     {
-        if (playerController == null) playerController = FindObjectOfType<PlayerController>();
+        if (playerController == null) playerController = FindFirstObjectByType<PlayerController>();
         if (storageManager == null) storageManager = StorageManager.Instance;
     }
 
@@ -152,7 +152,11 @@ public class SurfaceInteractionSystem : MonoBehaviour
         var renderer = animItem.GetComponent<Renderer>();
         if (renderer != null)
         {
-            renderer.material.color = ResourceTypeUtility.GetResourceColor(resourceType);
+            // Custom Unlitマテリアルを作成
+            Material mat = new Material(Shader.Find("Custom/Default"));
+            mat.renderQueue = RenderQueue.Geometry;
+            mat.color = ResourceTypeUtility.GetResourceColor(resourceType);
+            renderer.material = mat;
         }
         return animItem;
     }
