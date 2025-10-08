@@ -20,8 +20,11 @@ public class MaterialCheck : MonoBehaviour
 
     [SerializeField] private StorageManager storage;
     private List<GameObject> requests;
+    [SerializeField] private PopupCounter popcounter;
+    private List<RequestMaterial> Materialrequest;
     public void requestchange(List<RequestMaterial> materialrequest)
     {
+        Materialrequest = materialrequest;
         foreach (GameObject request in requests)
         {
             if (request != null)
@@ -33,41 +36,62 @@ public class MaterialCheck : MonoBehaviour
                 Debug.Log(request);
             }
         }
-        foreach (RequestMaterial material in  materialrequest)
+        List<PopMaterialTextManager> ActiveMaterialText = new List<PopMaterialTextManager>();
+        foreach (RequestMaterial material in materialrequest)
         {
-            //ここを修正して、現在の素材、要求素材、利用後の素材が映るようにする
-            SetRequest(material.type == ResourceType.Stone, Stone_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.DragonGem, DragonOre_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Copper, Copper_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Iron, Iron_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Tin, Tin_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Nickel, Nickel_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Silicon, Sillicon_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Cobalt, Cobalt_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Titanium, Titanium_Request, material.amount, material.type);
+            SetRequest(material.type == ResourceType.Stone, Stone_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.DragonGem, DragonOre_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Copper, Copper_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Iron, Iron_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Tin, Tin_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Nickel, Nickel_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Silicon, Sillicon_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Cobalt, Cobalt_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Titanium, Titanium_Request, material.amount, ActiveMaterialText);
             //SetRequest(material.type == ResourceType.Sulfur, Sulfur_Request);
             //SetRequest(material.type == ResourceType.Tungsten, Tungsten_Request);
             //SetRequest(material.type == ResourceType.Hihiirokane, Hihiirokane_Request);
-            SetRequest(material.type == ResourceType.Gold, Gold_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Diamond, Diamond_Request, material.amount, material.type);
+            SetRequest(material.type == ResourceType.Gold, Gold_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Diamond, Diamond_Request, material.amount, ActiveMaterialText);
 
             //SetRequest(material.type == ResourceType.Rareearth, Rareearth_Request);
+        }
+        popcounter.ActiveMaterialText = ActiveMaterialText;
+    }
+    public bool buyable(List<RequestMaterial> materialrequests,int count)
+    {
+        if (materialrequests != null || materialrequests.Count != 0)
+        {
+            foreach (RequestMaterial request in materialrequests)
+            {
+                if (storage.GetResourceAmount(request.type) - request.amount * count < 0)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        else
+        {
+            Debug.Log("MaterialCheck.cs materialrequests is not set L61~75");
+            return false;
         }
     }
     void Awake()
     {
         requests = new List<GameObject>() { Stone_Request, DragonOre_Request, Copper_Request, Iron_Request, Tin_Request, Nickel_Request, Sillicon_Request, Cobalt_Request, Titanium_Request, Sulfur_Request, Tungsten_Request, Hihiirokane_Request, Gold_Request, Rareearth_Request, Diamond_Request };
     }
-    void SetRequest(bool typecheck, GameObject request, int amount,ResourceType type)
+    void SetRequest(bool typecheck, GameObject request, int amount,List<PopMaterialTextManager> textlist)
     {
         if (typecheck)
         {
             request.SetActive(true);
-            RequestTextManager requesttext = request.GetComponentInChildren<RequestTextManager>();  //ここは変更必須
+            PopMaterialTextManager requesttext = request.GetComponentInChildren<PopMaterialTextManager>();  //ここは変更必須
             if (requesttext != null)
             {
-                requesttext.TextSet(amount,type);
+                requesttext.GetParAmount(amount);
             }
+            textlist.Add(requesttext);
         }
     }
 }
