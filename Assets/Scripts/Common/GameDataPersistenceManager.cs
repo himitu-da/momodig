@@ -42,7 +42,8 @@ public class GameDataPersistenceManager : MonoBehaviour
     [Header("ドロップアイテムデータ")]
     public List<DroppedItemData> droppedItems = new List<DroppedItemData>();
 
-
+    [Header("購入済み商品データ")]
+    public Dictionary<ItemData, int> purchaseditems = new Dictionary<ItemData, int>();
     void Awake()
     {
         if (_instance != null && _instance != this)

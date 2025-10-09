@@ -18,5 +18,3 @@ MonoBehaviour:
   requestmaterials:
   - type: 0
     amount: -2
-  - type: 1
-    amount: 3

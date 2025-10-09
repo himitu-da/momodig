@@ -19,13 +19,14 @@ public class BuyManager : MonoBehaviour
     [SerializeField] private GameObject Gold_Request;
     [SerializeField] private GameObject Rareearth_Request;
     [SerializeField] private GameObject Diamond_Request;
-
     [SerializeField] private StorageManager storage;
 
     [SerializeField] private MaterialCheck CheckList;
     [SerializeField] private GameObject popup;
+    [SerializeField] private PopBuyManager popbuy;
     private List<RequestMaterial> requestmaterials;
     private List<GameObject> requests;
+    public ItemData candidateitem;
     public void setmaterials(List<RequestMaterial> materialrequest)
     {
         requestmaterials = materialrequest;
@@ -71,6 +72,7 @@ public class BuyManager : MonoBehaviour
     {
         popup.SetActive(true);
         CheckList.requestchange(requestmaterials);
+        popbuy.setitem(candidateitem);
         //CheckList.ChangeRequest();
     }
     void SetRequest(bool typecheck, GameObject request, int amount,ResourceType type)

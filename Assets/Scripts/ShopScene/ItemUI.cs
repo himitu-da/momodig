@@ -11,8 +11,10 @@ public class ItemUI : MonoBehaviour
     [SerializeField] private Text nametext;
     private BuyManager buymanager;
     private List<RequestMaterial> requestmaterials;
-    public void SetItem(ItemData item, TMPro.TMP_Text product, TMPro.TMP_Text content,BuyManager buymanager)
+    private ItemData candidateitem;
+    public void SetItem(ItemData item, TMPro.TMP_Text product, TMPro.TMP_Text content, BuyManager buymanager)
     {
+        candidateitem = item;
         nametext.text = item.Itemname;
         productname = product;
         contentdescription = content;
@@ -32,5 +34,6 @@ public class ItemUI : MonoBehaviour
         }
         buymanager.setmaterials(requestmaterials);
         buymanager.ChangeRequest();
+        buymanager.candidateitem = this.candidateitem;
     }
 }

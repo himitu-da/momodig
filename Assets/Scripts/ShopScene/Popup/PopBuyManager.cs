@@ -1,13 +1,34 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using JetBrains.Annotations;
 public class PopBuyManager : MonoBehaviour
 {
     [SerializeField]private Button popbuybutton;
     [SerializeField] private StorageManager storage;
     [SerializeField] private PopupCounter counter;
+    private ItemData item;
     public List<RequestMaterial> Materialrequest;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    [SerializeField] private GameObject popup;
+    public void setitem(ItemData candidate)
+    {
+        item = candidate;
+    }
+    public void buyitem()
+    {
+        if (GameDataPersistenceManager.Instance.purchaseditems.ContainsKey(item))
+        {
+            GameDataPersistenceManager.Instance.purchaseditems[item] += counter.getcount();
+        }
+        else
+        {
+            GameDataPersistenceManager.Instance.purchaseditems.Add(item, counter.getcount());
+        }
+        foreach (RequestMaterial requestmaterial in item.requestmaterials)
+        {
+            storage.AddResource(requestmaterial.type, requestmaterial.amount * (-1));
+        }
+    }
     public void boolbuyable(bool buyable)
     {
         popbuybutton.interactable = buyable;
