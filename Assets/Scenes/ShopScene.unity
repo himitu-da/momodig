@@ -538,6 +538,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 0
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &54707307
 GameObject:
   m_ObjectHideFlags: 0
@@ -1687,6 +1688,7 @@ MonoBehaviour:
   Diamond_Request: {fileID: 125897371}
   storage: {fileID: 1514389441}
   popcounter: {fileID: 1156197135}
+  popbuymanager: {fileID: 1062286946}
 --- !u!1 &172833336
 GameObject:
   m_ObjectHideFlags: 0
@@ -2752,6 +2754,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 0
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &334408780
 GameObject:
   m_ObjectHideFlags: 0
@@ -3308,6 +3311,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 10
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &418490642
 GameObject:
   m_ObjectHideFlags: 0
@@ -4013,6 +4017,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 4
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &542865046
 GameObject:
   m_ObjectHideFlags: 0
@@ -4408,6 +4413,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 0
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &634076890
 GameObject:
   m_ObjectHideFlags: 0
@@ -5006,6 +5012,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 7
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &696239358
 GameObject:
   m_ObjectHideFlags: 0
@@ -5497,6 +5504,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 2
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &729534288
 GameObject:
   m_ObjectHideFlags: 0
@@ -5727,6 +5735,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 9
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &805963398
 GameObject:
   m_ObjectHideFlags: 0
@@ -6068,6 +6077,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 8
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &864407257
 GameObject:
   m_ObjectHideFlags: 0
@@ -7220,6 +7230,7 @@ GameObject:
   - component: {fileID: 1062286945}
   - component: {fileID: 1062286944}
   - component: {fileID: 1062286943}
+  - component: {fileID: 1062286946}
   m_Layer: 5
   m_Name: PopBuyButton
   m_TagString: Untagged
@@ -7329,6 +7340,22 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1062286941}
   m_CullTransparentMesh: 1
+--- !u!114 &1062286946
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1062286941}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb773418ad8652b47a37893e5e046145, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  popbuybutton: {fileID: 1062286943}
+  storage: {fileID: 1514389441}
+  counter: {fileID: 1156197135}
+  Materialrequest: []
 --- !u!1 &1073893191
 GameObject:
   m_ObjectHideFlags: 0
@@ -8078,9 +8105,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce238d119ed4c8c42b0d4b6cd2b991b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  countnum: 1
   ActiveMaterialText: []
   countertxt: {fileID: 1398203440}
+  buymanager: {fileID: 1062286946}
 --- !u!1 &1187807654
 GameObject:
   m_ObjectHideFlags: 0
@@ -8540,6 +8567,7 @@ MonoBehaviour:
   group: {fileID: 1238997012}
   items:
   - {fileID: 11400000, guid: 7a510cc23e2d91346895a11274e94599, type: 2}
+  - {fileID: 11400000, guid: 756b392266326254ea28ace29d64d86e, type: 2}
   productname: {fileID: 1032063625}
   flavortext: {fileID: 1822774028}
   buymanager: {fileID: 882006948}
@@ -8697,6 +8725,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 5
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &1263809540
 GameObject:
   m_ObjectHideFlags: 0
@@ -8851,6 +8880,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 0
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &1265779417
 GameObject:
   m_ObjectHideFlags: 0
@@ -9807,6 +9837,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 0
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &1460368295
 GameObject:
   m_ObjectHideFlags: 0
@@ -10418,6 +10449,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 1
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &1553129847
 GameObject:
   m_ObjectHideFlags: 0
@@ -11663,6 +11695,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 0
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &1808414080
 GameObject:
   m_ObjectHideFlags: 0
@@ -12353,6 +12386,7 @@ MonoBehaviour:
   Storage: {fileID: 1514389441}
   type: 3
   counter: {fileID: 1156197135}
+  popbuymanager: {fileID: 0}
 --- !u!1 &1878800316
 GameObject:
   m_ObjectHideFlags: 0
@@ -13045,7 +13079,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1634332374}
   m_Direction: 2
   m_Value: 1.000002
-  m_Size: 0.8512909
+  m_Size: 0.8495727
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:

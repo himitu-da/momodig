@@ -3,10 +3,14 @@ using UnityEngine;
 
 public class PopupCounter : MonoBehaviour
 {
-    public int countnum = 1;
+    private int countnum = 1;
     public List<PopMaterialTextManager> ActiveMaterialText;
     [SerializeField] private TMPro.TMP_Text countertxt;
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    [SerializeField] PopBuyManager buymanager;
+    public int getcount()
+    {
+        return countnum;
+    }
     public void countchange(int number)
     {
         countnum = Mathf.Max(countnum + number, 1);
@@ -17,10 +21,17 @@ public class PopupCounter : MonoBehaviour
         {
             materialtext.UpdateText(countnum);
         }
+        buymanager.boolbuyable(buymanager.buyable(buymanager.Materialrequest,countnum));
     }
-    void Start()
+    private void OnEnable()
     {
+        countnum = 1;
+
         countertxt.SetText(countnum.ToString());
+        foreach (PopMaterialTextManager materialtext in ActiveMaterialText)
+        {
+            materialtext.UpdateText(countnum);
+        }
     }
     void Update()
     {

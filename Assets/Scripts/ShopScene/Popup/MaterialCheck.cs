@@ -22,6 +22,7 @@ public class MaterialCheck : MonoBehaviour
     private List<GameObject> requests;
     [SerializeField] private PopupCounter popcounter;
     private List<RequestMaterial> Materialrequest;
+    [SerializeField] private PopBuyManager popbuymanager;
     public void requestchange(List<RequestMaterial> materialrequest)
     {
         Materialrequest = materialrequest;
@@ -57,25 +58,8 @@ public class MaterialCheck : MonoBehaviour
             //SetRequest(material.type == ResourceType.Rareearth, Rareearth_Request);
         }
         popcounter.ActiveMaterialText = ActiveMaterialText;
-    }
-    public bool buyable(List<RequestMaterial> materialrequests,int count)
-    {
-        if (materialrequests != null || materialrequests.Count != 0)
-        {
-            foreach (RequestMaterial request in materialrequests)
-            {
-                if (storage.GetResourceAmount(request.type) - request.amount * count < 0)
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-        else
-        {
-            Debug.Log("MaterialCheck.cs materialrequests is not set L61~75");
-            return false;
-        }
+        Debug.Log(materialrequest.Count);
+        popbuymanager.SetMaterialrequest(materialrequest);
     }
     void Awake()
     {
@@ -86,7 +70,7 @@ public class MaterialCheck : MonoBehaviour
         if (typecheck)
         {
             request.SetActive(true);
-            PopMaterialTextManager requesttext = request.GetComponentInChildren<PopMaterialTextManager>();  //ここは変更必須
+            PopMaterialTextManager requesttext = request.GetComponentInChildren<PopMaterialTextManager>();
             if (requesttext != null)
             {
                 requesttext.GetParAmount(amount);
