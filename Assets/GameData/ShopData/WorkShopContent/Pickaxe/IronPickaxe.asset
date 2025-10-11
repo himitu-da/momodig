@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb8c45ea4b87fad40ad030d190c9bc2d, type: 3}
+  m_Name: IronPickaxe
+  m_EditorClassIdentifier: 
+  Itemname: "\u9244\u306E\u30C4\u30EB\u30CF\u30B7"
+  FlavorText: "\u5E97\u58F2\u308A\u3055\u308C\u3066\u3044\u308B\u30B7\u30F3\u30D7\u30EB\u306A\u9244\u306E\u30C4\u30EB\u30CF\u30B7\u3002\u3060\u304C\u63A1\u6398\u4F5C\u696D\u3092\u3059\u308B\u306B\u306F\u56F0\u3089\u306A\u3044\u3002\u91CF\u7523\u54C1\u306B\u3082\u3053\u3060\u308F\u308A\u304C\u591A\u304F\u898B\u3089\u308C\u308B"
+  price: 0
+  requestmaterials:
+  - type: 1
+    amount: 3
