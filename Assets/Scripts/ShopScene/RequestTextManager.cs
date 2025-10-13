@@ -11,6 +11,5 @@ public class RequestTextManager : MonoBehaviour
         materialamount = amount;
         this.type = type;
         text.SetText($"{materialname} {materialamount} ({Storage.GetResourceAmount(type)})");
-        //text.SetText($"{materialname} {materialamount} ()");    //StorageManager見つかるまでの仮
     }
 }

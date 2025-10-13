@@ -5,39 +5,37 @@ using UnityEngine.UI;
 public class ContentManager : MonoBehaviour
 {
     [SerializeField] private Transform scrollview;
+
     [SerializeField] private GameObject itemUIPrefab;
+
     [SerializeField] private ToggleGroup group;
     [Header("Assets/GameData/ShopDataにアイテムのデータ")] 
     [SerializeField] private ItemData[] items;  //ItemDataManagerを確認
+
     [SerializeField] private TMPro.TMP_Text productname;
     [SerializeField] private TMPro.TMP_Text flavortext;
-    [SerializeField] private GameObject Stone_Request;
-    [SerializeField] private GameObject DragonOre_Request;
-    [SerializeField] private GameObject Copper_Request;
-    [SerializeField] private GameObject Iron_Request;
-    [SerializeField] private GameObject Tin_Request;
-    [SerializeField] private GameObject Nickel_Request;
-    [SerializeField] private GameObject Sillicon_Request;
-    [SerializeField] private GameObject Cobalt_Request;
-    [SerializeField] private GameObject Titanium_Request;
-    [SerializeField] private GameObject Sulfur_Request;
-    [SerializeField] private GameObject Tungsten_Request;
-    [SerializeField] private GameObject Hihiirokane_Request;
-    [SerializeField] private GameObject Gold_Request;
-    [SerializeField] private GameObject Rareearth_Request;
-    [SerializeField] private GameObject Diamond_Request;
+
+    [SerializeField] private BuyManager buymanager;
     void Start()
     {
         foreach (ItemData item in items)
         {
             GameObject setitem = Instantiate(itemUIPrefab, scrollview);
+            setitem.SetActive(true);
             ItemUI ui = setitem.GetComponent<ItemUI>();
             Toggle toggleset = setitem.GetComponent<Toggle>();
-            ui.SetItem(item,productname,flavortext,Stone_Request,DragonOre_Request,Copper_Request,Iron_Request,Tin_Request,Nickel_Request,Sillicon_Request,Cobalt_Request,Titanium_Request,Sulfur_Request,Tungsten_Request,Hihiirokane_Request,Gold_Request,Rareearth_Request,Diamond_Request);
+            if (toggleset == null) { Debug.Log("toggleset is not set"); }
+            if(group != null)
+            {
+                toggleset.group = group;
+            }
+            else
+            {
+                Debug.Log("group is not set");
+            }
+            ui.SetItem(item,productname,flavortext,buymanager);
             ui.item_name = item.Itemname;
             ui.FlavorText = item.FlavorText;
-            toggleset.group = group;
-            setitem.SetActive(true);
         }
     }
 }
