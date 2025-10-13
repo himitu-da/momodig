@@ -15,7 +15,7 @@ Shader "Custom/TextAlwaysVisible"
 
     SubShader
     {
-        Tags { "Queue"="4300" "RenderType"="Transparent" "IgnoreProjector"="True" }
+        Tags { "Queue"="Overlay+300" "RenderType"="Transparent" "IgnoreProjector"="True" }
 
         Pass
         {
