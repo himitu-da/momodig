@@ -16,7 +16,7 @@ public class PopMaterialTextManager : MonoBehaviour
     }
     public void UpdateText(int count)
     {
-        text.SetText($"{materialname}      {Storage.GetResourceAmount(type)} - {parmaterialamount} × {count} = {Storage.GetResourceAmount(type)-parmaterialamount*count}");
+        text.SetText($"{materialname}      {Storage.GetResourceAmount(type)} - {parmaterialamount*count} = {Storage.GetResourceAmount(type)-parmaterialamount*count}");
     }
     /*
     public void TextSet(int amount, ResourceType type)

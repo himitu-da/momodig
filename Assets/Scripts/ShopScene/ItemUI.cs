@@ -10,7 +10,7 @@ public class ItemUI : MonoBehaviour
     [TextArea] public string FlavorText;
     [SerializeField] private Text nametext;
     private BuyManager buymanager;
-    private List<RequestMaterial> requestmaterials;
+    //private List<RequestMaterial> requestmaterials;
     private ItemData candidateitem;
     public void SetItem(ItemData item, TMPro.TMP_Text product, TMPro.TMP_Text content, BuyManager buymanager)
     {
@@ -18,22 +18,22 @@ public class ItemUI : MonoBehaviour
         nametext.text = item.Itemname;
         productname = product;
         contentdescription = content;
-        this.requestmaterials = item.requestmaterials;
+        //this.requestmaterials = item.requestmaterials;
         this.buymanager = buymanager;
     }
     public void ChangeInfo()
     {
         if (productname != null && contentdescription != null)
         {
-            productname.SetText(item_name);
+            productname.SetText($"{item_name} ({candidateitem.itemlevel}Lv)");
             contentdescription.SetText(FlavorText);
         }
         else
         {
             Debug.Log("Productname or contentdescription is not set");
         }
-        buymanager.setmaterials(requestmaterials);
-        buymanager.ChangeRequest();
         buymanager.candidateitem = this.candidateitem;
+        buymanager.setmaterials(candidateitem.requestmaterials);
+        buymanager.ChangeRequest();
     }
 }

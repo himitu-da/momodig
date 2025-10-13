@@ -18,15 +18,15 @@ public class PopBuyManager : MonoBehaviour
     {
         if (GameDataPersistenceManager.Instance.purchaseditems.ContainsKey(item))
         {
-            GameDataPersistenceManager.Instance.purchaseditems[item] += counter.getcount();
+            GameDataPersistenceManager.Instance.purchaseditems[item] = item.itemlevel;
         }
         else
         {
-            GameDataPersistenceManager.Instance.purchaseditems.Add(item, counter.getcount());
+            GameDataPersistenceManager.Instance.purchaseditems.Add(item, item.itemlevel);
         }
         foreach (RequestMaterial requestmaterial in item.requestmaterials)
         {
-            storage.AddResource(requestmaterial.type, requestmaterial.amount * (-1));
+            storage.AddResource(requestmaterial.type, requestmaterial.correctamount(item.itemlevel) * (-1));
         }
     }
     public void boolbuyable(bool buyable)
@@ -57,5 +57,12 @@ public class PopBuyManager : MonoBehaviour
         this.Materialrequest = requests;
         Debug.Log(Materialrequest.Count);
         boolbuyable(buyable(requests,counter.getcount()));
+    }
+    int factorialnum(int level){
+        int factorialresult = 1;
+        for(int i = 0; i < level; i++){
+            factorialresult = factorialresult * (i+1);
+        }
+        return factorialresult;
     }
 }

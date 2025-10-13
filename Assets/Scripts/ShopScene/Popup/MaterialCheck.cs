@@ -23,7 +23,7 @@ public class MaterialCheck : MonoBehaviour
     [SerializeField] private PopupCounter popcounter;
     private List<RequestMaterial> Materialrequest;
     [SerializeField] private PopBuyManager popbuymanager;
-    public void requestchange(List<RequestMaterial> materialrequest)
+    public void requestchange(List<RequestMaterial> materialrequest,ItemData candidateitem)
     {
         Materialrequest = materialrequest;
         foreach (GameObject request in requests)
@@ -40,20 +40,20 @@ public class MaterialCheck : MonoBehaviour
         List<PopMaterialTextManager> ActiveMaterialText = new List<PopMaterialTextManager>();
         foreach (RequestMaterial material in materialrequest)
         {
-            SetRequest(material.type == ResourceType.Stone, Stone_Request, material.amount, ActiveMaterialText);
-            SetRequest(material.type == ResourceType.DragonGem, DragonOre_Request, material.amount, ActiveMaterialText);
-            SetRequest(material.type == ResourceType.Copper, Copper_Request, material.amount, ActiveMaterialText);
-            SetRequest(material.type == ResourceType.Iron, Iron_Request, material.amount, ActiveMaterialText);
-            SetRequest(material.type == ResourceType.Tin, Tin_Request, material.amount, ActiveMaterialText);
-            SetRequest(material.type == ResourceType.Nickel, Nickel_Request, material.amount, ActiveMaterialText);
-            SetRequest(material.type == ResourceType.Silicon, Sillicon_Request, material.amount, ActiveMaterialText);
-            SetRequest(material.type == ResourceType.Cobalt, Cobalt_Request, material.amount, ActiveMaterialText);
-            SetRequest(material.type == ResourceType.Titanium, Titanium_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Stone, Stone_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
+            SetRequest(material.type == ResourceType.DragonGem, DragonOre_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Copper, Copper_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Iron, Iron_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Tin, Tin_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Nickel, Nickel_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Silicon, Sillicon_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Cobalt, Cobalt_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Titanium, Titanium_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
             //SetRequest(material.type == ResourceType.Sulfur, Sulfur_Request);
             //SetRequest(material.type == ResourceType.Tungsten, Tungsten_Request);
             //SetRequest(material.type == ResourceType.Hihiirokane, Hihiirokane_Request);
-            SetRequest(material.type == ResourceType.Gold, Gold_Request, material.amount, ActiveMaterialText);
-            SetRequest(material.type == ResourceType.Diamond, Diamond_Request, material.amount, ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Gold, Gold_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
+            SetRequest(material.type == ResourceType.Diamond, Diamond_Request, material.correctamount(candidateitem.itemlevel), ActiveMaterialText);
 
             //SetRequest(material.type == ResourceType.Rareearth, Rareearth_Request);
         }

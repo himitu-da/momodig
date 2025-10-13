@@ -48,22 +48,22 @@ public class BuyManager : MonoBehaviour
                 Debug.Log(request);
             }
         }
-        foreach (RequestMaterial material in requestmaterials)
+        foreach (RequestMaterial material in candidateitem.requestmaterials)
         {
-            SetRequest(material.type == ResourceType.Stone, Stone_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.DragonGem, DragonOre_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Copper, Copper_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Iron, Iron_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Tin, Tin_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Nickel, Nickel_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Silicon, Sillicon_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Cobalt, Cobalt_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Titanium, Titanium_Request, material.amount, material.type);
+            SetRequest(material.type == ResourceType.Stone, Stone_Request, material.correctamount(candidateitem.itemlevel), material.type);
+            SetRequest(material.type == ResourceType.DragonGem, DragonOre_Request, material.correctamount(candidateitem.itemlevel), material.type);
+            SetRequest(material.type == ResourceType.Copper, Copper_Request, material.correctamount(candidateitem.itemlevel), material.type);
+            SetRequest(material.type == ResourceType.Iron, Iron_Request, material.correctamount(candidateitem.itemlevel), material.type);
+            SetRequest(material.type == ResourceType.Tin, Tin_Request, material.correctamount(candidateitem.itemlevel), material.type);
+            SetRequest(material.type == ResourceType.Nickel, Nickel_Request, material.correctamount(candidateitem.itemlevel), material.type);
+            SetRequest(material.type == ResourceType.Silicon, Sillicon_Request, material.correctamount(candidateitem.itemlevel), material.type);
+            SetRequest(material.type == ResourceType.Cobalt, Cobalt_Request, material.correctamount(candidateitem.itemlevel), material.type);
+            SetRequest(material.type == ResourceType.Titanium, Titanium_Request, material.correctamount(candidateitem.itemlevel), material.type);
             //SetRequest(material.type == ResourceType.Sulfur, Sulfur_Request);
             //SetRequest(material.type == ResourceType.Tungsten, Tungsten_Request);
             //SetRequest(material.type == ResourceType.Hihiirokane, Hihiirokane_Request);
-            SetRequest(material.type == ResourceType.Gold, Gold_Request, material.amount, material.type);
-            SetRequest(material.type == ResourceType.Diamond, Diamond_Request, material.amount, material.type);
+            SetRequest(material.type == ResourceType.Gold, Gold_Request, material.correctamount(candidateitem.itemlevel), material.type);
+            SetRequest(material.type == ResourceType.Diamond, Diamond_Request, material.correctamount(candidateitem.itemlevel), material.type);
 
             //SetRequest(material.type == ResourceType.Rareearth, Rareearth_Request);
         }
@@ -71,11 +71,11 @@ public class BuyManager : MonoBehaviour
     public void BuyClick()
     {
         popup.SetActive(true);
-        CheckList.requestchange(requestmaterials);
+        CheckList.requestchange(candidateitem.requestmaterials,candidateitem);
         popbuy.setitem(candidateitem);
         //CheckList.ChangeRequest();
     }
-    void SetRequest(bool typecheck, GameObject request, int amount,ResourceType type)
+    void SetRequest(bool typecheck, GameObject request, int amount, ResourceType type)
     {
         if (typecheck)
         {
@@ -83,7 +83,7 @@ public class BuyManager : MonoBehaviour
             RequestTextManager requesttext = request.GetComponentInChildren<RequestTextManager>();
             if (requesttext != null)
             {
-                requesttext.TextSet(amount,type);
+                requesttext.TextSet(amount, type);
             }
         }
     }
