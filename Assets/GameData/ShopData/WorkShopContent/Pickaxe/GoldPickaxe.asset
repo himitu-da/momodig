@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb8c45ea4b87fad40ad030d190c9bc2d, type: 3}
+  m_Name: GoldPickaxe
+  m_EditorClassIdentifier: 
+  Itemname: "\u91D1\u306E\u30C4\u30EB\u30CF\u30B7"
+  FlavorText: "\u91D1\u306B\u3088\u3063\u3066\u3067\u304D\u305F\u30C4\u30EB\u30CF\u30B7\u3002\u3060\u304C\u3001\u91D1\u306F\u91CD\u304F\u67D4\u3089\u304B\u3044\u305F\u3081\u30C4\u30EB\u30CF\u30B7\u306B\u306F\u5411\u304B\u306A\u3044\u3002\u8C6A\u52E2\u306A\u898B\u305F\u76EE\u3067\u3042\u308B\u305F\u3081\u3001\u5100\u793C\u7528\u306B\u5411\u3044\u3066\u3044\u308B\u304C\u5B9F\u7528\u6027\u306F\u7686\u7121\u3068\u8A00\u3063\u3066\u3044\u3044\u3002"
+  price: 0
+  requestmaterials:
+  - type: 2
+    amount: 10
+  itemlevel: 0
