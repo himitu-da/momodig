@@ -6,16 +6,26 @@ public class PopBuyManager : MonoBehaviour
 {
     [SerializeField]private Button popbuybutton;
     [SerializeField] private StorageManager storage;
-    [SerializeField] private PopupCounter counter;
-    private ItemData item;
+    //[SerializeField] private PopupCounter counter;
+    [SerializeField] private TMPro.TMP_Text productname;
+    [SerializeField] private BuyManager buymanager;
+    public ItemData item;
     public List<RequestMaterial> Materialrequest;
-    [SerializeField] private GameObject popup;
+    //[SerializeField] private GameObject popup;
+    //[SerializeField] private ItemUI itemui;
+    
     public void setitem(ItemData candidate)
     {
         item = candidate;
     }
     public void buyitem()
     {
+        foreach (RequestMaterial requestmaterial in item.requestmaterials)
+        {
+            storage.AddResource(requestmaterial.type, requestmaterial.correctamount(item.itemlevel) * (-1));
+        }
+        //購入後アイテムデータ更新
+        item.itemlevel += 1;
         if (GameDataPersistenceManager.Instance.purchaseditems.ContainsKey(item))
         {
             GameDataPersistenceManager.Instance.purchaseditems[item] = item.itemlevel;
@@ -24,22 +34,23 @@ public class PopBuyManager : MonoBehaviour
         {
             GameDataPersistenceManager.Instance.purchaseditems.Add(item, item.itemlevel);
         }
-        foreach (RequestMaterial requestmaterial in item.requestmaterials)
-        {
-            storage.AddResource(requestmaterial.type, requestmaterial.correctamount(item.itemlevel) * (-1));
-        }
+        productname.SetText($"{item.Itemname} ({item.itemlevel}Lv)");
+        buymanager.ChangeRequest();
+        //itemui.ChangeInfo();
     }
     public void boolbuyable(bool buyable)
     {
         popbuybutton.interactable = buyable;
     }
-    public bool buyable(List<RequestMaterial> materialrequests,int count)
+    public bool buyable(ItemData item,int count)
     {
-        if (materialrequests != null && materialrequests.Count != 0)
+        if (item.requestmaterials != null && item.requestmaterials.Count != 0)
         {
-            foreach (RequestMaterial request in materialrequests)
+            Debug.Log($"materialrequests:{item.requestmaterials.Count}");
+            foreach (RequestMaterial request in item.requestmaterials)
             {
-                if (storage.GetResourceAmount(request.type) - request.amount * count < 0)
+                Debug.Log($"{request.type}:{storage.GetResourceAmount(request.type)} - {request.correctamount(item.itemlevel) * count} = {storage.GetResourceAmount(request.type) - request.amount * count}");
+                if (storage.GetResourceAmount(request.type) - request.correctamount(item.itemlevel) * count < 0)
                 {
                     return false;
                 }
@@ -52,11 +63,12 @@ public class PopBuyManager : MonoBehaviour
             return false;
         }
     }
-    public void SetMaterialrequest(List<RequestMaterial> requests)
+    public void SetMaterialrequest(ItemData item)
     {
-        this.Materialrequest = requests;
-        Debug.Log(Materialrequest.Count);
-        boolbuyable(buyable(requests,counter.getcount()));
+        //this.Materialrequest = requests;
+        //Debug.Log(Materialrequest.Count);
+        //boolbuyable(buyable(requests,counter.getcount()));
+        boolbuyable(buyable(item,1));
     }
     int factorialnum(int level){
         int factorialresult = 1;

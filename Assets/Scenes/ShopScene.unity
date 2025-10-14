@@ -1340,7 +1340,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &147155056
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4036,7 +4036,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &542865047
 RectTransform:
   m_ObjectHideFlags: 0
@@ -7380,9 +7380,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   popbuybutton: {fileID: 1062286943}
   storage: {fileID: 1514389441}
-  counter: {fileID: 1156197135}
+  productname: {fileID: 1032063625}
+  buymanager: {fileID: 882006948}
+  item: {fileID: 0}
   Materialrequest: []
-  popup: {fileID: 53308815}
 --- !u!1 &1073893191
 GameObject:
   m_ObjectHideFlags: 0
@@ -9919,7 +9920,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1486608792
 RectTransform:
   m_ObjectHideFlags: 0
@@ -13460,7 +13461,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2076397502
 RectTransform:
   m_ObjectHideFlags: 0
