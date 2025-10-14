@@ -1,2 +1,904 @@
 @startuml L2_Overview
-' すべてのクラス名とその関係をまとめたクラス図
+' すべてのクラス名、プロパティとその関係をまとめたクラス図
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontStyle Bold
+skinparam classFontSize 15
+skinparam classHeaderBackgroundColor #EEE
+skinparam classBorderColor #333
+skinparam classArrowColor #333
+skinparam shadowing false
+
+package "Interfaces" {
+  interface IInventory {
+    + maxCapacity: int
+  }
+
+  interface IItemManager {
+    + WakeUpRadiusMultiplier: float
+  }
+}
+
+package "Camera" {
+  class CameraFollowController {
+    - mainCamera: Camera
+    - playerObject: GameObject
+    - enableFollow: bool
+    - followSpeed: float
+    - useSmoothDamp: bool
+    - sideScrollerOffset: Vector3
+    - topDownOffset: Vector3
+    - sideScrollerOrthographicSize: float
+    - topDownOrthographicSize: float
+    - playerController: PlayerController
+    - velocity: Vector3
+    - currentMode: PlayerController.MoveMode
+    - lastMode: PlayerController.MoveMode
+  }
+}
+
+package "Player" {
+  class PlayerController {
+    - moveSpeed: float
+    - acceleration: float
+    - deceleration: float
+    - fallSpeedMultiplier: float
+    - fallAcceleration: float
+    - _currentMoveMode: MoveMode
+    + currentMoveMode: MoveMode
+    - scoreText: TextMeshProUGUI
+    - depthText: TextMeshProUGUI
+    - inventoryText: TextMeshProUGUI
+    - inventoryCapacityText: TextMeshProUGUI
+    - inventory: IInventory
+    - itemManager: IItemManager
+    + Inventory: IInventory
+    + MousePosition: Vector2
+    - itemPickupRetryInterval: float
+    - score: int
+    - rb: Rigidbody
+    - controls: InputSystem_Actions
+    - moveInput: Vector2
+    + MoveInput: Vector2
+    - mousePosition: Vector2
+    - currentFallSpeed: float
+    + lastMoveDirection: Vector3
+    + IsFacingRight: bool
+    - currentVelocity: Vector3
+    - playerVisualsController: PlayerVisualsController
+    + IsInPassage: bool
+    - contactItems: List<GameObject>
+    - pickupRetryCancellationTokenSource: CancellationTokenSource
+    - minecartInteraction: MinecartPlayerInteractionSystem
+    - miningToolsController: MiningToolsController
+  }
+
+  enum "PlayerController.MoveMode" as MoveMode {
+    SideScroller
+    TopDown
+  }
+
+  class MiningToolsController {
+    - usableMiningTools: List<MiningTool>
+    - _mainMiningTool: MiningTool
+    - _subMiningTool: MiningTool
+    - _mainDiggerPrefab: GameObject
+    - _subDiggerPrefab: GameObject
+    - toolMount: Transform
+    - _behaviourCache: Map<MiningTool, MiningToolBehaviour>
+    - _mainBehaviour: MiningToolBehaviour
+    - _subBehaviour: MiningToolBehaviour
+    - _mainDigger: Digger
+    - _subDigger: Digger
+    + mainMiningTool: MiningTool
+    + subMiningTool: MiningTool
+    - _playerController: PlayerController
+    - _currentDirection: Vector3
+  }
+
+  class PlayerInventory {
+    - _maxCapacity: int
+    - resources: Map<ResourceType, int>
+    + OnResourceAdded: Action<ResourceType, int>
+    + OnResourceRemoved: Action<ResourceType, int>
+    + OnTotalCountChanged: Action<int>
+    + OnInventoryFullStateChanged: Action<bool>
+    + maxCapacity: int
+  }
+
+  class PlayerVisualsController {
+    - _animator: Animator
+    - _playerController: PlayerController
+    - _lastMoveDirection: Vector2
+  }
+}
+
+package "OverWorld" {
+  class OverWorldChangeScene {
+    + changescene: ChangeScene
+  }
+
+  class ShopStateManager <<Singleton>> {
+    + {static} Instance: ShopStateManager
+    + startMode: ShopMode
+  }
+
+  enum "ShopStateManager.ShopMode" as ShopMode {
+    Garage
+    Workshop
+  }
+}
+
+package "Interaction" {
+  class MinecartPlayerInteractionSystem {
+    - minecartDetectionRange: float
+    - itemTransferSpeed: float
+    - itemMoveSpeed: float
+    - movementCurve: AnimationCurve
+    - minecartManager: MinecartManager
+    - playerController: PlayerController
+    - isTransferringItems: bool
+    - minecartOffset: float
+  }
+  class PassageController {
+    - transitionSpeed: float
+    - requiredInputThreshold: float
+    - destinationSceneName: string
+    - changeScene: ChangeScene
+    - playerController: PlayerController
+    - playerTransform: Transform
+    - playerCollider: Collider
+    - initialPlayerScale: Vector3
+    - entryProgress: float
+    - isPlayerInside: bool
+  }
+  class SurfaceInteractionSystem {
+    - surfaceDetectionRange: float
+    - surfaceReturnPoint: Transform
+    - itemTransferSpeed: float
+    - itemMoveSpeed: float
+    - movementCurve: AnimationCurve
+    - playerController: PlayerController
+    - storageManager: StorageManager
+    - isTransferringItems: bool
+  }
+}
+
+package "Background" {
+  class BackgroundController {
+    + terrainDataManager: TerrainDataManager
+    + playerTransform: Transform
+    + backgroundTilePrefab: GameObject
+    + viewDistance: Vector2Int
+    + tileSize: Vector2
+    - activeTiles: Map<Vector2Int, GameObject>
+    - playerGridPos: Vector2Int
+    - propertyBlock: MaterialPropertyBlock
+  }
+}
+
+package "Terrain" {
+  class BlockGenerator {
+    - showBlockDebugInfo: bool
+    - terrainManager: TerrainManager
+    - random: System.Random
+  }
+
+  class "BlockGenerator.BlockGenerationData" as BlockGenerationData {
+    + generationType: TerrainGenerationType
+    + voxelsPerBlock: int
+    + blockSize: float
+    + blockPosition: Vector3Int
+    + voxelWorldSize: float
+  }
+
+  class BlockManager {
+    - blocks: List<BlockInstanceData>
+    - showBlockDebugInfo: bool
+    - terrainManager: TerrainManager
+  }
+
+  class "BlockManager.BlockInstanceData" as BlockInstanceData {
+    + position: Vector3Int
+    + worldPosition: Vector3
+    + block: Block
+    + isActive: bool
+    + voxelCount: int
+  }
+
+  class Chunk {
+    + chunkPosition: Vector3Int
+  }
+
+  class ChunkManager {
+    - playerTransform: Transform
+    - renderDistanceInChunks: int
+    - chunkUpdateInterval: float
+    - timeSinceLastChunkUpdate: float
+    - currentPlayerChunk: Vector3Int
+    - activeChunks: Dictionary<Vector3Int, Chunk>
+    - _blockGenerationList: List<Vector3Int>
+    - _processedBlocks: HashSet<Vector3Int>
+    - terrainManager: TerrainManager
+    - cancellationTokenSource: CancellationTokenSource
+  }
+
+  class TerrainManager {
+    + terrainDataManager: TerrainDataManager
+    - settings: TerrainSettings
+    + playerTransform: Transform
+    - chunkManager: ChunkManager
+    - blockManager: BlockManager
+    - blockGenerator: BlockGenerator
+    - voxelManager: VoxelManager
+    + showDebugInfo: bool
+    - voxelCountText: Text
+    + Settings: TerrainSettings
+    + ChunkManager: ChunkManager
+    + BlockManager: BlockManager
+    + BlockGenerator: BlockGenerator
+    + VoxelManager: VoxelManager
+    + TerrainDataManager: TerrainDataManager
+  }
+
+  class TerrainSettings {
+    + center: Vector3Int
+    + seed: int
+    + useRandomSeed: bool
+    + initialChunkCount: Vector2Int
+    + blocksPerChunk: Vector2Int
+    + blockSize: float
+    + voxelsPerBlock: int
+    + generationType: TerrainGenerationType
+    + blocksPerFrame: int
+    + itemLoadDelay: float
+  }
+
+  enum TerrainGenerationType {
+    SideScroller
+    TopDown
+    Custom
+  }
+
+  class Voxel {
+    + blockPosition: Vector3Int
+    + localPosition: Vector3Int
+    + worldPosition: Vector3
+    + isActive: bool
+    + health: int
+    + maxHealth: int
+    + voxelType: VoxelType
+    + lastModifiedTime: float
+  }
+
+  enum VoxelType {
+    Standard
+    Reinforced
+    Fragile
+    Unbreakable
+    Special
+  }
+
+  class VoxelManager {
+    - showVoxelDebugInfo: bool
+    - trackedVoxels: Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>>
+    - terrainManager: TerrainManager
+  }
+
+  package "Block" <<Rectangle>> {
+    struct VoxelFaceTextureInfo {
+      + faceNormal: Vector3
+      + uvBase: Vector2
+      + uvSize: Vector2
+      + sourceTexture: Texture2D
+      + isExposed: bool
+    }
+
+    class Block {
+      - voxelManager: VoxelManager
+      - blockPosition: Vector3Int
+      + VoxelsPerBlock: int
+      - maxHP: int
+      + diggingThreshold: float
+      - diggingFrameDelay: int
+      - initialColor: Color
+      - texture1: Texture2D
+      - texture2: Texture2D
+      - useTexture1Pattern: bool[,,]
+      - voxelWorldSize: float
+      - meshGenerator: BlockMeshGenerator
+      - textureExtractor: VoxelTextureExtractor
+      - itemDropper: BlockItemDropper
+      - diggingSystem: BlockDiggingSystem
+      - droppedItemPrefab: GameObject
+      - disableRotation: bool
+      - autoScale: bool
+      - scaleMultiplier: float
+      - enableTextureExtraction: bool
+      - mesh: Mesh
+      - meshFilter: MeshFilter
+      - collider: MeshCollider
+      - blockData: BlockData
+      + BlockData: BlockData
+    }
+
+    class BlockMeshGenerator {
+    }
+
+    class VoxelTextureExtractor {
+    }
+
+    class BlockItemDropper {
+    }
+
+    class BlockDiggingSystem {
+    }
+  }
+
+  package "Data" <<Rectangle>> {
+    class BiomeData <<ScriptableObject>> {
+      + biomeName: string
+      + biomeType: BiomeType
+      + maxHeight: int
+      + minHeight: int
+      + availableBlocks: List<BlockDistribution>
+      + backgroundTexture: Texture2D
+    }
+
+    class BlockDistribution {
+      + blockData: BlockData
+      + distributionCurve: AnimationCurve
+    }
+
+    enum BiomeType {
+      AltitudeBased
+      Overwrite
+    }
+  }
+}
+
+  package "Data" <<Rectangle>> {
+    class BiomeData <<ScriptableObject>> {
+      + biomeName: string
+      + biomeType: BiomeType
+      + maxHeight: int
+      + minHeight: int
+      + availableBlocks: List<BlockDistribution>
+      + backgroundTexture: Texture2D
+    }
+
+    class BlockDistribution {
+      + blockData: BlockData
+      + distributionCurve: AnimationCurve
+    }
+
+    enum BiomeType {
+      AltitudeBased
+      Overwrite
+    }
+
+    class BlockData <<ScriptableObject>> {
+      + resourceType: ResourceType
+      + voxelHp: int
+      + materialType: MaterialType
+      + textures: List<Texture2D>
+      + droppedItemPrefab: GameObject
+      + disableRotation: bool
+      + autoScale: bool
+      + scaleMultiplier: float
+      + density: float
+      + destroyedSound: AudioClip
+      + destroyedSoundVolume: float
+    }
+
+    class BlockDataManager <<ScriptableObject>> {
+      - blockDataMappings: List<BlockDataMapping>
+      - _dataMap: Dictionary<ResourceType, BlockData>
+    }
+
+    class "BlockDataManager.BlockDataMapping" as BlockDataMapping {
+      + resourceType: ResourceType
+      + blockData: BlockData
+    }
+
+    enum MaterialType {
+      Stone
+      Soil
+    }
+
+    class TerrainDataManager <<ScriptableObject>> {
+      + defaultBlockData: BlockData
+      + defaultBackgroundTexture: Texture2D
+      - biomeDataMappings: List<BiomeDataMapping>
+      - _dataMap: Dictionary<BiomeType, BiomeData>
+    }
+
+    class "TerrainDataManager.BiomeDataMapping" as BiomeDataMapping {
+      + biomeType: BiomeType
+      + biomeData: BiomeData
+    }
+  }
+}
+
+package "Mining" {
+  class Digger {
+    + DiggingArea: BoxCollider
+    - diggingArea: BoxCollider
+    - pendingMiningModule: MiningModule
+    - pendingMiningInfo: MiningInfo
+    - isDiggingAreaOverridden: bool
+  }
+
+  class DroppedItem {
+    + rb: Rigidbody
+    + resourceType: ResourceType
+    + scale: Vector3
+    + blockDataName: string
+    + uvBase: Vector2
+    + uvSize: Vector2
+    + useTexture1: bool
+  }
+
+  struct DroppedItemData {
+    + position: Vector3
+    + rotation: Quaternion
+    + scale: Vector3
+    + blockDataName: string
+    + uvBase: Vector2
+    + uvSize: Vector2
+    + useTexture1: bool
+    + isKinematic: bool
+  }
+
+  class DroppedItemManager <<Singleton>> {
+    + WakeUpRadiusMultiplier: float
+    + {static} Instance: DroppedItemManager
+    + maxWakeUpsPerUpdate: int
+    + MaxWakeUpPerStep: int
+    + WakeUpStepDelay: float
+    + MaxDownwardChain: int
+    - _wakeUpRadiusMultiplier: float
+    - itemPools: Map<GameObject, Queue<GameObject>>
+    - instancePrefabMap: Map<GameObject, GameObject>
+    - activeItems: List<DroppedItem>
+    - itemStates: Map<DroppedItem, ItemState>
+    - wakeUpRequestQueue: Queue<DroppedItem>
+    - itemsInWakeUpQueue: HashSet<DroppedItem>
+    - sleepCheckTimer: float
+    - itemsByChunk: Map<Vector3Int, List<DroppedItemData>>
+  }
+
+  class MaterialSound {
+    + materialType: MaterialType
+    + sound: AudioClip
+  }
+
+  abstract class MiningTool <<ScriptableObject>> {
+    # toolName: string
+    # toolIcon: Sprite
+    - toolTypeID: int
+    - animationTriggerName: string
+    - animationStateName: string
+    - toolPrefab: GameObject
+    + miningModule: MiningModule
+    - volume: float
+    - defaultMiningSound: AudioClip
+    - materialSounds: List<MaterialSound>
+    + ToolPrefab: GameObject
+    + ToolTypeID: int
+    + AnimationTriggerName: string
+    + AnimationStateName: string
+    + DefaultMiningSound: AudioClip
+    + Volume: float
+  }
+
+  abstract class MiningToolBehaviour {
+    + ToolData: MiningTool
+    # user: GameObject
+    # toolAnimator: Animator
+    # digger: Digger
+    + IsMining: bool
+    + IsEquipped: bool
+  }
+
+  class Dynamite extends MiningTool {
+  }
+
+  class DynamiteMiningModule extends MiningModule {
+    - dynamitePrefab: GameObject
+    - throwForce: float
+    - maxThrowDistance: float
+    - gravity: float
+    - explosionForce: float
+    - diggingCenter: Vector3
+    - diggingSize: Vector3
+    + ProjectilePrefab: GameObject
+    + ThrowForce: float
+    + MaxThrowDistance: float
+    + Gravity: float
+    + ExplosionForce: float
+    + DiggingCenter: Vector3
+    + DiggingSize: Vector3
+  }
+
+  class DynamiteProjectile {
+    - explosionDelay: float
+    - enableDebugLogs: bool
+    - behaviour: DynamiteToolBehaviour
+    - hasExploded: bool
+  }
+
+  class DynamiteToolBehaviour extends MiningToolBehaviour {
+    - owner: GameObject
+    - playerController: PlayerController
+  }
+
+  class Pickaxe extends MiningTool {
+  }
+
+  class PickaxeMiningModule extends MiningModule {
+    - centerOffset: Vector3
+    - size: Vector3
+    - miningForce: float
+    - verticalCenterOffset: Vector3
+    - verticalSize: Vector3
+    - verticalMiningForce: float
+    - mineTriggerName: string
+    - isFacingRightBool: string
+    - directionStateName: string
+    + DiggingCenter: Vector3
+    + DiggingSize: Vector3
+    + MiningForce: float
+    + VerticalDiggingCenter: Vector3
+    + VerticalDiggingSize: Vector3
+    + VerticalMiningForce: float
+    + MineTriggerName: string
+    + IsFacingRightBool: string
+    + DirectionStateName: string
+  }
+
+  class PickaxeToolBehaviour extends MiningToolBehaviour {
+    - toolMount: Transform
+    - currentMoveMode: PlayerController.MoveMode
+    - currentAimDirection: Vector3
+    - useBuffered: bool
+    - canBufferUse: bool
+    - _playerController: PlayerController
+  }
+}
+
+package "ShopScene" {
+  class BackToOverWorld {
+    + changescene: ChangeScene
+  }
+
+  class BuyManager {
+    - Stone_Request: GameObject
+    - DragonOre_Request: GameObject
+    - Copper_Request: GameObject
+    - Iron_Request: GameObject
+    - Tin_Request: GameObject
+    - Nickel_Request: GameObject
+    - Sillicon_Request: GameObject
+    - Cobalt_Request: GameObject
+    - Titanium_Request: GameObject
+    - Sulfur_Request: GameObject
+    - Tungsten_Request: GameObject
+    - Hihiirokane_Request: GameObject
+    - Gold_Request: GameObject
+    - Rareearth_Request: GameObject
+    - Diamond_Request: GameObject
+    - storage: StorageManager
+    - CheckList: MaterialCheck
+    - popup: GameObject
+    - popbuy: PopBuyManager
+    - requestmaterials: List<RequestMaterial>
+    - requests: List<GameObject>
+    + candidateitem: ItemData
+  }
+
+  class ContentManager {
+    - scrollview: Transform
+    - itemUIPrefab: GameObject
+    - group: ToggleGroup
+    - items: ItemData[]
+    - productname: TMPro.TMP_Text
+    - flavortext: TMPro.TMP_Text
+    - buymanager: BuyManager
+  }
+
+  class FacillityToggle {
+    + garageToggle: Toggle
+    + workshopToggle: Toggle
+  }
+
+  class ItemData <<ScriptableObject>> {
+    + Itemname: String
+    + FlavorText: string
+    + price: int
+    + requestmaterials: List<RequestMaterial>
+    + itemlevel: int
+  }
+
+  class RequestMaterial {
+    + type: ResourceType
+    + amount: int
+  }
+
+  class ItemUI {
+    - productname: TMPro.TMP_Text
+    - contentdescription: TMPro.TMP_Text
+    + item_name: string
+    + FlavorText: string
+    - nametext: Text
+    - buymanager: BuyManager
+    - candidateitem: ItemData
+  }
+
+  class RequestTextManager {
+    - materialname: string
+    - text: TMPro.TMP_Text
+    - Storage: StorageManager
+    - materialamount: int
+    - type: ResourceType
+  }
+
+  package "Popup" <<Rectangle>> {
+    class MaterialCheck {
+      - Stone_Request: GameObject
+      - DragonOre_Request: GameObject
+      - Copper_Request: GameObject
+      - Iron_Request: GameObject
+      - Tin_Request: GameObject
+      - Nickel_Request: GameObject
+      - Sillicon_Request: GameObject
+      - Cobalt_Request: GameObject
+      - Titanium_Request: GameObject
+      - Sulfur_Request: GameObject
+      - Tungsten_Request: GameObject
+      - Hihiirokane_Request: GameObject
+      - Gold_Request: GameObject
+      - Rareearth_Request: GameObject
+      - Diamond_Request: GameObject
+      - storage: StorageManager
+      - requests: List<GameObject>
+      - popcounter: PopupCounter
+      - Materialrequest: List<RequestMaterial>
+      - popbuymanager: PopBuyManager
+    }
+
+    class PopBuyManager {
+      - popbuybutton: Button
+      - storage: StorageManager
+      - productname: TMPro.TMP_Text
+      - buymanager: BuyManager
+      + item: ItemData
+      + Materialrequest: List<RequestMaterial>
+    }
+
+    class PopupCounter {
+      - countnum: int
+      + ActiveMaterialText: List<PopMaterialTextManager>
+      - countertxt: TMPro.TMP_Text
+      - buymanager: PopBuyManager
+    }
+
+    class PopMaterialTextManager {
+      - materialname: string
+      - text: TMPro.TMP_Text
+      - Storage: StorageManager
+      - parmaterialamount: int
+      - type: ResourceType
+      - counter: PopupCounter
+      - popbuymanager: PopBuyManager
+    }
+  }
+}
+
+package "Minecart" {
+  enum MinecartState {
+    Following
+    GoingToGround
+    Unloading
+  }
+
+  class Minecart {
+    + gameObject: GameObject
+    + movement: MinecartMovement
+    + resources: Map<ResourceType, int>
+    + time: float
+    + state: MinecartState
+    + capacityText: TextMeshProUGUI
+    + CurrentLoad: int
+  }
+
+  class MinecartMovement {
+    + targetPosition: Vector3
+    + moveSpeed: float
+  }
+
+  class MinecartManager {
+    + playerTransform: Transform
+    + minecartPrefab: GameObject
+    + CartCapacity: int
+    + minecartCapacityUIPrefab: GameObject
+    + worldCanvasTransform: Transform
+    + uiOffset: Vector3
+    + groundStationPosition: Vector3
+    + followMoveSpeed: float
+    + groundMoveSpeed: float
+    + unloadTime: float
+    + cartunit: int
+    + minecarts: List<Minecart>
+    + pathRecordInterval: float
+    + cartDistanceInPoints: int
+    + maxPathPoints: int
+    + digable: bool
+    - pathPoints: List<Vector3>
+  }
+}
+
+package "Storage" {
+  class StorageManager <<Singleton>> {
+    + {static} Instance: StorageManager
+    - storedResources: Dictionary<ResourceType, int>
+  }
+}
+
+package "Title" {
+  class Title_Button_System {
+    + changescene: ChangeScene
+  }
+
+  class TitleBackgroundController {
+    + blockDataList: List<BlockData>
+    + tilePrefab: GameObject
+    + tileSize: Vector2
+    + verticalSpeed: float
+    + horizontalAmplitude: float
+    + horizontalSpeed: float
+    - tiles: List<TileInfo>
+    - mainCamera: Camera
+    - topBoundary: float
+    - wrapHeight: float
+  }
+
+  class "TitleBackgroundController.TileInfo" as TileInfo {
+    + transform: Transform
+    + initialPosition: Vector3
+  }
+}
+
+package "Common" {
+  class AudioManager <<Singleton>> {
+    + {static} Instance: AudioManager
+    - minDestructionVolume: float
+    - volumePerVoxel: float
+    - maxDestructionVolume: float
+    - _seSource: AudioSource
+  }
+  
+  class GameDataPersistenceManager <<Singleton>> {
+    + {static} Instance: GameDataPersistenceManager
+    + terrainSeed: int
+    + hasInitializedSeed: bool
+    + destroyedBlockPositions: HashSet<Vector3Int>
+    + partiallyDestroyedBlocks: Map<Vector3Int, HashSet<Vector3Int>>
+    + storedResources: Map<ResourceType, int>
+    + droppedItems: List<DroppedItemData>
+    + purchaseditems: Map<ItemData, int>
+  }
+  
+  class RenderQueue <<static>> {
+    + {static} Background: int
+    + {static} Scenery: int
+    + {static} Geometry: int
+    + {static} Minecart: int
+    + {static} Player: int
+    + {static} PlayerTool: int
+    + {static} WorldSpaceUI: int
+    + {static} ScreenSpaceUI: int
+  }
+
+  enum ResourceType {
+    Stone
+    Iron
+    Gold
+    Diamond
+    Copper
+    Tin
+    Nickel
+    Silicon
+    Cobalt
+    Titanium
+    DragonGem
+  }
+}
+
+class ChangeScene
+
+' ##################################
+' #####  依存関係の定義 #####
+' ##################################
+
+' --- 実装関係 ---
+PlayerInventory <|.. IInventory
+DroppedItemManager <|.. IItemManager
+
+' --- Playerパッケージ ---
+PlayerController o-- "1" PlayerVisualsController
+PlayerController o-- "1" MiningToolsController
+PlayerController ..> IInventory : uses
+PlayerController ..> IItemManager : uses
+MiningToolsController --> PlayerController
+PlayerVisualsController --> PlayerController
+
+' --- Miningパッケージ ---
+MiningToolsController o-- "2" Digger : creates
+MiningToolsController o-- "*" MiningTool : aggregates
+MiningToolsController ..> MiningToolBehaviour : creates
+Digger ..> "Terrain.Block.Block" : uses
+Digger ..> DroppedItemManager : uses
+Digger ..> "Tools.MiningModule" : uses
+"Tools.MiningTool" o-- "1" "Tools.MiningModule" : aggregates
+"Tools.MiningTool" ..> "Tools.MiningToolBehaviour" : creates
+"Tools.MiningToolBehaviour" --> "Tools.MiningTool"
+"Tools.MiningToolBehaviour" --> Digger
+"Tools.MiningToolBehaviour" ..> PlayerController : uses
+"Tools.MiningToolBehaviour" ..> "Common.AudioManager" : uses
+DroppedItemManager ..> "Common.GameDataPersistenceManager" : uses
+DroppedItemManager ..> "Terrain.TerrainManager" : uses
+
+' --- Terrainパッケージ ---
+TerrainManager o-- "1" ChunkManager
+TerrainManager o-- "1" BlockManager
+TerrainManager o-- "1" BlockGenerator
+TerrainManager o-- "1" VoxelManager
+TerrainManager ..> "Common.GameDataPersistenceManager" : uses
+VoxelManager --> TerrainManager
+VoxelManager ..> BlockManager : uses
+VoxelManager ..> "Common.GameDataPersistenceManager" : uses
+VoxelManager ..> "Data.BlockData" : uses
+"Block.Block" --> VoxelManager
+"Block.Block" --> "Data.BlockData"
+"Block.Block" *-- "Block.BlockDiggingSystem"
+"Block.Block" *-- "Block.BlockItemDropper"
+"Block.Block" *-- "Block.BlockMeshGenerator"
+"Block.Block" *-- "Block.VoxelTextureExtractor"
+"Block.BlockDiggingSystem" ..> VoxelManager : modifies
+"Block.BlockDiggingSystem" ..> "Block.BlockItemDropper" : uses
+"Block.BlockItemDropper" ..> DroppedItem : creates
+"Block.BlockMeshGenerator" ..> VoxelManager : queries
+
+' --- Interactionパッケージ ---
+PlayerController ..> MinecartPlayerInteractionSystem : uses
+MinecartPlayerInteractionSystem --> PlayerController
+MinecartPlayerInteractionSystem --> "Minecart.MinecartManager"
+PassageController --> PlayerController
+PassageController --> "SceneManagement.ChangeScene"
+SurfaceInteractionSystem --> PlayerController
+SurfaceInteractionSystem --> "Storage.StorageManager"
+
+' --- Minecartパッケージ ---
+MinecartManager o-- "*" Minecart : creates
+MinecartManager ..> "Storage.StorageManager" : uses
+Minecart o-- "1" MinecartMovement
+
+' --- Storageパッケージ ---
+StorageManager ..> "Common.GameDataPersistenceManager" : uses
+
+' --- ShopSceneパッケージ ---
+BuyManager ..> "Storage.StorageManager" : uses
+BuyManager ..> "Popup.MaterialCheck"
+BuyManager ..> "Popup.PopBuyManager"
+BuyManager ..> ItemData
+ContentManager ..> BuyManager
+ContentManager ..> ItemUI : creates
+ItemUI ..> BuyManager
+ItemUI ..> ItemData
+
+' --- その他パッケージ ---
+CameraFollowController ..> PlayerController
+BackgroundController ..> "Data.TerrainDataManager"
+
+@enduml

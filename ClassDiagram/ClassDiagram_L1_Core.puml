@@ -1,2 +1,222 @@
 @startuml L1_Core
-' 主要なクラス名とその関係をまとめたクラス図
+' すべてのクラス名とその関係をまとめたクラス図
+!theme plain
+skinparam classFontStyle Bold
+skinparam classFontSize 14
+skinparam classHeaderBackgroundColor #EEE
+skinparam classBorderColor #333
+skinparam classArrowColor #333
+skinparam shadowing false
+
+package "Interfaces" {
+  interface IInventory
+  interface IItemManager
+}
+
+package "Camera" {
+  class CameraFollowController
+}
+
+package "Player" {
+  class PlayerController
+  class MiningToolsController
+  class PlayerInventory
+  class PlayerVisualsController
+}
+
+package "OverWorld" {
+  class OverWorldChangeScene
+  class ShopStateManager <<Singleton>>
+}
+
+package "Interaction" {
+  class MinecartPlayerInteractionSystem
+  class PassageController
+  class SurfaceInteractionSystem
+}
+
+package "Background" {
+  class BackgroundController
+}
+
+package "Terrain" {
+  class BlockGenerator
+  class "BlockGenerator.BlockGenerationData" as BlockGenerationData
+  class BlockManager
+  class "BlockManager.BlockInstanceData" as BlockInstanceData
+  class Chunk
+  class ChunkManager
+  class TerrainManager
+  class TerrainSettings
+  enum TerrainGenerationType
+  class Voxel
+  enum VoxelType
+  class VoxelManager
+
+  package "Block" <<Rectangle>> {
+    struct VoxelFaceTextureInfo
+    class Block
+    class BlockMeshGenerator
+    class VoxelTextureExtractor
+    class BlockItemDropper
+    class BlockDiggingSystem
+  }
+
+  package "Data" <<Rectangle>> {
+    class BiomeData
+    class BlockDistribution
+    enum BiomeType
+    class BlockData
+    class BlockDataManager
+    class "BlockDataManager.BlockDataMapping" as BlockDataMapping
+    enum MaterialType
+    class TerrainDataManager
+    class "TerrainDataManager.BiomeDataMapping" as BiomeDataMapping
+  }
+}
+
+package "Mining" {
+  class Digger
+  class DroppedItem
+  struct DroppedItemData
+  class DroppedItemManager <<Singleton>>
+  class MaterialSound
+  abstract class MiningTool
+  abstract class MiningToolBehaviour
+  class Dynamite
+  class DynamiteMiningModule
+  class DynamiteProjectile
+  class DynamiteToolBehaviour
+  class Pickaxe
+  class PickaxeMiningModule
+  class PickaxeToolBehaviour
+}
+
+package "ShopScene" {
+  class BackToOverWorld
+  class BuyManager
+  class ContentManager
+  class FacillityToggle
+  class ItemData
+  class RequestMaterial
+  class ItemUI
+  class RequestTextManager
+
+  package "Popup" <<Rectangle>> {
+    class MaterialCheck
+    class PopBuyManager
+    class PopupCounter
+    class PopMaterialTextManager
+  }
+}
+
+package "Minecart" {
+  class Minecart
+  class MinecartManager
+  class MinecartMovement
+}
+
+package "Storage" {
+  class StorageManager <<Singleton>>
+}
+
+package "Title" {
+  class Title_Button_System
+  class TitleBackgroundController
+  class "TitleBackgroundController.TileInfo" as TileInfo
+}
+
+package "Common" {
+  class AudioManager <<Singleton>>
+  class GameDataPersistenceManager <<Singleton>>
+  class RenderQueue <<static>>
+  enum ResourceType
+}
+
+class ChangeScene
+
+' ##################################
+' #####  依存関係の定義 #####
+' ##################################
+
+' --- 実装関係 ---
+PlayerInventory <|.. IInventory
+DroppedItemManager <|.. IItemManager
+
+' --- Playerパッケージ ---
+PlayerController o-- "1" PlayerVisualsController
+PlayerController o-- "1" MiningToolsController
+PlayerController ..> IInventory
+PlayerController ..> IItemManager
+MiningToolsController --> PlayerController
+PlayerVisualsController --> PlayerController
+
+' --- Miningパッケージ ---
+MiningToolsController o-- Digger
+MiningToolsController o-- MiningTool
+MiningToolsController ..> MiningToolBehaviour
+Digger ..> "Terrain.Block.Block"
+Digger ..> DroppedItemManager
+Digger ..> "Tools.MiningModule"
+"Tools.MiningTool" o-- "Tools.MiningModule"
+"Tools.MiningTool" ..> "Tools.MiningToolBehaviour"
+"Tools.MiningToolBehaviour" --> "Tools.MiningTool"
+"Tools.MiningToolBehaviour" --> Digger
+"Tools.MiningToolBehaviour" ..> PlayerController
+"Tools.MiningToolBehaviour" ..> "Common.AudioManager"
+DroppedItemManager ..> "Common.GameDataPersistenceManager"
+DroppedItemManager ..> "Terrain.TerrainManager"
+
+' --- Terrainパッケージ ---
+TerrainManager o-- ChunkManager
+TerrainManager o-- BlockManager
+TerrainManager o-- BlockGenerator
+TerrainManager o-- VoxelManager
+TerrainManager ..> "Common.GameDataPersistenceManager"
+VoxelManager --> TerrainManager
+VoxelManager ..> BlockManager
+VoxelManager ..> "Common.GameDataPersistenceManager"
+VoxelManager ..> "Data.BlockData"
+"Block.Block" --> VoxelManager
+"Block.Block" --> "Data.BlockData"
+"Block.Block" *-- "Block.BlockDiggingSystem"
+"Block.Block" *-- "Block.BlockItemDropper"
+"Block.Block" *-- "Block.BlockMeshGenerator"
+"Block.Block" *-- "Block.VoxelTextureExtractor"
+"Block.BlockDiggingSystem" ..> VoxelManager
+"Block.BlockDiggingSystem" ..> "Block.BlockItemDropper"
+"Block.BlockItemDropper" ..> DroppedItem
+"Block.BlockMeshGenerator" ..> VoxelManager
+
+' --- Interactionパッケージ ---
+PlayerController ..> MinecartPlayerInteractionSystem
+MinecartPlayerInteractionSystem --> PlayerController
+MinecartPlayerInteractionSystem --> "Minecart.MinecartManager"
+PassageController --> PlayerController
+PassageController --> "SceneManagement.ChangeScene"
+SurfaceInteractionSystem --> PlayerController
+SurfaceInteractionSystem --> "Storage.StorageManager"
+
+' --- Minecartパッケージ ---
+MinecartManager o-- Minecart
+MinecartManager ..> "Storage.StorageManager"
+Minecart o-- MinecartMovement
+
+' --- Storageパッケージ ---
+StorageManager ..> "Common.GameDataPersistenceManager"
+
+' --- ShopSceneパッケージ ---
+BuyManager ..> "Storage.StorageManager"
+BuyManager ..> "Popup.MaterialCheck"
+BuyManager ..> "Popup.PopBuyManager"
+BuyManager ..> ItemData
+ContentManager ..> BuyManager
+ContentManager ..> ItemUI
+ItemUI ..> BuyManager
+ItemUI ..> ItemData
+
+' --- その他パッケージ ---
+CameraFollowController ..> PlayerController
+BackgroundController ..> "Data.TerrainDataManager"
+
+@enduml
