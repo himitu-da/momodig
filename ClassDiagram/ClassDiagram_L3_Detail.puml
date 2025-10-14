@@ -1,4 +1,5 @@
-@startuml
+@startuml L3_Detail
+' すべてのクラス名とメソッドとその関係をまとめたクラス図
 !theme plain
 skinparam classAttributeIconSize 0
 skinparam classFontStyle Bold
