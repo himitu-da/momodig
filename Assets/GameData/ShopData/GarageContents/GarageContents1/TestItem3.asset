@@ -18,3 +18,4 @@ MonoBehaviour:
   requestmaterials:
   - type: 0
     amount: -2
+  itemlevel: 0

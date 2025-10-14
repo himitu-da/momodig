@@ -59,7 +59,7 @@ public class MaterialCheck : MonoBehaviour
         }
         popcounter.ActiveMaterialText = ActiveMaterialText;
         Debug.Log(materialrequest.Count);
-        popbuymanager.SetMaterialrequest(materialrequest);
+        popbuymanager.SetMaterialrequest(candidateitem);
     }
     void Awake()
     {

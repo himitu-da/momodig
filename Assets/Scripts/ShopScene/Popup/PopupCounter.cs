@@ -21,7 +21,7 @@ public class PopupCounter : MonoBehaviour
         {
             materialtext.UpdateText(countnum);
         }
-        buymanager.boolbuyable(buymanager.buyable(buymanager.Materialrequest,countnum));
+        buymanager.boolbuyable(buymanager.buyable(buymanager.item,countnum));
     }
     private void OnEnable()
     {
