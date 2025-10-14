@@ -6,17 +6,17 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/TitleScene.unity
+    guid: 9a6d10f83797e7a49b98b66d518a4e4a
+  - enabled: 1
+    path: Assets/Scenes/OverWorldScene.unity
+    guid: f4760d30c5af56a46bbc611bfe616dd9
+  - enabled: 1
     path: Assets/Scenes/MiningScene.unity
     guid: 774dc15c4765a404b96dc251afed8cb9
   - enabled: 1
     path: Assets/Scenes/ShopScene.unity
     guid: 3b1fbdc0c31a5734cac98cd09fd37003
-  - enabled: 1
-    path: Assets/Scenes/OverWorldScene.unity
-    guid: f4760d30c5af56a46bbc611bfe616dd9
-  - enabled: 1
-    path: Assets/Scenes/TitleScene.unity
-    guid: 9a6d10f83797e7a49b98b66d518a4e4a
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 20206fbed39774a4fbe7ed7c108155e7, type: 3}
   m_UseUCBPForAssetBundles: 0
