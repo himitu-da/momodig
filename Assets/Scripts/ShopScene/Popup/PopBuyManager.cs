@@ -70,11 +70,4 @@ public class PopBuyManager : MonoBehaviour
         //boolbuyable(buyable(requests,counter.getcount()));
         boolbuyable(buyable(item,1));
     }
-    int factorialnum(int level){
-        int factorialresult = 1;
-        for(int i = 0; i < level; i++){
-            factorialresult = factorialresult * (i+1);
-        }
-        return factorialresult;
-    }
 }

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-[CreateAssetMenu(fileName =  "NewItem",menuName = "Shop/ItemData")]
+[CreateAssetMenu(fileName = "NewItem", menuName = "Shop/ItemData")]
 public class ItemData : ScriptableObject
 {
     [Header("基本情報")]    //アイテム名
