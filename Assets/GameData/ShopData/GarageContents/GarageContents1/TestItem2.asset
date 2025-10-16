@@ -16,5 +16,6 @@ MonoBehaviour:
   FlavorText: "\u30C6\u30B9\u30C8\u7528\u30A2\u30A4\u30C6\u30E02\u3067\u3059"
   price: 100
   requestmaterials:
-  - type: 0
+  - type: 1
     amount: 10
+  itemlevel: 1
