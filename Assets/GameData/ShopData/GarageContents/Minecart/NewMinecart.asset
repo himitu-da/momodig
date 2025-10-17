@@ -17,6 +17,10 @@ MonoBehaviour:
   price: 0
   requestmaterials:
   - type: 1
-    amount: 9
+    amount: 20
   - type: 4
-    amount: 1
+    amount: 3
+  - type: 6
+    amount: 2
+  itemlevel: 0
+  updatetype: 0

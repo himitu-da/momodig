@@ -264,7 +264,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: GarageToggle01
+  m_Text: "\u30C8\u30ED\u30C3\u30B3"
 --- !u!222 &23642693
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3707,7 +3707,8 @@ MonoBehaviour:
   scrollview: {fileID: 483718713}
   itemUIPrefab: {fileID: 3513343272586606519, guid: 5ffb06caf2ba4224da541bdef92f05e8, type: 3}
   group: {fileID: 483718714}
-  items: []
+  items:
+  - {fileID: 11400000, guid: 0195df1fef423a94da404e9d573773b2, type: 2}
   productname: {fileID: 1032063625}
   flavortext: {fileID: 1822774028}
   buymanager: {fileID: 882006948}
@@ -6922,7 +6923,8 @@ MonoBehaviour:
   scrollview: {fileID: 926266189}
   itemUIPrefab: {fileID: 3513343272586606519, guid: 5ffb06caf2ba4224da541bdef92f05e8, type: 3}
   group: {fileID: 926266190}
-  items: []
+  items:
+  - {fileID: 11400000, guid: ecd5e69027eefb44f93c3740ce8ab0a5, type: 2}
   productname: {fileID: 1032063625}
   flavortext: {fileID: 1822774028}
   buymanager: {fileID: 882006948}
@@ -8594,8 +8596,7 @@ MonoBehaviour:
   itemUIPrefab: {fileID: 3513343272586606519, guid: 5ffb06caf2ba4224da541bdef92f05e8, type: 3}
   group: {fileID: 1238997012}
   items:
-  - {fileID: 11400000, guid: 7a510cc23e2d91346895a11274e94599, type: 2}
-  - {fileID: 11400000, guid: 756b392266326254ea28ace29d64d86e, type: 2}
+  - {fileID: 11400000, guid: 9dcb82b1ed00b4e458a2cc1d7671536d, type: 2}
   productname: {fileID: 1032063625}
   flavortext: {fileID: 1822774028}
   buymanager: {fileID: 882006948}
@@ -9477,7 +9478,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1448659588
 RectTransform:
   m_ObjectHideFlags: 0
