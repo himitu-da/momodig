@@ -6729,7 +6729,7 @@ GameObject:
   - component: {fileID: 907787479}
   - component: {fileID: 907787480}
   m_Layer: 0
-  m_Name: WorkShopToggle01
+  m_Name: Pickaxe_WorkShopToggle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8213,7 +8213,7 @@ GameObject:
   - component: {fileID: 1190872820}
   - component: {fileID: 1190872821}
   m_Layer: 0
-  m_Name: WorkShopToggle02
+  m_Name: Bomb_WorkShopToggle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -8957,7 +8957,7 @@ GameObject:
   - component: {fileID: 1299221255}
   - component: {fileID: 1299221256}
   m_Layer: 0
-  m_Name: GarageToggle01
+  m_Name: Minecart_GarageToggle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
