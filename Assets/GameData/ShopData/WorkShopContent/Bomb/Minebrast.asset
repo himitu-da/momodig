@@ -19,4 +19,4 @@ MonoBehaviour:
   - type: 10
     amount: 3
   itemlevel: 1
-  updatetype: 1
+  updatetype: 0
