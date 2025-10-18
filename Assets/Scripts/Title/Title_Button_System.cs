@@ -78,7 +78,9 @@ public class Title_Button_System : MonoBehaviour
     public void SelectStartKey(){
         changescene.OnClickToChangeScene("OverWorldScene");
     }
-    public void SelectSettingKey(){
+    public void SelectWebsiteKey()
+    {
+        Application.OpenURL("https://senju.dendaikyo.com/game/momodig-trial-info/");
     }
     public void SelectFinishKey(){
 #if UNITY_EDITOR
