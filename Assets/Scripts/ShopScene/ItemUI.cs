@@ -8,7 +8,7 @@ public class ItemUI : MonoBehaviour
     private TMPro.TMP_Text contentdescription;
     public string item_name;
     [TextArea] public string FlavorText;
-    [SerializeField] private Text nametext;
+    [SerializeField] private TMP_Text nametext;
     private BuyManager buymanager;
     //private List<RequestMaterial> requestmaterials;
     private ItemData candidateitem;
