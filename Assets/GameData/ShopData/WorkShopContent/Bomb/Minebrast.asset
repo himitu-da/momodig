@@ -20,3 +20,8 @@ MonoBehaviour:
     amount: 3
   itemlevel: 1
   updatetype: 0
+  enhancements:
+  - {fileID: 11400000, guid: 89333fb3cbc1b86448613f1c36acced1, type: 2}
+  - {fileID: 11400000, guid: 51b51247a7279924c82ff222fa914a8c, type: 2}
+  - {fileID: 11400000, guid: 336107cad58e8fd4cac432399e5a0850, type: 2}
+  - {fileID: 11400000, guid: 99962cb86162ec04da7c09eaf8f78e2a, type: 2}

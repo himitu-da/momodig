@@ -17,12 +17,10 @@ MonoBehaviour:
   price: 0
   requestmaterials:
   - type: 1
-    amount: 50
-  - type: 6
-    amount: 25
-  - type: 9
-    amount: 30
+    amount: 2
   - type: 10
-    amount: 15
+    amount: 1
   itemlevel: 1
   updatetype: 0
+  enhancements:
+  - {fileID: 11400000, guid: 91286f0b66d9ed246bf9eab3c0dc7288, type: 2}

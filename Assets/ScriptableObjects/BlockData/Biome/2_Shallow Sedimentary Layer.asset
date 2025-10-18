@@ -67,4 +67,79 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
+  - blockData: {fileID: 11400000, guid: fb85e9187936258448f3f011a292a099, type: 2}
+    distributionCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: -100
+        value: 0.05
+        inSlope: -0.00001670996
+        outSlope: -0.00001670996
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0.5238093
+      - serializedVersion: 3
+        time: -11
+        value: 0.02
+        inSlope: -0.00033707867
+        outSlope: -0.00033707867
+        tangentMode: 34
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  - blockData: {fileID: 11400000, guid: d07715fc274f75e47922b9fc3aa3ac5a, type: 2}
+    distributionCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: -100
+        value: 0.15
+        inSlope: -0.00001670996
+        outSlope: -0.00001670996
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0.5238093
+      - serializedVersion: 3
+        time: -11
+        value: 0.02
+        inSlope: -0.0014606742
+        outSlope: -0.0014606742
+        tangentMode: 34
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  - blockData: {fileID: 11400000, guid: 81e15eca7a78df34a90c1ab3a99a4f0d, type: 2}
+    distributionCurve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: -100
+        value: 0.15
+        inSlope: -0.00001670996
+        outSlope: -0.00001670996
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0.5238093
+      - serializedVersion: 3
+        time: -11
+        value: 0.02
+        inSlope: -0.0014606742
+        outSlope: -0.0014606742
+        tangentMode: 34
+        weightedMode: 0
+        inWeight: 0.33333334
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
   backgroundTexture: {fileID: 0}

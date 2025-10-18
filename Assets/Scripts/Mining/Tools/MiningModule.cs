@@ -4,7 +4,7 @@ using UnityEngine;
 public abstract class MiningModule : ScriptableObject
 {
     [Header("Damage Settings")]
-    [SerializeField] protected int damagePerHit = 1;
+    [SerializeField] protected Stat damagePerHit = new Stat { BaseValue = 1 };
     
     /// <summary>
     /// 掘削範囲の中心を取得します。
@@ -14,12 +14,12 @@ public abstract class MiningModule : ScriptableObject
     /// <summary>
     /// 掘削範囲のサイズを取得します。
     /// </summary>
-    public abstract Vector3 DiggingSize { get; }
+    public abstract StatVector3 DiggingSize { get; }
     
     /// <summary>
     /// 1回の攻撃で与えるダメージ量を取得します。
     /// </summary>
-    public virtual int DamagePerHit => damagePerHit;
+    public virtual Stat DamagePerHit => damagePerHit;
 
     /// <summary>
     /// 掘削処理を実行します。
