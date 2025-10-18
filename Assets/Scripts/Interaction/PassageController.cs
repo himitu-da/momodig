@@ -9,12 +9,29 @@ public class PassageController : MonoBehaviour
     [SerializeField] private string destinationSceneName; // 遷移先のシーン名
     [SerializeField] private ChangeScene changeScene; // シーン遷移を担当するコンポーネント
 
+    [Header("参照")]
+    [SerializeField] private MinecartManager minecartManager; // トロッコマネージャーへの参照
+
     private PlayerController playerController;
     private Transform playerTransform; // Player全体のTransformを保持
     private Collider playerCollider; // PlayerColliderのColliderを保持
     private Vector3 initialPlayerScale;
     private float entryProgress = 0f; // 0.0 (通常) to 1.0 (完全に入った)
     private bool isPlayerInside = false;
+    private bool hasTransferredItems = false; // アイテム転送済みフラグ
+
+    private void Awake()
+    {
+        // MinecartManagerが設定されていない場合は自動的に検索
+        if (minecartManager == null)
+        {
+            minecartManager = FindFirstObjectByType<MinecartManager>();
+            if (minecartManager == null)
+            {
+                Debug.LogWarning("PassageController: MinecartManagerが見つかりません。トロッコのアイテム保存は行われません。");
+            }
+        }
+    }
 
     private void OnTriggerEnter(Collider other)
     {
@@ -108,9 +125,14 @@ public class PassageController : MonoBehaviour
             return; // リセットしたので以降の処理は不要
         }
 
-        // 完了チェック
-        if (entryProgress >= 1.0f)
+        // 完了チェック（進行度が1.0に達したら）
+        if (entryProgress >= 1.0f && !hasTransferredItems)
         {
+            // アイテム転送を実行
+            TransferAllItemsToStorage();
+            hasTransferredItems = true;
+
+            // シーン遷移を実行
             Debug.Log($"シーン「{destinationSceneName}」への移動を開始します！");
             if (changeScene != null && !string.IsNullOrEmpty(destinationSceneName))
             {
@@ -154,5 +176,90 @@ public class PassageController : MonoBehaviour
         playerTransform = null;
         playerCollider = null;
         entryProgress = 0f;
+        hasTransferredItems = false; // 転送フラグもリセット
+    }
+
+    /// <summary>
+    /// プレイヤーインベントリとトロッコの全アイテムをGameDataPersistenceManagerに転送
+    /// </summary>
+    private void TransferAllItemsToStorage()
+    {
+        if (playerController == null)
+        {
+            Debug.LogWarning("PassageController: PlayerControllerがnullのため、アイテム転送をスキップします。");
+            return;
+        }
+
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager == null)
+        {
+            Debug.LogError("PassageController: GameDataPersistenceManagerが見つかりません。");
+            return;
+        }
+
+        Debug.Log("PassageController: プレイヤーとトロッコのアイテムをGameDataPersistenceManagerに転送開始");
+
+        // プレイヤーインベントリの全アイテムを転送
+        var playerResources = playerController.Inventory.GetAllResources();
+        foreach (var resource in playerResources)
+        {
+            if (resource.Value > 0)
+            {
+                // GameDataPersistenceManagerに追加
+                if (persistenceManager.storedResources.ContainsKey(resource.Key))
+                {
+                    persistenceManager.storedResources[resource.Key] += resource.Value;
+                }
+                else
+                {
+                    persistenceManager.storedResources[resource.Key] = resource.Value;
+                }
+                Debug.Log($"PassageController: プレイヤーから{resource.Key}を{resource.Value}個転送");
+            }
+        }
+
+        // プレイヤーインベントリをクリア（各リソースタイプを削除）
+        foreach (var resource in playerResources)
+        {
+            if (resource.Value > 0)
+            {
+                playerController.Inventory.RemoveResource(resource.Key, resource.Value);
+            }
+        }
+
+        // トロッコの全アイテムを転送
+        if (minecartManager != null && minecartManager.minecarts != null)
+        {
+            foreach (var minecart in minecartManager.minecarts)
+            {
+                if (minecart != null && minecart.resources != null)
+                {
+                    foreach (var resource in minecart.resources)
+                    {
+                        if (resource.Value > 0)
+                        {
+                            // GameDataPersistenceManagerに追加
+                            if (persistenceManager.storedResources.ContainsKey(resource.Key))
+                            {
+                                persistenceManager.storedResources[resource.Key] += resource.Value;
+                            }
+                            else
+                            {
+                                persistenceManager.storedResources[resource.Key] = resource.Value;
+                            }
+                            Debug.Log($"PassageController: トロッコから{resource.Key}を{resource.Value}個転送");
+                        }
+                    }
+                    // トロッコをクリア
+                    minecart.ClearResources();
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning("PassageController: MinecartManagerまたはトロッコリストが見つかりません。");
+        }
+
+        Debug.Log("PassageController: アイテム転送完了");
     }
 }
