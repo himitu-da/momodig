@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 552abe35e313faa46a0eea2a3a704b70, type: 3}
   m_Name: NewEnhancement
   m_EditorClassIdentifier: 
+  TargetCategory: Minecart
   TargetStatName: cartunit
   Type: 0
   Value: 1

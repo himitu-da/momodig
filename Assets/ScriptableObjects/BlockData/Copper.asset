@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d552916d40791ba4b92c2c9762f04b09, type: 3}
   m_Name: Copper
   m_EditorClassIdentifier: 
-  resourceType: 4
-  voxelHp: 3
+  resourceType: 5
+  voxelHp: 6
   materialType: 0
   textures:
   - {fileID: 2800000, guid: fcb0579173c78c544a06db375d004b76, type: 3}

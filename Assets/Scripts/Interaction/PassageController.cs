@@ -180,7 +180,7 @@ public class PassageController : MonoBehaviour
     }
 
     /// <summary>
-    /// プレイヤーインベントリとトロッコの全アイテムをGameDataPersistenceManagerに転送
+    /// プレイヤーインベントリとトロッコの全アイテムをStorageManagerに転送
     /// </summary>
     private void TransferAllItemsToStorage()
     {
@@ -190,14 +190,14 @@ public class PassageController : MonoBehaviour
             return;
         }
 
-        var persistenceManager = GameDataPersistenceManager.Instance;
-        if (persistenceManager == null)
+        var storageManager = StorageManager.Instance;
+        if (storageManager == null)
         {
-            Debug.LogError("PassageController: GameDataPersistenceManagerが見つかりません。");
+            Debug.LogError("PassageController: StorageManagerが見つかりません。");
             return;
         }
 
-        Debug.Log("PassageController: プレイヤーとトロッコのアイテムをGameDataPersistenceManagerに転送開始");
+        Debug.Log("PassageController: プレイヤーとトロッコのアイテムをStorageManagerに転送開始");
 
         // プレイヤーインベントリの全アイテムを転送
         var playerResources = playerController.Inventory.GetAllResources();
@@ -205,15 +205,8 @@ public class PassageController : MonoBehaviour
         {
             if (resource.Value > 0)
             {
-                // GameDataPersistenceManagerに追加
-                if (persistenceManager.storedResources.ContainsKey(resource.Key))
-                {
-                    persistenceManager.storedResources[resource.Key] += resource.Value;
-                }
-                else
-                {
-                    persistenceManager.storedResources[resource.Key] = resource.Value;
-                }
+                // StorageManagerに追加（内部でGameDataPersistenceManagerと同期される）
+                storageManager.AddResource(resource.Key, resource.Value);
                 Debug.Log($"PassageController: プレイヤーから{resource.Key}を{resource.Value}個転送");
             }
         }
@@ -238,15 +231,8 @@ public class PassageController : MonoBehaviour
                     {
                         if (resource.Value > 0)
                         {
-                            // GameDataPersistenceManagerに追加
-                            if (persistenceManager.storedResources.ContainsKey(resource.Key))
-                            {
-                                persistenceManager.storedResources[resource.Key] += resource.Value;
-                            }
-                            else
-                            {
-                                persistenceManager.storedResources[resource.Key] = resource.Value;
-                            }
+                            // StorageManagerに追加（内部でGameDataPersistenceManagerと同期される）
+                            storageManager.AddResource(resource.Key, resource.Value);
                             Debug.Log($"PassageController: トロッコから{resource.Key}を{resource.Value}個転送");
                         }
                     }

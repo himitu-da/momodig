@@ -2057,7 +2057,7 @@ MonoBehaviour:
   unloadTime:
     BaseValue: 2
   cartunit:
-    BaseValue: 2
+    BaseValue: 0
   pathRecordInterval: 0.2
   cartDistanceInPoints: 5
   maxPathPoints: 100
@@ -2768,6 +2768,7 @@ MonoBehaviour:
   requiredInputThreshold: 0.5
   destinationSceneName: OverWorldScene
   changeScene: {fileID: 168293942}
+  minecartManager: {fileID: 0}
 --- !u!65 &1700130094
 BoxCollider:
   m_ObjectHideFlags: 0
