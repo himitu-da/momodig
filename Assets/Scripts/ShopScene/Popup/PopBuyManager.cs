@@ -22,7 +22,7 @@ public class PopBuyManager : MonoBehaviour
     {
         foreach (RequestMaterial requestmaterial in item.requestmaterials)
         {
-            storage.AddResource(requestmaterial.type, requestmaterial.correctamount(item.itemlevel) * (-1));
+            storage.AddResource(requestmaterial.type, requestmaterial.correctamount(item.updatetype,item.itemlevel) * (-1));
         }
         //購入後アイテムデータ更新
         item.itemlevel += 1;
@@ -49,8 +49,8 @@ public class PopBuyManager : MonoBehaviour
             Debug.Log($"materialrequests:{item.requestmaterials.Count}");
             foreach (RequestMaterial request in item.requestmaterials)
             {
-                Debug.Log($"{request.type}:{storage.GetResourceAmount(request.type)} - {request.correctamount(item.itemlevel) * count} = {storage.GetResourceAmount(request.type) - request.amount * count}");
-                if (storage.GetResourceAmount(request.type) - request.correctamount(item.itemlevel) * count < 0)
+                Debug.Log($"{request.type}:{storage.GetResourceAmount(request.type)} - {request.correctamount(item.updatetype,item.itemlevel) * count} = {storage.GetResourceAmount(request.type) - request.amount * count}");
+                if (storage.GetResourceAmount(request.type) - request.correctamount(item.updatetype,item.itemlevel) * count < 0)
                 {
                     return false;
                 }
