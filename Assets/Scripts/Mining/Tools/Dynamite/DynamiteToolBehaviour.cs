@@ -37,8 +37,8 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         }
 
         GameObject projectilePrefab = dynamiteModule.ProjectilePrefab;
-        float force = dynamiteModule.ThrowForce;
-        float maxDistance = dynamiteModule.MaxThrowDistance;
+        float force = dynamiteModule.ThrowForce.Value;
+        float maxDistance = dynamiteModule.MaxThrowDistance.Value;
         float gravityValue = dynamiteModule.Gravity;
 
         if (projectilePrefab == null)
@@ -175,7 +175,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             return Vector3.right;
         }
         
-        float maxDistance = dynamiteModule.MaxThrowDistance;
+        float maxDistance = dynamiteModule.MaxThrowDistance.Value;
         
         // プレイヤーの中心位置とマウスのワールド座標を取得
         Vector3 startPos = user.transform.position; // プレイヤーの中心位置

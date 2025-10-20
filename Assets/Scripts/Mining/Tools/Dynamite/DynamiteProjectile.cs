@@ -68,12 +68,12 @@ public class DynamiteProjectile : MonoBehaviour
         float explosionForce = 5f; // デフォルト値
         if (behaviour.ToolData.miningModule is DynamiteMiningModule dynamiteModule)
         {
-            explosionForce = dynamiteModule.ExplosionForce;
+            explosionForce = dynamiteModule.ExplosionForce.Value;
         }
         
         // Behaviour の Digger を使用して掘削実行
-        int explosionDamage = module.DamagePerHit;
-        var (hitBlocksWithSound, destroyedVoxelCountWithSound) = await behaviour.PerformExplosionMining(transform.position, module.DiggingCenter, module.DiggingSize, explosionDamage, explosionForce);
+        int explosionDamage = module.DamagePerHit.IntValue;
+        var (hitBlocksWithSound, destroyedVoxelCountWithSound) = await behaviour.PerformExplosionMining(transform.position, module.DiggingCenter, module.DiggingSize.Value, explosionDamage, explosionForce);
         PlayExplosionSound(hitBlocksWithSound, destroyedVoxelCountWithSound);
     }
 
@@ -105,7 +105,7 @@ public class DynamiteProjectile : MonoBehaviour
         Gizmos.color = Color.yellow;
         MiningModule module = behaviour.ToolData.miningModule;
         Vector3 center = transform.position + module.DiggingCenter;
-        Vector3 size = module.DiggingSize;
+        Vector3 size = module.DiggingSize.Value;
         Gizmos.DrawWireCube(center, size);
     }
 }

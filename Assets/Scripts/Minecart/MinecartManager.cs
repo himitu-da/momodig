@@ -10,7 +10,7 @@ public class MinecartManager : MonoBehaviour
 
     [Header("トロッコ設定")]
     public GameObject minecartPrefab; // トロッコのプレハブ
-    public int CartCapacity = 500;
+    public Stat CartCapacity = new Stat { BaseValue = 500 };
 
     [Header("UI設定")]
     public GameObject minecartCapacityUIPrefab; // UIプレハブ
@@ -18,10 +18,10 @@ public class MinecartManager : MonoBehaviour
     public Vector3 uiOffset; // UIのオフセット
     [Header("トロッコ移動設定")]
     public Vector3 groundStationPosition = Vector3.zero; // 地上の停留点
-    public float followMoveSpeed = 5f; // プレイヤー追従時の速度
-    public float groundMoveSpeed = 10f; // 地上へ向かう際の速度
-    public float unloadTime = 2.0f; // 地上での荷降ろし時間
-    public int cartunit = 2;
+    public Stat followMoveSpeed = new Stat { BaseValue = 5f }; // プレイヤー追従時の速度
+    public Stat groundMoveSpeed = new Stat { BaseValue = 10f }; // 地上へ向かう際の速度
+    public Stat unloadTime = new Stat { BaseValue = 2.0f }; // 地上での荷降ろし時間
+    public Stat cartunit = new Stat { BaseValue = 2 };
     public List<Minecart> minecarts = new List<Minecart>();
 
     [Header("軌跡追従設定")]
@@ -36,10 +36,21 @@ public class MinecartManager : MonoBehaviour
     [Header("トロッコ状態")]
     public bool digable = true;
 
+    private void OnEnable()
+    {
+        GameDataPersistenceManager.OnPurchasedItemsChanged += ApplyEnhancements;
+    }
+
+    private void OnDisable()
+    {
+        GameDataPersistenceManager.OnPurchasedItemsChanged -= ApplyEnhancements;
+    }
+
     void Start()
     {
+        ApplyEnhancements(); // 初期化時に適用
         // トロッコを必要数まで生成
-        while (minecarts.Count < cartunit)
+        while (minecarts.Count < cartunit.IntValue)
         {
             addnewcart();
         }
@@ -71,7 +82,7 @@ public class MinecartManager : MonoBehaviour
             {
                 movement = newMinecartObject.AddComponent<MinecartMovement>();
             }
-            movement.moveSpeed = followMoveSpeed;
+            movement.moveSpeed = followMoveSpeed.Value;
 
             Minecart newMinecart = new Minecart(newMinecartObject);
 
@@ -101,7 +112,7 @@ public class MinecartManager : MonoBehaviour
         int currentCart = 0; // 先頭のトロッコを使用
         minecarts[currentCart].resources[type] += value;
         // 容量チェック
-        if (minecarts[currentCart].CurrentLoad >= CartCapacity)
+        if (minecarts[currentCart].CurrentLoad >= CartCapacity.IntValue)
         {
             SendCartToHome(currentCart);
         }
@@ -115,7 +126,7 @@ public class MinecartManager : MonoBehaviour
         {
             cart.state = MinecartState.GoingToGround; // 状態を地上へ移動中に変更
             cart.movement.targetPosition = groundStationPosition; // 地上の停留点に移動
-            cart.movement.moveSpeed = groundMoveSpeed; // 地上への移動速度を設定
+            cart.movement.moveSpeed = groundMoveSpeed.Value; // 地上への移動速度を設定
 
             // 使用済みのトロッコをリストの末尾に移動（キューの末尾へ）
             Minecart movedCart = minecarts[0];
@@ -216,7 +227,7 @@ public class MinecartManager : MonoBehaviour
                 {
                     cart.capacityText.gameObject.SetActive(true);
                     cart.capacityText.transform.position = cart.gameObject.transform.position + uiOffset;
-                    cart.capacityText.text = $"{cart.CurrentLoad} / {CartCapacity}";
+                    cart.capacityText.text = $"{cart.CurrentLoad} / {CartCapacity.IntValue}";
                 }
                 else
                 {
@@ -231,7 +242,7 @@ public class MinecartManager : MonoBehaviour
                     if (Vector3.Distance(cart.gameObject.transform.position, groundStationPosition) < 0.1f)
                     {
                         cart.state = MinecartState.Unloading; // 状態を荷降ろし中に変更
-                        cart.time = unloadTime; // 荷降ろしタイマーを設定
+                        cart.time = unloadTime.Value; // 荷降ろしタイマーを設定
 
                         // 中身をStorageManagerに移す
                         if (StorageManager.Instance != null)
@@ -251,7 +262,7 @@ public class MinecartManager : MonoBehaviour
                     else
                     {
                         cart.state = MinecartState.Following; // 状態を追従中に変更
-                        cart.movement.moveSpeed = followMoveSpeed; // 追従速度に戻す
+                        cart.movement.moveSpeed = followMoveSpeed.Value; // 追従速度に戻す
                     }
                     break;
 
@@ -269,6 +280,90 @@ public class MinecartManager : MonoBehaviour
         else
         {
             digable = false;
+        }
+    }
+
+    public void ApplyEnhancements()
+    {
+        // Statの補正値をリセット
+        CartCapacity.RemoveAllModifiers();
+        followMoveSpeed.RemoveAllModifiers();
+        groundMoveSpeed.RemoveAllModifiers();
+        unloadTime.RemoveAllModifiers();
+        cartunit.RemoveAllModifiers();
+
+        var purchasedItems = GameDataPersistenceManager.Instance.purchaseditems;
+        foreach (var item in purchasedItems)
+        {
+            ItemData itemData = item.Key;
+            int level = item.Value;
+
+            if (level == 0) continue; // レベル0のアイテムは効果なし
+
+            foreach (var enhancement in itemData.enhancements)
+            {
+                // カテゴリが "Minecart" の場合のみ適用
+                if (enhancement.TargetCategory == "Minecart")
+                {
+                    Stat targetStat = GetStatByName(enhancement.TargetStatName);
+                    if (targetStat != null)
+                    {
+                        ApplyModifier(targetStat, enhancement, level);
+                    }
+                }
+            }
+        }
+
+        // トロッコ数が変わった可能性があるので更新
+        UpdateCartCount();
+    }
+
+    private Stat GetStatByName(string statName)
+    {
+        switch (statName)
+        {
+            case "CartCapacity": return CartCapacity;
+            case "followMoveSpeed": return followMoveSpeed;
+            case "groundMoveSpeed": return groundMoveSpeed;
+            case "unloadTime": return unloadTime;
+            case "cartunit": return cartunit;
+            default: return null;
+        }
+    }
+
+    private void ApplyModifier(Stat stat, Enhancement enhancement, int level)
+    {
+        if (enhancement.Type == EnhancementType.Additive)
+        {
+            stat.AddAdditiveModifier(level * enhancement.Value);
+        }
+        else if (enhancement.Type == EnhancementType.Multiplicative)
+        {
+            // 乗算の場合は、基本値1.0に対して補正をかけるのが一般的
+            // 例: Value=1.1 (10%増) の場合、(1.1-1.0) * level + 1.0 のような計算が考えられる
+            // 今回は累乗で実装
+            stat.AddMultiplicativeModifier(Mathf.Pow(enhancement.Value, level));
+        }
+    }
+
+    private void UpdateCartCount()
+    {
+        // 現在のトロッコ数が必要数より多い場合は削除
+        while (minecarts.Count > cartunit.IntValue)
+        {
+            Minecart cartToRemove = minecarts[minecarts.Count - 1];
+            Destroy(cartToRemove.gameObject);
+            if (cartToRemove.capacityText != null)
+            {
+                Destroy(cartToRemove.capacityText.gameObject);
+            }
+            minecarts.RemoveAt(minecarts.Count - 1);
+        }
+
+        // 現在のトロッコ数が必要数より少ない場合は追加
+        while (minecarts.Count < cartunit.IntValue)
+        {
+            addnewcart();
         }
     }
 }

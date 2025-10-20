@@ -2044,15 +2044,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerTransform: {fileID: 672003891}
   minecartPrefab: {fileID: 1242165045067032922, guid: 57b4c4f6783a13c45909b1fc9784d4b1, type: 3}
-  CartCapacity: 100
+  CartCapacity:
+    BaseValue: 50
   minecartCapacityUIPrefab: {fileID: 389274024485993804, guid: 393ff803e241034418760f2c9c02f0e5, type: 3}
   worldCanvasTransform: {fileID: 503054372}
   uiOffset: {x: 0, y: 1, z: 0}
   groundStationPosition: {x: 0, y: 2, z: 0}
-  followMoveSpeed: 5
-  groundMoveSpeed: 15
-  unloadTime: 2
-  cartunit: 5
+  followMoveSpeed:
+    BaseValue: 5
+  groundMoveSpeed:
+    BaseValue: 10
+  unloadTime:
+    BaseValue: 2
+  cartunit:
+    BaseValue: 0
   pathRecordInterval: 0.2
   cartDistanceInPoints: 5
   maxPathPoints: 100
@@ -2763,6 +2768,7 @@ MonoBehaviour:
   requiredInputThreshold: 0.5
   destinationSceneName: OverWorldScene
   changeScene: {fileID: 168293942}
+  minecartManager: {fileID: 0}
 --- !u!65 &1700130094
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3014,7 +3020,7 @@ MonoBehaviour:
     initialChunkCount: {x: 2, y: 5}
     blocksPerChunk: {x: 5, y: 5}
     blockSize: 1
-    voxelsPerBlock: 4
+    voxelsPerBlock: 3
     generationType: 0
     blocksPerFrame: 16
     itemLoadDelay: 0.35
