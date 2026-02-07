@@ -20059,7 +20059,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   popbuybutton: {fileID: 1500270939}
-  storage: {fileID: 0}
+  storage: {fileID: 1514389441}
   productname: {fileID: 756631842}
   buymanager: {fileID: 1715316236}
   item: {fileID: 0}
@@ -23075,7 +23075,7 @@ MonoBehaviour:
   Gold_Request: {fileID: 169617500}
   Rareearth_Request: {fileID: 1104276141}
   Diamond_Request: {fileID: 227161002}
-  storage: {fileID: 0}
+  storage: {fileID: 1514389441}
   CheckList: {fileID: 1753650618}
   popup: {fileID: 1255325612}
   popbuy: {fileID: 1500270938}
@@ -23644,7 +23644,7 @@ MonoBehaviour:
   Gold_Request: {fileID: 1187532203}
   Rareearth_Request: {fileID: 667560058}
   Diamond_Request: {fileID: 1664351079}
-  storage: {fileID: 0}
+  storage: {fileID: 1514389441}
   popcounter: {fileID: 1492058053}
   popbuymanager: {fileID: 1500270938}
 --- !u!114 &1753650619
