@@ -12,15 +12,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb8c45ea4b87fad40ad030d190c9bc2d, type: 3}
   m_Name: NewMinecart
   m_EditorClassIdentifier: 
-  Itemname: "\u65B0\u898F\u30C8\u30ED\u30C3\u30B3"
+  Itemname: "\u30C8\u30ED\u30C3\u30B3"
   FlavorText: "\u30C8\u30ED\u30C3\u30B3\u306F\u9271\u7269\u306E\u904B\u642C\u306B\u306F\u6B20\u304B\u3059\u3053\u3068\u304C\u3067\u304D\u306A\u3044\u3002\u63A1\u6398\u3068\u306F\u6398\u308A\u9032\u3081\u308B\u3060\u3051\u3067\u306F\u6210\u308A\u7ACB\u305F\u306A\u3044\u306E\u3060\n\u9F8D\u73E0\u3092\u52D5\u529B\u306B\u52D5\u304F\u5C71\u7AE5\u88FD"
   price: 0
   requestmaterials:
   - type: 1
     amount: 20
-  - type: 4
-    amount: 3
-  - type: 6
-    amount: 2
-  itemlevel: 5
+  - type: 5
+    amount: 10
+  - type: 11
+    amount: 5
+  itemlevel: 0
   updatetype: 1
+  enhancements:
+  - {fileID: 11400000, guid: 1571f13da5e9af7438fce21969d86c5c, type: 2}

@@ -261,7 +261,7 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
     {
         var targetCart = minecartManager.minecarts[0];
         int currentAmount = targetCart.resources[transferType];
-        int capacity = minecartManager.CartCapacity;
+        int capacity = minecartManager.CartCapacity.IntValue;
         
         // Debug.Log($"MinecartInteractionSystem: トロッコ容量チェック - {transferType}: {currentAmount}/{capacity}");
         

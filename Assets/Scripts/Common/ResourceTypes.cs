@@ -6,6 +6,7 @@ using UnityEngine;
 /// </summary>
 public enum ResourceType
 {
+    Soil,
     Stone,
     Iron,
     Gold,
@@ -33,6 +34,8 @@ public static class ResourceTypeUtility
     {
         switch (resourceType)
         {
+            case ResourceType.Soil: 
+                return Color.brown;
             case ResourceType.Stone: 
                 return Color.gray;
             case ResourceType.Iron: 
@@ -69,6 +72,7 @@ public static class ResourceTypeUtility
     {
         switch (resourceType)
         {
+            case ResourceType.Soil: return "土";
             case ResourceType.Stone: return "石";
             case ResourceType.Iron: return "鉄";
             case ResourceType.Gold: return "金";
@@ -98,6 +102,7 @@ public static class ResourceTypeUtility
             case ResourceType.Gold: return 10;
             case ResourceType.Diamond: return 50;
             case ResourceType.Copper: return 2;
+            case ResourceType.Soil: return 1;
             case ResourceType.Tin: return 2;
             case ResourceType.Nickel: return 4;
             case ResourceType.Silicon: return 5;
