@@ -12,11 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 098a0eaa35833374e8355c95bbc8c99f, type: 3}
   m_Name: DynamiteMiningModule
   m_EditorClassIdentifier: 
-  damagePerHit: 2
+  damagePerHit:
+    BaseValue: 2
   dynamitePrefab: {fileID: 2706890340770007549, guid: 9a245cfbacf933a44a658cb7d0b3d55d, type: 3}
-  throwForce: 8
-  maxThrowDistance: 15
+  throwForce:
+    BaseValue: 8
+  maxThrowDistance:
+    BaseValue: 15
   gravity: 9.81
-  explosionForce: 250
+  explosionForce:
+    BaseValue: 400
   diggingCenter: {x: 0, y: 0, z: 0}
-  diggingSize: {x: 2, y: 2, z: 2}
+  diggingSize:
+    X:
+      BaseValue: 1.5
+    Y:
+      BaseValue: 1.5
+    Z:
+      BaseValue: 1.5

@@ -31,8 +31,20 @@ public class MiningToolsController : MonoBehaviour
     private PlayerController _playerController; // PlayerControllerへの参照
     private Vector3 _currentDirection = Vector3.right;
 
+    private void OnEnable()
+    {
+        GameDataPersistenceManager.OnPurchasedItemsChanged += ApplyEnhancements;
+    }
+
+    private void OnDisable()
+    {
+        GameDataPersistenceManager.OnPurchasedItemsChanged -= ApplyEnhancements;
+    }
+
     private void Awake()
     {
+        ApplyEnhancements(); // 初期化時に適用
+
         if (toolMount == null) toolMount = this.transform;
 
         // 親オブジェクト（Player）からPlayerControllerを取得
@@ -285,4 +297,128 @@ public class MiningToolsController : MonoBehaviour
     // --- Animation Event Relays ---
     // PlayerControllerから呼び出され、現在アクティブなツールのBehaviourに処理を中継する。
     // ↑ このセクションは不要になったため削除
+
+    public void ApplyEnhancements()
+    {
+        if (usableMiningTools == null) return;
+
+        // 全ての利用可能なツールのステータスをリセット
+        foreach (var tool in usableMiningTools)
+        {
+            if (tool.miningModule != null)
+            {
+                ResetMiningModuleStats(tool.miningModule);
+            }
+        }
+
+        var purchasedItems = GameDataPersistenceManager.Instance.purchaseditems;
+        foreach (var item in purchasedItems)
+        {
+            ItemData itemData = item.Key;
+            int level = item.Value;
+
+            if (level == 0) continue;
+
+            foreach (var enhancement in itemData.enhancements)
+            {
+                // どのツールのステータスを強化するかを判断する必要がある
+                // ここでは、全ツールに対して適用を試みる
+                foreach (var tool in usableMiningTools)
+                {
+                    // Enhancementに設定されたTargetCategoryと現在のtool名が一致する場合のみ適用
+                    if (enhancement.TargetCategory == tool.name && tool.miningModule != null)
+                    {
+                        ApplyEnhancementToModule(tool.miningModule, enhancement, level);
+                    }
+                }
+            }
+        }
+    }
+
+    private void ResetMiningModuleStats(MiningModule module)
+    {
+        module.DamagePerHit.RemoveAllModifiers();
+        module.DiggingSize.RemoveAllModifiers();
+
+        if (module is DynamiteMiningModule dynamiteModule)
+        {
+            dynamiteModule.ThrowForce.RemoveAllModifiers();
+            dynamiteModule.MaxThrowDistance.RemoveAllModifiers();
+            dynamiteModule.ExplosionForce.RemoveAllModifiers();
+        }
+        else if (module is PickaxeMiningModule pickaxeModule)
+        {
+            pickaxeModule.MiningForce.RemoveAllModifiers();
+            pickaxeModule.VerticalMiningForce.RemoveAllModifiers();
+            pickaxeModule.VerticalDiggingSize.RemoveAllModifiers();
+        }
+    }
+
+    private void ApplyEnhancementToModule(MiningModule module, Enhancement enhancement, int level)
+    {
+        Stat targetStat = null;
+
+        // Common stats
+        if (enhancement.TargetStatName == "DamagePerHit") targetStat = module.DamagePerHit;
+        
+        // Dynamite-specific stats
+        if (module is DynamiteMiningModule dynamiteModule)
+        {
+            switch (enhancement.TargetStatName)
+            {
+                case "ThrowForce":
+                    targetStat = dynamiteModule.ThrowForce;
+                    break;
+                case "MaxThrowDistance":
+                    targetStat = dynamiteModule.MaxThrowDistance;
+                    break;
+                case "ExplosionForce":
+                    targetStat = dynamiteModule.ExplosionForce;
+                    break;
+            }
+        }
+        // Pickaxe-specific stats
+        else if (module is PickaxeMiningModule pickaxeModule)
+        {
+            switch (enhancement.TargetStatName)
+            {
+                case "MiningForce":
+                    targetStat = pickaxeModule.MiningForce;
+                    break;
+                case "VerticalMiningForce":
+                    targetStat = pickaxeModule.VerticalMiningForce;
+                    break;
+            }
+        }
+        
+        // Vector3 stats need special handling
+        if (enhancement.TargetStatName == "DiggingSize.X") targetStat = module.DiggingSize.X;
+        if (enhancement.TargetStatName == "DiggingSize.Y") targetStat = module.DiggingSize.Y;
+        if (enhancement.TargetStatName == "DiggingSize.Z") targetStat = module.DiggingSize.Z;
+
+        if (module is PickaxeMiningModule pickaxeModuleForSize)
+        {
+            if (enhancement.TargetStatName == "VerticalDiggingSize.X") targetStat = pickaxeModuleForSize.VerticalDiggingSize.X;
+            if (enhancement.TargetStatName == "VerticalDiggingSize.Y") targetStat = pickaxeModuleForSize.VerticalDiggingSize.Y;
+            if (enhancement.TargetStatName == "VerticalDiggingSize.Z") targetStat = pickaxeModuleForSize.VerticalDiggingSize.Z;
+        }
+
+
+        if (targetStat != null)
+        {
+            ApplyModifier(targetStat, enhancement, level);
+        }
+    }
+
+    private void ApplyModifier(Stat stat, Enhancement enhancement, int level)
+    {
+        if (enhancement.Type == EnhancementType.Additive)
+        {
+            stat.AddAdditiveModifier(level * enhancement.Value);
+        }
+        else if (enhancement.Type == EnhancementType.Multiplicative)
+        {
+            stat.AddMultiplicativeModifier(Mathf.Pow(enhancement.Value, level));
+        }
+    }
 }

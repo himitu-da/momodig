@@ -43,11 +43,11 @@ public class Digger : MonoBehaviour
             // 掘削範囲が外部から上書きされていない場合のみ、モジュールのデフォルト値を使用
             if (!isDiggingAreaOverridden)
             {
-                SetDiggingAreaParameters(pendingMiningModule.DiggingCenter, pendingMiningModule.DiggingSize);
+                SetDiggingAreaParameters(pendingMiningModule.DiggingCenter, pendingMiningModule.DiggingSize.Value);
             }
 
             // 掘削を実行し、ヒットしたブロックの情報を取得
-            var (hitBlocks, destroyedVoxelCount) = await Dig(pendingMiningModule.DamagePerHit, pendingMiningInfo);
+            var (hitBlocks, destroyedVoxelCount) = await Dig(pendingMiningModule.DamagePerHit.IntValue, pendingMiningInfo);
 
             // 実行後に保留中のモジュールとフラグをクリア
             pendingMiningModule = null;

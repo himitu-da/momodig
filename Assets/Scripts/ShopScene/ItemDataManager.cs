@@ -15,6 +15,8 @@ public class ItemData : ScriptableObject
     public int itemlevel = 0;
     [Header("レベル補正種")]
     public ItemUpdateType updatetype = ItemUpdateType.factorial;
+    [Header("強化効果")]
+    public List<Enhancement> enhancements = new List<Enhancement>();
 }
 [System.Serializable]
 public class RequestMaterial

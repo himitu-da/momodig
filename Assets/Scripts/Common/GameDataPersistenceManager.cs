@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System;
 
 /// <summary>
 /// ゲームのセッション中、シーンをまたいでデータを保持するクラス。
@@ -26,6 +27,9 @@ public class GameDataPersistenceManager : MonoBehaviour
         }
     }
 
+    // --- Events ---
+    public static event Action OnPurchasedItemsChanged;
+
     // --- 永続化するデータ ---
 
     [Header("地形データ")]
@@ -44,6 +48,16 @@ public class GameDataPersistenceManager : MonoBehaviour
 
     [Header("購入済み商品データ")]
     public Dictionary<ItemData, int> purchaseditems = new Dictionary<ItemData, int>();
+    
+    /// <summary>
+    /// purchaseditemsが変更されたことを通知します。
+    /// アイテムの購入やロード後に呼び出してください。
+    /// </summary>
+    public void NotifyPurchasedItemsChanged()
+    {
+        OnPurchasedItemsChanged?.Invoke();
+    }
+
     void Awake()
     {
         if (_instance != null && _instance != this)
