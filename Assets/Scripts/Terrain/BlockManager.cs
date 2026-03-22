@@ -92,6 +92,12 @@ public class BlockManager : MonoBehaviour
         
         // リストに追加
         blocks.Add(blockInstance);
+
+        // 永続化データに基づいてアクティブ状態を設定
+        if (GameDataPersistenceManager.Instance.destroyedBlockPositions.Contains(blockPos))
+        {
+            SetBlockActive(blockPos, false);
+        }
         
         if (showBlockDebugInfo)
         {
@@ -113,7 +119,8 @@ public class BlockManager : MonoBehaviour
         }
         
         // Custom Unlitマテリアルを作成
-        Material mat = new Material(Shader.Find("Custom/UnlitBlock"));
+        Material mat = new Material(Shader.Find("Custom/Default"));
+        mat.renderQueue = RenderQueue.Geometry;
         
         // BlockDataにテクスチャが設定されていれば使用
         if (data.textures != null && data.textures.Count > 0)
@@ -177,6 +184,15 @@ public class BlockManager : MonoBehaviour
             if (block.isActive) count++;
         }
         return count;
+    }
+    
+    /// <summary>
+    /// ブロックを破壊する
+    /// </summary>
+    public void DestroyBlock(Vector3Int position)
+    {
+        SetBlockActive(position, false);
+        GameDataPersistenceManager.Instance.destroyedBlockPositions.Add(position);
     }
     
     /// <summary>

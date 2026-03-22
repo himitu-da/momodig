@@ -65,7 +65,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 4ed08a9044959634ab0949cae76375dd, type: 2}
+  - {fileID: 2100000, guid: 00fc76f05c5af654393a6017316b1a8e, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -99,6 +99,3 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 256c9dfdb12bc1949a229b1a3a9e4dee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dynamiteProjectilePrefab: {fileID: 2706890340770007549, guid: 9a245cfbacf933a44a658cb7d0b3d55d, type: 3}
-  throwForce: 8
-  spawnDistance: 0.8

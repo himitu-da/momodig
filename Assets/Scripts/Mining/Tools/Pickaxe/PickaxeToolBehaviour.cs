@@ -90,7 +90,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             }
             
             // 掘削範囲をDiggerに直接設定
-            digger.SetDiggingAreaParameters(centerOffset, pickaxeModule.VerticalDiggingSize);
+            digger.SetDiggingAreaParameters(centerOffset, pickaxeModule.VerticalDiggingSize.Value);
 
             // 爆心地を掘削範囲の中心に設定
             Vector3 explosionCenter = digger.transform.TransformPoint(centerOffset);
@@ -98,7 +98,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             // 爆発タイプのMiningInfoを作成
             miningInfo = MiningInfo.Explosive(
                 explosionCenter,
-                pickaxeModule.VerticalMiningForce
+                pickaxeModule.VerticalMiningForce.Value
             );
             directionState = isUp ? 2 : 3; // 2: 上, 3: 下
         }
@@ -109,7 +109,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             miningInfo = MiningInfo.ArcSwing(
                 digger.transform.position,
                 isFacingRight,
-                pickaxeModule.MiningForce
+                pickaxeModule.MiningForce.Value
             );
             directionState = isFacingRight ? 0 : 1; // 0: 右, 1: 左
         }

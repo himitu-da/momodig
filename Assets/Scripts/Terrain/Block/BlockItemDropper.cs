@@ -67,15 +67,24 @@ public class BlockItemDropper
         item.transform.position = position;
         item.transform.rotation = Quaternion.identity;
 
+        // アイテムの初期設定
+        SetupDroppedItem(item, blockData, voxelX, voxelY, voxelZ);
+    }
+
+    /// <summary>
+    /// ドロップアイテムの初期設定を行う
+    /// </summary>
+    public void SetupDroppedItem(GameObject item, BlockData data, int voxelX = -1, int voxelY = -1, int voxelZ = -1)
+    {
         // 自動スケール調整が有効な場合
-        if (blockData.autoScale)
+        if (data.autoScale)
         {
-            float targetScale = voxelWorldSize * blockData.scaleMultiplier;
+            float targetScale = voxelWorldSize * data.scaleMultiplier;
             item.transform.localScale = Vector3.one * targetScale;
         }
 
         // ボクセル座標が有効な場合、テクスチャ抽出を実行
-        if (enableTextureExtraction && voxelX >= 0 && voxelY >= 0 && voxelZ >= 0 && 
+        if (enableTextureExtraction && voxelX >= 0 && voxelY >= 0 && voxelZ >= 0 &&
             voxelX < voxelsPerBlock && voxelY < voxelsPerBlock && voxelZ < voxelsPerBlock)
         {
             ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ);
@@ -92,10 +101,10 @@ public class BlockItemDropper
         {
             itemRigidbody = item.AddComponent<Rigidbody>();
         }
-        
+
         // 質量を設定
         float volume = Mathf.Pow(voxelWorldSize, 3);
-        itemRigidbody.mass = volume * blockData.density;
+        itemRigidbody.mass = volume * data.density;
 
         // 移動モードに応じてRigidbodyのConstraintを設定
         SetDroppedItemConstraints(itemRigidbody);
@@ -104,8 +113,10 @@ public class BlockItemDropper
         DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
-            droppedItemComponent.resourceType = blockData.resourceType; // ResourceTypeを設定
-            droppedItemComponent.enabled = !blockData.disableRotation;
+            droppedItemComponent.resourceType = data.resourceType; // ResourceTypeを設定
+            droppedItemComponent.blockDataName = data.name; // BlockData名を保存
+            droppedItemComponent.scale = item.transform.localScale; // スケールを保存
+            droppedItemComponent.enabled = !data.disableRotation;
         }
 
         // タグが設定されていない場合は設定
@@ -135,7 +146,8 @@ public class BlockItemDropper
         var itemRenderer = item.GetComponent<Renderer>();
         if (itemRenderer != null)
         {
-            var material = new Material(Shader.Find("Custom/UnlitBlock"));
+            var material = new Material(Shader.Find("Custom/Default"));
+            material.renderQueue = RenderQueue.Geometry;
             material.color = Color.white; // Unlitなのでテクスチャの色をそのまま出すために白に
             itemRenderer.material = material;
         }

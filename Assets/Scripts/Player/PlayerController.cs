@@ -1,4 +1,6 @@
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem; // Input Systemを使うために必要
 using UnityEngine.UI; // UIを使うために必要
 using System.Collections.Generic; // MinecartManager用
@@ -35,9 +37,10 @@ public class PlayerController : MonoBehaviour
     }
 
     [Header("UI設定")]
-    [SerializeField] private Text scoreText; // スコア表示用のText
-    [SerializeField] private Text depthText; // 深度表示用のText
-    [SerializeField] private Text inventoryText; // インベントリ表示用UI
+    [SerializeField] private TextMeshProUGUI scoreText; // スコア表示用のText
+    [SerializeField] private TextMeshProUGUI depthText; // 深度表示用のText
+    [SerializeField] private TextMeshProUGUI inventoryText; // インベントリ表示用UI
+    [SerializeField] private TextMeshProUGUI inventoryCapacityText; // インベントリ容量表示用UI
 
     [Header("インベントリ設定")]
     private IInventory inventory;
@@ -87,12 +90,16 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
+    public Vector2 MoveInput => moveInput; // PassageControllerから入力を取得するため
     private Vector2 mousePosition; // マウスのスクリーン座標
     private float currentFallSpeed = 0f; // 現在の落下速度
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
     private PlayerVisualsController playerVisualsController; // ビジュアル担当
+    
+    // PassageControllerからの制御用
+    public bool IsInPassage { get; set; } = false;
     
     // 接触中のアイテム管理用
     private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
@@ -149,7 +156,7 @@ public class PlayerController : MonoBehaviour
             var scoreTextObject = GameObject.Find("ScoreText");
             if (scoreTextObject != null)
             {
-                scoreText = scoreTextObject.GetComponent<Text>();
+                scoreText = scoreTextObject.GetComponent<TextMeshProUGUI>();
             }
         }
         UpdateScoreText();
@@ -160,7 +167,7 @@ public class PlayerController : MonoBehaviour
             var depthTextObject = GameObject.Find("DepthText");
             if (depthTextObject != null)
             {
-                depthText = depthTextObject.GetComponent<Text>();
+                depthText = depthTextObject.GetComponent<TextMeshProUGUI>();
             }
         }
 
@@ -170,10 +177,32 @@ public class PlayerController : MonoBehaviour
             var inventoryTextObject = GameObject.Find("InventoryText");
             if (inventoryTextObject != null)
             {
-                inventoryText = inventoryTextObject.GetComponent<Text>();
+                inventoryText = inventoryTextObject.GetComponent<TextMeshProUGUI>();
             }
         }
+
+        // inventoryCapacityTextを探して設定
+        if (inventoryCapacityText == null)
+        {
+            var inventoryCapacityTextObject = GameObject.Find("InventoryCapacityText");
+            if (inventoryCapacityTextObject != null)
+            {
+                inventoryCapacityText = inventoryCapacityTextObject.GetComponent<TextMeshProUGUI>();
+            }
+        }
+        
+        // 依存関係の初期化（インターフェース経由）
+        inventory = new PlayerInventory();
+        itemManager = DroppedItemManager.Instance;
+        
+        // インベントリイベントの購読
+        if (inventory != null)
+        {
+            inventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
+        }
+
         UpdateInventoryUI(); // 初期化
+        UpdateInventoryCapacityUI(); // 初期化
 
         // Rigidbodyの制約を更新
         UpdateConstraints();
@@ -185,17 +214,6 @@ public class PlayerController : MonoBehaviour
         if (miningToolsController == null)
         {
             Debug.LogError("MiningToolsControllerが見つかりません。Playerの子オブジェクトにアタッチしてください。");
-        }
-        
-        // 依存関係の初期化（インターフェース経由）
-        inventory = new PlayerInventory();
-        itemManager = DroppedItemManager.Instance;
-        
-        // インベントリイベントの購読
-        if (inventory != null)
-        {
-            inventory.OnResourceAdded += OnInventoryResourceAdded;
-            inventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
         }
     }
 
@@ -236,7 +254,6 @@ public class PlayerController : MonoBehaviour
         // イベント購読解除
         if (inventory != null)
         {
-            inventory.OnResourceAdded -= OnInventoryResourceAdded;
             inventory.OnTotalCountChanged -= OnInventoryTotalCountChanged;
         }
         
@@ -306,7 +323,15 @@ public class PlayerController : MonoBehaviour
         float smoothTime = moveDirection.sqrMagnitude > 0 ? acceleration : deceleration;
 
         // SmoothDampを使用して速度を滑らかに変化させる
-        rb.linearVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+        // Passageに入っている間は移動を無効化
+        if (IsInPassage)
+        {
+            rb.linearVelocity = Vector3.zero;
+        }
+        else
+        {
+            rb.linearVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+        }
 
         // SideScrollerモードで左右の入力があった場合、向きを更新
         if (currentMoveMode == MoveMode.SideScroller && moveInput.x != 0)
@@ -348,6 +373,15 @@ public class PlayerController : MonoBehaviour
 
     private void OnMainMine(InputAction.CallbackContext context)
     {
+        // UI要素上をクリックした場合は、採掘処理を行わない
+        if (IsPointerOverNonMineableUI())
+        {
+            return;
+        }
+        
+        // Passageに入っている間は掘削を無効化
+        if (IsInPassage) return;
+
         // 道具自身のBehaviourを呼び出すだけにする
         if (miningToolsController != null)
         {
@@ -357,10 +391,49 @@ public class PlayerController : MonoBehaviour
 
     private void OnSubMine(InputAction.CallbackContext context)
     {
+        // UI要素上をクリックした場合は、採掘処理を行わない
+        if (IsPointerOverNonMineableUI())
+        {
+            return;
+        }
+        
+        // Passageに入っている間は掘削を無効化
+        if (IsInPassage) return;
+        
         if (miningToolsController != null)
         {
             miningToolsController.UseSubMineTool(this.gameObject, lastMoveDirection);
         }
+    }
+
+    /// <summary>
+    /// マウスカーソルが特定のタグを持たないUI要素上にあるかを判定する
+    /// </summary>
+    /// <returns>特定のタグを持たないUI上にあればtrue</returns>
+    private bool IsPointerOverNonMineableUI()
+    {
+        // PointerEventDataを作成
+        PointerEventData eventData = new PointerEventData(EventSystem.current);
+        // 現在のマウス位置を設定
+        eventData.position = mousePosition;
+
+        // レイキャスト結果を格納するリスト
+        List<RaycastResult> results = new List<RaycastResult>();
+        // UIレイキャストを実行
+        EventSystem.current.RaycastAll(eventData, results);
+
+        // レイキャストにヒットしたUI要素をチェック
+        foreach (RaycastResult result in results)
+        {
+            // "MineableUI" タグが付いていないUI要素であれば、採掘をキャンセル
+            if (!result.gameObject.CompareTag("MineableUI"))
+            {
+                return true;
+            }
+        }
+
+        // "MineableUI" タグが付いている、またはUIがない場合は採掘を許可
+        return false;
     }
 
     void OnCollisionEnter(Collision collision)
@@ -471,6 +544,7 @@ public class PlayerController : MonoBehaviour
                 
                 // インベントリUI更新
                 UpdateInventoryUI();
+                UpdateInventoryCapacityUI();
                 
                 // Debug.Log($"プレイヤーが{resourceType}を回収しました。持ち物: {inventory.GetTotalItemCount()}/{inventory.maxCapacity}");
                 
@@ -505,7 +579,7 @@ public class PlayerController : MonoBehaviour
         {
             // プレイヤーのY座標を整数に変換して深度として表示
             int depth = Mathf.FloorToInt(transform.position.y);
-            depthText.text = "Depth: " + depth;
+            depthText.text = Math.Abs(depth) + "m";//"Depth: " + depth;
         }
     }
 
@@ -514,17 +588,25 @@ public class PlayerController : MonoBehaviour
         if (inventoryText != null)
         {
             var resources = inventory.GetAllResources();
-            string inventoryInfo = $"持ち物 ({inventory.GetTotalItemCount()}/{inventory.maxCapacity}):\n";
+            string inventoryInfo = "";
             
             foreach (var kvp in resources)
             {
                 if (kvp.Value > 0)
                 {
-                    inventoryInfo += $"{kvp.Key}: {kvp.Value}個 ";
+                    inventoryInfo += $"{kvp.Key}: {kvp.Value}\n";
                 }
             }
             
             inventoryText.text = inventoryInfo;
+        }
+    }
+
+    void UpdateInventoryCapacityUI()
+    {
+        if (inventoryCapacityText != null && inventory != null)
+        {
+            inventoryCapacityText.text = $"Item: {inventory.GetTotalItemCount()}/{inventory.maxCapacity}";
         }
     }
 
@@ -549,21 +631,13 @@ public class PlayerController : MonoBehaviour
     }
     
     /// <summary>
-    /// インベントリにリソースが追加されたときの処理
-    /// </summary>
-    private void OnInventoryResourceAdded(ResourceType type, int amount)
-    {
-        // リソース追加時の追加処理があれば実装
-        UpdateInventoryUI(); // UI更新を呼び出し
-    }
-    
-    /// <summary>
     /// インベントリの総数が変更されたときの処理
     /// </summary>
     private void OnInventoryTotalCountChanged(int newTotal)
     {
-        // 総数変更時の処理（必要に応じて）
-        // 例: 満杯状態の通知、パフォーマンス調整など
+        // 総数変更時にUIを更新
+        UpdateInventoryUI();
+        UpdateInventoryCapacityUI();
     }
 
     /// <summary>

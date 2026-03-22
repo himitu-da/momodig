@@ -71,6 +71,20 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         }
     }
 
+    private Dictionary<Vector3Int, List<DroppedItemData>> itemsByChunk = new Dictionary<Vector3Int, List<DroppedItemData>>();
+
+    void Start()
+    {
+        // 永続化データからアイテムをロード
+        PrepareItemLoading();
+    }
+
+    void OnDestroy()
+    {
+        // シーン終了時にアイテムをセーブ
+        SaveItems();
+    }
+
     void Update()
     {
         ProcessWakeUpRequests();
@@ -385,6 +399,11 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         return itemInstance;
     }
 
+    public List<DroppedItem> GetActiveItems()
+    {
+        return new List<DroppedItem>(activeItems);
+    }
+
     public void ReturnItem(GameObject itemInstance)
     {
         if (itemInstance == null) return;
@@ -413,5 +432,201 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         {
             Destroy(itemInstance);
         }
+    }
+
+    private void SaveItems()
+    {
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        persistenceManager.droppedItems.Clear();
+
+        foreach (var item in activeItems)
+        {
+            if (item == null) continue;
+
+            DroppedItemData data = new DroppedItemData
+            {
+                position = item.transform.position,
+                rotation = item.transform.rotation,
+                scale = item.transform.localScale,
+                blockDataName = item.blockDataName,
+                uvBase = item.uvBase,
+                uvSize = item.uvSize,
+                useTexture1 = item.useTexture1,
+                isKinematic = item.rb != null && item.rb.isKinematic
+            };
+            persistenceManager.droppedItems.Add(data);
+        }
+    }
+
+    private void PrepareItemLoading()
+    {
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager.droppedItems == null || persistenceManager.droppedItems.Count == 0) return;
+
+        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
+        if (terrainManager == null)
+        {
+            Debug.LogError("TerrainManager not found. Cannot prepare item loading.");
+            return;
+        }
+
+        itemsByChunk.Clear();
+        var settings = terrainManager.Settings;
+
+        foreach (var itemData in persistenceManager.droppedItems)
+        {
+            int blockX = Mathf.RoundToInt(itemData.position.x / settings.blockSize);
+            int blockY = Mathf.RoundToInt(itemData.position.y / settings.blockSize);
+            
+            int chunkX = Mathf.FloorToInt((float)blockX / settings.blocksPerChunk.x);
+            int chunkY = Mathf.FloorToInt((float)blockY / settings.blocksPerChunk.y);
+            Vector3Int chunkPos = new Vector3Int(chunkX, chunkY, 0);
+
+            if (!itemsByChunk.ContainsKey(chunkPos))
+            {
+                itemsByChunk[chunkPos] = new List<DroppedItemData>();
+            }
+            itemsByChunk[chunkPos].Add(itemData);
+        }
+        
+        persistenceManager.droppedItems.Clear();
+    }
+
+    public void LoadItemsInChunk(Vector3Int chunkPosition)
+    {
+        if (!itemsByChunk.TryGetValue(chunkPosition, out var itemsToLoad)) return;
+
+        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
+        if (terrainManager == null || terrainManager.TerrainDataManager == null)
+        {
+            Debug.LogError("TerrainManager or TerrainDataManager not found. Cannot load items.");
+            return;
+        }
+
+        foreach (var data in itemsToLoad)
+        {
+            BlockData blockData = terrainManager.TerrainDataManager.GetBlockDataByName(data.blockDataName);
+            if (blockData == null)
+            {
+                Debug.LogWarning($"Failed to load BlockData: {data.blockDataName}");
+                continue;
+            }
+
+            GameObject item = GetItem(blockData.droppedItemPrefab);
+            if (item == null) continue;
+
+            item.transform.position = data.position;
+            item.transform.rotation = data.rotation;
+            item.transform.localScale = data.scale;
+
+            Rigidbody itemRigidbody = item.GetComponent<Rigidbody>();
+            if (itemRigidbody == null)
+            {
+                itemRigidbody = item.AddComponent<Rigidbody>();
+            }
+
+            if (terrainManager != null)
+            {
+                 float voxelWorldSize = terrainManager.Settings.blockSize / terrainManager.Settings.voxelsPerBlock;
+                 float volume = Mathf.Pow(voxelWorldSize, 3);
+                 itemRigidbody.mass = volume * blockData.density;
+            }
+
+            SetDroppedItemConstraints(itemRigidbody);
+
+            if (!item.CompareTag("DroppedItem"))
+            {
+                item.tag = "DroppedItem";
+            }
+
+            DroppedItem droppedItem = item.GetComponent<DroppedItem>();
+            if (droppedItem != null)
+            {
+                droppedItem.blockDataName = data.blockDataName;
+                droppedItem.uvBase = data.uvBase;
+                droppedItem.uvSize = data.uvSize;
+                droppedItem.useTexture1 = data.useTexture1;
+                droppedItem.resourceType = blockData.resourceType;
+
+                if (itemRigidbody != null)
+                {
+                    itemRigidbody.isKinematic = data.isKinematic;
+                }
+                if (itemStates.TryGetValue(droppedItem, out var state))
+                {
+                    state.isSleeping = data.isKinematic;
+                }
+            }
+
+            var itemRenderer = item.GetComponent<Renderer>();
+            if (itemRenderer != null)
+            {
+                Texture2D tex1 = (blockData.textures != null && blockData.textures.Count > 0) ? blockData.textures[0] : null;
+                Texture2D tex2 = (blockData.textures != null && blockData.textures.Count > 1) ? blockData.textures[1] : null;
+                
+                VoxelFaceTextureInfo faceInfo = new VoxelFaceTextureInfo(
+                    Vector3.up,
+                    data.uvBase,
+                    data.uvSize,
+                    data.useTexture1 ? tex1 : tex2,
+                    true
+                );
+
+                VoxelTextureExtractor extractor = new VoxelTextureExtractor();
+                Texture2D extractedTexture = extractor.ExtractVoxelTextureRegion(faceInfo);
+
+                if (extractedTexture != null)
+                {
+                    var material = new Material(Shader.Find("Custom/Default"));
+                    material.renderQueue = RenderQueue.Geometry;
+                    material.mainTexture = extractedTexture;
+                    itemRenderer.material = material;
+                }
+            }
+        }
+        
+        itemsByChunk.Remove(chunkPosition);
+    }
+
+    /// <summary>
+    /// ドロップアイテムのRigidbodyに移動モードに応じた制約を設定
+    /// </summary>
+    private void SetDroppedItemConstraints(Rigidbody itemRigidbody)
+    {
+        if (itemRigidbody == null) return;
+
+        PlayerController.MoveMode currentMoveMode = GetCurrentMoveMode();
+
+        switch (currentMoveMode)
+        {
+            case PlayerController.MoveMode.SideScroller:
+                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ | 
+                                          RigidbodyConstraints.FreezeRotationX | 
+                                          RigidbodyConstraints.FreezeRotationY;
+                break;
+
+            case PlayerController.MoveMode.TopDown:
+                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionY | 
+                                          RigidbodyConstraints.FreezeRotationX | 
+                                          RigidbodyConstraints.FreezeRotationZ;
+                break;
+
+            default:
+                itemRigidbody.constraints = RigidbodyConstraints.None;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 現在のゲームの移動モードを取得
+    /// </summary>
+    private PlayerController.MoveMode GetCurrentMoveMode()
+    {
+        PlayerController playerController = FindFirstObjectByType<PlayerController>();
+        if (playerController != null)
+        {
+            return playerController.currentMoveMode;
+        }
+        return PlayerController.MoveMode.TopDown;
     }
 }

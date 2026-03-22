@@ -6,6 +6,8 @@ TagManager:
   tags:
   - Block
   - DroppedItem
+  - MineableUI
+  - MaterialRequest
   layers:
   - Default
   - TransparentFX

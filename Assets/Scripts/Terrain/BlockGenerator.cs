@@ -36,18 +36,25 @@ public class BlockGenerator : MonoBehaviour
     /// TerrainManagerからの参照
     /// </summary>
     private TerrainManager terrainManager;
+    private System.Random random;
     
     /// <summary>
     /// 初期化
     /// </summary>
-    public void Initialize(TerrainManager manager)
+    public void Initialize(TerrainManager manager, int seed)
     {
         terrainManager = manager;
+        random = new System.Random(seed);
         
         if (showBlockDebugInfo)
         {
             Debug.Log("BlockGenerator: Initialized with TerrainManager");
         }
+    }
+
+    public void ResetRandom(int seed)
+    {
+        random = new System.Random(seed);
     }
     
     /// <summary>
@@ -289,7 +296,7 @@ public class BlockGenerator : MonoBehaviour
         }
 
         // 加重ランダム選択
-        float randomValue = Random.Range(0, totalWeight);
+        float randomValue = (float)(random.NextDouble() * totalWeight);
         for (int i = 0; i < biome.availableBlocks.Count; i++)
         {
             if (randomValue < weights[i])

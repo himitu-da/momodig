@@ -261,7 +261,7 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
     {
         var targetCart = minecartManager.minecarts[0];
         int currentAmount = targetCart.resources[transferType];
-        int capacity = minecartManager.CartCapacity;
+        int capacity = minecartManager.CartCapacity.IntValue;
         
         // Debug.Log($"MinecartInteractionSystem: トロッコ容量チェック - {transferType}: {currentAmount}/{capacity}");
         
@@ -364,13 +364,15 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
         var collider = animItem.GetComponent<Collider>();
         if (collider != null) collider.enabled = false;
         
-        // 色を資源タイプに応じて変更
         var renderer = animItem.GetComponent<Renderer>();
         if (renderer != null)
         {
-            renderer.material.color = ResourceTypeUtility.GetResourceColor(resourceType);
+            // Custom Unlitマテリアルを作成
+            Material mat = new Material(Shader.Find("Custom/Default"));
+            mat.renderQueue = RenderQueue.Geometry;
+            mat.color = ResourceTypeUtility.GetResourceColor(resourceType);
+            renderer.material = mat;
         }
-        
         return animItem;
     }
     

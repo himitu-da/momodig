@@ -6,10 +6,18 @@ using UnityEngine;
 /// </summary>
 public enum ResourceType
 {
+    Soil,
     Stone,
     Iron,
     Gold,
-    Diamond
+    Diamond,
+    Copper,
+    Tin,
+    Nickel,
+    Silicon,
+    Cobalt,
+    Titanium,
+    DragonGem
 }
 
 /// <summary>
@@ -26,6 +34,8 @@ public static class ResourceTypeUtility
     {
         switch (resourceType)
         {
+            case ResourceType.Soil: 
+                return Color.brown;
             case ResourceType.Stone: 
                 return Color.gray;
             case ResourceType.Iron: 
@@ -34,6 +44,20 @@ public static class ResourceTypeUtility
                 return Color.yellow;
             case ResourceType.Diamond: 
                 return Color.cyan;
+            case ResourceType.Copper:
+                return new Color(0.7f, 0.3f, 0.1f); // 銅色
+            case ResourceType.Tin:
+                return new Color(0.8f, 0.8f, 0.85f); // 銀白色
+            case ResourceType.Nickel:
+                return new Color(0.75f, 0.75f, 0.7f); // やや暗い銀白色
+            case ResourceType.Silicon:
+                return new Color(0.5f, 0.5f, 0.6f); // 金属光沢のある濃い灰色
+            case ResourceType.Cobalt:
+                return new Color(0.2f, 0.4f, 0.8f); // 青みがかった銀色
+            case ResourceType.Titanium:
+                return new Color(0.6f, 0.6f, 0.65f); // 銀灰色の金属色
+            case ResourceType.DragonGem:
+                return Color.white; // 虹色表現はシェーダー等で別途対応
             default: 
                 return Color.white;
         }
@@ -48,10 +72,18 @@ public static class ResourceTypeUtility
     {
         switch (resourceType)
         {
+            case ResourceType.Soil: return "土";
             case ResourceType.Stone: return "石";
             case ResourceType.Iron: return "鉄";
             case ResourceType.Gold: return "金";
             case ResourceType.Diamond: return "ダイヤモンド";
+            case ResourceType.Copper: return "銅";
+            case ResourceType.Tin: return "スズ";
+            case ResourceType.Nickel: return "ニッケル";
+            case ResourceType.Silicon: return "シリコン";
+            case ResourceType.Cobalt: return "コバルト";
+            case ResourceType.Titanium: return "チタン";
+            case ResourceType.DragonGem: return "龍珠";
             default: return resourceType.ToString();
         }
     }
@@ -69,6 +101,14 @@ public static class ResourceTypeUtility
             case ResourceType.Iron: return 3;
             case ResourceType.Gold: return 10;
             case ResourceType.Diamond: return 50;
+            case ResourceType.Copper: return 2;
+            case ResourceType.Soil: return 1;
+            case ResourceType.Tin: return 2;
+            case ResourceType.Nickel: return 4;
+            case ResourceType.Silicon: return 5;
+            case ResourceType.Cobalt: return 15;
+            case ResourceType.Titanium: return 25;
+            case ResourceType.DragonGem: return 200;
             default: return 1;
         }
     }

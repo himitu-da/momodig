@@ -23,6 +23,8 @@ public class TerrainSettings
 {
     [Header("Basic Settings")]
     public Vector3Int center = Vector3Int.zero;
+    public int seed;
+    public bool useRandomSeed = true;
     public Vector2Int initialChunkCount = new Vector2Int(2, 5);
     public Vector2Int blocksPerChunk = new Vector2Int(5, 5);
     public float blockSize = 1.0f; // ブロックのサイズ
@@ -33,6 +35,9 @@ public class TerrainSettings
     
     [Header("Performance")]
     public int blocksPerFrame = 16; // 1フレームあたりのブロック生成数
+    
+    [Header("Item Loading")]
+    public float itemLoadDelay = 0.1f; // チャンク生成後のアイテムロード遅延
 }
 
 /// <summary>
@@ -79,6 +84,22 @@ public class TerrainManager : MonoBehaviour
 
     void Awake()
     {
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (!persistenceManager.hasInitializedSeed)
+        {
+            if (settings.useRandomSeed)
+            {
+                persistenceManager.terrainSeed = Random.Range(int.MinValue, int.MaxValue);
+            }
+            else
+            {
+                persistenceManager.terrainSeed = settings.seed;
+            }
+            persistenceManager.hasInitializedSeed = true;
+        }
+        
+        settings.seed = persistenceManager.terrainSeed;
+        
         InitializeHierarchicalSystem();
     }
 
@@ -109,7 +130,7 @@ public class TerrainManager : MonoBehaviour
         // 各マネージャーを初期化
         chunkManager.Initialize(this);
         blockManager.Initialize(this);
-        blockGenerator.Initialize(this);
+        blockGenerator.Initialize(this, settings.seed);
         voxelManager.Initialize(this);
         
         // TerrainDataManagerを初期化
