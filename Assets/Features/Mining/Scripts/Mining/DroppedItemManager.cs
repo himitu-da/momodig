@@ -449,6 +449,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 rotation = item.transform.rotation,
                 scale = item.transform.localScale,
                 blockDataName = item.blockDataName,
+                faceTextureData = item.faceTextureData != null ? (DroppedItemFaceTextureData[])item.faceTextureData.Clone() : null,
                 uvBase = item.uvBase,
                 uvSize = item.uvSize,
                 useTexture1 = item.useTexture1,
@@ -540,13 +541,20 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             }
 
             DroppedItem droppedItem = item.GetComponent<DroppedItem>();
+            Texture2D tex1 = (blockData.textures != null && blockData.textures.Count > 0) ? blockData.textures[0] : null;
+            Texture2D tex2 = (blockData.textures != null && blockData.textures.Count > 1) ? blockData.textures[1] : null;
+
             if (droppedItem != null)
             {
                 droppedItem.blockDataName = data.blockDataName;
-                droppedItem.uvBase = data.uvBase;
-                droppedItem.uvSize = data.uvSize;
-                droppedItem.useTexture1 = data.useTexture1;
                 droppedItem.resourceType = blockData.resourceType;
+                DroppedItemFaceTextureData[] savedFaceData = data.faceTextureData;
+                if (savedFaceData == null || savedFaceData.Length != DroppedItem.FaceNormals.Length)
+                {
+                    savedFaceData = DroppedItem.CreateLegacyFaceTextureData(data.uvBase, data.uvSize, data.useTexture1);
+                }
+
+                droppedItem.ApplyFaceTextureData(savedFaceData, tex1, tex2);
 
                 if (itemRigidbody != null)
                 {
@@ -558,31 +566,6 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 }
             }
 
-            var itemRenderer = item.GetComponent<Renderer>();
-            if (itemRenderer != null)
-            {
-                Texture2D tex1 = (blockData.textures != null && blockData.textures.Count > 0) ? blockData.textures[0] : null;
-                Texture2D tex2 = (blockData.textures != null && blockData.textures.Count > 1) ? blockData.textures[1] : null;
-                
-                VoxelFaceTextureInfo faceInfo = new VoxelFaceTextureInfo(
-                    Vector3.up,
-                    data.uvBase,
-                    data.uvSize,
-                    data.useTexture1 ? tex1 : tex2,
-                    true
-                );
-
-                VoxelTextureExtractor extractor = new VoxelTextureExtractor();
-                Texture2D extractedTexture = extractor.ExtractVoxelTextureRegion(faceInfo);
-
-                if (extractedTexture != null)
-                {
-                    var material = new Material(Shader.Find("Custom/Default"));
-                    material.renderQueue = RenderQueue.Geometry;
-                    material.mainTexture = extractedTexture;
-                    itemRenderer.material = material;
-                }
-            }
         }
         
         itemsByChunk.Remove(chunkPosition);
