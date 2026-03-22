@@ -606,6 +606,19 @@ MonoBehaviour:
   topDownOffset: {x: 0, y: 10, z: 0}
   sideScrollerOrthographicSize: 6
   topDownOrthographicSize: 6
+  useDirectionalCameraInSideScroller: 1
+  playerBaseViewportOffset: {x: 0, y: 0}
+  maxPlayerViewportOffset: 0
+  postRotationViewportOffsetCorrection: {x: 0, y: 0}
+  speedForMaxCameraResponse: 10
+  speedLogResponseScale: 1.25
+  minimumSpeedForCameraResponse: 1
+  cameraDistanceFromPlayer: 10
+  basePitchAngle: 10
+  baseYawAngle: 0
+  maxPitchAngleOffset: 8
+  maxYawAngleOffset: 12
+  rotationSmoothingSpeed: 8
 --- !u!1 &335452129
 GameObject:
   m_ObjectHideFlags: 0
