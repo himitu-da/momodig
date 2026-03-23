@@ -110,6 +110,8 @@ public class PlayerController : MonoBehaviour
 
     // MiningToolsControllerへの参照
     private MiningToolsController miningToolsController;
+    private PlayerInventory playerInventory;
+    private MiningLogSystem miningLogSystem;
 
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
@@ -192,13 +194,20 @@ public class PlayerController : MonoBehaviour
         }
         
         // 依存関係の初期化（インターフェース経由）
-        inventory = new PlayerInventory();
+        playerInventory = new PlayerInventory();
+        inventory = playerInventory;
         itemManager = DroppedItemManager.Instance;
+        miningLogSystem = FindFirstObjectByType<MiningLogSystem>();
         
         // インベントリイベントの購読
         if (inventory != null)
         {
             inventory.OnTotalCountChanged += OnInventoryTotalCountChanged;
+        }
+
+        if (playerInventory != null)
+        {
+            playerInventory.OnInventoryFullStateChanged += OnInventoryFullStateChanged;
         }
 
         UpdateInventoryUI(); // 初期化
@@ -255,6 +264,11 @@ public class PlayerController : MonoBehaviour
         if (inventory != null)
         {
             inventory.OnTotalCountChanged -= OnInventoryTotalCountChanged;
+        }
+
+        if (playerInventory != null)
+        {
+            playerInventory.OnInventoryFullStateChanged -= OnInventoryFullStateChanged;
         }
         
         if (controls != null)
@@ -643,6 +657,16 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// MiningToolsControllerから呼び出され、Animatorに道具の種類を教える
     /// </summary>
+    private void OnInventoryFullStateChanged(bool isFull)
+    {
+        if (!isFull || miningLogSystem == null)
+        {
+            return;
+        }
+
+        miningLogSystem.ShowLog("Itemがいっぱいです！");
+    }
+
     public void SetToolAnimationType(int toolId)
     {
         if (playerVisualsController != null)
