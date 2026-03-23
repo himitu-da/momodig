@@ -219,8 +219,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: LogText
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 6f65fb6907783b7448d5f188a8ba314b, type: 2}
-  m_sharedMaterial: {fileID: 3872934666779899174, guid: 6f65fb6907783b7448d5f188a8ba314b, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 7ed1fcc4f94d62843ad1c79e4425d6e7, type: 2}
+  m_sharedMaterial: {fileID: 3872934666779899174, guid: 7ed1fcc4f94d62843ad1c79e4425d6e7, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -244,8 +244,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 36
-  m_fontSizeBase: 36
+  m_fontSize: 42
+  m_fontSizeBase: 42
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
