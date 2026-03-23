@@ -9,11 +9,13 @@ using UnityEngine.UI;
 public class MiningLogSystem : MonoBehaviour
 {
     private const int MaxLogCount = 3;
+    private const string DefaultOutroTriggerName = "SlideOut";
 
     [Header("Log UI References")]
     [SerializeField] private Transform logField;
     [SerializeField] private GameObject logItemPrefab;
     [SerializeField] private float defaultLogLifetime = 10f;
+    [SerializeField] private string outroTriggerName = DefaultOutroTriggerName;
 
     [Header("Log Item Child Names")]
     [SerializeField] private string logTextObjectName = "LogText";
@@ -46,7 +48,7 @@ public class MiningLogSystem : MonoBehaviour
 
         ApplyText(logItemInstance.transform, message);
         ApplyIcon(logItemInstance.transform, iconSprite);
-        ScheduleDestroy(logItemInstance);
+        ConfigureLogLifecycle(logItemInstance);
         TrimOverflowLogs();
     }
 
@@ -131,14 +133,20 @@ public class MiningLogSystem : MonoBehaviour
         }
     }
 
-    private void ScheduleDestroy(GameObject logItemInstance)
+    private void ConfigureLogLifecycle(GameObject logItemInstance)
     {
-        if (defaultLogLifetime <= 0f)
+        MiningLogItemAnimationEvents animationEvents = FindAnimationEvents(logItemInstance);
+        if (animationEvents == null)
         {
+            Debug.LogWarning("MiningLogSystem: MiningLogItemAnimationEvents was not found on the log item prefab. Falling back to direct lifetime destroy.");
+            if (defaultLogLifetime > 0f)
+            {
+                Destroy(logItemInstance, defaultLogLifetime);
+            }
             return;
         }
 
-        Destroy(logItemInstance, defaultLogLifetime);
+        animationEvents.Initialize(logItemInstance, defaultLogLifetime, outroTriggerName);
     }
 
     private Transform FindChildRecursive(Transform parent, string targetName)
@@ -158,5 +166,10 @@ public class MiningLogSystem : MonoBehaviour
         }
 
         return null;
+    }
+
+    private MiningLogItemAnimationEvents FindAnimationEvents(GameObject logItemInstance)
+    {
+        return logItemInstance.GetComponentInChildren<MiningLogItemAnimationEvents>(true);
     }
 }
