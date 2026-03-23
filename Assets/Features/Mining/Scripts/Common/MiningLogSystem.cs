@@ -13,6 +13,7 @@ public class MiningLogSystem : MonoBehaviour
     [Header("Log UI References")]
     [SerializeField] private Transform logField;
     [SerializeField] private GameObject logItemPrefab;
+    [SerializeField] private float defaultLogLifetime = 10f;
 
     [Header("Log Item Child Names")]
     [SerializeField] private string logTextObjectName = "LogText";
@@ -45,6 +46,7 @@ public class MiningLogSystem : MonoBehaviour
 
         ApplyText(logItemInstance.transform, message);
         ApplyIcon(logItemInstance.transform, iconSprite);
+        ScheduleDestroy(logItemInstance);
         TrimOverflowLogs();
     }
 
@@ -83,7 +85,7 @@ public class MiningLogSystem : MonoBehaviour
 
     private void ApplyText(Transform logItemTransform, string message)
     {
-        Transform logTextTransform = logItemTransform.Find(logTextObjectName);
+        Transform logTextTransform = FindChildRecursive(logItemTransform, logTextObjectName);
         if (logTextTransform == null)
         {
             Debug.LogWarning($"MiningLogSystem: Child object '{logTextObjectName}' was not found on the log item prefab.");
@@ -102,7 +104,7 @@ public class MiningLogSystem : MonoBehaviour
 
     private void ApplyIcon(Transform logItemTransform, Sprite iconSprite)
     {
-        Transform logIconTransform = logItemTransform.Find(logIconObjectName);
+        Transform logIconTransform = FindChildRecursive(logItemTransform, logIconObjectName);
         if (logIconTransform == null)
         {
             return;
@@ -127,5 +129,34 @@ public class MiningLogSystem : MonoBehaviour
             Transform oldestLog = logField.GetChild(logField.childCount - 1);
             Destroy(oldestLog.gameObject);
         }
+    }
+
+    private void ScheduleDestroy(GameObject logItemInstance)
+    {
+        if (defaultLogLifetime <= 0f)
+        {
+            return;
+        }
+
+        Destroy(logItemInstance, defaultLogLifetime);
+    }
+
+    private Transform FindChildRecursive(Transform parent, string targetName)
+    {
+        if (parent.name == targetName)
+        {
+            return parent;
+        }
+
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            Transform found = FindChildRecursive(parent.GetChild(i), targetName);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 }
