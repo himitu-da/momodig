@@ -664,7 +664,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        miningLogSystem.ShowLog("Item Max");
+        miningLogSystem.ShowLog("Itemがいっぱいです！");
     }
 
     public void SetToolAnimationType(int toolId)
