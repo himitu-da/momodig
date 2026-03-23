@@ -48,7 +48,7 @@ public class PlayerInventory : IInventory
         if (!CanAddResource(type, amount)) return false;
         
         bool wasEmpty = IsEmpty();
-        int oldCount = GetTotalItemCount();
+        bool wasFull = IsFull();
         
         resources[type] += amount;
         
@@ -59,6 +59,11 @@ public class PlayerInventory : IInventory
         if (wasEmpty && !IsEmpty())
         {
             OnInventoryFullStateChanged?.Invoke(false);
+        }
+
+        if (!wasFull && IsFull())
+        {
+            OnInventoryFullStateChanged?.Invoke(true);
         }
         
         return true;
