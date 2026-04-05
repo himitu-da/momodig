@@ -609,16 +609,16 @@ MonoBehaviour:
   useDirectionalCameraInSideScroller: 1
   playerBaseViewportOffset: {x: 0, y: 0}
   maxPlayerViewportOffset: 0
-  speedForMaxCameraResponse: 20
-  speedLogResponseScale: 1
-  minimumSpeedForCameraResponse: 1
-  moveVectorHoldDurationSeconds: 0.3
+  speedForMaxCameraResponse: 20.5
+  speedLogResponseScale: 1.1
+  minimumSpeedForCameraResponse: 1.5
+  moveVectorHoldDurationSeconds: 0.35
   cameraDistanceFromPlayer: 10
-  basePitchAngle: 10
+  basePitchAngle: 10.5
   baseYawAngle: 0
-  maxPitchAngleOffset: 20
-  maxYawAngleOffset: 20
-  rotationSmoothingSpeed: 5
+  maxPitchAngleOffset: 21
+  maxYawAngleOffset: 21
+  rotationSmoothingSpeed: 6
 --- !u!1 &335452129
 GameObject:
   m_ObjectHideFlags: 0
@@ -3074,6 +3074,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MiningLogSystem
   logField: {fileID: 908098316}
   logItemPrefab: {fileID: 6112982176452312418, guid: 9cfc550596fad7e40b69cb7e0df6a06a, type: 3}
+  defaultLogLifetime: 10
+  outroTriggerName: SlideOut
   logTextObjectName: LogText
   logIconObjectName: LogIcon
 --- !u!4 &2086124477
