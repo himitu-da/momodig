@@ -16,6 +16,9 @@ public class FluidMeshRenderer : MonoBehaviour
     [SerializeField] private bool hideFacesAgainstSolid = true;
     [SerializeField] private float rebuildInterval = 0.05f;
     [SerializeField] private int renderQueueOffset = 0;
+    [SerializeField] private int displayFillLevels = 6;
+    [SerializeField] private bool showNonEmptyCellAtLeastOneStep = true;
+    [SerializeField] private bool showDebugLogs = false;
 
     private readonly List<FluidCellSnapshot> snapshots = new List<FluidCellSnapshot>();
     private readonly Dictionary<Vector3Int, RenderCellAggregate> aggregates = new Dictionary<Vector3Int, RenderCellAggregate>();
@@ -26,6 +29,12 @@ public class FluidMeshRenderer : MonoBehaviour
     private Material runtimeMaterial;
     private float lastRebuildTime = float.MinValue;
     private int lastVersion = -1;
+
+    void OnValidate()
+    {
+        rebuildInterval = Mathf.Max(0.01f, rebuildInterval);
+        displayFillLevels = Mathf.Max(1, displayFillLevels);
+    }
 
     void Awake()
     {
@@ -46,6 +55,11 @@ public class FluidMeshRenderer : MonoBehaviour
 
     void LateUpdate()
     {
+        if (meshRenderer != null && meshRenderer.sharedMaterial == null)
+        {
+            EnsureMaterial();
+        }
+
         if (fluidSimulation == null)
         {
             return;
@@ -63,7 +77,6 @@ public class FluidMeshRenderer : MonoBehaviour
 
         RebuildMesh();
     }
-
     [ContextMenu("Rebuild Fluid Mesh")]
     public void RebuildMesh()
     {
@@ -86,8 +99,8 @@ public class FluidMeshRenderer : MonoBehaviour
         {
             Vector3Int renderCell = pair.Key;
             RenderCellAggregate aggregate = pair.Value;
-            float fillRatio = Mathf.Clamp01(aggregate.Liters / Mathf.Max(0.0001f, fluidSimulation.RenderCellCapacityLiters));
-            if (fillRatio <= MinFillRatio || aggregate.Definition == null)
+            float fillRatio = GetDisplayFillRatio(aggregate.Liters);
+            if (fillRatio <= 0f || aggregate.Definition == null)
             {
                 continue;
             }
@@ -101,6 +114,11 @@ public class FluidMeshRenderer : MonoBehaviour
         mesh.SetColors(colors);
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();
+
+        if (showDebugLogs)
+        {
+            Debug.Log($"FluidMeshRenderer: snapshots={snapshots.Count}, renderCells={aggregates.Count}, vertices={vertices.Count}, triangles={triangles.Count / 3}, materialQueue={(meshRenderer.sharedMaterial != null ? meshRenderer.sharedMaterial.renderQueue : -1)}");
+        }
     }
 
     private void BuildAggregates()
@@ -182,8 +200,42 @@ public class FluidMeshRenderer : MonoBehaviour
             return 0f;
         }
 
-        return Mathf.Clamp01(aggregate.Liters / Mathf.Max(0.0001f, fluidSimulation.RenderCellCapacityLiters));
+        return GetDisplayFillRatio(aggregate.Liters);
     }
+
+    private float GetDisplayFillRatio(float liters)
+    {
+        if (fluidSimulation == null)
+        {
+            return 0f;
+        }
+
+        float rawFillRatio = Mathf.Clamp01(liters / Mathf.Max(0.0001f, fluidSimulation.RenderCellCapacityLiters));
+        if (rawFillRatio <= 0.0001f)
+        {
+            return 0f;
+        }
+
+        if (displayFillLevels <= 1)
+        {
+            return 1f;
+        }
+
+        float quantizedFillRatio = Mathf.Clamp01(Mathf.Ceil(rawFillRatio * displayFillLevels) / displayFillLevels);
+        if (showNonEmptyCellAtLeastOneStep)
+        {
+            float minimumVisibleFillRatio = 1f / displayFillLevels;
+            return Mathf.Max(minimumVisibleFillRatio, quantizedFillRatio);
+        }
+
+        if (rawFillRatio <= MinFillRatio)
+        {
+            return 0f;
+        }
+
+        return quantizedFillRatio;
+    }
+
 
     private void EnsureMaterial()
     {
@@ -203,7 +255,7 @@ public class FluidMeshRenderer : MonoBehaviour
 
         runtimeMaterial = new Material(shader)
         {
-            renderQueue = 3000 + renderQueueOffset
+            renderQueue = global::RenderQueue.Geometry + 50 + renderQueueOffset
         };
         meshRenderer.sharedMaterial = runtimeMaterial;
     }
@@ -305,10 +357,10 @@ public class FluidMeshRenderer : MonoBehaviour
         {
             return new[]
             {
-                new Vector3(min.x, max.y, max.z),
                 new Vector3(min.x, max.y, min.z),
-                new Vector3(max.x, max.y, min.z),
-                new Vector3(max.x, max.y, max.z)
+                new Vector3(min.x, max.y, max.z),
+                new Vector3(max.x, max.y, max.z),
+                new Vector3(max.x, max.y, min.z)
             };
         }
 
@@ -316,10 +368,10 @@ public class FluidMeshRenderer : MonoBehaviour
         {
             return new[]
             {
-                new Vector3(min.x, min.y, min.z),
                 new Vector3(min.x, min.y, max.z),
-                new Vector3(max.x, min.y, max.z),
-                new Vector3(max.x, min.y, min.z)
+                new Vector3(min.x, min.y, min.z),
+                new Vector3(max.x, min.y, min.z),
+                new Vector3(max.x, min.y, max.z)
             };
         }
 
@@ -342,7 +394,6 @@ public class FluidMeshRenderer : MonoBehaviour
             new Vector3(min.x, min.y, min.z)
         };
     }
-
 
     private Vector3[] ToLocalCorners(Vector3[] worldCorners)
     {
@@ -417,5 +468,14 @@ public class FluidMeshRenderer : MonoBehaviour
         public float DominantLiters;
     }
 }
+
+
+
+
+
+
+
+
+
 
 

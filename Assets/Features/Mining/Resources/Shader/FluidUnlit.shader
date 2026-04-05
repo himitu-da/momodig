@@ -13,7 +13,7 @@ Shader "Custom/FluidUnlit"
         {
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
-            Cull Back
+            Cull Off
 
             HLSLPROGRAM
             #pragma vertex vert
@@ -55,3 +55,4 @@ Shader "Custom/FluidUnlit"
         }
     }
 }
+

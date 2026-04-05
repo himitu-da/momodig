@@ -32,15 +32,19 @@ public class FluidSimulation : MonoBehaviour
     [SerializeField] private FluidDefinition defaultFluidDefinition;
 
     [Header("Grid")]
-    [SerializeField] private Vector3 simulationOrigin = Vector3.zero;
+    [SerializeField] private Vector3 simulationOriginOffset = Vector3.zero;
     [SerializeField] private float metersPerUnit = 1.0f;
-    [SerializeField] private float internalVoxelSize = 0.125f;
-    [SerializeField] private float renderVoxelSize = 0.5f;
+    [SerializeField] private int internalVoxelsPerBlock = 8;
+    [SerializeField] private int renderVoxelsPerBlock = 2;
     [SerializeField] private FluidGravityAxis gravityAxis = FluidGravityAxis.NegativeY;
 
     [Header("Simulation")]
     [SerializeField] private float simulationTickInterval = 0.05f;
     [SerializeField] private int maxCellsPerStep = 2048;
+    [SerializeField] private int fullSolveCellThreshold = 8192;
+    [SerializeField] private float flowRateMultiplier = 4f;
+    [SerializeField] private float generationSliceHalfThickness = 0.5f;
+    [SerializeField] private int maxVerticalCascadeSteps = 12;
     [SerializeField] private bool useDynamicObstacleLayers = true;
     [SerializeField] private LayerMask dynamicObstacleLayers;
     [SerializeField] private bool showDebugLogs = false;
@@ -55,13 +59,15 @@ public class FluidSimulation : MonoBehaviour
 
     public TerrainManager TerrainManager => terrainManager;
     public FluidDefinition DefaultFluidDefinition => defaultFluidDefinition;
-    public Vector3 SimulationOrigin => simulationOrigin;
-    public float InternalVoxelSize => internalVoxelSize;
-    public float RenderVoxelSize => renderVoxelSize;
+    public Vector3 SimulationOrigin => GetAlignedSimulationOrigin();
+    public float InternalVoxelSize => GetBlockSize() / Mathf.Max(1, internalVoxelsPerBlock);
+    public float RenderVoxelSize => GetBlockSize() / Mathf.Max(1, renderVoxelsPerBlock);
+    public int InternalVoxelsPerBlock => internalVoxelsPerBlock;
+    public int RenderVoxelsPerBlock => renderVoxelsPerBlock;
     public float SimulationTickInterval => simulationTickInterval;
     public FluidGravityAxis GravityAxis => gravityAxis;
-    public int RenderToInternalRatio => Mathf.Max(1, Mathf.RoundToInt(renderVoxelSize / internalVoxelSize));
-    public float InternalCellCapacityLiters => Mathf.Pow(internalVoxelSize * metersPerUnit, 3f) * 1000f;
+    public int RenderToInternalRatio => Mathf.Max(1, internalVoxelsPerBlock / Mathf.Max(1, renderVoxelsPerBlock));
+    public float InternalCellCapacityLiters => Mathf.Pow(InternalVoxelSize * metersPerUnit, 3f) * 1000f;
     public float RenderCellCapacityLiters => InternalCellCapacityLiters * Mathf.Pow(RenderToInternalRatio, 3f);
     public int Version { get; private set; }
 
@@ -74,11 +80,44 @@ public class FluidSimulation : MonoBehaviour
     void OnValidate()
     {
         metersPerUnit = Mathf.Max(0.001f, metersPerUnit);
-        internalVoxelSize = Mathf.Max(0.01f, internalVoxelSize);
-        int renderRatio = Mathf.Max(1, Mathf.RoundToInt(renderVoxelSize / internalVoxelSize));
-        renderVoxelSize = internalVoxelSize * renderRatio;
+        internalVoxelsPerBlock = Mathf.Max(1, internalVoxelsPerBlock);
+        renderVoxelsPerBlock = Mathf.Clamp(renderVoxelsPerBlock, 1, internalVoxelsPerBlock);
+        while (internalVoxelsPerBlock % renderVoxelsPerBlock != 0 && renderVoxelsPerBlock > 1)
+        {
+            renderVoxelsPerBlock--;
+        }
         simulationTickInterval = Mathf.Max(0.01f, simulationTickInterval);
         maxCellsPerStep = Mathf.Max(16, maxCellsPerStep);
+        fullSolveCellThreshold = Mathf.Max(maxCellsPerStep, fullSolveCellThreshold);
+        flowRateMultiplier = Mathf.Max(0.1f, flowRateMultiplier);
+        generationSliceHalfThickness = Mathf.Max(0.01f, generationSliceHalfThickness);
+        maxVerticalCascadeSteps = Mathf.Max(1, maxVerticalCascadeSteps);
+    }
+
+    private float GetBlockSize()
+    {
+        if (terrainManager != null && terrainManager.Settings != null && terrainManager.Settings.blockSize > 0f)
+        {
+            return terrainManager.Settings.blockSize;
+        }
+
+        return 1f;
+    }
+
+    private Vector3 GetTerrainCenter()
+    {
+        if (terrainManager != null && terrainManager.Settings != null)
+        {
+            Vector3Int center = terrainManager.Settings.center;
+            return new Vector3(center.x, center.y, center.z);
+        }
+
+        return Vector3.zero;
+    }
+
+    private Vector3 GetAlignedSimulationOrigin()
+    {
+        return GetTerrainCenter() + simulationOriginOffset - Vector3.one * (GetBlockSize() * 0.5f);
     }
 
     void Update()
@@ -248,19 +287,19 @@ public class FluidSimulation : MonoBehaviour
     public bool IsRenderNeighborSolid(Vector3Int renderCellPosition, Vector3Int direction, float fillRatio)
     {
         Vector3 min = GetRenderCellWorldMin(renderCellPosition);
-        Vector3 max = min + Vector3.one * renderVoxelSize;
+        Vector3 max = min + Vector3.one * RenderVoxelSize;
         int verticalAxis = GetGravityAxisIndex();
         float visibleTop = Mathf.Lerp(GetAxis(min, verticalAxis), GetAxis(max, verticalAxis), Mathf.Clamp01(fillRatio));
 
         Vector3 sample = (min + max) * 0.5f;
         SetAxis(ref sample, verticalAxis, Mathf.Lerp(GetAxis(min, verticalAxis), visibleTop, 0.5f));
-        sample += new Vector3(direction.x, direction.y, direction.z) * (internalVoxelSize * 0.5f);
+        sample += new Vector3(direction.x, direction.y, direction.z) * (InternalVoxelSize * 0.5f);
         return IsTerrainSolidAtWorldPosition(sample);
     }
 
     public Vector3Int WorldToInternalCell(Vector3 worldPosition)
     {
-        Vector3 relative = (worldPosition - simulationOrigin) / internalVoxelSize;
+        Vector3 relative = (worldPosition - SimulationOrigin) / InternalVoxelSize;
         return new Vector3Int(
             Mathf.FloorToInt(relative.x),
             Mathf.FloorToInt(relative.y),
@@ -269,10 +308,10 @@ public class FluidSimulation : MonoBehaviour
 
     public Vector3 InternalCellToWorldCenter(Vector3Int cellPosition)
     {
-        return simulationOrigin + new Vector3(
-            (cellPosition.x + 0.5f) * internalVoxelSize,
-            (cellPosition.y + 0.5f) * internalVoxelSize,
-            (cellPosition.z + 0.5f) * internalVoxelSize);
+        return SimulationOrigin + new Vector3(
+            (cellPosition.x + 0.5f) * InternalVoxelSize,
+            (cellPosition.y + 0.5f) * InternalVoxelSize,
+            (cellPosition.z + 0.5f) * InternalVoxelSize);
     }
 
     public Vector3Int InternalToRenderCell(Vector3Int internalCellPosition)
@@ -286,10 +325,10 @@ public class FluidSimulation : MonoBehaviour
 
     public Vector3 GetRenderCellWorldMin(Vector3Int renderCellPosition)
     {
-        return simulationOrigin + new Vector3(
-            renderCellPosition.x * renderVoxelSize,
-            renderCellPosition.y * renderVoxelSize,
-            renderCellPosition.z * renderVoxelSize);
+        return SimulationOrigin + new Vector3(
+            renderCellPosition.x * RenderVoxelSize,
+            renderCellPosition.y * RenderVoxelSize,
+            renderCellPosition.z * RenderVoxelSize);
     }
 
     private void StepSimulation(float deltaTime)
@@ -312,7 +351,8 @@ public class FluidSimulation : MonoBehaviour
         queuedCells.Clear();
         processingBuffer.Sort(CompareCellsByGravity);
 
-        int processCount = Mathf.Min(processingBuffer.Count, maxCellsPerStep);
+        int stepBudget = processingBuffer.Count <= fullSolveCellThreshold ? processingBuffer.Count : maxCellsPerStep;
+        int processCount = Mathf.Min(processingBuffer.Count, Mathf.Max(16, stepBudget));
         for (int i = 0; i < processCount; i++)
         {
             changed |= SimulateCell(processingBuffer[i], deltaTime);
@@ -354,7 +394,7 @@ public class FluidSimulation : MonoBehaviour
                         }
 
                         Vector3 cellWorld = InternalCellToWorldCenter(cellPos);
-                        if (!IsPointInsideBox(cellWorld, impulse.Center, impulse.HalfExtents + Vector3.one * (internalVoxelSize * 0.5f)))
+                        if (!IsPointInsideBox(cellWorld, impulse.Center, impulse.HalfExtents + Vector3.one * (InternalVoxelSize * 0.5f)))
                         {
                             continue;
                         }
@@ -434,20 +474,53 @@ public class FluidSimulation : MonoBehaviour
             dominantComponent = absVelocity.z;
         }
 
-        float maxTransfer = InternalCellCapacityLiters * dominantComponent * deltaTime;
+        float maxTransfer = InternalCellCapacityLiters * dominantComponent * flowRateMultiplier * deltaTime;
         return TryTransfer(sourcePos, sourcePos + direction, source, maxTransfer, false);
     }
 
     private bool ApplyGravityTransfer(Vector3Int sourcePos, FluidCellState source, float deltaTime)
     {
-        Vector3Int down = GetDownDirection();
         float rate = Mathf.Max(0.1f, source.Definition.downwardCellVolumesPerSecond) / Mathf.Max(0.01f, source.Definition.viscosity);
-        float maxTransfer = InternalCellCapacityLiters * rate * deltaTime;
-        return TryTransfer(sourcePos, sourcePos + down, source, maxTransfer, false);
+        float remainingTransfer = InternalCellCapacityLiters * rate * flowRateMultiplier * deltaTime;
+        bool changed = false;
+        Vector3Int currentPos = sourcePos;
+        FluidCellState currentCell = source;
+        Vector3Int down = GetDownDirection();
+
+        for (int step = 0; step < maxVerticalCascadeSteps; step++)
+        {
+            if (currentCell == null || currentCell.Liters <= MinLitersEpsilon || remainingTransfer <= MinLitersEpsilon)
+            {
+                break;
+            }
+
+            Vector3Int targetPos = currentPos + down;
+            if (!TransferLiters(currentPos, targetPos, currentCell, ref remainingTransfer, false, out FluidCellState targetCell, out _))
+            {
+                break;
+            }
+
+            changed = true;
+            if (currentCell.Liters > MinLitersEpsilon)
+            {
+                break;
+            }
+
+            cells.Remove(currentPos);
+            currentPos = targetPos;
+            currentCell = targetCell;
+        }
+
+        return changed;
     }
 
     private bool ApplyLateralTransfer(Vector3Int sourcePos, FluidCellState source, float deltaTime)
     {
+        if (HasDownwardCapacity(sourcePos, source.Definition))
+        {
+            return false;
+        }
+
         Vector3Int[] lateralDirections = GetLateralDirections();
         if (lateralDirections.Length == 0)
         {
@@ -493,7 +566,7 @@ public class FluidSimulation : MonoBehaviour
 
         bool changed = false;
         float rate = Mathf.Max(0f, source.Definition.lateralCellVolumesPerSecond) / Mathf.Max(0.01f, source.Definition.viscosity);
-        float perNeighborTransfer = capacity * rate * deltaTime;
+        float remainingTransfer = capacity * rate * flowRateMultiplier * deltaTime;
 
         foreach (LateralCandidate candidate in candidates)
         {
@@ -503,8 +576,15 @@ public class FluidSimulation : MonoBehaviour
                 continue;
             }
 
-            float maxTransfer = Mathf.Min(perNeighborTransfer, desiredEqualize);
-            changed |= TryTransfer(sourcePos, candidate.Position, source, maxTransfer, true);
+            float maxTransfer = Mathf.Min(remainingTransfer, desiredEqualize);
+            if (maxTransfer <= MinLitersEpsilon)
+            {
+                break;
+            }
+
+            float transferBudget = maxTransfer;
+            changed |= TransferLiters(sourcePos, candidate.Position, source, ref transferBudget, true, out _, out float moved);
+            remainingTransfer -= moved;
 
             if (source.Liters <= MinLitersEpsilon)
             {
@@ -517,12 +597,28 @@ public class FluidSimulation : MonoBehaviour
 
     private bool TryTransfer(Vector3Int sourcePos, Vector3Int targetPos, FluidCellState source, float maxTransferLiters, bool blendVelocity)
     {
-        if (source == null || source.Liters <= MinLitersEpsilon || maxTransferLiters <= MinLitersEpsilon)
+        float remainingTransfer = maxTransferLiters;
+        return TransferLiters(sourcePos, targetPos, source, ref remainingTransfer, blendVelocity, out _, out _);
+    }
+
+    private bool TransferLiters(
+        Vector3Int sourcePos,
+        Vector3Int targetPos,
+        FluidCellState source,
+        ref float remainingTransfer,
+        bool blendVelocity,
+        out FluidCellState target,
+        out float moved)
+    {
+        target = null;
+        moved = 0f;
+
+        if (source == null || source.Liters <= MinLitersEpsilon || remainingTransfer <= MinLitersEpsilon)
         {
             return false;
         }
 
-        FluidCellState target = GetOrCreateCompatibleTarget(targetPos, source.Definition);
+        target = GetOrCreateCompatibleTarget(targetPos, source.Definition);
         if (target == null)
         {
             return false;
@@ -534,7 +630,7 @@ public class FluidSimulation : MonoBehaviour
             return false;
         }
 
-        float moved = Mathf.Min(source.Liters, maxTransferLiters, capacityRemaining);
+        moved = Mathf.Min(source.Liters, remainingTransfer, capacityRemaining);
         if (moved <= MinLitersEpsilon)
         {
             return false;
@@ -542,11 +638,28 @@ public class FluidSimulation : MonoBehaviour
 
         source.Liters -= moved;
         target.Liters += moved;
+        remainingTransfer -= moved;
         target.Velocity = blendVelocity ? Vector3.Lerp(target.Velocity, source.Velocity, 0.4f) : source.Velocity;
 
         QueueCellNeighborhood(sourcePos, 1);
         QueueCellNeighborhood(targetPos, 1);
         return true;
+    }
+
+    private bool HasDownwardCapacity(Vector3Int sourcePos, FluidDefinition definition)
+    {
+        Vector3Int downPos = sourcePos + GetDownDirection();
+        if (!CanFluidMoveIntoCell(downPos, definition))
+        {
+            return false;
+        }
+
+        if (!cells.TryGetValue(downPos, out FluidCellState downCell))
+        {
+            return true;
+        }
+
+        return downCell.Liters < InternalCellCapacityLiters - MinLitersEpsilon;
     }
 
     private FluidCellState GetOrCreateCompatibleTarget(Vector3Int position, FluidDefinition definition)
@@ -702,7 +815,7 @@ public class FluidSimulation : MonoBehaviour
         }
 
         Vector3 center = InternalCellToWorldCenter(cellPosition);
-        Vector3 halfExtents = Vector3.one * (internalVoxelSize * 0.45f);
+        Vector3 halfExtents = Vector3.one * (InternalVoxelSize * 0.45f);
         bool blocked = Physics.CheckBox(center, halfExtents, Quaternion.identity, dynamicObstacleLayers, QueryTriggerInteraction.Ignore);
         dynamicObstacleCache[cellPosition] = blocked;
         return blocked;
@@ -726,6 +839,11 @@ public class FluidSimulation : MonoBehaviour
         }
 
         Vector3 worldCenter = InternalCellToWorldCenter(cellPosition);
+        if (IsOutsideGenerationSlice(worldCenter, settings))
+        {
+            return true;
+        }
+
         float voxelSize = settings.blockSize / settings.voxelsPerBlock;
 
         Vector3 terrainRelative = worldCenter - new Vector3(settings.center.x, settings.center.y, settings.center.z);
@@ -775,6 +893,19 @@ public class FluidSimulation : MonoBehaviour
             settings.blockSize,
             blockPos,
             localVoxelPos);
+    }
+
+    private bool IsOutsideGenerationSlice(Vector3 worldPosition, TerrainSettings settings)
+    {
+        switch (settings.generationType)
+        {
+            case TerrainGenerationType.SideScroller:
+                return Mathf.Abs(worldPosition.z - settings.center.z) > generationSliceHalfThickness;
+            case TerrainGenerationType.TopDown:
+                return Mathf.Abs(worldPosition.y - settings.center.y) > generationSliceHalfThickness;
+            default:
+                return false;
+        }
     }
 
     private Vector3Int FindLowestReachableCell(Vector3Int startCell, int maxDepth, FluidDefinition definition)
@@ -966,6 +1097,8 @@ public class FluidSimulation : MonoBehaviour
         public float Force { get; }
     }
 }
+
+
 
 
 

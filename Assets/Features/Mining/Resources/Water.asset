@@ -17,5 +17,5 @@ MonoBehaviour:
   downwardCellVolumesPerSecond: 8
   lateralCellVolumesPerSecond: 3
   velocityDamping: 6
-  explosionImpulseMultiplier: 1
+  explosionImpulseMultiplier: 0.1
   tint: {r: 0.22, g: 0.45, b: 1, a: 0.58}
