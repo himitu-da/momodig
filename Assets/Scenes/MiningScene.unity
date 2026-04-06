@@ -1301,6 +1301,18 @@ MonoBehaviour:
   inventoryText: {fileID: 0}
   inventoryCapacityText: {fileID: 0}
   itemPickupRetryInterval: 0.1
+  fluidSimulation: {fileID: 0}
+  fluidResistanceCollider: {fileID: 0}
+  enableFluidResistance: 1
+  fluidHorizontalSampleCount: 2
+  fluidVerticalSampleCount: 3
+  fluidDepthSampleCount: 1
+  fluidSampleInset: 0.05
+  fluidResistanceStrength: 0.85
+  minimumFluidMoveSpeedMultiplier: 0.127
+  fluidAccelerationPenaltyMultiplier: 1
+  fluidDrag: 4
+  fluidReferenceMass: 45
   lastMoveDirection: {x: 0, y: 0, z: 1}
   minecartInteraction: {fileID: 1700943656}
 --- !u!54 &672003893

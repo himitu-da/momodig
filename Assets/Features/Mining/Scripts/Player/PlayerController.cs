@@ -87,18 +87,18 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
 
     [Header("流体抵抗設定")]
-    [SerializeField] private FluidSimulation fluidSimulation;
-    [SerializeField] private Collider fluidResistanceCollider;
-    [SerializeField] private bool enableFluidResistance = true;
-    [SerializeField] private int fluidHorizontalSampleCount = 2;
-    [SerializeField] private int fluidVerticalSampleCount = 3;
-    [SerializeField] private int fluidDepthSampleCount = 1;
-    [SerializeField] private float fluidSampleInset = 0.05f;
-    [SerializeField] private float fluidResistanceStrength = 0.85f;
-    [SerializeField] [Range(0.05f, 1f)] private float minimumFluidMoveSpeedMultiplier = 0.35f;
-    [SerializeField] private float fluidAccelerationPenaltyMultiplier = 2f;
-    [SerializeField] private float fluidDrag = 4f;
-    [SerializeField] private float fluidReferenceMass = 1f;
+    [SerializeField, InspectorName("流体シミュレーション"), Tooltip("同じシーンの FluidSimulation を割り当てます。未設定なら TerrainManager から自動取得を試みます。")] private FluidSimulation fluidSimulation;
+    [SerializeField, InspectorName("抵抗判定に使う Collider"), Tooltip("プレイヤーのどの範囲で水量を測るかに使う Collider です。通常は PlayerCollider を指定します。")] private Collider fluidResistanceCollider;
+    [SerializeField, InspectorName("流体抵抗を有効にする"), Tooltip("オフにすると、水による移動抵抗を無効にします。")] private bool enableFluidResistance = true;
+    [SerializeField, InspectorName("横方向サンプル数"), Tooltip("Collider 内を横方向に何点読むかです。大きいほど正確ですが少し重くなります。")] private int fluidHorizontalSampleCount = 2;
+    [SerializeField, InspectorName("縦方向サンプル数"), Tooltip("Collider 内を高さ方向に何点読むかです。水位差に対する精度に効きます。")] private int fluidVerticalSampleCount = 3;
+    [SerializeField, InspectorName("奥行きサンプル数"), Tooltip("Collider 内を奥行き方向に何点読むかです。SideScroller では 1 でも構いません。")] private int fluidDepthSampleCount = 1;
+    [SerializeField, InspectorName("サンプルの内側オフセット"), Tooltip("Collider の端から少し内側を読む量です。境界の誤判定を減らします。")] private float fluidSampleInset = 0.05f;
+    [SerializeField, InspectorName("抵抗の強さ"), Tooltip("水に浸かったときにどれくらい移動が重くなるかの基本倍率です。")] private float fluidResistanceStrength = 0.85f;
+    [SerializeField, InspectorName("最低移動速度倍率"), Tooltip("最大まで抵抗が効いたときでも残す移動速度の割合です。"), Range(0.05f, 1f)] private float minimumFluidMoveSpeedMultiplier = 0.35f;
+    [SerializeField, InspectorName("加速の鈍さ倍率"), Tooltip("水中で加速をどれだけ鈍くするかです。大きいほどもっさりします。")] private float fluidAccelerationPenaltyMultiplier = 2f;
+    [SerializeField, InspectorName("追加ドラッグ"), Tooltip("水中で速度を落ち着かせる補正量です。大きいほど抵抗感が強まります。")] private float fluidDrag = 4f;
+    [SerializeField, InspectorName("基準質量"), Tooltip("この質量を基準に抵抗を比較します。プレイヤーの Rigidbody.mass と近い値を推奨します。")] private float fluidReferenceMass = 1f;
     
     private int score = 0;
     private Rigidbody rb;

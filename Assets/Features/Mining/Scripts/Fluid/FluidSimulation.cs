@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 public enum FluidGravityAxis
@@ -27,30 +27,30 @@ public class FluidSimulation : MonoBehaviour
     private const float MinLitersEpsilon = 0.0001f;
     private const int MaxFillSearchDepth = 32;
 
-    [Header("References")]
-    [SerializeField] private TerrainManager terrainManager;
-    [SerializeField] private FluidDefinition defaultFluidDefinition;
+    [Header("参照設定")]
+    [SerializeField, InspectorName("地形マネージャー"), Tooltip("この流体系が参照する TerrainManager です。通常は同じシーンのものを割り当てます。")] private TerrainManager terrainManager;
+    [SerializeField, InspectorName("既定の流体定義"), Tooltip("個別指定がないときに使う流体の基本設定です。通常は Water を指定します。")] private FluidDefinition defaultFluidDefinition;
 
-    [Header("Grid")]
-    [SerializeField] private Vector3 simulationOriginOffset = Vector3.zero;
-    [SerializeField] private float metersPerUnit = 1.0f;
-    [SerializeField] private int internalVoxelsPerBlock = 8;
-    [SerializeField] private int renderVoxelsPerBlock = 2;
-    [SerializeField] private FluidGravityAxis gravityAxis = FluidGravityAxis.NegativeY;
-    [SerializeField] private bool injectIntoLowestReachableCell = false;
+    [Header("グリッド設定")]
+    [SerializeField, InspectorName("シミュレーション原点オフセット"), Tooltip("地形基準の流体グリッド開始位置を微調整します。通常は 0 のままで構いません。")] private Vector3 simulationOriginOffset = Vector3.zero;
+    [SerializeField, InspectorName("1ユニットの実メートル換算"), Tooltip("1 Unity Unit を何メートルとして扱うかです。内部セルの容量(L)計算に使います。")] private float metersPerUnit = 1.0f;
+    [SerializeField, InspectorName("1ブロックあたりの内部流体ボクセル数"), Tooltip("流れの計算に使う細かさです。大きいほど隙間に入りやすいですが重くなります。")] private int internalVoxelsPerBlock = 8;
+    [SerializeField, InspectorName("1ブロックあたりの表示流体ボクセル数"), Tooltip("見た目として何分割で描くかです。内部流体ボクセル数の約数にしてください。")] private int renderVoxelsPerBlock = 2;
+    [SerializeField, InspectorName("重力方向"), Tooltip("液体が落ちる方向です。通常は NegativeY のまま使います。")] private FluidGravityAxis gravityAxis = FluidGravityAxis.NegativeY;
+    [SerializeField, InspectorName("注入時に最下点へ直接入れる"), Tooltip("オンにすると注いだ水を到達可能な最下セルへ直接入れます。落下中を見せたい場合はオフにします。")] private bool injectIntoLowestReachableCell = false;
 
-    [Header("Simulation")]
-    [SerializeField] private float simulationTickInterval = 0.05f;
-    [SerializeField] private int maxCellsPerStep = 2048;
-    [SerializeField] private int fullSolveCellThreshold = 8192;
-    [SerializeField] private float flowRateMultiplier = 4f;
-    [SerializeField] private float generationSliceHalfThickness = 0.5f;
-    [SerializeField] private int maxVerticalCascadeSteps = 12;
-    [SerializeField] private int maxVelocityCascadeSteps = 12;
-    [SerializeField] [Range(0f, 1f)] private float velocityTransferRetention = 0.2f;
-    [SerializeField] private bool useDynamicObstacleLayers = true;
-    [SerializeField] private LayerMask dynamicObstacleLayers;
-    [SerializeField] private bool showDebugLogs = false;
+    [Header("シミュレーション設定")]
+    [SerializeField, InspectorName("更新間隔(秒)"), Tooltip("流体計算を行う間隔です。大きいほど軽くなりますが、動きは粗くなります。")] private float simulationTickInterval = 0.05f;
+    [SerializeField, InspectorName("1回の最大処理セル数"), Tooltip("1 tick で処理する内部セル数の上限です。")] private int maxCellsPerStep = 2048;
+    [SerializeField, InspectorName("全件処理に切り替えるセル数"), Tooltip("待機セル数がこの値以下なら、その tick で全セルを処理します。")] private int fullSolveCellThreshold = 8192;
+    [SerializeField, InspectorName("流れの全体倍率"), Tooltip("落下、横流れ、爆発後の移動量をまとめて増減します。")] private float flowRateMultiplier = 4f;
+    [SerializeField, InspectorName("プレイ面の半厚み"), Tooltip("SideScroller / TopDown で流体がはみ出せる厚みの半分です。")] private float generationSliceHalfThickness = 0.5f;
+    [SerializeField, InspectorName("1回の最大落下セル数"), Tooltip("1 tick で下方向へ連続移動できる最大セル数です。")] private int maxVerticalCascadeSteps = 12;
+    [SerializeField, InspectorName("1回の最大吹き飛びセル数"), Tooltip("爆発などの速度で 1 tick に連続移動できる最大セル数です。")] private int maxVelocityCascadeSteps = 12;
+    [SerializeField, InspectorName("吹き飛び速度の残りやすさ"), Tooltip("爆発などで付いた速度を移動先にどれだけ残すかです。小さいほどすぐ止まります。"), Range(0f, 1f)] private float velocityTransferRetention = 0.2f;
+    [SerializeField, InspectorName("動的障害物を使う"), Tooltip("瓦礋など動いている Collider を流体の障害物として扱います。")] private bool useDynamicObstacleLayers = true;
+    [SerializeField, InspectorName("動的障害物レイヤー"), Tooltip("流体の進行を塞ぐ動的オブジェクトの Layer を指定します。")] private LayerMask dynamicObstacleLayers;
+    [SerializeField, InspectorName("デバッグログを表示"), Tooltip("流体更新のログを Console に出します。通常はオフのままで構いません。")] private bool showDebugLogs = false;
 
     private readonly Dictionary<Vector3Int, FluidCellState> cells = new Dictionary<Vector3Int, FluidCellState>();
     private readonly HashSet<Vector3Int> queuedCells = new HashSet<Vector3Int>();
