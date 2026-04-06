@@ -3225,12 +3225,15 @@ MonoBehaviour:
   internalVoxelsPerBlock: 3
   renderVoxelsPerBlock: 3
   gravityAxis: 1
-  simulationTickInterval: 0.2
-  maxCellsPerStep: 2048
+  injectIntoLowestReachableCell: 0
+  simulationTickInterval: 0.16666667
+  maxCellsPerStep: 16384
   fullSolveCellThreshold: 65536
-  flowRateMultiplier: 4
+  flowRateMultiplier: 1
   generationSliceHalfThickness: 0.5
-  maxVerticalCascadeSteps: 1
+  maxVerticalCascadeSteps: 2
+  maxVelocityCascadeSteps: 2
+  velocityTransferRetention: 0.3
   useDynamicObstacleLayers: 1
   dynamicObstacleLayers:
     serializedVersion: 2

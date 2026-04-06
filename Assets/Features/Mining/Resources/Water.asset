@@ -16,6 +16,6 @@ MonoBehaviour:
   viscosity: 1
   downwardCellVolumesPerSecond: 8
   lateralCellVolumesPerSecond: 3
-  velocityDamping: 6
-  explosionImpulseMultiplier: 0.1
-  tint: {r: 0.22, g: 0.45, b: 1, a: 0.58}
+  velocityDamping: 3
+  explosionImpulseMultiplier: 1
+  tint: {r: 0, g: 0.24613628, b: 0.8301887, a: 0.58}

@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem; // Input Systemを使うために必要
@@ -85,6 +85,20 @@ public class PlayerController : MonoBehaviour
     
     [Header("アイテム回収設定")]
     [SerializeField] private float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
+
+    [Header("流体抵抗設定")]
+    [SerializeField] private FluidSimulation fluidSimulation;
+    [SerializeField] private Collider fluidResistanceCollider;
+    [SerializeField] private bool enableFluidResistance = true;
+    [SerializeField] private int fluidHorizontalSampleCount = 2;
+    [SerializeField] private int fluidVerticalSampleCount = 3;
+    [SerializeField] private int fluidDepthSampleCount = 1;
+    [SerializeField] private float fluidSampleInset = 0.05f;
+    [SerializeField] private float fluidResistanceStrength = 0.85f;
+    [SerializeField] [Range(0.05f, 1f)] private float minimumFluidMoveSpeedMultiplier = 0.35f;
+    [SerializeField] private float fluidAccelerationPenaltyMultiplier = 2f;
+    [SerializeField] private float fluidDrag = 4f;
+    [SerializeField] private float fluidReferenceMass = 1f;
     
     private int score = 0;
     private Rigidbody rb;
@@ -122,7 +136,17 @@ public class PlayerController : MonoBehaviour
         {
             rb.useGravity = false; // Rigidbodyの重力を無効にする
         }
-        
+
+        if (fluidSimulation == null)
+        {
+            TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
+            if (terrainManager != null)
+            {
+                fluidSimulation = terrainManager.FluidSimulation;
+            }
+        }
+
+        ResolveFluidResistanceCollider();        
         // プレイヤーの初期向きをX正方向に設定
         if (currentMoveMode == MoveMode.SideScroller)
         {
@@ -229,6 +253,15 @@ public class PlayerController : MonoBehaviour
     // インスペクターで値が変更されたときに呼ばれる（エディタのみ）
     void OnValidate()
     {
+        fluidHorizontalSampleCount = Mathf.Max(1, fluidHorizontalSampleCount);
+        fluidVerticalSampleCount = Mathf.Max(1, fluidVerticalSampleCount);
+        fluidDepthSampleCount = Mathf.Max(1, fluidDepthSampleCount);
+        fluidSampleInset = Mathf.Max(0f, fluidSampleInset);
+        fluidResistanceStrength = Mathf.Max(0f, fluidResistanceStrength);
+        minimumFluidMoveSpeedMultiplier = Mathf.Clamp(minimumFluidMoveSpeedMultiplier, 0.05f, 1f);
+        fluidAccelerationPenaltyMultiplier = Mathf.Max(1f, fluidAccelerationPenaltyMultiplier);
+        fluidDrag = Mathf.Max(0f, fluidDrag);
+        fluidReferenceMass = Mathf.Max(0.1f, fluidReferenceMass);
         // 移動モードが変更された場合の制約更新のみ実行
         if (Application.isPlaying)
         {
@@ -335,6 +368,13 @@ public class PlayerController : MonoBehaviour
 
         // 慣性を適用する時間を決定
         float smoothTime = moveDirection.sqrMagnitude > 0 ? acceleration : deceleration;
+        float fluidSubmersion = GetFluidSubmersionRatio();
+        float fluidResistance = GetFluidResistanceFactor(fluidSubmersion);
+        if (fluidResistance > 0f)
+        {
+            targetVelocity *= Mathf.Lerp(1f, minimumFluidMoveSpeedMultiplier, fluidResistance);
+            smoothTime *= Mathf.Lerp(1f, fluidAccelerationPenaltyMultiplier, fluidResistance);
+        }
 
         // SmoothDampを使用して速度を滑らかに変化させる
         // Passageに入っている間は移動を無効化
@@ -344,7 +384,14 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            rb.linearVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+            Vector3 nextVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+            if (fluidResistance > 0f)
+            {
+                float dragFactor = 1f - Mathf.Exp(-fluidDrag * fluidResistance * Time.fixedDeltaTime);
+                nextVelocity = Vector3.Lerp(nextVelocity, targetVelocity, dragFactor);
+            }
+
+            rb.linearVelocity = nextVelocity;
         }
 
         // SideScrollerモードで左右の入力があった場合、向きを更新
@@ -622,6 +669,112 @@ public class PlayerController : MonoBehaviour
         {
             inventoryCapacityText.text = $"Item: {inventory.GetTotalItemCount()}/{inventory.maxCapacity}";
         }
+    }
+
+    private float GetFluidSubmersionRatio()
+    {
+        if (!enableFluidResistance || fluidSimulation == null)
+        {
+            return 0f;
+        }
+
+        Collider sampleCollider = ResolveFluidResistanceCollider();
+        Bounds bounds = sampleCollider != null ? sampleCollider.bounds : new Bounds(transform.position, Vector3.one * 0.5f);
+        Vector3 min = bounds.min + Vector3.one * fluidSampleInset;
+        Vector3 max = bounds.max - Vector3.one * fluidSampleInset;
+
+        if (min.x > max.x)
+        {
+            float centerX = bounds.center.x;
+            min.x = centerX;
+            max.x = centerX;
+        }
+
+        if (min.y > max.y)
+        {
+            float centerY = bounds.center.y;
+            min.y = centerY;
+            max.y = centerY;
+        }
+
+        if (min.z > max.z)
+        {
+            float centerZ = bounds.center.z;
+            min.z = centerZ;
+            max.z = centerZ;
+        }
+
+        float totalFillRatio = 0f;
+        int sampleCount = 0;
+
+        for (int x = 0; x < fluidHorizontalSampleCount; x++)
+        {
+            float sampleX = Mathf.Lerp(min.x, max.x, GetFluidSampleLerp(x, fluidHorizontalSampleCount));
+            for (int y = 0; y < fluidVerticalSampleCount; y++)
+            {
+                float sampleY = Mathf.Lerp(min.y, max.y, GetFluidSampleLerp(y, fluidVerticalSampleCount));
+                for (int z = 0; z < fluidDepthSampleCount; z++)
+                {
+                    float sampleZ = Mathf.Lerp(min.z, max.z, GetFluidSampleLerp(z, fluidDepthSampleCount));
+                    totalFillRatio += fluidSimulation.GetFluidFillRatioAtWorldPosition(new Vector3(sampleX, sampleY, sampleZ));
+                    sampleCount++;
+                }
+            }
+        }
+
+        return sampleCount > 0 ? Mathf.Clamp01(totalFillRatio / sampleCount) : 0f;
+    }
+
+    private float GetFluidResistanceFactor(float fluidSubmersion)
+    {
+        if (!enableFluidResistance || fluidSubmersion <= 0f)
+        {
+            return 0f;
+        }
+
+        float effectiveMass = rb != null ? Mathf.Max(0.1f, rb.mass) : fluidReferenceMass;
+        float normalizedMass = Mathf.Max(0.1f, effectiveMass / Mathf.Max(0.1f, fluidReferenceMass));
+        return Mathf.Clamp01((fluidSubmersion * fluidResistanceStrength) / normalizedMass);
+    }
+
+    private Collider ResolveFluidResistanceCollider()
+    {
+        if (fluidResistanceCollider != null)
+        {
+            return fluidResistanceCollider;
+        }
+
+        Transform playerColliderTransform = transform.Find("PlayerCollider");
+        if (playerColliderTransform != null)
+        {
+            fluidResistanceCollider = playerColliderTransform.GetComponent<Collider>();
+            if (fluidResistanceCollider != null)
+            {
+                return fluidResistanceCollider;
+            }
+        }
+
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            if (colliders[i] != null && !colliders[i].isTrigger)
+            {
+                fluidResistanceCollider = colliders[i];
+                return fluidResistanceCollider;
+            }
+        }
+
+        return null;
+    }
+
+    private static float GetFluidSampleLerp(int index, int sampleCount)
+    {
+        if (sampleCount <= 1)
+        {
+            return 0.5f;
+        }
+
+        return index / (float)(sampleCount - 1);
     }
 
     private void UpdateConstraints()
