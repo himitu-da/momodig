@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 
 public class DroppedItem : MonoBehaviour
@@ -17,9 +17,17 @@ public class DroppedItem : MonoBehaviour
     public ResourceType resourceType = ResourceType.Stone;
     private static Mesh droppedItemMeshTemplate;
 
+    private const float FluidNotifyInterval = 0.1f;
+    private const float FluidVelocityEpsilon = 0.0001f;
+
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private Mesh instanceMesh;
+    private FluidSimulation fluidSimulation;
+    private Collider obstacleCollider;
+    private Vector3 lastFluidNotifyPosition;
+    private bool hasFluidNotifyPosition;
+    private float nextFluidNotifyTime;
 
     // --- For Persistence ---
     public Vector3 scale;
@@ -35,6 +43,10 @@ public class DroppedItem : MonoBehaviour
         meshRenderer = GetComponent<MeshRenderer>();
         EnsureDroppedItemMesh();
         rb = GetComponent<Rigidbody>();
+        obstacleCollider = GetComponent<Collider>();
+        ResolveFluidSimulation();
+        lastFluidNotifyPosition = GetFluidObstacleCenter();
+        hasFluidNotifyPosition = true;
     }
 
     void OnEnable()
@@ -45,14 +57,107 @@ public class DroppedItem : MonoBehaviour
             rb.linearVelocity = Vector3.zero;
             rb.angularVelocity = Vector3.zero;
         }
+
+        RefreshFluidObstacleTracking(true);
+    }
+
+    void OnDisable()
+    {
+        RefreshFluidObstacleTracking(true);
+    }
+
+    void FixedUpdate()
+    {
+        RefreshFluidObstacleTracking(false);
     }
 
     void OnDestroy()
     {
+        RefreshFluidObstacleTracking(true);
+
         if (instanceMesh != null)
         {
             Destroy(instanceMesh);
         }
+    }
+
+    private void ResolveFluidSimulation()
+    {
+        if (fluidSimulation != null)
+        {
+            return;
+        }
+
+        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
+        if (terrainManager != null)
+        {
+            fluidSimulation = terrainManager.FluidSimulation;
+        }
+    }
+
+    private void RefreshFluidObstacleTracking(bool force)
+    {
+        ResolveFluidSimulation();
+        if (fluidSimulation == null)
+        {
+            return;
+        }
+
+        Vector3 currentPosition = GetFluidObstacleCenter();
+        float movementThreshold = Mathf.Max(0.02f, fluidSimulation.InternalVoxelSize * 0.5f);
+        bool movedEnough = !hasFluidNotifyPosition || (currentPosition - lastFluidNotifyPosition).sqrMagnitude >= movementThreshold * movementThreshold;
+        bool isMoving = rb != null && (rb.linearVelocity.sqrMagnitude > FluidVelocityEpsilon || rb.angularVelocity.sqrMagnitude > FluidVelocityEpsilon);
+
+        if (!force)
+        {
+            if (!movedEnough && !isMoving)
+            {
+                return;
+            }
+
+            if (Time.time < nextFluidNotifyTime)
+            {
+                return;
+            }
+        }
+
+        int dirtyRadius = GetFluidDirtyRadius();
+        if (hasFluidNotifyPosition)
+        {
+            fluidSimulation.MarkDirtyAroundWorldPosition(lastFluidNotifyPosition, dirtyRadius);
+        }
+
+        fluidSimulation.MarkDirtyAroundWorldPosition(currentPosition, dirtyRadius);
+        lastFluidNotifyPosition = currentPosition;
+        hasFluidNotifyPosition = true;
+        nextFluidNotifyTime = Time.time + FluidNotifyInterval;
+    }
+
+    private Vector3 GetFluidObstacleCenter()
+    {
+        if (obstacleCollider == null)
+        {
+            obstacleCollider = GetComponent<Collider>();
+        }
+
+        return obstacleCollider != null ? obstacleCollider.bounds.center : transform.position;
+    }
+
+    private int GetFluidDirtyRadius()
+    {
+        if (fluidSimulation == null)
+        {
+            return 1;
+        }
+
+        if (obstacleCollider == null)
+        {
+            obstacleCollider = GetComponent<Collider>();
+        }
+
+        Bounds bounds = obstacleCollider != null ? obstacleCollider.bounds : new Bounds(transform.position, transform.localScale);
+        float maxExtent = Mathf.Max(bounds.extents.x, Mathf.Max(bounds.extents.y, bounds.extents.z));
+        return Mathf.Max(1, Mathf.CeilToInt(maxExtent / Mathf.Max(0.001f, fluidSimulation.InternalVoxelSize)) + 1);
     }
 
     public void ApplyFaceTextureInfos(List<VoxelFaceTextureInfo> faceInfos, Texture2D texture1, Texture2D texture2)
