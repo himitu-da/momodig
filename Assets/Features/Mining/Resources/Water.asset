@@ -18,4 +18,4 @@ MonoBehaviour:
   lateralCellVolumesPerSecond: 3
   velocityDamping: 3
   explosionImpulseMultiplier: 5
-  tint: {r: 0, g: 0.24613628, b: 0.8301887, a: 0.58}
+  tint: {r: 0, g: 0.24613628, b: 0.8301887, a: 0.5882353}

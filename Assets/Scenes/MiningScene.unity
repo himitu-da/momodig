@@ -2969,6 +2969,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 128
   showDebugLogs: 0
+  fluidSplashPrefab: {fileID: 8024499826295863731, guid: cd13776661b2cb64782ce8b756decbce, type: 3}
 --- !u!114 &1961065938
 MonoBehaviour:
   m_ObjectHideFlags: 0

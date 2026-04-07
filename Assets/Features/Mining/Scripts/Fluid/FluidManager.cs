@@ -52,6 +52,9 @@ public class FluidManager : MonoBehaviour
     [SerializeField, InspectorName("動的障害物レイヤー"), Tooltip("流体の進行を塞ぐ動的オブジェクトの Layer を指定します。")] private LayerMask dynamicObstacleLayers;
     [SerializeField, InspectorName("デバッグログを表示"), Tooltip("流体更新のログを Console に出します。通常はオフのままで構いません。")] private bool showDebugLogs = false;
 
+    [Header("ハイブリッド設定 (飛沫ボクセル化)")]
+    [SerializeField, InspectorName("流体飛沫プレハブ"), Tooltip("爆破時に弾け飛ぶ流体の物理オブジェクトPrefabです。")] private GameObject fluidSplashPrefab;
+
     private readonly Dictionary<Vector3Int, FluidCellState> cells = new Dictionary<Vector3Int, FluidCellState>();
     private readonly HashSet<Vector3Int> queuedCells = new HashSet<Vector3Int>();
     private readonly List<Vector3Int> processingBuffer = new List<Vector3Int>();
@@ -429,15 +432,56 @@ public class FluidManager : MonoBehaviour
                             continue;
                         }
 
-                        Vector3 outward = cellWorld - impulse.Center;
-                        if (outward.sqrMagnitude < 0.0001f)
+                        // ------ HYBRID FEATURE (Debug): 1 Cell = 1 Splash -----
+                        if (fluidSplashPrefab != null && cell.Liters > 0.01f)
                         {
-                            outward = -GetGravityDirectionVector() + Vector3.up * 0.5f;
-                        }
+                            Vector3 outward = cellWorld - impulse.Center;
+                            if (outward.sqrMagnitude < 0.0001f)
+                            {
+                                outward = -GetGravityDirectionVector() + Vector3.up * 0.5f;
+                            }
 
-                        cell.Velocity += outward.normalized * (impulse.Force * Mathf.Max(0f, cell.Definition != null ? cell.Definition.explosionImpulseMultiplier : 1f));
-                        QueueCellNeighborhood(cellPos, 1);
-                        changed = true;
+                            // Add a little upward tweak so ground explosions look better
+                            outward.y += 0.5f;
+                            // Add slight X randomness, but restrict Z entirely to keep it 2.5D
+                            outward += new Vector3(UnityEngine.Random.Range(-0.2f, 0.2f), 0, 0);
+                            outward.z = 0f;
+
+                            float forceMultiplier = cell.Definition != null ? cell.Definition.explosionImpulseMultiplier : 1f;
+                            
+                            // The grid system dampens velocity immediately, but rigidbodies will fly forever.
+                            // We drastically scale down the raw impulse Force to a sensible physical speed (m/s), constrained to the screen size.
+                            float launchSpeed = (impulse.Force * forceMultiplier) * 0.04f; 
+                            launchSpeed = Mathf.Clamp(launchSpeed, 2f, 18f); // Minimum 2m/s, maximum 18m/s (prevents km drops)
+
+                            Vector3 launchVelocity = outward.normalized * (launchSpeed * UnityEngine.Random.Range(0.8f, 1.2f));
+
+                            // Extract the fluid from the grid completely
+                            float extractedLiters = cell.Liters;
+                            cell.Liters = 0f;
+                            cell.Velocity = Vector3.zero;
+
+                            // Create physics splash directly (1 per cell)
+                            GameObject splashGo = Instantiate(fluidSplashPrefab, cellWorld, Quaternion.identity);
+                            FluidSplash splash = splashGo.GetComponent<FluidSplash>();
+                            if (splash == null) splash = splashGo.AddComponent<FluidSplash>();
+                            splash.Initialize(this, cell.Definition, extractedLiters, launchVelocity);
+
+                            QueueCellNeighborhood(cellPos, 1);
+                            changed = true;
+                        }
+                        else
+                        {
+                            Vector3 outward = cellWorld - impulse.Center;
+                            if (outward.sqrMagnitude < 0.0001f)
+                            {
+                                outward = -GetGravityDirectionVector() + Vector3.up * 0.5f;
+                            }
+
+                            cell.Velocity += outward.normalized * (impulse.Force * Mathf.Max(0f, cell.Definition != null ? cell.Definition.explosionImpulseMultiplier : 1f));
+                            QueueCellNeighborhood(cellPos, 1);
+                            changed = true;
+                        }
                     }
                 }
             }
@@ -789,9 +833,15 @@ public class FluidManager : MonoBehaviour
         float remaining = liters;
         float acceptedTotal = 0f;
 
-        while (fillQueue.Count > 0 && remaining > MinLitersEpsilon)
+        // Freeze-prevention: restrict how wide the BFS can spread trying to find an empty cell
+        int maxSearchCells = 2000; 
+        int searchedCount = 0;
+
+        while (fillQueue.Count > 0 && remaining > MinLitersEpsilon && searchedCount < maxSearchCells)
         {
             Vector3Int current = fillQueue.Dequeue();
+            searchedCount++;
+
             FluidCellState target = GetOrCreateCompatibleTarget(current, definition);
             if (target != null)
             {
