@@ -14,8 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FluidDefinition
   densityKgPerCubicMeter: 1000
   viscosity: 1
-  downwardCellVolumesPerSecond: 8
+  downwardCellVolumesPerSecond: 3
   lateralCellVolumesPerSecond: 3
   velocityDamping: 3
-  explosionImpulseMultiplier: 1
+  explosionImpulseMultiplier: 5
   tint: {r: 0, g: 0.24613628, b: 0.8301887, a: 0.58}
