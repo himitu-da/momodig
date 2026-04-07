@@ -1,17 +1,17 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.UI; // UIコンポ�Eネントを使用するために追加
+using UnityEngine.UI; // UIコンポ�Eネントを使用するために追加
 
 /// <summary>
-/// 地形生�Eタイプ�E挙型
+/// 地形生�Eタイプ�E挙型
 /// </summary>
 public enum TerrainGenerationType
 {
-    SideScroller,    // XY平面�E�旧CubeSideScrollerPlacer置き換え！E
-    TopDown,         // XZ平面�E�旧CubeTopDownPlacer置き換え！E
-    Custom          // カスタム�E�封E��の拡張用�E�E
+    SideScroller,    // XY平面�E�旧CubeSideScrollerPlacer置き換え！E
+    TopDown,         // XZ平面�E�旧CubeTopDownPlacer置き換え！E
+    Custom          // カスタム�E�封E��の拡張用�E�E
 }
 
 /// <summary>
@@ -27,25 +27,25 @@ public class TerrainSettings
     public bool useRandomSeed = true;
     public Vector2Int initialChunkCount = new Vector2Int(2, 5);
     public Vector2Int blocksPerChunk = new Vector2Int(5, 5);
-    public float blockSize = 1.0f; // ブロチE��のサイズ
+    public float blockSize = 1.0f; // ブロチE��のサイズ
     public int voxelsPerBlock = 4;
 
     [Header("Generation Type")]
     public TerrainGenerationType generationType = TerrainGenerationType.SideScroller;
     
     [Header("Performance")]
-    public int blocksPerFrame = 16; // 1フレームあたり�EブロチE��生�E数
+    public int blocksPerFrame = 16; // 1フレームあたり�EブロチE��生�E数
     
     [Header("Item Loading")]
-    public float itemLoadDelay = 0.1f; // チャンク生�E後�EアイチE��ロード遅延
+    public float itemLoadDelay = 0.1f; // チャンク生�E後�EアイチE��ロード遅延
 }
 
 /// <summary>
-/// 地形全体を管琁E��る�Eネ�Eジャー
-/// WorldGeneratorオブジェクトにアタチE��して使用
+/// 地形全体を管琁E��る�Eネ�Eジャー
+/// WorldGeneratorオブジェクトにアタチE��して使用
 /// 
-/// レガシーシスチE���E�EaseCubePlacer、CubeSideScrollerPlacer�E�を完�E置き換ぁE
-/// 不忁E��な継承関係を排除し、Blockを直接使用する統合設訁E
+/// レガシーシスチE���E�EaseCubePlacer、CubeSideScrollerPlacer�E�を完�E置き換ぁE
+/// 不忁E��な継承関係を排除し、Blockを直接使用する統合設訁E
 /// </summary>
 public class TerrainManager : MonoBehaviour
 {
@@ -63,14 +63,14 @@ public class TerrainManager : MonoBehaviour
     [SerializeField] private BlockManager blockManager;
     [SerializeField] private BlockGenerator blockGenerator;
     [SerializeField] private VoxelManager voxelManager;
-    [SerializeField] private FluidSimulation fluidSimulation;
+    [SerializeField] private FluidManager fluidManager;
     
     [Header("Debug")]
     public bool showDebugInfo = false;
-    [SerializeField] private Text voxelCountText; // ボクセル数を表示するUIチE��スチE
+    [SerializeField] private Text voxelCountText; // ボクセル数を表示するUIチE��スチE
 
     /// <summary>
-    /// 地形設定�E取征E
+    /// 地形設定�E取征E
     /// </summary>
     public TerrainSettings Settings => settings;
     
@@ -81,7 +81,7 @@ public class TerrainManager : MonoBehaviour
     public BlockManager BlockManager => blockManager;
     public BlockGenerator BlockGenerator => blockGenerator;
     public VoxelManager VoxelManager => voxelManager;
-    public FluidSimulation FluidSimulation => fluidSimulation;
+    public FluidManager FluidManager => fluidManager;
     public TerrainDataManager TerrainDataManager => terrainDataManager;
 
     void Awake()
@@ -107,7 +107,7 @@ public class TerrainManager : MonoBehaviour
 
     void Update()
     {
-        // UIチE��ストが設定されてぁE��ば、未回収のアイチE��数を表示
+        // UIチE��ストが設定されてぁE��ば、未回収のアイチE��数を表示
         if (voxelCountText != null)
         {
             int droppedItemCount = GameObject.FindGameObjectsWithTag("DroppedItem").Length;
@@ -116,27 +116,27 @@ public class TerrainManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 階層シスチE��を�E期化
+    /// 階層シスチE��を�E期化
     /// </summary>
     private void InitializeHierarchicalSystem()
     {
-        // 階層マネージャーがインスペクターから設定されてぁE��か検証
+        // 階層マネージャーがインスペクターから設定されてぁE��か検証
         if (chunkManager == null || blockManager == null || blockGenerator == null || voxelManager == null)
         {
             Debug.LogError("TerrainManager: One or more hierarchical managers are not assigned in the Inspector.");
-            // 重要なコンポ�Eネントが不足してぁE��ため、ここで処琁E��中断
-            // this.enabled = false; // コンポ�Eネントを無効化するなどの対策も老E��られめE
+            // 重要なコンポ�Eネントが不足してぁE��ため、ここで処琁E��中断
+            // this.enabled = false; // コンポ�Eネントを無効化するなどの対策も老E��られめE
             return;
         }
         
-        // 吁E�Eネ�Eジャーを�E期化
+        // 吁E�Eネ�Eジャーを�E期化
         chunkManager.Initialize(this);
         blockManager.Initialize(this);
         blockGenerator.Initialize(this, settings.seed);
         voxelManager.Initialize(this);
-        fluidSimulation?.Initialize(this);
+        fluidManager?.Initialize(this);
         
-        // TerrainDataManagerを�E期化
+        // TerrainDataManagerを�E期化
         terrainDataManager?.Initialize();
         
         if (showDebugInfo)
@@ -146,18 +146,18 @@ public class TerrainManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 既存�E全地形チE�Eタを削除
+    /// 既存�E全地形チE�Eタを削除
     /// </summary>
     public void ClearTerrain()
     {
         chunkManager?.ClearChunks();
         blockManager?.ClearAllBlocks();
         voxelManager?.ClearAllVoxels();
-        fluidSimulation?.ClearFluid();
+        fluidManager?.ClearFluid();
     }
 
     /// <summary>
-    /// 地形を�E生�E
+    /// 地形を�E生�E
     /// </summary>
     [ContextMenu("Regenerate Terrain")]
     public void RegenerateTerrain()
@@ -186,7 +186,7 @@ public class TerrainManager : MonoBehaviour
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        // エチE��タでの値変更時に設定を検証
+        // エチE��タでの値変更時に設定を検証
         settings.initialChunkCount.x = Mathf.Max(1, settings.initialChunkCount.x);
         settings.initialChunkCount.y = Mathf.Max(1, settings.initialChunkCount.y);
         settings.blocksPerChunk.x = Mathf.Max(1, settings.blocksPerChunk.x);
@@ -196,6 +196,7 @@ public class TerrainManager : MonoBehaviour
     }
 #endif
 }
+
 
 
 

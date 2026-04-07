@@ -22,7 +22,7 @@ public struct FluidCellSnapshot
     public FluidDefinition Definition { get; }
 }
 
-public class FluidSimulation : MonoBehaviour
+public class FluidManager : MonoBehaviour
 {
     private const float MinLitersEpsilon = 0.0001f;
     private const int MaxFillSearchDepth = 32;
@@ -179,7 +179,7 @@ public class FluidSimulation : MonoBehaviour
         FluidDefinition definition = fluidDefinition != null ? fluidDefinition : defaultFluidDefinition;
         if (definition == null)
         {
-            Debug.LogWarning("FluidSimulation: No FluidDefinition is assigned.");
+            Debug.LogWarning("FluidManager: No FluidDefinition is assigned.");
             return 0f;
         }
 
@@ -1108,7 +1108,7 @@ public class FluidSimulation : MonoBehaviour
 
         if (showDebugLogs)
         {
-            Debug.Log($"FluidSimulation: version updated to {Version}, active cells={cells.Count}");
+            Debug.Log($"FluidManager: version updated to {Version}, active cells={cells.Count}");
         }
     }
 
@@ -1182,6 +1182,7 @@ public class FluidSimulation : MonoBehaviour
         public float Force { get; }
     }
 }
+
 
 
 

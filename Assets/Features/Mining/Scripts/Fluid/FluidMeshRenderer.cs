@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -9,7 +9,7 @@ public class FluidMeshRenderer : MonoBehaviour
     private const float MinFillRatio = 0.01f;
 
     [Header("References")]
-    [SerializeField] private FluidSimulation fluidSimulation;
+    [SerializeField] private FluidManager fluidManager;
     [SerializeField] private Material overrideMaterial;
 
     [Header("Rendering")]
@@ -60,12 +60,12 @@ public class FluidMeshRenderer : MonoBehaviour
             EnsureMaterial();
         }
 
-        if (fluidSimulation == null)
+        if (fluidManager == null)
         {
             return;
         }
 
-        if (fluidSimulation.Version == lastVersion)
+        if (fluidManager.Version == lastVersion)
         {
             return;
         }
@@ -80,15 +80,15 @@ public class FluidMeshRenderer : MonoBehaviour
     [ContextMenu("Rebuild Fluid Mesh")]
     public void RebuildMesh()
     {
-        if (fluidSimulation == null || mesh == null)
+        if (fluidManager == null || mesh == null)
         {
             return;
         }
 
         lastRebuildTime = Time.unscaledTime;
-        lastVersion = fluidSimulation.Version;
+        lastVersion = fluidManager.Version;
 
-        fluidSimulation.GetFluidCellSnapshots(snapshots);
+        fluidManager.GetFluidCellSnapshots(snapshots);
         BuildAggregates();
 
         List<Vector3> vertices = new List<Vector3>();
@@ -127,7 +127,7 @@ public class FluidMeshRenderer : MonoBehaviour
 
         foreach (FluidCellSnapshot snapshot in snapshots)
         {
-            Vector3Int renderCell = fluidSimulation.InternalToRenderCell(snapshot.CellPosition);
+            Vector3Int renderCell = fluidManager.InternalToRenderCell(snapshot.CellPosition);
             if (!aggregates.TryGetValue(renderCell, out RenderCellAggregate aggregate))
             {
                 aggregate = new RenderCellAggregate();
@@ -152,8 +152,8 @@ public class FluidMeshRenderer : MonoBehaviour
         List<int> triangles,
         List<Color> colors)
     {
-        Vector3 min = fluidSimulation.GetRenderCellWorldMin(renderCell);
-        Vector3 max = min + Vector3.one * fluidSimulation.RenderVoxelSize;
+        Vector3 min = fluidManager.GetRenderCellWorldMin(renderCell);
+        Vector3 max = min + Vector3.one * fluidManager.RenderVoxelSize;
         int verticalAxis = GetVerticalAxisIndex();
         SetAxis(ref max, verticalAxis, Mathf.Lerp(GetAxis(min, verticalAxis), GetAxis(max, verticalAxis), fillRatio));
 
@@ -165,7 +165,7 @@ public class FluidMeshRenderer : MonoBehaviour
 
         Vector3Int upDirection = -GetDownDirection();
         float upperFill = GetNeighborFill(renderCell + upDirection);
-        bool hideTop = fillRatio >= 0.999f && (upperFill > MinFillRatio || fluidSimulation.IsRenderNeighborSolid(renderCell, upDirection, fillRatio));
+        bool hideTop = fillRatio >= 0.999f && (upperFill > MinFillRatio || fluidManager.IsRenderNeighborSolid(renderCell, upDirection, fillRatio));
         if (!hideTop)
         {
             AddFace(ToLocalCorners(GetFace(min, max, upDirection)), tint, vertices, triangles, colors);
@@ -174,9 +174,9 @@ public class FluidMeshRenderer : MonoBehaviour
         foreach (Vector3Int lateralDirection in GetLateralDirections())
         {
             float neighborFill = GetNeighborFill(renderCell + lateralDirection);
-            float visibleFrom = Mathf.Lerp(GetAxis(min, verticalAxis), GetAxis(min, verticalAxis) + fluidSimulation.RenderVoxelSize, Mathf.Clamp01(neighborFill));
+            float visibleFrom = Mathf.Lerp(GetAxis(min, verticalAxis), GetAxis(min, verticalAxis) + fluidManager.RenderVoxelSize, Mathf.Clamp01(neighborFill));
 
-            if (neighborFill <= MinFillRatio && hideFacesAgainstSolid && fluidSimulation.IsRenderNeighborSolid(renderCell, lateralDirection, fillRatio))
+            if (neighborFill <= MinFillRatio && hideFacesAgainstSolid && fluidManager.IsRenderNeighborSolid(renderCell, lateralDirection, fillRatio))
             {
                 continue;
             }
@@ -205,12 +205,12 @@ public class FluidMeshRenderer : MonoBehaviour
 
     private float GetDisplayFillRatio(float liters)
     {
-        if (fluidSimulation == null)
+        if (fluidManager == null)
         {
             return 0f;
         }
 
-        float rawFillRatio = Mathf.Clamp01(liters / Mathf.Max(0.0001f, fluidSimulation.RenderCellCapacityLiters));
+        float rawFillRatio = Mathf.Clamp01(liters / Mathf.Max(0.0001f, fluidManager.RenderCellCapacityLiters));
         if (rawFillRatio <= 0.0001f)
         {
             return 0f;
@@ -274,7 +274,7 @@ public class FluidMeshRenderer : MonoBehaviour
 
     private int GetVerticalAxisIndex()
     {
-        switch (fluidSimulation.GravityAxis)
+        switch (fluidManager.GravityAxis)
         {
             case FluidGravityAxis.NegativeX:
                 return 0;
@@ -287,7 +287,7 @@ public class FluidMeshRenderer : MonoBehaviour
 
     private Vector3Int GetDownDirection()
     {
-        switch (fluidSimulation.GravityAxis)
+        switch (fluidManager.GravityAxis)
         {
             case FluidGravityAxis.NegativeX:
                 return Vector3Int.left;
@@ -300,7 +300,7 @@ public class FluidMeshRenderer : MonoBehaviour
 
     private Vector3Int[] GetLateralDirections()
     {
-        switch (fluidSimulation.GravityAxis)
+        switch (fluidManager.GravityAxis)
         {
             case FluidGravityAxis.NegativeX:
                 return new[]
@@ -468,6 +468,7 @@ public class FluidMeshRenderer : MonoBehaviour
         public float DominantLiters;
     }
 }
+
 
 
 

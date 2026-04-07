@@ -1,21 +1,21 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// ボクセル管琁E��ラス
-/// 個、E�Eボクセルレベルでの詳細管琁E��拁E��E
+/// ボクセル管琁E��ラス
+/// 個、E�Eボクセルレベルでの詳細管琁E��拁E��E
 /// </summary>
 public class VoxelManager : MonoBehaviour
 {
     [Header("Voxel Management Configuration")]
     [SerializeField] private bool showVoxelDebugInfo = false;
     
-    // チE�Eタ構造をListからDictionaryに変更し、ブロチE��座標とローカル座標でボクセルチE�Eタを管琁E
-    // これにより、O(n)の検索がO(1)になり、パフォーマンスが大幁E��向丁E
+    // チE�Eタ構造をListからDictionaryに変更し、ブロチE��座標とローカル座標でボクセルチE�Eタを管琁E
+    // これにより、O(n)の検索がO(1)になり、パフォーマンスが大幁E��向丁E
     private Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>> trackedVoxels = new Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>>();
     
     /// <summary>
-    /// TerrainManagerからの参�E
+    /// TerrainManagerからの参�E
     /// </summary>
     private TerrainManager terrainManager;
     
@@ -33,7 +33,7 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// ボクセルパターンからボクセルチE�Eタを作�E
+    /// ボクセルパターンからボクセルチE�Eタを作�E
     /// </summary>
     public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, Vector3 blockWorldPos, BlockData data, float blockSize, int voxelsPerBlock)
     {
@@ -70,7 +70,7 @@ public class VoxelManager : MonoBehaviour
             }
         }
         
-        // 壊れかけのブロチE��惁E��を適用
+        // 壊れかけのブロチE��惁E��を適用
         var persistenceManager = GameDataPersistenceManager.Instance;
         if (persistenceManager.partiallyDestroyedBlocks.TryGetValue(blockPos, out var destroyedVoxels))
         {
@@ -95,7 +95,7 @@ public class VoxelManager : MonoBehaviour
     private Vector3 CalculateWorldPosition(Vector3 blockWorldPos, Vector3Int localPos, float blockSize, int voxelsPerBlock)
     {
         float voxelUnit = blockSize / voxelsPerBlock;
-        // ブロチE��の中忁E��ら�EオフセチE��としてボクセルのローカル座標を計箁E
+        // ブロチE��の中忁E��ら�EオフセチE��としてボクセルのローカル座標を計箁E
         Vector3 localOffset = new Vector3(
             (localPos.x - voxelsPerBlock / 2f + 0.5f) * voxelUnit,
             (localPos.y - voxelsPerBlock / 2f + 0.5f) * voxelUnit,
@@ -110,13 +110,13 @@ public class VoxelManager : MonoBehaviour
     /// </summary>
     private VoxelType DetermineVoxelType(Vector3Int blockPos, Vector3Int localPos)
     {
-        // チE��ォルト�E標準タイチE
-        // 封E��皁E��位置めE��ンダム要素に基づぁE��タイプを決宁E
+        // チE��ォルト�E標準タイチE
+        // 封E��皁E��位置めE��ンダム要素に基づぁE��タイプを決宁E
         return VoxelType.Standard;
     }
     
     /// <summary>
-    /// 持E��座標�EボクセルチE�Eタを取征E
+    /// 持E��座標�EボクセルチE�Eタを取征E
     /// </summary>
     public Voxel GetVoxelAt(Vector3Int blockPos, Vector3Int localPos)
     {
@@ -128,7 +128,7 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 持E��ブロチE��冁E�Eボクセル数を取征E
+    /// 持E��ブロチE��冁E�Eボクセル数を取征E
     /// </summary>
     public int CountVoxelsInBlock(Vector3Int blockPos)
     {
@@ -191,12 +191,12 @@ public class VoxelManager : MonoBehaviour
             // 永続化マネージャーに状態を記録
             var persistenceManager = GameDataPersistenceManager.Instance;
 
-            // ブロチE��冁E�E残りのボクセル数を確誁E
+            // ブロチE��冁E�E残りのボクセル数を確誁E
             if (CountVoxelsInBlock(blockPos) == 0)
             {
-                // 完�Eに破壊された
+                // 完�Eに破壊された
                 terrainManager.BlockManager.DestroyBlock(blockPos);
-                // 壊れかけリストから�E削除
+                // 壊れかけリストから�E削除
                 if (persistenceManager.partiallyDestroyedBlocks.ContainsKey(blockPos))
                 {
                     persistenceManager.partiallyDestroyedBlocks.Remove(blockPos);
@@ -204,7 +204,7 @@ public class VoxelManager : MonoBehaviour
             }
             else
             {
-                // 部刁E��に破壊された
+                // 部刁E��に破壊された
                 if (!persistenceManager.partiallyDestroyedBlocks.ContainsKey(blockPos))
                 {
                     persistenceManager.partiallyDestroyedBlocks[blockPos] = new HashSet<Vector3Int>();
@@ -212,7 +212,7 @@ public class VoxelManager : MonoBehaviour
                 persistenceManager.partiallyDestroyedBlocks[blockPos].Add(localPos);
             }
 
-            terrainManager?.FluidSimulation?.NotifySolidVoxelRemoved(voxel.worldPosition);
+            terrainManager?.FluidManager?.NotifySolidVoxelRemoved(voxel.worldPosition);
             
             return true;
         }
@@ -244,7 +244,7 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 持E��ブロチE��のボクセルをすべて取征E
+    /// 持E��ブロチE��のボクセルをすべて取征E
     /// </summary>
     public List<Voxel> GetVoxelsInBlock(Vector3Int blockPos)
     {
@@ -256,7 +256,7 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// アクチE��ブなボクセル数を取征E
+    /// アクチE��ブなボクセル数を取征E
     /// </summary>
     public int GetActiveVoxelCount()
     {
@@ -298,7 +298,7 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 持E��ブロチE��のボクセルをクリア
+    /// 持E��ブロチE��のボクセルをクリア
     /// </summary>
     public void ClearVoxelsInBlock(Vector3Int blockPos)
     {
@@ -313,7 +313,7 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// すべてのボクセルチE�Eタをクリア
+    /// すべてのボクセルチE�Eタをクリア
     /// </summary>
     public void ClearAllVoxels()
     {
@@ -332,7 +332,7 @@ public class VoxelManager : MonoBehaviour
     }
     
     /// <summary>
-    /// チE��チE��惁E��を取征E
+    /// チE��チE��惁E��を取征E
     /// </summary>
     public string GetDebugInfo()
     {
@@ -355,4 +355,5 @@ public class VoxelManager : MonoBehaviour
         ClearAllVoxels();
     }
 }
+
 

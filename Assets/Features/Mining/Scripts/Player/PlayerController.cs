@@ -87,7 +87,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
 
     [Header("流体抵抗設定")]
-    [SerializeField, InspectorName("流体シミュレーション"), Tooltip("同じシーンの FluidSimulation を割り当てます。未設定なら TerrainManager から自動取得を試みます。")] private FluidSimulation fluidSimulation;
+    [SerializeField, InspectorName("流体シミュレーション"), Tooltip("同じシーンの FluidManager を割り当てます。未設定なら TerrainManager から自動取得を試みます。")] private FluidManager fluidManager;
     [SerializeField, InspectorName("抵抗判定に使う Collider"), Tooltip("プレイヤーのどの範囲で水量を測るかに使う Collider です。通常は PlayerCollider を指定します。")] private Collider fluidResistanceCollider;
     [SerializeField, InspectorName("流体抵抗を有効にする"), Tooltip("オフにすると、水による移動抵抗を無効にします。")] private bool enableFluidResistance = true;
     [SerializeField, InspectorName("横方向サンプル数"), Tooltip("Collider 内を横方向に何点読むかです。大きいほど正確ですが少し重くなります。")] private int fluidHorizontalSampleCount = 2;
@@ -136,12 +136,12 @@ public class PlayerController : MonoBehaviour
             rb.useGravity = false; // Rigidbodyの重力を無効にする
         }
 
-        if (fluidSimulation == null)
+        if (fluidManager == null)
         {
             TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
             if (terrainManager != null)
             {
-                fluidSimulation = terrainManager.FluidSimulation;
+                fluidManager = terrainManager.FluidManager;
             }
         }
 
@@ -671,7 +671,7 @@ public class PlayerController : MonoBehaviour
 
     private float GetFluidSubmersionRatio()
     {
-        if (!enableFluidResistance || fluidSimulation == null)
+        if (!enableFluidResistance || fluidManager == null)
         {
             return 0f;
         }
@@ -714,7 +714,7 @@ public class PlayerController : MonoBehaviour
                 for (int z = 0; z < fluidDepthSampleCount; z++)
                 {
                     float sampleZ = Mathf.Lerp(min.z, max.z, GetFluidSampleLerp(z, fluidDepthSampleCount));
-                    totalFillRatio += fluidSimulation.GetFluidFillRatioAtWorldPosition(new Vector3(sampleX, sampleY, sampleZ));
+                    totalFillRatio += fluidManager.GetFluidFillRatioAtWorldPosition(new Vector3(sampleX, sampleY, sampleZ));
                     sampleCount++;
                 }
             }
@@ -733,7 +733,7 @@ public class PlayerController : MonoBehaviour
         Collider col = ResolveFluidResistanceCollider();
         Vector3 center = col != null ? col.bounds.center : transform.position;
 
-        FluidDefinition fluidDef = fluidSimulation != null ? fluidSimulation.GetFluidDefinitionAtWorldPosition(center) : null;
+        FluidDefinition fluidDef = fluidManager != null ? fluidManager.GetFluidDefinitionAtWorldPosition(center) : null;
         float fluidDensity = fluidDef != null ? fluidDef.densityKgPerCubicMeter : 1000f;
         
         float volume = col != null ? (col.bounds.size.x * col.bounds.size.y * col.bounds.size.z) : 1f;
@@ -851,3 +851,4 @@ public class PlayerController : MonoBehaviour
         }
     }
 }
+

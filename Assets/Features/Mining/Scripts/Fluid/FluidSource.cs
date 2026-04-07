@@ -1,9 +1,9 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class FluidSource : MonoBehaviour
 {
     [Header("References")]
-    [SerializeField] private FluidSimulation fluidSimulation;
+    [SerializeField] private FluidManager fluidManager;
     [SerializeField] private FluidDefinition fluidDefinition;
 
     [Header("Emission")]
@@ -13,22 +13,23 @@ public class FluidSource : MonoBehaviour
 
     void Update()
     {
-        if (!emitContinuously || fluidSimulation == null)
+        if (!emitContinuously || fluidManager == null)
         {
             return;
         }
 
-        fluidSimulation.AddFluidAtWorldPosition(transform.position, litersPerSecond * Time.deltaTime, fluidDefinition);
+        fluidManager.AddFluidAtWorldPosition(transform.position, litersPerSecond * Time.deltaTime, fluidDefinition);
     }
 
     [ContextMenu("Inject Burst")]
     public void InjectBurst()
     {
-        if (fluidSimulation == null)
+        if (fluidManager == null)
         {
             return;
         }
 
-        fluidSimulation.AddFluidAtWorldPosition(transform.position, burstLiters, fluidDefinition);
+        fluidManager.AddFluidAtWorldPosition(transform.position, burstLiters, fluidDefinition);
     }
 }
+

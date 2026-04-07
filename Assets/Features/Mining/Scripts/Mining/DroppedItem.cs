@@ -39,7 +39,7 @@ public class DroppedItem : MonoBehaviour
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private Mesh instanceMesh;
-    private FluidSimulation fluidSimulation;
+    private FluidManager fluidManager;
     private Collider obstacleCollider;
     private Vector3 lastFluidNotifyPosition;
     private bool hasFluidNotifyPosition;
@@ -60,7 +60,7 @@ public class DroppedItem : MonoBehaviour
         EnsureDroppedItemMesh();
         rb = GetComponent<Rigidbody>();
         obstacleCollider = GetComponent<Collider>();
-        ResolveFluidSimulation();
+        ResolveFluidManager();
         lastFluidNotifyPosition = GetFluidObstacleCenter();
         hasFluidNotifyPosition = true;
     }
@@ -108,9 +108,9 @@ public class DroppedItem : MonoBehaviour
         }
     }
 
-    private void ResolveFluidSimulation()
+    private void ResolveFluidManager()
     {
-        if (fluidSimulation != null)
+        if (fluidManager != null)
         {
             return;
         }
@@ -118,7 +118,7 @@ public class DroppedItem : MonoBehaviour
         TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
         if (terrainManager != null)
         {
-            fluidSimulation = terrainManager.FluidSimulation;
+            fluidManager = terrainManager.FluidManager;
         }
     }
 
@@ -129,8 +129,8 @@ public class DroppedItem : MonoBehaviour
             return;
         }
 
-        ResolveFluidSimulation();
-        if (fluidSimulation == null)
+        ResolveFluidManager();
+        if (fluidManager == null)
         {
             return;
         }
@@ -141,7 +141,7 @@ public class DroppedItem : MonoBehaviour
             return;
         }
 
-        FluidDefinition fluidDef = fluidSimulation.GetFluidDefinitionAtWorldPosition(GetFluidObstacleCenter());
+        FluidDefinition fluidDef = fluidManager.GetFluidDefinitionAtWorldPosition(GetFluidObstacleCenter());
         float fluidDensity = fluidDef != null ? fluidDef.densityKgPerCubicMeter : 1000f;
         float volume = obstacleCollider != null ? (obstacleCollider.bounds.size.x * obstacleCollider.bounds.size.y * obstacleCollider.bounds.size.z) : 1f;
         
@@ -159,14 +159,14 @@ public class DroppedItem : MonoBehaviour
 
     private void RefreshFluidObstacleTracking(bool force)
     {
-        ResolveFluidSimulation();
-        if (fluidSimulation == null)
+        ResolveFluidManager();
+        if (fluidManager == null)
         {
             return;
         }
 
         Vector3 currentPosition = GetFluidObstacleCenter();
-        float movementThreshold = Mathf.Max(0.02f, fluidSimulation.InternalVoxelSize * 0.5f);
+        float movementThreshold = Mathf.Max(0.02f, fluidManager.InternalVoxelSize * 0.5f);
         bool movedEnough = !hasFluidNotifyPosition || (currentPosition - lastFluidNotifyPosition).sqrMagnitude >= movementThreshold * movementThreshold;
         bool isMoving = rb != null && (rb.linearVelocity.sqrMagnitude > FluidVelocityEpsilon || rb.angularVelocity.sqrMagnitude > FluidVelocityEpsilon);
 
@@ -186,10 +186,10 @@ public class DroppedItem : MonoBehaviour
         int dirtyRadius = GetFluidDirtyRadius();
         if (hasFluidNotifyPosition)
         {
-            fluidSimulation.MarkDirtyAroundWorldPosition(lastFluidNotifyPosition, dirtyRadius);
+            fluidManager.MarkDirtyAroundWorldPosition(lastFluidNotifyPosition, dirtyRadius);
         }
 
-        fluidSimulation.MarkDirtyAroundWorldPosition(currentPosition, dirtyRadius);
+        fluidManager.MarkDirtyAroundWorldPosition(currentPosition, dirtyRadius);
         lastFluidNotifyPosition = currentPosition;
         hasFluidNotifyPosition = true;
         nextFluidNotifyTime = Time.time + FluidNotifyInterval;
@@ -197,7 +197,7 @@ public class DroppedItem : MonoBehaviour
 
     private float GetFluidSubmersionRatio()
     {
-        if (fluidSimulation == null)
+        if (fluidManager == null)
         {
             return 0f;
         }
@@ -241,7 +241,7 @@ public class DroppedItem : MonoBehaviour
                 for (int z = 0; z < fluidDepthSampleCount; z++)
                 {
                     float sampleZ = Mathf.Lerp(min.z, max.z, GetFluidSampleLerp(z, fluidDepthSampleCount));
-                    totalFillRatio += fluidSimulation.GetFluidFillRatioAtWorldPosition(new Vector3(sampleX, sampleY, sampleZ));
+                    totalFillRatio += fluidManager.GetFluidFillRatioAtWorldPosition(new Vector3(sampleX, sampleY, sampleZ));
                     sampleCount++;
                 }
             }
@@ -272,7 +272,7 @@ public class DroppedItem : MonoBehaviour
 
     private int GetFluidDirtyRadius()
     {
-        if (fluidSimulation == null)
+        if (fluidManager == null)
         {
             return 1;
         }
@@ -284,7 +284,7 @@ public class DroppedItem : MonoBehaviour
 
         Bounds bounds = obstacleCollider != null ? obstacleCollider.bounds : new Bounds(transform.position, transform.localScale);
         float maxExtent = Mathf.Max(bounds.extents.x, Mathf.Max(bounds.extents.y, bounds.extents.z));
-        return Mathf.Max(1, Mathf.CeilToInt(maxExtent / Mathf.Max(0.001f, fluidSimulation.InternalVoxelSize)) + 1);
+        return Mathf.Max(1, Mathf.CeilToInt(maxExtent / Mathf.Max(0.001f, fluidManager.InternalVoxelSize)) + 1);
     }
 
     public void ApplyFaceTextureInfos(List<VoxelFaceTextureInfo> faceInfos, Texture2D texture1, Texture2D texture2)
@@ -610,3 +610,4 @@ public class DroppedItem : MonoBehaviour
         uvs.Add(Vector2.right);
     }
 }
+
