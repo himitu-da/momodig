@@ -11,16 +11,16 @@ public class FluidDefinition : ScriptableObject
     public float viscosity = 1f;
 
     [Min(0.1f), InspectorName("下方向の流れやすさ"), Tooltip("下方向へ落ちる基本速度です。大きいほど速く落ちます。")]
-    public float downwardCellVolumesPerSecond = 8f;
+    public float downwardCellVolumesPerSecond = 4f;
 
     [Min(0.0f), InspectorName("横方向の広がりやすさ"), Tooltip("横に広がる基本速度です。大きいほど平らに広がります。")]
     public float lateralCellVolumesPerSecond = 3f;
 
     [Min(0.0f), InspectorName("速度減衰"), Tooltip("爆発などで付いた速度がどれだけ早く消えるかです。大きいほど早く止まります。")]
-    public float velocityDamping = 6f;
+    public float velocityDamping = 3f;
 
     [Min(0.0f), InspectorName("爆発の受けやすさ"), Tooltip("大きいほど爆風で動きやすくなります。")]
-    public float explosionImpulseMultiplier = 1f;
+    public float explosionImpulseMultiplier = 5f;
 
     [Header("見た目設定")]
     [InspectorName("色"), Tooltip("この流体の描画色です。アルファ値で透明度も調整できます。")]

@@ -43,11 +43,11 @@ public class FluidSimulation : MonoBehaviour
     [SerializeField, InspectorName("更新間隔(秒)"), Tooltip("流体計算を行う間隔です。大きいほど軽くなりますが、動きは粗くなります。")] private float simulationTickInterval = 0.05f;
     [SerializeField, InspectorName("1回の最大処理セル数"), Tooltip("1 tick で処理する内部セル数の上限です。")] private int maxCellsPerStep = 2048;
     [SerializeField, InspectorName("全件処理に切り替えるセル数"), Tooltip("待機セル数がこの値以下なら、その tick で全セルを処理します。")] private int fullSolveCellThreshold = 8192;
-    [SerializeField, InspectorName("流れの全体倍率"), Tooltip("落下、横流れ、爆発後の移動量をまとめて増減します。")] private float flowRateMultiplier = 4f;
+    [SerializeField, InspectorName("流れの全体倍率"), Tooltip("落下、横流れ、爆発後の移動量をまとめて増減します。")] private float flowRateMultiplier = 2f;
     [SerializeField, InspectorName("プレイ面の半厚み"), Tooltip("SideScroller / TopDown で流体がはみ出せる厚みの半分です。")] private float generationSliceHalfThickness = 0.5f;
-    [SerializeField, InspectorName("1回の最大落下セル数"), Tooltip("1 tick で下方向へ連続移動できる最大セル数です。")] private int maxVerticalCascadeSteps = 12;
-    [SerializeField, InspectorName("1回の最大吹き飛びセル数"), Tooltip("爆発などの速度で 1 tick に連続移動できる最大セル数です。")] private int maxVelocityCascadeSteps = 12;
-    [SerializeField, InspectorName("吹き飛び速度の残りやすさ"), Tooltip("爆発などで付いた速度を移動先にどれだけ残すかです。小さいほどすぐ止まります。"), Range(0f, 1f)] private float velocityTransferRetention = 0.2f;
+    [SerializeField, InspectorName("1回の最大落下セル数"), Tooltip("1 tick で下方向へ連続移動できる最大セル数です。")] private int maxVerticalCascadeSteps = 3;
+    [SerializeField, InspectorName("1回の最大吹き飛びセル数"), Tooltip("爆発などの速度で 1 tick に連続移動できる最大セル数です。")] private int maxVelocityCascadeSteps = 4;
+    [SerializeField, InspectorName("吹き飛び速度の残りやすさ"), Tooltip("爆発などで付いた速度を移動先にどれだけ残すかです。小さいほどすぐ止まります。"), Range(0f, 1f)] private float velocityTransferRetention = 0.75f;
     [SerializeField, InspectorName("動的障害物を使う"), Tooltip("瓦礋など動いている Collider を流体の障害物として扱います。")] private bool useDynamicObstacleLayers = true;
     [SerializeField, InspectorName("動的障害物レイヤー"), Tooltip("流体の進行を塞ぐ動的オブジェクトの Layer を指定します。")] private LayerMask dynamicObstacleLayers;
     [SerializeField, InspectorName("デバッグログを表示"), Tooltip("流体更新のログを Console に出します。通常はオフのままで構いません。")] private bool showDebugLogs = false;
@@ -484,27 +484,34 @@ public class FluidSimulation : MonoBehaviour
         }
 
         Vector3 velocity = source.Velocity;
-        Vector3 absVelocity = new Vector3(Mathf.Abs(velocity.x), Mathf.Abs(velocity.y), Mathf.Abs(velocity.z));
-        Vector3Int direction;
-        float dominantComponent;
+        Vector3 normalized = velocity.normalized;
+        Vector3Int direction = new Vector3Int(
+            Mathf.RoundToInt(normalized.x),
+            Mathf.RoundToInt(normalized.y),
+            Mathf.RoundToInt(normalized.z)
+        );
 
-        if (absVelocity.x >= absVelocity.y && absVelocity.x >= absVelocity.z)
+        float dominantComponent = velocity.magnitude;
+
+        if (direction == Vector3Int.zero)
         {
-            direction = velocity.x >= 0f ? Vector3Int.right : Vector3Int.left;
-            dominantComponent = absVelocity.x;
-        }
-        else if (absVelocity.y >= absVelocity.z)
-        {
-            direction = velocity.y >= 0f ? Vector3Int.up : Vector3Int.down;
-            dominantComponent = absVelocity.y;
-        }
-        else
-        {
-            direction = velocity.z >= 0f ? new Vector3Int(0, 0, 1) : new Vector3Int(0, 0, -1);
-            dominantComponent = absVelocity.z;
+            Vector3 absVelocity = new Vector3(Mathf.Abs(velocity.x), Mathf.Abs(velocity.y), Mathf.Abs(velocity.z));
+            if (absVelocity.x >= absVelocity.y && absVelocity.x >= absVelocity.z)
+            {
+                direction = velocity.x >= 0f ? Vector3Int.right : Vector3Int.left;
+            }
+            else if (absVelocity.y >= absVelocity.z)
+            {
+                direction = velocity.y >= 0f ? Vector3Int.up : Vector3Int.down;
+            }
+            else
+            {
+                direction = velocity.z >= 0f ? new Vector3Int(0, 0, 1) : new Vector3Int(0, 0, -1);
+            }
         }
 
-        float remainingTransfer = InternalCellCapacityLiters * dominantComponent * flowRateMultiplier * deltaTime;
+        float calculatedTransfer = InternalCellCapacityLiters * dominantComponent * flowRateMultiplier * deltaTime;
+        float remainingTransfer = Mathf.Min(calculatedTransfer, InternalCellCapacityLiters * Mathf.Max(1f, maxVelocityCascadeSteps));
         bool changed = false;
         Vector3Int currentPos = sourcePos;
         FluidCellState currentCell = source;
@@ -548,7 +555,11 @@ public class FluidSimulation : MonoBehaviour
     private bool ApplyGravityTransfer(Vector3Int sourcePos, FluidCellState source, float deltaTime)
     {
         float rate = Mathf.Max(0.1f, source.Definition.downwardCellVolumesPerSecond) / Mathf.Max(0.01f, source.Definition.viscosity);
-        float remainingTransfer = InternalCellCapacityLiters * rate * flowRateMultiplier * deltaTime;
+        float calculatedTransfer = InternalCellCapacityLiters * rate * flowRateMultiplier * deltaTime;
+        // 1回のTickで伝播できる最大量を制限し、一瞬で水が抜け落ちる現象を防止
+        float maxTransfer = InternalCellCapacityLiters * Mathf.Max(1f, maxVerticalCascadeSteps);
+        float remainingTransfer = Mathf.Min(calculatedTransfer, maxTransfer);
+
         bool changed = false;
         Vector3Int currentPos = sourcePos;
         FluidCellState currentCell = source;
@@ -638,7 +649,9 @@ public class FluidSimulation : MonoBehaviour
 
         bool changed = false;
         float rate = Mathf.Max(0f, source.Definition.lateralCellVolumesPerSecond) / Mathf.Max(0.01f, source.Definition.viscosity);
-        float remainingTransfer = capacity * rate * flowRateMultiplier * deltaTime;
+        float calculatedTransfer = capacity * rate * flowRateMultiplier * deltaTime;
+        // 1Tickでの横移動の広がり過ぎを制限
+        float remainingTransfer = Mathf.Min(calculatedTransfer, capacity * Mathf.Max(1f, maxVelocityCascadeSteps));
 
         foreach (LateralCandidate candidate in candidates)
         {
