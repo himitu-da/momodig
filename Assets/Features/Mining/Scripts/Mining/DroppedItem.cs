@@ -27,8 +27,6 @@ public class DroppedItem : MonoBehaviour
     private float fluidLinearResistanceStrength = 6f;
     [SerializeField, InspectorName("回転抵抗の強さ"), Tooltip("回転に対する流体抵抗の強さ")]
     private float fluidAngularResistanceStrength = 4f;
-    [SerializeField, InspectorName("基準質量"), Tooltip("流体抵抗計算の基準となる質量")]
-    private float fluidResistanceReferenceMass = 1f;
     [SerializeField, InspectorName("水平サンプル数"), Tooltip("流体抵抗を計算するための水平方向のサンプリング数")]
     private int fluidHorizontalSampleCount = 2;
     [SerializeField, InspectorName("垂直サンプル数"), Tooltip("流体抵抗を計算するための垂直方向のサンプリング数")]
@@ -83,7 +81,6 @@ public class DroppedItem : MonoBehaviour
     {
         fluidLinearResistanceStrength = Mathf.Max(0f, fluidLinearResistanceStrength);
         fluidAngularResistanceStrength = Mathf.Max(0f, fluidAngularResistanceStrength);
-        fluidResistanceReferenceMass = Mathf.Max(0.1f, fluidResistanceReferenceMass);
         fluidHorizontalSampleCount = Mathf.Max(1, fluidHorizontalSampleCount);
         fluidVerticalSampleCount = Mathf.Max(1, fluidVerticalSampleCount);
         fluidDepthSampleCount = Mathf.Max(1, fluidDepthSampleCount);
@@ -144,8 +141,14 @@ public class DroppedItem : MonoBehaviour
             return;
         }
 
-        float normalizedMass = Mathf.Max(0.25f, rb.mass / Mathf.Max(0.1f, fluidResistanceReferenceMass));
-        float resistanceFactor = Mathf.Clamp01(submersion / normalizedMass);
+        FluidDefinition fluidDef = fluidSimulation.GetFluidDefinitionAtWorldPosition(GetFluidObstacleCenter());
+        float fluidDensity = fluidDef != null ? fluidDef.densityKgPerCubicMeter : 1000f;
+        float volume = obstacleCollider != null ? (obstacleCollider.bounds.size.x * obstacleCollider.bounds.size.y * obstacleCollider.bounds.size.z) : 1f;
+        
+        float displacedFluidMass = volume * fluidDensity * submersion;
+        float effectiveMass = Mathf.Max(0.1f, rb.mass);
+        
+        float resistanceFactor = Mathf.Clamp01(displacedFluidMass / effectiveMass);
 
         float linearDamping = 1f - Mathf.Exp(-fluidLinearResistanceStrength * resistanceFactor * Time.fixedDeltaTime);
         float angularDamping = 1f - Mathf.Exp(-fluidAngularResistanceStrength * resistanceFactor * Time.fixedDeltaTime);

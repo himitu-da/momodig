@@ -98,8 +98,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField, InspectorName("最低移動速度倍率"), Tooltip("最大まで抵抗が効いたときでも残す移動速度の割合です。"), Range(0.05f, 1f)] private float minimumFluidMoveSpeedMultiplier = 0.35f;
     [SerializeField, InspectorName("加速の鈍さ倍率"), Tooltip("水中で加速をどれだけ鈍くするかです。大きいほどもっさりします。")] private float fluidAccelerationPenaltyMultiplier = 2f;
     [SerializeField, InspectorName("追加ドラッグ"), Tooltip("水中で速度を落ち着かせる補正量です。大きいほど抵抗感が強まります。")] private float fluidDrag = 4f;
-    [SerializeField, InspectorName("基準質量"), Tooltip("この質量を基準に抵抗を比較します。プレイヤーの Rigidbody.mass と近い値を推奨します。")] private float fluidReferenceMass = 1f;
-    
+
     private int score = 0;
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
@@ -261,7 +260,6 @@ public class PlayerController : MonoBehaviour
         minimumFluidMoveSpeedMultiplier = Mathf.Clamp(minimumFluidMoveSpeedMultiplier, 0.05f, 1f);
         fluidAccelerationPenaltyMultiplier = Mathf.Max(1f, fluidAccelerationPenaltyMultiplier);
         fluidDrag = Mathf.Max(0f, fluidDrag);
-        fluidReferenceMass = Mathf.Max(0.1f, fluidReferenceMass);
         // 移動モードが変更された場合の制約更新のみ実行
         if (Application.isPlaying)
         {
@@ -732,9 +730,19 @@ public class PlayerController : MonoBehaviour
             return 0f;
         }
 
-        float effectiveMass = rb != null ? Mathf.Max(0.1f, rb.mass) : fluidReferenceMass;
-        float normalizedMass = Mathf.Max(0.1f, effectiveMass / Mathf.Max(0.1f, fluidReferenceMass));
-        return Mathf.Clamp01((fluidSubmersion * fluidResistanceStrength) / normalizedMass);
+        Collider col = ResolveFluidResistanceCollider();
+        Vector3 center = col != null ? col.bounds.center : transform.position;
+
+        FluidDefinition fluidDef = fluidSimulation != null ? fluidSimulation.GetFluidDefinitionAtWorldPosition(center) : null;
+        float fluidDensity = fluidDef != null ? fluidDef.densityKgPerCubicMeter : 1000f;
+        
+        float volume = col != null ? (col.bounds.size.x * col.bounds.size.y * col.bounds.size.z) : 1f;
+
+        float displacedFluidMass = volume * fluidDensity * fluidSubmersion;
+        float effectiveMass = rb != null ? Mathf.Max(0.1f, rb.mass) : 70f;
+
+        float resistanceFactor = Mathf.Clamp01(displacedFluidMass / effectiveMass);
+        return Mathf.Clamp01(resistanceFactor * fluidResistanceStrength);
     }
 
     private Collider ResolveFluidResistanceCollider()

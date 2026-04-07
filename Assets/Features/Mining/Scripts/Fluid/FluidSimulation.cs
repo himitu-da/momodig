@@ -272,6 +272,16 @@ public class FluidSimulation : MonoBehaviour
         return cell.Liters;
     }
 
+    public FluidDefinition GetFluidDefinitionAtWorldPosition(Vector3 worldPosition)
+    {
+        Vector3Int cellPos = WorldToInternalCell(worldPosition);
+        if (cells.TryGetValue(cellPos, out FluidCellState cell))
+        {
+            return cell.Definition;
+        }
+        return defaultFluidDefinition;
+    }
+
     public float GetFluidFillRatioAtWorldPosition(Vector3 worldPosition, FluidDefinition preferredDefinition = null)
     {
         float liters = GetFluidAmountAtWorldPosition(worldPosition, preferredDefinition);
