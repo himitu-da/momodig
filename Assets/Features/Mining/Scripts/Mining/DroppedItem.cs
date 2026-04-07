@@ -20,6 +20,24 @@ public class DroppedItem : MonoBehaviour
     private const float FluidNotifyInterval = 0.1f;
     private const float FluidVelocityEpsilon = 0.0001f;
 
+    [Header("流体シミュレーション設定")]
+    [SerializeField, InspectorName("流体抵抗を有効化"), Tooltip("流体からの抵抗をシミュレーションに適用するかどうか")]
+    private bool enableFluidResistance = true;
+    [SerializeField, InspectorName("線形抵抗の強さ"), Tooltip("移動に対する流体抵抗の強さ")]
+    private float fluidLinearResistanceStrength = 6f;
+    [SerializeField, InspectorName("回転抵抗の強さ"), Tooltip("回転に対する流体抵抗の強さ")]
+    private float fluidAngularResistanceStrength = 4f;
+    [SerializeField, InspectorName("基準質量"), Tooltip("流体抵抗計算の基準となる質量")]
+    private float fluidResistanceReferenceMass = 1f;
+    [SerializeField, InspectorName("水平サンプル数"), Tooltip("流体抵抗を計算するための水平方向のサンプリング数")]
+    private int fluidHorizontalSampleCount = 2;
+    [SerializeField, InspectorName("垂直サンプル数"), Tooltip("流体抵抗を計算するための垂直方向のサンプリング数")]
+    private int fluidVerticalSampleCount = 2;
+    [SerializeField, InspectorName("深度サンプル数"), Tooltip("流体抵抗を計算するための深度(Z軸)方向のサンプリング数")]
+    private int fluidDepthSampleCount = 2;
+    [SerializeField, InspectorName("サンプルインセット"), Tooltip("サンプリング位置をバウンディングボックスより内側にオフセットする量")]
+    private float fluidSampleInset = 0.01f;
+
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private Mesh instanceMesh;
@@ -61,6 +79,17 @@ public class DroppedItem : MonoBehaviour
         RefreshFluidObstacleTracking(true);
     }
 
+    void OnValidate()
+    {
+        fluidLinearResistanceStrength = Mathf.Max(0f, fluidLinearResistanceStrength);
+        fluidAngularResistanceStrength = Mathf.Max(0f, fluidAngularResistanceStrength);
+        fluidResistanceReferenceMass = Mathf.Max(0.1f, fluidResistanceReferenceMass);
+        fluidHorizontalSampleCount = Mathf.Max(1, fluidHorizontalSampleCount);
+        fluidVerticalSampleCount = Mathf.Max(1, fluidVerticalSampleCount);
+        fluidDepthSampleCount = Mathf.Max(1, fluidDepthSampleCount);
+        fluidSampleInset = Mathf.Max(0f, fluidSampleInset);
+    }
+
     void OnDisable()
     {
         RefreshFluidObstacleTracking(true);
@@ -68,6 +97,7 @@ public class DroppedItem : MonoBehaviour
 
     void FixedUpdate()
     {
+        ApplyFluidResistance();
         RefreshFluidObstacleTracking(false);
     }
 
@@ -93,6 +123,35 @@ public class DroppedItem : MonoBehaviour
         {
             fluidSimulation = terrainManager.FluidSimulation;
         }
+    }
+
+    private void ApplyFluidResistance()
+    {
+        if (!enableFluidResistance || rb == null || rb.isKinematic)
+        {
+            return;
+        }
+
+        ResolveFluidSimulation();
+        if (fluidSimulation == null)
+        {
+            return;
+        }
+
+        float submersion = GetFluidSubmersionRatio();
+        if (submersion <= 0f)
+        {
+            return;
+        }
+
+        float normalizedMass = Mathf.Max(0.25f, rb.mass / Mathf.Max(0.1f, fluidResistanceReferenceMass));
+        float resistanceFactor = Mathf.Clamp01(submersion / normalizedMass);
+
+        float linearDamping = 1f - Mathf.Exp(-fluidLinearResistanceStrength * resistanceFactor * Time.fixedDeltaTime);
+        float angularDamping = 1f - Mathf.Exp(-fluidAngularResistanceStrength * resistanceFactor * Time.fixedDeltaTime);
+
+        rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, linearDamping);
+        rb.angularVelocity = Vector3.Lerp(rb.angularVelocity, Vector3.zero, angularDamping);
     }
 
     private void RefreshFluidObstacleTracking(bool force)
@@ -131,6 +190,71 @@ public class DroppedItem : MonoBehaviour
         lastFluidNotifyPosition = currentPosition;
         hasFluidNotifyPosition = true;
         nextFluidNotifyTime = Time.time + FluidNotifyInterval;
+    }
+
+    private float GetFluidSubmersionRatio()
+    {
+        if (fluidSimulation == null)
+        {
+            return 0f;
+        }
+
+        if (obstacleCollider == null)
+        {
+            obstacleCollider = GetComponent<Collider>();
+        }
+
+        Bounds bounds = obstacleCollider != null ? obstacleCollider.bounds : new Bounds(transform.position, Vector3.one * 0.25f);
+        Vector3 min = bounds.min + Vector3.one * fluidSampleInset;
+        Vector3 max = bounds.max - Vector3.one * fluidSampleInset;
+
+        if (min.x > max.x)
+        {
+            min.x = bounds.center.x;
+            max.x = bounds.center.x;
+        }
+
+        if (min.y > max.y)
+        {
+            min.y = bounds.center.y;
+            max.y = bounds.center.y;
+        }
+
+        if (min.z > max.z)
+        {
+            min.z = bounds.center.z;
+            max.z = bounds.center.z;
+        }
+
+        float totalFillRatio = 0f;
+        int sampleCount = 0;
+
+        for (int x = 0; x < fluidHorizontalSampleCount; x++)
+        {
+            float sampleX = Mathf.Lerp(min.x, max.x, GetFluidSampleLerp(x, fluidHorizontalSampleCount));
+            for (int y = 0; y < fluidVerticalSampleCount; y++)
+            {
+                float sampleY = Mathf.Lerp(min.y, max.y, GetFluidSampleLerp(y, fluidVerticalSampleCount));
+                for (int z = 0; z < fluidDepthSampleCount; z++)
+                {
+                    float sampleZ = Mathf.Lerp(min.z, max.z, GetFluidSampleLerp(z, fluidDepthSampleCount));
+                    totalFillRatio += fluidSimulation.GetFluidFillRatioAtWorldPosition(new Vector3(sampleX, sampleY, sampleZ));
+                    sampleCount++;
+                }
+            }
+        }
+
+        return sampleCount > 0 ? Mathf.Clamp01(totalFillRatio / sampleCount) : 0f;
+    }
+
+    private static float GetFluidSampleLerp(int index, int sampleCount)
+    {
+        if (sampleCount <= 1)
+        {
+            return 0.5f;
+        }
+
+        return index / (float)(sampleCount - 1);
     }
 
     private Vector3 GetFluidObstacleCenter()
