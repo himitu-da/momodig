@@ -9,6 +9,13 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
     [SerializeField] private float _wakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
     
     // インターフェース実装用プロパティ
+    [Header("Voxel Solidification")]
+    [SerializeField] private bool enableSolidification = true;
+    [SerializeField] private float solidifyAfterSleepingSeconds = 8f;
+    [SerializeField] private int maxSolidificationsPerCheck = 4;
+    [SerializeField] private int solidificationSearchRadiusInVoxels = 1;
+    [SerializeField] private float maxSolidificationSnapDistanceMultiplier = 1.5f;
+
     public float WakeUpRadiusMultiplier => _wakeUpRadiusMultiplier;
     
     private static DroppedItemManager _instance;
@@ -33,6 +40,49 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
     private List<DroppedItem> activeItems = new List<DroppedItem>();
 
     // 各アイテムの状態を管理
+    private struct VoxelCellKey : IEquatable<VoxelCellKey>
+    {
+        public Vector3Int blockPosition;
+        public Vector3Int localVoxelPosition;
+
+        public VoxelCellKey(Vector3Int blockPosition, Vector3Int localVoxelPosition)
+        {
+            this.blockPosition = blockPosition;
+            this.localVoxelPosition = localVoxelPosition;
+        }
+
+        public bool Equals(VoxelCellKey other)
+        {
+            return blockPosition == other.blockPosition && localVoxelPosition == other.localVoxelPosition;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is VoxelCellKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return (blockPosition.GetHashCode() * 397) ^ localVoxelPosition.GetHashCode();
+            }
+        }
+    }
+
+    private struct SolidificationCandidate
+    {
+        public VoxelCellKey key;
+        public Vector3 worldPosition;
+        public float distanceSqr;
+    }
+
+    private class SolidificationReservation
+    {
+        public DroppedItem item;
+        public float startedAt;
+    }
+
     private class ItemState
     {
         public bool isSleeping = false;
@@ -40,8 +90,15 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         public int surroundingObjectCount = 0;
         public int objectCountChangeCounter = 0;
         public float sleepCooldownTimer = 0f;
+        public float sleepingSince = -1f;
+        public float solidificationStartedAt = -1f;
+        public bool hasSolidificationReservation = false;
+        public VoxelCellKey reservedCell;
     }
     private Dictionary<DroppedItem, ItemState> itemStates = new Dictionary<DroppedItem, ItemState>();
+    private Dictionary<VoxelCellKey, SolidificationReservation> solidificationReservations =
+        new Dictionary<VoxelCellKey, SolidificationReservation>();
+    private TerrainManager cachedTerrainManager;
 
     // 静止・起床ロジックの定数
     public int maxWakeUpsPerUpdate = 10; // 1フレームあたりに起床させる最大数
@@ -58,6 +115,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
     private const float SleepCooldownDuration = 5.0f; // 5秒のクールダウン
 
     private float sleepCheckTimer = 0f;
+    private float solidificationCheckTimer = 0f;
 
     void Awake()
     {
@@ -88,6 +146,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
     void Update()
     {
         ProcessWakeUpRequests();
+        solidificationCheckTimer += Time.deltaTime;
+        if (solidificationCheckTimer >= SleepCheckInterval)
+        {
+            solidificationCheckTimer = 0f;
+            ProcessSolidificationCandidates();
+        }
 
         sleepCheckTimer += Time.deltaTime;
         if (sleepCheckTimer < SleepCheckInterval)
@@ -95,7 +159,6 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             return;
         }
         sleepCheckTimer = 0f;
-
         for (int i = activeItems.Count - 1; i >= 0; i--)
         {
             DroppedItem item = activeItems[i];
@@ -104,6 +167,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             {
                 if (item != null)
                 {
+                    ReleaseSolidificationReservation(item);
                     itemStates.Remove(item);
                 }
                 activeItems.RemoveAt(i);
@@ -158,6 +222,9 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                         }
                         item.rb.isKinematic = true;
                         state.isSleeping = true;
+                        state.sleepingSince = Time.time;
+                        state.solidificationStartedAt = -1f;
+                        ReleaseSolidificationReservation(item);
                         state.objectCountChangeCounter = 0;
                     }
                 }
@@ -184,6 +251,9 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 {
                     itemToWakeUp.rb.isKinematic = false;
                     state.isSleeping = false;
+                    state.sleepingSince = -1f;
+                    state.solidificationStartedAt = -1f;
+                    ReleaseSolidificationReservation(itemToWakeUp);
                     state.sleepCooldownTimer = SleepCooldownDuration;
                     state.velocityHistory.Clear();
                     processedCount++;
@@ -223,6 +293,9 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 {
                     item.rb.isKinematic = false;
                     state.isSleeping = false;
+                    state.sleepingSince = -1f;
+                    state.solidificationStartedAt = -1f;
+                    ReleaseSolidificationReservation(item);
                     state.sleepCooldownTimer = SleepCooldownDuration;
                     state.velocityHistory.Clear();
                 }
@@ -392,6 +465,9 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             }
             itemStates[droppedItemComponent].sleepCooldownTimer = SleepCooldownDuration; // 初出現時にクールダウンを設定
             itemStates[droppedItemComponent].isSleeping = false;
+            itemStates[droppedItemComponent].sleepingSince = -1f;
+            itemStates[droppedItemComponent].solidificationStartedAt = -1f;
+            itemStates[droppedItemComponent].hasSolidificationReservation = false;
             itemStates[droppedItemComponent].velocityHistory.Clear();
             itemStates[droppedItemComponent].objectCountChangeCounter = 0;
         }
@@ -412,6 +488,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         if (droppedItemComponent != null)
         {
             // 状態とリストから削除
+            ReleaseSolidificationReservation(droppedItemComponent);
             itemStates.Remove(droppedItemComponent);
             activeItems.Remove(droppedItemComponent);
         }
@@ -431,6 +508,316 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         else
         {
             Destroy(itemInstance);
+        }
+    }
+
+    private void ProcessSolidificationCandidates()
+    {
+        if (!enableSolidification || activeItems.Count == 0)
+        {
+            return;
+        }
+
+        TerrainManager terrainManager = ResolveTerrainManager();
+        if (terrainManager == null || terrainManager.VoxelManager == null ||
+            terrainManager.BlockManager == null || terrainManager.TerrainDataManager == null)
+        {
+            return;
+        }
+
+        solidifyAfterSleepingSeconds = Mathf.Max(0f, solidifyAfterSleepingSeconds);
+        maxSolidificationsPerCheck = Mathf.Max(1, maxSolidificationsPerCheck);
+        solidificationSearchRadiusInVoxels = Mathf.Max(0, solidificationSearchRadiusInVoxels);
+        maxSolidificationSnapDistanceMultiplier = Mathf.Max(0.5f, maxSolidificationSnapDistanceMultiplier);
+
+        int attempts = 0;
+        for (int i = activeItems.Count - 1; i >= 0 && attempts < maxSolidificationsPerCheck; i--)
+        {
+            DroppedItem item = activeItems[i];
+            if (item == null || !itemStates.TryGetValue(item, out ItemState state))
+            {
+                continue;
+            }
+
+            if (!state.isSleeping || state.sleepingSince < 0f ||
+                Time.time - state.sleepingSince < solidifyAfterSleepingSeconds)
+            {
+                continue;
+            }
+
+            attempts++;
+            TrySolidifyItem(item, terrainManager, state);
+        }
+    }
+
+    private TerrainManager ResolveTerrainManager()
+    {
+        if (cachedTerrainManager == null)
+        {
+            cachedTerrainManager = FindFirstObjectByType<TerrainManager>();
+        }
+
+        return cachedTerrainManager;
+    }
+
+    private bool TrySolidifyItem(DroppedItem item, TerrainManager terrainManager, ItemState state)
+    {
+        if (item == null || !item.canSolidify || string.IsNullOrEmpty(item.blockDataName))
+        {
+            return false;
+        }
+
+        BlockData blockData = terrainManager.TerrainDataManager.GetBlockDataByName(item.blockDataName);
+        if (blockData == null)
+        {
+            return false;
+        }
+
+        if (state.solidificationStartedAt < 0f)
+        {
+            state.solidificationStartedAt = Time.time;
+        }
+
+        SolidificationCandidate target;
+        if (!TryFindSolidificationTarget(item, terrainManager, state, out target))
+        {
+            ReleaseSolidificationReservation(item);
+            return false;
+        }
+
+        if (!terrainManager.VoxelManager.SetVoxelCell(target.key.blockPosition, target.key.localVoxelPosition, blockData, true))
+        {
+            ReleaseSolidificationReservation(item);
+            return false;
+        }
+
+        if (!terrainManager.BlockManager.ActivateAndRefreshBlock(target.key.blockPosition))
+        {
+            ReleaseSolidificationReservation(item);
+            return false;
+        }
+
+        item.transform.position = target.worldPosition;
+        item.hasSolidificationTarget = true;
+        item.solidifiedBlockPosition = target.key.blockPosition;
+        item.solidifiedLocalVoxelPosition = target.key.localVoxelPosition;
+
+        GameDataPersistenceManager.Instance.solidifiedVoxelHistory.Add(new SolidifiedVoxelRecord
+        {
+            blockPosition = target.key.blockPosition,
+            localVoxelPosition = target.key.localVoxelPosition,
+            blockDataName = blockData.name,
+            worldPosition = target.worldPosition,
+            solidifiedTime = Time.time
+        });
+
+        ReleaseSolidificationReservation(item);
+        ReturnItem(item.gameObject);
+        return true;
+    }
+
+    private bool TryFindSolidificationTarget(DroppedItem item, TerrainManager terrainManager, ItemState state, out SolidificationCandidate target)
+    {
+        target = new SolidificationCandidate();
+
+        Vector3Int originBlock;
+        Vector3Int originLocal;
+        if (!TryGetApproximateVoxelCell(item.transform.position, terrainManager, out originBlock, out originLocal))
+        {
+            return false;
+        }
+
+        var settings = terrainManager.Settings;
+        float voxelWorldSize = settings.blockSize / Mathf.Max(1, settings.voxelsPerBlock);
+        float maxDistance = voxelWorldSize * maxSolidificationSnapDistanceMultiplier;
+        float maxDistanceSqr = maxDistance * maxDistance;
+
+        List<SolidificationCandidate> candidates = new List<SolidificationCandidate>();
+        int radius = solidificationSearchRadiusInVoxels;
+
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                for (int dz = -radius; dz <= radius; dz++)
+                {
+                    Vector3Int candidateBlock = originBlock;
+                    Vector3Int candidateLocal = originLocal + new Vector3Int(dx, dy, dz);
+                    AddSolidificationCandidate(item, terrainManager, candidateBlock, candidateLocal, maxDistanceSqr, candidates);
+                }
+            }
+        }
+
+        candidates.Sort((a, b) => a.distanceSqr.CompareTo(b.distanceSqr));
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            if (TryReserveSolidificationCell(item, state, candidates[i].key))
+            {
+                target = candidates[i];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetApproximateVoxelCell(Vector3 worldPosition, TerrainManager terrainManager, out Vector3Int blockPosition, out Vector3Int localPosition)
+    {
+        var settings = terrainManager.Settings;
+        int voxelsPerBlock = Mathf.Max(1, settings.voxelsPerBlock);
+        float blockSize = Mathf.Max(0.001f, settings.blockSize);
+        float voxelWorldSize = blockSize / voxelsPerBlock;
+
+        blockPosition = new Vector3Int(
+            Mathf.RoundToInt(worldPosition.x / blockSize),
+            Mathf.RoundToInt(worldPosition.y / blockSize),
+            0
+        );
+
+        Vector3 blockWorldPosition = new Vector3(
+            blockPosition.x * blockSize,
+            blockPosition.y * blockSize,
+            settings.center.z
+        );
+
+        localPosition = new Vector3Int(
+            Mathf.RoundToInt((worldPosition.x - blockWorldPosition.x) / voxelWorldSize + voxelsPerBlock / 2f - 0.5f),
+            Mathf.RoundToInt((worldPosition.y - blockWorldPosition.y) / voxelWorldSize + voxelsPerBlock / 2f - 0.5f),
+            Mathf.RoundToInt((worldPosition.z - blockWorldPosition.z) / voxelWorldSize + voxelsPerBlock / 2f - 0.5f)
+        );
+
+        return terrainManager.VoxelManager.NormalizeVoxelPosition(ref blockPosition, ref localPosition);
+    }
+
+    private void AddSolidificationCandidate(DroppedItem item, TerrainManager terrainManager, Vector3Int blockPosition,
+        Vector3Int localPosition, float maxDistanceSqr, List<SolidificationCandidate> candidates)
+    {
+        if (!terrainManager.VoxelManager.NormalizeVoxelPosition(ref blockPosition, ref localPosition))
+        {
+            return;
+        }
+
+        var blockInstance = terrainManager.BlockManager.GetBlockAt(blockPosition);
+        if (blockInstance == null || blockInstance.block == null)
+        {
+            return;
+        }
+
+        if (!terrainManager.VoxelManager.IsVoxelCellEmpty(blockPosition, localPosition) ||
+            !terrainManager.VoxelManager.HasActiveAdjacentVoxel(blockPosition, localPosition))
+        {
+            return;
+        }
+
+        Vector3 worldPosition = terrainManager.VoxelManager.CalculateWorldPosition(blockPosition, localPosition);
+        float distanceSqr = (worldPosition - item.transform.position).sqrMagnitude;
+        if (distanceSqr > maxDistanceSqr)
+        {
+            return;
+        }
+
+        candidates.Add(new SolidificationCandidate
+        {
+            key = new VoxelCellKey(blockPosition, localPosition),
+            worldPosition = worldPosition,
+            distanceSqr = distanceSqr
+        });
+    }
+
+    private bool TryReserveSolidificationCell(DroppedItem item, ItemState state, VoxelCellKey key)
+    {
+        if (state.hasSolidificationReservation && state.reservedCell.Equals(key))
+        {
+            return true;
+        }
+
+        if (state.solidificationStartedAt < 0f)
+        {
+            state.solidificationStartedAt = Time.time;
+        }
+
+        if (solidificationReservations.TryGetValue(key, out SolidificationReservation existing))
+        {
+            if (!IsReservationActive(existing))
+            {
+                solidificationReservations.Remove(key);
+            }
+            else if (existing.item == item)
+            {
+                state.hasSolidificationReservation = true;
+                state.reservedCell = key;
+                return true;
+            }
+            else
+            {
+                float startDelta = existing.startedAt - state.solidificationStartedAt;
+                if (startDelta < -0.001f)
+                {
+                    return false;
+                }
+
+                if (startDelta > 0.001f || UnityEngine.Random.value < 0.5f)
+                {
+                    ClearReservationOnState(existing.item, key);
+                    solidificationReservations.Remove(key);
+                }
+                else
+                {
+                    return false;
+                }
+            }
+        }
+
+        if (state.hasSolidificationReservation)
+        {
+            ReleaseSolidificationReservation(item);
+        }
+
+        solidificationReservations[key] = new SolidificationReservation
+        {
+            item = item,
+            startedAt = state.solidificationStartedAt
+        };
+        state.hasSolidificationReservation = true;
+        state.reservedCell = key;
+        item.hasSolidificationTarget = true;
+        item.solidifiedBlockPosition = key.blockPosition;
+        item.solidifiedLocalVoxelPosition = key.localVoxelPosition;
+        return true;
+    }
+
+    private bool IsReservationActive(SolidificationReservation reservation)
+    {
+        return reservation != null &&
+               reservation.item != null &&
+               reservation.item.gameObject.activeInHierarchy &&
+               itemStates.ContainsKey(reservation.item);
+    }
+
+    private void ReleaseSolidificationReservation(DroppedItem item)
+    {
+        if (item == null || !itemStates.TryGetValue(item, out ItemState state))
+        {
+            return;
+        }
+
+        if (state.hasSolidificationReservation)
+        {
+            solidificationReservations.Remove(state.reservedCell);
+            state.hasSolidificationReservation = false;
+        }
+
+        item.hasSolidificationTarget = false;
+    }
+
+    private void ClearReservationOnState(DroppedItem item, VoxelCellKey key)
+    {
+        if (item != null && itemStates.TryGetValue(item, out ItemState state) &&
+            state.hasSolidificationReservation && state.reservedCell.Equals(key))
+        {
+            state.hasSolidificationReservation = false;
+            item.hasSolidificationTarget = false;
         }
     }
 

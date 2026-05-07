@@ -212,6 +212,21 @@ public class BlockManager : MonoBehaviour
             }
         }
     }
+
+    public bool ActivateAndRefreshBlock(Vector3Int position)
+    {
+        BlockInstanceData block = GetBlockAt(position);
+        if (block == null || block.block == null)
+        {
+            return false;
+        }
+
+        block.isActive = true;
+        block.block.gameObject.SetActive(true);
+        GameDataPersistenceManager.Instance.destroyedBlockPositions.Remove(position);
+        block.block.GenerateMesh();
+        return true;
+    }
     
     /// <summary>
     /// すべてのブロックを削除

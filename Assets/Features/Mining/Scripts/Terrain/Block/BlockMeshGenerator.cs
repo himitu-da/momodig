@@ -63,10 +63,20 @@ public class BlockMeshGenerator
         if (vertices.Count == 0)
         {
             // メッシュが空の場合は親のBlockに破壊を通知
-            Object.Destroy(block.gameObject);
+            if (collider != null)
+            {
+                collider.sharedMesh = null;
+            }
+            block.gameObject.SetActive(false);
             return;
         }
 
+        if (!block.gameObject.activeSelf)
+        {
+            block.gameObject.SetActive(true);
+        }
+
+        collider.sharedMesh = null;
         collider.sharedMesh = mesh;
     }
 

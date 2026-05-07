@@ -91,6 +91,7 @@ public class BlockItemDropper
         DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
+            droppedItemComponent.ResetSolidificationState();
             droppedItemComponent.resourceType = data.resourceType;
             droppedItemComponent.blockDataName = data.name;
             droppedItemComponent.scale = item.transform.localScale;

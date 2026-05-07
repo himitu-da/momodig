@@ -17,6 +17,12 @@ public class DroppedItem : MonoBehaviour
     public ResourceType resourceType = ResourceType.Stone;
     private static Mesh droppedItemMeshTemplate;
 
+    [Header("Solidification")]
+    public bool canSolidify = true;
+    public bool hasSolidificationTarget;
+    public Vector3Int solidifiedBlockPosition;
+    public Vector3Int solidifiedLocalVoxelPosition;
+
     private const float FluidNotifyInterval = 0.1f;
     private const float FluidVelocityEpsilon = 0.0001f;
 
@@ -52,6 +58,14 @@ public class DroppedItem : MonoBehaviour
     public Vector2 uvSize;
     public bool useTexture1;
     public DroppedItemFaceTextureData[] faceTextureData = new DroppedItemFaceTextureData[FaceNormals.Length];
+
+    public void ResetSolidificationState()
+    {
+        canSolidify = true;
+        hasSolidificationTarget = false;
+        solidifiedBlockPosition = Vector3Int.zero;
+        solidifiedLocalVoxelPosition = Vector3Int.zero;
+    }
 
     void Awake()
     {
