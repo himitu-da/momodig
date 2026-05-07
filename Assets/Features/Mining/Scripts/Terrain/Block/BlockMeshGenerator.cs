@@ -29,8 +29,12 @@ public class BlockMeshGenerator
             int y = voxelData.localPosition.y;
             int z = voxelData.localPosition.z;
 
-            float healthPercentage = (float)voxelData.health / maxHP;
-            Color healthColor = Color.Lerp(Color.black, initialColor, healthPercentage);
+            int voxelMaxHealth = Mathf.Max(1, voxelData.maxHealth);
+            float healthPercentage = Mathf.Clamp01((float)voxelData.health / voxelMaxHealth);
+            Color resourceColor = voxelData.blockData != null
+                ? ResourceTypeUtility.GetResourceColor(voxelData.resourceType)
+                : initialColor;
+            Color healthColor = Color.Lerp(Color.black, resourceColor, healthPercentage);
             healthColor.a = healthPercentage; // ドット透過
 
             Vector3 pos = new Vector3(x - voxelsPerBlock / 2.0f + 0.5f, y - voxelsPerBlock / 2.0f + 0.5f, z - voxelsPerBlock / 2.0f + 0.5f);
