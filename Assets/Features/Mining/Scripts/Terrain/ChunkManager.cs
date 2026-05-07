@@ -226,7 +226,7 @@ public class ChunkManager : MonoBehaviour
         );
         bool[,,] pattern = terrainManager.BlockGenerator.GenerateBlockPattern(generationData);
 
-        var newBlockInstance = terrainManager.BlockManager.CreateBlock(blockPos, worldPos, pattern, blockTypeData, terrainManager.Settings.blockSize, terrainManager.Settings.voxelsPerBlock, chunk.transform);
+        var newBlockInstance = terrainManager.BlockManager.CreateBlock(blockPos, worldPos, terrainManager.Settings.blockSize, terrainManager.Settings.voxelsPerBlock, chunk.transform);
 
         terrainManager.VoxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, blockTypeData, terrainManager.Settings.blockSize, terrainManager.Settings.voxelsPerBlock);
 

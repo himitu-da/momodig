@@ -5,24 +5,26 @@ using Cysharp.Threading.Tasks;
 public class BlockDiggingSystem
 {
     private VoxelManager voxelManager;
-    private BlockItemDropper itemDropper;
     private Block targetBlock;
+    private VoxelTextureExtractor textureExtractor;
 
     private float diggingThreshold;
     private int diggingFrameDelay;
     private int voxelsPerBlock;
     private Vector3Int blockPosition;
+    private float voxelWorldSize;
 
-    public void Initialize(VoxelManager manager, BlockItemDropper dropper, Block block,
-        float threshold, int frameDelay, int vPerBlock, Vector3Int position)
+    public void Initialize(VoxelManager manager, Block block,
+        float threshold, int frameDelay, int vPerBlock, Vector3Int position, float voxelWorldSize, VoxelTextureExtractor textureExtractor)
     {
         voxelManager = manager;
-        itemDropper = dropper;
         targetBlock = block;
         diggingThreshold = threshold;
         diggingFrameDelay = frameDelay;
         voxelsPerBlock = vPerBlock;
         blockPosition = position;
+        this.voxelWorldSize = voxelWorldSize;
+        this.textureExtractor = textureExtractor;
     }
 
     public void TakeDamage(Vector3 localPos, int damage)
@@ -36,7 +38,7 @@ public class BlockDiggingSystem
 
         if (voxelData != null && voxelManager.DamageVoxel(blockPosition, localVoxelPos, damage))
         {
-            itemDropper.DropItem(voxelData.worldPosition, voxelData.blockData, x, y, z);
+            BlockItemDropper.DropItem(voxelData.worldPosition, voxelData.blockData, voxelData.useTexture1, x, y, z, voxelsPerBlock, voxelWorldSize, textureExtractor);
             targetBlock.GenerateMesh();
         }
     }
@@ -181,6 +183,7 @@ public class BlockDiggingSystem
         if (overlapRatio < diggingThreshold) return false;
 
         BlockData voxelBlockData = voxelData.blockData;
+        bool voxelUseTexture1 = voxelData.useTexture1;
         Vector3 dropPosition = voxelData.worldPosition;
 
         if (!voxelManager.DamageVoxel(blockPosition, localVoxelPos, damagePerHit)) return false;
@@ -191,7 +194,10 @@ public class BlockDiggingSystem
             destructionSoundVolume = voxelBlockData.destroyedSoundVolume;
         }
 
-        dropActions.Add(() => itemDropper.DropItem(dropPosition, voxelBlockData, x, y, z));
+        int capturedX = x;
+        int capturedY = y;
+        int capturedZ = z;
+        dropActions.Add(() => BlockItemDropper.DropItem(dropPosition, voxelBlockData, voxelUseTexture1, capturedX, capturedY, capturedZ, voxelsPerBlock, voxelWorldSize, textureExtractor));
         return true;
     }
 }

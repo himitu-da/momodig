@@ -1,37 +1,8 @@
 using UnityEngine;
 
-public class BlockItemDropper
+public static class BlockItemDropper
 {
-    private BlockData blockData;
-    private bool enableTextureExtraction;
-    private float voxelWorldSize;
-    private int voxelsPerBlock;
-    private VoxelTextureExtractor textureExtractor;
-    private bool[,,] useTexture1Pattern;
-    private bool[,,] defaultTexturePattern;
-
-    public void Initialize(BlockData data, bool enableTexture, float worldSize, int vPerBlock,
-        VoxelTextureExtractor extractor, Texture2D tex1, Texture2D tex2, bool[,,] pattern)
-    {
-        blockData = data;
-        enableTextureExtraction = enableTexture;
-        voxelWorldSize = worldSize;
-        voxelsPerBlock = vPerBlock;
-        textureExtractor = extractor;
-        useTexture1Pattern = pattern;
-    }
-
-    public void DropItem(Vector3 position)
-    {
-        DropItem(position, blockData, -1, -1, -1);
-    }
-
-    public void DropItem(Vector3 position, int voxelX, int voxelY, int voxelZ)
-    {
-        DropItem(position, blockData, voxelX, voxelY, voxelZ);
-    }
-
-    public void DropItem(Vector3 position, BlockData sourceBlockData, int voxelX, int voxelY, int voxelZ)
+    public static void DropItem(Vector3 position, BlockData voxelBlockData, bool useTexture1, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock, float voxelWorldSize, VoxelTextureExtractor textureExtractor)
     {
         if (DroppedItemManager.Instance == null)
         {
@@ -39,28 +10,28 @@ public class BlockItemDropper
             return;
         }
 
-        if (sourceBlockData == null)
+        if (voxelBlockData == null)
         {
-            Debug.LogError("BlockData is null. Check initialization.");
+            Debug.LogError("BlockData is null. Cannot drop item.");
             return;
         }
 
-        if (sourceBlockData.droppedItemPrefab == null)
+        if (voxelBlockData.droppedItemPrefab == null)
         {
-            Debug.LogError($"BlockData '{sourceBlockData.name}' has no droppedItemPrefab assigned.", sourceBlockData);
+            Debug.LogError($"BlockData '{voxelBlockData.name}' has no droppedItemPrefab assigned.", voxelBlockData);
             return;
         }
 
-        GameObject item = DroppedItemManager.Instance.GetItem(sourceBlockData.droppedItemPrefab);
+        GameObject item = DroppedItemManager.Instance.GetItem(voxelBlockData.droppedItemPrefab);
         if (item == null) return;
 
         item.transform.position = position;
         item.transform.rotation = Quaternion.identity;
 
-        SetupDroppedItem(item, sourceBlockData, voxelX, voxelY, voxelZ);
+        SetupDroppedItem(item, voxelBlockData, useTexture1, voxelX, voxelY, voxelZ, voxelsPerBlock, voxelWorldSize, textureExtractor);
     }
 
-    public void SetupDroppedItem(GameObject item, BlockData data, int voxelX = -1, int voxelY = -1, int voxelZ = -1)
+    private static void SetupDroppedItem(GameObject item, BlockData data, bool useTexture1, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock, float voxelWorldSize, VoxelTextureExtractor textureExtractor)
     {
         if (data.autoScale)
         {
@@ -68,10 +39,12 @@ public class BlockItemDropper
             item.transform.localScale = Vector3.one * targetScale;
         }
 
-        if (enableTextureExtraction && voxelX >= 0 && voxelY >= 0 && voxelZ >= 0 &&
-            voxelX < voxelsPerBlock && voxelY < voxelsPerBlock && voxelZ < voxelsPerBlock)
+        bool hasValidVoxelCoord = voxelX >= 0 && voxelY >= 0 && voxelZ >= 0 &&
+                                  voxelX < voxelsPerBlock && voxelY < voxelsPerBlock && voxelZ < voxelsPerBlock;
+
+        if (textureExtractor != null && hasValidVoxelCoord)
         {
-            ApplyVoxelTextureToDroppedItem(item, data, voxelX, voxelY, voxelZ);
+            ApplyVoxelTextureToDroppedItem(item, data, useTexture1, voxelX, voxelY, voxelZ, voxelsPerBlock, textureExtractor);
         }
         else
         {
@@ -104,38 +77,16 @@ public class BlockItemDropper
         }
     }
 
-    private void ApplyVoxelTextureToDroppedItem(GameObject item, BlockData data, int voxelX, int voxelY, int voxelZ)
+    private static void ApplyVoxelTextureToDroppedItem(GameObject item, BlockData data, bool useTexture1, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock, VoxelTextureExtractor textureExtractor)
     {
-        if (textureExtractor == null) return;
-
         Texture2D sourceTexture1 = (data.textures != null && data.textures.Count > 0) ? data.textures[0] : null;
         Texture2D sourceTexture2 = (data.textures != null && data.textures.Count > 1) ? data.textures[1] : null;
-        bool[,,] texturePattern = data == blockData ? useTexture1Pattern : GetDefaultTexturePattern();
 
         textureExtractor.ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ,
-            sourceTexture1, sourceTexture2, texturePattern, voxelsPerBlock);
+            sourceTexture1, sourceTexture2, useTexture1, voxelsPerBlock);
     }
 
-    private bool[,,] GetDefaultTexturePattern()
-    {
-        if (defaultTexturePattern != null) return defaultTexturePattern;
-
-        defaultTexturePattern = new bool[voxelsPerBlock, voxelsPerBlock, voxelsPerBlock];
-        for (int x = 0; x < voxelsPerBlock; x++)
-        {
-            for (int y = 0; y < voxelsPerBlock; y++)
-            {
-                for (int z = 0; z < voxelsPerBlock; z++)
-                {
-                    defaultTexturePattern[x, y, z] = true;
-                }
-            }
-        }
-
-        return defaultTexturePattern;
-    }
-
-    private void ApplyDefaultMaterial(GameObject item, BlockData data)
+    private static void ApplyDefaultMaterial(GameObject item, BlockData data)
     {
         var itemRenderer = item.GetComponent<Renderer>();
         if (itemRenderer == null) return;
@@ -146,7 +97,7 @@ public class BlockItemDropper
         itemRenderer.material = material;
     }
 
-    private void SetDroppedItemConstraints(Rigidbody itemRigidbody)
+    private static void SetDroppedItemConstraints(Rigidbody itemRigidbody)
     {
         if (itemRigidbody == null) return;
 
@@ -172,7 +123,7 @@ public class BlockItemDropper
         }
     }
 
-    private PlayerController.MoveMode GetCurrentMoveMode()
+    private static PlayerController.MoveMode GetCurrentMoveMode()
     {
         PlayerController playerController = Object.FindFirstObjectByType<PlayerController>();
         return playerController != null ? playerController.currentMoveMode : PlayerController.MoveMode.TopDown;

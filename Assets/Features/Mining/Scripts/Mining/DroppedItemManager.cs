@@ -584,14 +584,14 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 ? terrainManager.ChunkManager.GetOrCreateChunkTransform(target.key.blockPosition)
                 : null;
             if (chunkParent == null ||
-                terrainManager.BlockManager.EnsureBlockExists(target.key.blockPosition, blockData, chunkParent) == null)
+                terrainManager.BlockManager.EnsureBlockExists(target.key.blockPosition, chunkParent) == null)
             {
                 ReleaseSolidificationReservation(item);
                 return false;
             }
         }
 
-        if (!terrainManager.VoxelManager.SetVoxelCell(target.key.blockPosition, target.key.localVoxelPosition, blockData, true))
+        if (!terrainManager.VoxelManager.SetVoxelCell(target.key.blockPosition, target.key.localVoxelPosition, blockData, true, useTexture1: true))
         {
             ReleaseSolidificationReservation(item);
             return false;

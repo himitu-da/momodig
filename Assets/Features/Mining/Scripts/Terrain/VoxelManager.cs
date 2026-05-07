@@ -50,7 +50,8 @@ public class VoxelManager : MonoBehaviour
                         worldPos,
                         data != null ? data.voxelHp : 1,
                         DetermineVoxelType(blockPos, localPos),
-                        data
+                        data,
+                        true
                     );
                 }
             }
@@ -280,7 +281,7 @@ public class VoxelManager : MonoBehaviour
         return true;
     }
 
-    public bool SetVoxelCell(Vector3Int blockPos, Vector3Int localPos, BlockData data, bool active = true, int healthOverride = -1)
+    public bool SetVoxelCell(Vector3Int blockPos, Vector3Int localPos, BlockData data, bool active = true, int healthOverride = -1, bool useTexture1 = true)
     {
         if (terrainManager == null || data == null) return false;
         if (!NormalizeVoxelPosition(ref blockPos, ref localPos)) return false;
@@ -299,7 +300,8 @@ public class VoxelManager : MonoBehaviour
                 CalculateWorldPosition(blockPos, localPos),
                 data.voxelHp,
                 DetermineVoxelType(blockPos, localPos),
-                data
+                data,
+                useTexture1
             );
             trackedVoxels[blockPos][localPos] = voxel;
         }
@@ -308,6 +310,7 @@ public class VoxelManager : MonoBehaviour
         voxel.isActive = active;
         voxel.maxHealth = Mathf.Max(1, data.voxelHp);
         voxel.health = healthOverride > 0 ? Mathf.Clamp(healthOverride, 1, voxel.maxHealth) : voxel.maxHealth;
+        voxel.useTexture1 = useTexture1;
         voxel.lastModifiedTime = Time.time;
 
         PersistVoxelOverride(voxel);

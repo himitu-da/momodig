@@ -13,9 +13,10 @@ public class Voxel
     public BlockData blockData;
     public string blockDataName;
     public ResourceType resourceType;
+    public bool useTexture1;
     public float lastModifiedTime;
 
-    public Voxel(Vector3Int blockPos, Vector3Int localPos, Vector3 worldPos, int hp, VoxelType type, BlockData data = null)
+    public Voxel(Vector3Int blockPos, Vector3Int localPos, Vector3 worldPos, int hp, VoxelType type, BlockData data = null, bool useTexture1 = true)
     {
         blockPosition = blockPos;
         localPosition = localPos;
@@ -24,6 +25,7 @@ public class Voxel
         health = hp;
         maxHealth = hp;
         voxelType = type;
+        this.useTexture1 = useTexture1;
         SetBlockData(data);
         lastModifiedTime = Time.time;
     }
@@ -49,6 +51,7 @@ public class Voxel
         isActive = data.isActive;
         maxHealth = Mathf.Max(1, data.maxHealth);
         health = Mathf.Clamp(data.health, 0, maxHealth);
+        useTexture1 = data.useTexture1;
         lastModifiedTime = Time.time;
     }
 }
@@ -63,6 +66,7 @@ public struct VoxelCellData
     public int health;
     public int maxHealth;
     public bool isActive;
+    public bool useTexture1;
 
     public VoxelCellData(Voxel voxel)
     {
@@ -73,6 +77,7 @@ public struct VoxelCellData
         health = voxel.health;
         maxHealth = voxel.maxHealth;
         isActive = voxel.isActive;
+        useTexture1 = voxel.useTexture1;
     }
 }
 
