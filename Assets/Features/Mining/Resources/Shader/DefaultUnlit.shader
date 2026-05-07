@@ -24,7 +24,6 @@ Shader "Custom/Default"
             {
                 float4 positionOS   : POSITION;
                 float2 uv           : TEXCOORD0;
-                half4 color         : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -32,7 +31,6 @@ Shader "Custom/Default"
             {
                 float4 positionHCS  : SV_POSITION;
                 float2 uv           : TEXCOORD0;
-                half4 color         : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -51,14 +49,13 @@ Shader "Custom/Default"
                 UNITY_TRANSFER_INSTANCE_ID(IN, OUT);
                 OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
                 OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
-                OUT.color = IN.color;
                 return OUT;
             }
 
             half4 frag(Varyings IN) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(IN);
-                half4 color = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor * IN.color;
+                half4 color = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor;
                 clip(color.a - _Cutoff);
                 return color;
             }
