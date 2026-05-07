@@ -236,6 +236,12 @@ public class ChunkManager : MonoBehaviour
         }
     }
 
+    public Transform GetOrCreateChunkTransform(Vector3Int blockPos)
+    {
+        Chunk chunk = GetOrCreateChunk(blockPos);
+        return chunk != null ? chunk.transform : null;
+    }
+
     private Chunk GetOrCreateChunk(Vector3Int blockPos)
     {
         Vector3Int chunkPos = new Vector3Int(

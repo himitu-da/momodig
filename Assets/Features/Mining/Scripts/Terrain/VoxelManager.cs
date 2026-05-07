@@ -10,10 +10,14 @@ public class VoxelManager : MonoBehaviour
         new Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>>();
 
     private TerrainManager terrainManager;
+    private readonly SolidificationCandidateIndex candidateIndex = new SolidificationCandidateIndex();
+
+    public SolidificationCandidateIndex CandidateIndex => candidateIndex;
 
     public void Initialize(TerrainManager manager)
     {
         terrainManager = manager;
+        candidateIndex.Initialize(this, manager.Settings);
 
         if (showVoxelDebugInfo)
         {
@@ -54,6 +58,8 @@ public class VoxelManager : MonoBehaviour
 
         ApplyPersistedVoxelOverrides(blockPos, blockWorldPos, data, blockSize, voxelsPerBlock);
         ApplyPersistedDestroyedState(blockPos);
+
+        candidateIndex.RebuildBlock(blockPos);
 
         if (showVoxelDebugInfo)
         {
@@ -238,6 +244,7 @@ public class VoxelManager : MonoBehaviour
         voxel.lastModifiedTime = Time.time;
         PersistOverrideIfNeeded(voxel);
         terrainManager?.FluidManager?.NotifySolidVoxelRemoved(voxel.worldPosition);
+        candidateIndex.RefreshCellAndNeighbors(blockPos, localPos);
 
         if (showVoxelDebugInfo)
         {
@@ -263,6 +270,7 @@ public class VoxelManager : MonoBehaviour
         voxel.lastModifiedTime = Time.time;
         PersistOverrideIfNeeded(voxel);
         SyncPersistenceForBlock(blockPos);
+        candidateIndex.RefreshCellAndNeighbors(blockPos, localPos);
 
         if (showVoxelDebugInfo)
         {
@@ -304,6 +312,7 @@ public class VoxelManager : MonoBehaviour
 
         PersistVoxelOverride(voxel);
         SyncPersistenceForBlock(blockPos);
+        candidateIndex.RefreshCellAndNeighbors(blockPos, localPos);
         return true;
     }
 
@@ -432,6 +441,7 @@ public class VoxelManager : MonoBehaviour
         if (trackedVoxels.ContainsKey(blockPos))
         {
             trackedVoxels.Remove(blockPos);
+            candidateIndex.RemoveBlock(blockPos);
             if (showVoxelDebugInfo)
             {
                 Debug.Log($"VoxelManager: Cleared voxels for block {blockPos}");
@@ -452,6 +462,7 @@ public class VoxelManager : MonoBehaviour
         }
 
         trackedVoxels.Clear();
+        candidateIndex.Clear();
     }
 
     public string GetDebugInfo()

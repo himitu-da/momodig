@@ -213,6 +213,29 @@ public class BlockManager : MonoBehaviour
         }
     }
 
+    public BlockInstanceData EnsureBlockExists(Vector3Int position, BlockData data, Transform parent)
+    {
+        BlockInstanceData existing = GetBlockAt(position);
+        if (existing != null) return existing;
+
+        if (terrainManager == null || data == null || parent == null) return null;
+
+        var settings = terrainManager.Settings;
+        int voxelsPerBlock = settings.voxelsPerBlock;
+        Vector3 worldPos = new Vector3(
+            position.x * settings.blockSize,
+            position.y * settings.blockSize,
+            settings.center.z + position.z * settings.blockSize
+        );
+
+        bool[,,] emptyPattern = new bool[voxelsPerBlock, voxelsPerBlock, voxelsPerBlock];
+        BlockInstanceData created = CreateBlock(position, worldPos, emptyPattern, data, settings.blockSize, voxelsPerBlock, parent);
+
+        terrainManager.VoxelManager.RegisterVoxelsFromPattern(emptyPattern, position, worldPos, data, settings.blockSize, voxelsPerBlock);
+
+        return created;
+    }
+
     public bool ActivateAndRefreshBlock(Vector3Int position)
     {
         BlockInstanceData block = GetBlockAt(position);
