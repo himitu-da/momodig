@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class DynamiteToolBehaviour : MiningToolBehaviour
 {
@@ -10,7 +10,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         base.OnEquip(user);
         owner = user;
         
-        // userはMiningToolsなので、親オブジェクト（Player）からPlayerControllerを取得
+        // userはMiningToolsなので、親オブジェクト！Elayer�E�からPlayerControllerを取征E
         playerController = user != null ? user.GetComponentInParent<PlayerController>() : null;
     }
 
@@ -24,7 +24,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             return;
         }
 
-        // ToolData と Module が必須
+        // ToolData と Module が忁E��E
         if (ToolData.miningModule == null)
         {
             Debug.LogWarning("MiningModule is not set on tool data.");
@@ -52,7 +52,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         
         if (isTopDown)
         {
-            // TopDown: マウス方向への直接投射（従来と同様）
+            // TopDown: マウス方向への直接投封E��従来と同様！E
             dir = ComputeQuantizedDirection(owner, playerController, isTopDown);
         }
         else
@@ -66,7 +66,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             dir = isTopDown ? new Vector3(1f, 0f, 0f) : new Vector3(1f, 0f, 0f);
         }
 
-        // プレイヤーの中心位置から発射（spawnDistanceを使わない）
+        // プレイヤーの中忁E��置から発封E��EpawnDistanceを使わなぁE��E
         Vector3 spawnPos = owner.transform.position;
         var go = Object.Instantiate(projectilePrefab, spawnPos, Quaternion.identity);
 
@@ -81,20 +81,20 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         Vector3 velocity;
         if (isTopDown)
         {
-            // TopDown: 従来通りの直接速度設定
+            // TopDown: 従来通りの直接速度設宁E
             velocity = dir.normalized * force;
         }
         else
         {
-            // SideScroller: 放物運動用の初速度を再計算
+            // SideScroller: 放物運動用の初速度を�E計箁E
             Vector3 startPos = owner.transform.position;
             Vector3 targetPos = playerController.GetMouseWorldPosition(10f);
-            targetPos.z = startPos.z; // Z座標を固定
+            targetPos.z = startPos.z; // Z座標を固宁E
             
             float horizontalDistance = targetPos.x - startPos.x;
             float verticalDistance = targetPos.y - startPos.y;
             
-            // 距離制限
+            // 距離制陁E
             float totalDistance = Mathf.Sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
             if (totalDistance > maxDistance)
             {
@@ -107,14 +107,14 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance, gravityValue);
         }
 
-        // プロジェクトの Rigidbody 拡張: linearVelocity を使用
+        // プロジェクト�E Rigidbody 拡張: linearVelocity を使用
         rb.linearVelocity = velocity;
     }
 
     public override void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
     {
         base.UpdateAim(direction, moveMode);
-        // Dynamite は特に Aim 反映不要（必要ならここでUI等更新）
+        // Dynamite は特に Aim 反映不要E��忁E��ならここでUI等更新�E�E
     }
 
     private Vector3 ComputeQuantizedDirection(GameObject user, PlayerController pc, bool isTopDown)
@@ -163,13 +163,13 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     }
     
     /// <summary>
-    /// SideScrollerモードでマウス位置を目標とした放物運動の方向を計算
+    /// SideScrollerモードでマウス位置を目標とした放物運動の方向を計箁E
     /// </summary>
     private Vector3 ComputeBallisticDirection(GameObject user, PlayerController pc)
     {
         if (pc == null) return Vector3.right;
         
-        // Moduleからパラメータを取得
+        // Moduleからパラメータを取征E
         if (!(ToolData.miningModule is DynamiteMiningModule dynamiteModule))
         {
             return Vector3.right;
@@ -177,73 +177,73 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         
         float maxDistance = dynamiteModule.MaxThrowDistance.Value;
         
-        // プレイヤーの中心位置とマウスのワールド座標を取得
-        Vector3 startPos = user.transform.position; // プレイヤーの中心位置
-        Vector3 targetPos = pc.GetMouseWorldPosition(10f); // Z=0平面でのワールド座標
+        // プレイヤーの中忁E��置とマウスのワールド座標を取征E
+        Vector3 startPos = user.transform.position; // プレイヤーの中忁E��置
+        Vector3 targetPos = pc.GetMouseWorldPosition(10f); // Z=0平面でのワールド座樁E
         
-        // SideScrollerなのでZ座標を0に固定
+        // SideScrollerなのでZ座標を0に固宁E
         targetPos.z = startPos.z;
         
-        // 水平距離と高度差を計算
+        // 水平距離と高度差を計箁E
         float horizontalDistance = targetPos.x - startPos.x;
         float verticalDistance = targetPos.y - startPos.y;
         
-        // 距離制限をチェック（必要に応じて）
+        // 距離制限をチェチE���E�忁E��に応じて�E�E
         float totalDistance = Mathf.Sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
         if (totalDistance > maxDistance)
         {
-            // 最大距離を超える場合は方向を維持して距離を制限
+            // 最大距離を趁E��る場合�E方向を維持して距離を制陁E
             Vector3 throwDirection = (targetPos - startPos).normalized;
             targetPos = startPos + throwDirection * maxDistance;
             horizontalDistance = targetPos.x - startPos.x;
             verticalDistance = targetPos.y - startPos.y;
         }
         
-        // 放物運動の初速度を計算（角度制限なし）
+        // 放物運動の初速度を計算（角度制限なし！E
         Vector3 velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance, dynamiteModule.Gravity);
         
         return velocity.normalized;
     }
     
     /// <summary>
-    /// 放物運動で目標点に到達するための初速度ベクトルを計算
+    /// 放物運動で目標点に到達するため�E初速度ベクトルを計箁E
     /// </summary>
     private Vector3 CalculateBallisticVelocity(float horizontalDistance, float verticalDistance, float gravityValue)
     {
-        // 水平距離が0に近い場合は垂直投射
+        // 水平距離ぁEに近い場合�E垂直投封E
         if (Mathf.Abs(horizontalDistance) < 0.1f)
         {
             float vY = verticalDistance > 0 ? Mathf.Sqrt(2 * gravityValue * Mathf.Abs(verticalDistance)) : -Mathf.Sqrt(2 * gravityValue * Mathf.Abs(verticalDistance));
             return new Vector3(0f, vY, 0f);
         }
         
-        // 固定時間法を使用（より確実で直感的）
+        // 固定時間法を使用�E�より確実で直感的�E�E
         float x = horizontalDistance;
         float y = verticalDistance;
         float g = gravityValue;
         
-        // 適切な飛行時間を推定（距離に基づく）
+        // 適刁E��飛行時間を推定（距離に基づく！E
         float distance = Mathf.Sqrt(x * x + y * y);
-        float timeOfFlight = Mathf.Sqrt(2 * distance / g); // 基本的な推定
+        float timeOfFlight = Mathf.Sqrt(2 * distance / g); // 基本皁E��推宁E
         
-        // 目標が遠い場合や高い場合は時間を調整
+        // 目標が遠ぁE��合や高い場合�E時間を調整
         if (distance > 10f || y > 5f)
         {
             timeOfFlight *= 1.5f;
         }
         else if (y < -2f)
         {
-            timeOfFlight *= 0.7f; // 下向きの場合は短く
+            timeOfFlight *= 0.7f; // 下向き�E場合�E短ぁE
         }
         
-        // 初速度を計算
+        // 初速度を計箁E
         float vx = x / timeOfFlight;
         float vy = (y + 0.5f * g * timeOfFlight * timeOfFlight) / timeOfFlight;
         
         return new Vector3(vx, vy, 0f);
     }
     
-    // 8方向に量子化（E, NE, N, NW, W, SW, S, SE）
+    // 8方向に量子化�E�E, NE, N, NW, W, SW, S, SE�E�E
     private Vector2 Quantize8(Vector2 v)
     {
         if (v.sqrMagnitude < 1e-6f) return Vector2.zero;
@@ -268,7 +268,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     }
 
     /// <summary>
-    /// 爆発による掘削を実行（Projectile から呼び出し）
+    /// 爁E��による掘削を実行！Erojectile から呼び出し！E
     /// </summary>
     public async Cysharp.Threading.Tasks.UniTask<(System.Collections.Generic.HashSet<Block> hitBlocks, int destroyedVoxelCount)> PerformExplosionMining(Vector3 explosionPosition, Vector3 center, Vector3 size, int damage, float force)
     {
@@ -278,11 +278,11 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             return (new System.Collections.Generic.HashSet<Block>(), 0);
         }
 
-        // Digger の位置を爆発位置に一時的に設定
+        // Digger の位置を�E発位置に一時的に設宁E
         Vector3 originalPosition = digger.transform.position;
         digger.transform.position = explosionPosition;
 
-        // BoxCollider を設定
+        // BoxCollider を設宁E
         BoxCollider diggingArea = digger.GetComponent<BoxCollider>();
         if (diggingArea != null)
         {
@@ -291,15 +291,21 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             diggingArea.isTrigger = true;
         }
 
-        // 掘削情報を作成
+        // 掘削惁E��を作�E
         var miningInfo = MiningInfo.Explosive(explosionPosition, force);
 
-        // 掘削実行
+        // 掘削実衁E
         var (hitBlocks, destroyedVoxelCount) = await digger.Dig(damage, miningInfo);
 
-        // 位置を元に戻す
+        TerrainManager terrainManager = Object.FindFirstObjectByType<TerrainManager>();
+        terrainManager?.FluidManager?.QueueExplosion(explosionPosition, size, force);
+
+        // 位置を�Eに戻ぁE
         digger.transform.position = originalPosition;
 
         return (hitBlocks, destroyedVoxelCount);
     }
 }
+
+
+
