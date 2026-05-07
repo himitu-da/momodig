@@ -597,6 +597,8 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             return false;
         }
 
+        terrainManager.FluidManager?.MarkDirtyAroundWorldPosition(target.worldPosition, 2);
+
         item.transform.position = target.worldPosition;
         item.hasSolidificationTarget = true;
         item.solidifiedBlockPosition = target.key.blockPosition;
@@ -830,6 +832,32 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         {
             if (item == null) continue;
 
+            float sleepElapsedSeconds = 0f;
+            float solidificationElapsedSeconds = 0f;
+            bool hasSolidificationTarget = item.hasSolidificationTarget;
+            Vector3Int solidifiedBlockPosition = item.solidifiedBlockPosition;
+            Vector3Int solidifiedLocalVoxelPosition = item.solidifiedLocalVoxelPosition;
+
+            if (itemStates.TryGetValue(item, out ItemState state))
+            {
+                if (state.isSleeping && state.sleepingSince >= 0f)
+                {
+                    sleepElapsedSeconds = Mathf.Max(0f, Time.time - state.sleepingSince);
+                }
+
+                if (state.solidificationStartedAt >= 0f)
+                {
+                    solidificationElapsedSeconds = Mathf.Max(0f, Time.time - state.solidificationStartedAt);
+                }
+
+                if (state.hasSolidificationReservation)
+                {
+                    hasSolidificationTarget = true;
+                    solidifiedBlockPosition = state.reservedCell.blockPosition;
+                    solidifiedLocalVoxelPosition = state.reservedCell.localVoxelPosition;
+                }
+            }
+
             DroppedItemData data = new DroppedItemData
             {
                 position = item.transform.position,
@@ -840,7 +868,14 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 uvBase = item.uvBase,
                 uvSize = item.uvSize,
                 useTexture1 = item.useTexture1,
-                isKinematic = item.rb != null && item.rb.isKinematic
+                isKinematic = item.rb != null && item.rb.isKinematic,
+                hasSolidificationData = true,
+                canSolidify = item.canSolidify,
+                hasSolidificationTarget = hasSolidificationTarget,
+                solidifiedBlockPosition = solidifiedBlockPosition,
+                solidifiedLocalVoxelPosition = solidifiedLocalVoxelPosition,
+                sleepElapsedSeconds = sleepElapsedSeconds,
+                solidificationElapsedSeconds = solidificationElapsedSeconds
             };
             persistenceManager.droppedItems.Add(data);
         }
@@ -935,6 +970,10 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             {
                 droppedItem.blockDataName = data.blockDataName;
                 droppedItem.resourceType = blockData.resourceType;
+                droppedItem.canSolidify = !data.hasSolidificationData || data.canSolidify;
+                droppedItem.hasSolidificationTarget = data.hasSolidificationTarget;
+                droppedItem.solidifiedBlockPosition = data.solidifiedBlockPosition;
+                droppedItem.solidifiedLocalVoxelPosition = data.solidifiedLocalVoxelPosition;
                 DroppedItemFaceTextureData[] savedFaceData = data.faceTextureData;
                 if (savedFaceData == null || savedFaceData.Length != DroppedItem.FaceNormals.Length)
                 {
@@ -950,6 +989,13 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 if (itemStates.TryGetValue(droppedItem, out var state))
                 {
                     state.isSleeping = data.isKinematic;
+                    state.sleepingSince = data.isKinematic
+                        ? Time.time - Mathf.Max(0f, data.sleepElapsedSeconds)
+                        : -1f;
+                    state.solidificationStartedAt = data.solidificationElapsedSeconds > 0f
+                        ? Time.time - data.solidificationElapsedSeconds
+                        : -1f;
+                    state.hasSolidificationReservation = false;
                 }
             }
 
