@@ -46,6 +46,10 @@ public class GameDataPersistenceManager : MonoBehaviour
     [Header("ドロップアイテムデータ")]
     public List<DroppedItemData> droppedItems = new List<DroppedItemData>();
 
+    [Header("Voxel Cell Data")]
+    public Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>> voxelCellOverrides = new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>();
+    public List<SolidifiedVoxelRecord> solidifiedVoxelHistory = new List<SolidifiedVoxelRecord>();
+
     [Header("購入済み商品データ")]
     public Dictionary<ItemData, int> purchaseditems = new Dictionary<ItemData, int>();
     

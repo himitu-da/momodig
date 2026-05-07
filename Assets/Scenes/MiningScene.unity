@@ -2291,6 +2291,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _wakeUpRadiusMultiplier: 3
+  enableSolidification: 1
+  solidifyAfterSleepingSeconds: 30
+  maxSolidificationsPerCheck: 16
+  candidateLookupCount: 16
+  candidateMaxBlockRadius: 16
   maxWakeUpsPerUpdate: 8
   MaxWakeUpPerStep: 10
   WakeUpStepDelay: 0.1

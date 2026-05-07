@@ -96,10 +96,14 @@ public abstract class MiningToolBehaviour : MonoBehaviour
             {
                 // 最初のブロックを代表として音を決定
                 var firstBlock = new System.Collections.Generic.List<Block>(hitBlocks)[0];
-                if (firstBlock != null && firstBlock.BlockData != null)
+                if (firstBlock != null)
                 {
-                    var materialType = firstBlock.BlockData.materialType;
-                    soundToPlay = ToolData.GetMiningSound(materialType);
+                    var representativeData = firstBlock.GetRepresentativeBlockData();
+                    if (representativeData != null)
+                    {
+                        var materialType = representativeData.materialType;
+                        soundToPlay = ToolData.GetMiningSound(materialType);
+                    }
                 }
             }
             

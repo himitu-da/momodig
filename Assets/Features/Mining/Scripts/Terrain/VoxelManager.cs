@@ -1,251 +1,399 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
-/// <summary>
-/// ボクセル管琁E��ラス
-/// 個、E�Eボクセルレベルでの詳細管琁E��拁E��E
-/// </summary>
 public class VoxelManager : MonoBehaviour
 {
     [Header("Voxel Management Configuration")]
     [SerializeField] private bool showVoxelDebugInfo = false;
-    
-    // チE�Eタ構造をListからDictionaryに変更し、ブロチE��座標とローカル座標でボクセルチE�Eタを管琁E
-    // これにより、O(n)の検索がO(1)になり、パフォーマンスが大幁E��向丁E
-    private Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>> trackedVoxels = new Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>>();
-    
-    /// <summary>
-    /// TerrainManagerからの参�E
-    /// </summary>
+
+    private readonly Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>> trackedVoxels =
+        new Dictionary<Vector3Int, Dictionary<Vector3Int, Voxel>>();
+
     private TerrainManager terrainManager;
-    
-    /// <summary>
-    /// 初期匁E
-    /// </summary>
+    private readonly SolidificationCandidateIndex candidateIndex = new SolidificationCandidateIndex();
+
+    public SolidificationCandidateIndex CandidateIndex => candidateIndex;
+
     public void Initialize(TerrainManager manager)
     {
         terrainManager = manager;
-        
+        candidateIndex.Initialize(this, manager.Settings);
+
         if (showVoxelDebugInfo)
         {
             Debug.Log("VoxelManager: Initialized with TerrainManager");
         }
     }
-    
-    /// <summary>
-    /// ボクセルパターンからボクセルチE�Eタを作�E
-    /// </summary>
+
     public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, Vector3 blockWorldPos, BlockData data, float blockSize, int voxelsPerBlock)
     {
-        if (showVoxelDebugInfo)
+        if (!trackedVoxels.ContainsKey(blockPos))
         {
-            Debug.Log($"VoxelManager: Registering voxels for block {blockPos}");
+            trackedVoxels[blockPos] = new Dictionary<Vector3Int, Voxel>();
         }
-        
+
+        var blockVoxels = trackedVoxels[blockPos];
+
         for (int x = 0; x < pattern.GetLength(0); x++)
         {
             for (int y = 0; y < pattern.GetLength(1); y++)
             {
                 for (int z = 0; z < pattern.GetLength(2); z++)
                 {
-                    if (pattern[x, y, z])
-                    {
-                        Vector3Int localPos = new Vector3Int(x, y, z);
-                        Vector3 worldPos = CalculateWorldPosition(blockWorldPos, localPos, blockSize, voxelsPerBlock);
-                        
-                        Voxel voxelData = new Voxel(
-                            blockPos, 
-                            localPos, 
-                            worldPos, 
-                            data.voxelHp, 
-                            DetermineVoxelType(blockPos, localPos)
-                        );
-                        if (!trackedVoxels.ContainsKey(blockPos))
-                        {
-                            trackedVoxels[blockPos] = new Dictionary<Vector3Int, Voxel>();
-                        }
-                        trackedVoxels[blockPos][localPos] = voxelData;
-                    }
+                    if (!pattern[x, y, z]) continue;
+
+                    Vector3Int localPos = new Vector3Int(x, y, z);
+                    Vector3 worldPos = CalculateWorldPosition(blockWorldPos, localPos, blockSize, voxelsPerBlock);
+                    blockVoxels[localPos] = new Voxel(
+                        blockPos,
+                        localPos,
+                        worldPos,
+                        data != null ? data.voxelHp : 1,
+                        DetermineVoxelType(blockPos, localPos),
+                        data,
+                        true
+                    );
                 }
             }
         }
-        
-        // 壊れかけのブロチE��惁E��を適用
-        var persistenceManager = GameDataPersistenceManager.Instance;
-        if (persistenceManager.partiallyDestroyedBlocks.TryGetValue(blockPos, out var destroyedVoxels))
-        {
-            foreach (var localVoxelPos in destroyedVoxels)
-            {
-                if (trackedVoxels.ContainsKey(blockPos) && trackedVoxels[blockPos].ContainsKey(localVoxelPos))
-                {
-                    trackedVoxels[blockPos][localVoxelPos].isActive = false;
-                }
-            }
-        }
+
+        ApplyPersistedVoxelOverrides(blockPos, blockWorldPos, data, blockSize, voxelsPerBlock);
+        ApplyPersistedDestroyedState(blockPos);
+
+        candidateIndex.RebuildBlock(blockPos);
 
         if (showVoxelDebugInfo)
         {
             Debug.Log($"VoxelManager: Registered {CountVoxelsInBlock(blockPos)} voxels for block {blockPos}");
         }
     }
-    
-    /// <summary>
-    /// ワールド座標を計箁E
-    /// </summary>
-    private Vector3 CalculateWorldPosition(Vector3 blockWorldPos, Vector3Int localPos, float blockSize, int voxelsPerBlock)
+
+    public Vector3 CalculateWorldPosition(Vector3 blockWorldPos, Vector3Int localPos, float blockSize, int voxelsPerBlock)
     {
         float voxelUnit = blockSize / voxelsPerBlock;
-        // ブロチE��の中忁E��ら�EオフセチE��としてボクセルのローカル座標を計箁E
         Vector3 localOffset = new Vector3(
             (localPos.x - voxelsPerBlock / 2f + 0.5f) * voxelUnit,
             (localPos.y - voxelsPerBlock / 2f + 0.5f) * voxelUnit,
             (localPos.z - voxelsPerBlock / 2f + 0.5f) * voxelUnit
         );
-        
+
         return blockWorldPos + localOffset;
     }
-    
-    /// <summary>
-    /// ボクセルタイプを決宁E
-    /// </summary>
+
+    public Vector3 CalculateWorldPosition(Vector3Int blockPos, Vector3Int localPos)
+    {
+        if (terrainManager == null)
+        {
+            return Vector3.zero;
+        }
+
+        return CalculateWorldPosition(GetBlockWorldPosition(blockPos), localPos, terrainManager.Settings.blockSize, terrainManager.Settings.voxelsPerBlock);
+    }
+
+    private Vector3 GetBlockWorldPosition(Vector3Int blockPos)
+    {
+        var settings = terrainManager.Settings;
+        return new Vector3(
+            blockPos.x * settings.blockSize,
+            blockPos.y * settings.blockSize,
+            settings.center.z + blockPos.z * settings.blockSize
+        );
+    }
+
+    private void ApplyPersistedVoxelOverrides(Vector3Int blockPos, Vector3 blockWorldPos, BlockData defaultData, float blockSize, int voxelsPerBlock)
+    {
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (!persistenceManager.voxelCellOverrides.TryGetValue(blockPos, out var overrides))
+        {
+            return;
+        }
+
+        foreach (var pair in overrides)
+        {
+            Vector3Int localPos = pair.Key;
+            if (!IsLocalPositionInBounds(localPos, voxelsPerBlock)) continue;
+
+            Voxel voxel = GetVoxelIncludingInactive(blockPos, localPos);
+            if (voxel == null)
+            {
+                Vector3 worldPos = CalculateWorldPosition(blockWorldPos, localPos, blockSize, voxelsPerBlock);
+                voxel = new Voxel(
+                    blockPos,
+                    localPos,
+                    worldPos,
+                    Mathf.Max(1, pair.Value.maxHealth),
+                    DetermineVoxelType(blockPos, localPos),
+                    defaultData
+                );
+                trackedVoxels[blockPos][localPos] = voxel;
+            }
+
+            BlockData resolvedData = ResolveBlockData(pair.Value.blockDataName, defaultData);
+            voxel.ApplyCellData(pair.Value, resolvedData);
+        }
+    }
+
+    private void ApplyPersistedDestroyedState(Vector3Int blockPos)
+    {
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        bool hasActiveOverride = false;
+
+        if (persistenceManager.voxelCellOverrides.TryGetValue(blockPos, out var overrides))
+        {
+            foreach (var cell in overrides.Values)
+            {
+                if (cell.isActive)
+                {
+                    hasActiveOverride = true;
+                    break;
+                }
+            }
+        }
+
+        if (persistenceManager.destroyedBlockPositions.Contains(blockPos) && !hasActiveOverride)
+        {
+            if (trackedVoxels.TryGetValue(blockPos, out var block))
+            {
+                foreach (var voxel in block.Values)
+                {
+                    voxel.isActive = false;
+                }
+            }
+            return;
+        }
+
+        if (persistenceManager.partiallyDestroyedBlocks.TryGetValue(blockPos, out var destroyedVoxels))
+        {
+            foreach (var localVoxelPos in destroyedVoxels)
+            {
+                Voxel voxel = GetVoxelIncludingInactive(blockPos, localVoxelPos);
+                if (voxel != null)
+                {
+                    voxel.isActive = false;
+                }
+            }
+        }
+    }
+
+    private bool IsLocalPositionInBounds(Vector3Int localPos, int voxelsPerBlock)
+    {
+        return localPos.x >= 0 && localPos.x < voxelsPerBlock &&
+               localPos.y >= 0 && localPos.y < voxelsPerBlock &&
+               localPos.z >= 0 && localPos.z < voxelsPerBlock;
+    }
+
     private VoxelType DetermineVoxelType(Vector3Int blockPos, Vector3Int localPos)
     {
-        // チE��ォルト�E標準タイチE
-        // 封E��皁E��位置めE��ンダム要素に基づぁE��タイプを決宁E
         return VoxelType.Standard;
     }
-    
-    /// <summary>
-    /// 持E��座標�EボクセルチE�Eタを取征E
-    /// </summary>
+
     public Voxel GetVoxelAt(Vector3Int blockPos, Vector3Int localPos)
+    {
+        Voxel voxel = GetVoxelIncludingInactive(blockPos, localPos);
+        return voxel != null && voxel.isActive ? voxel : null;
+    }
+
+    public Voxel GetVoxelIncludingInactive(Vector3Int blockPos, Vector3Int localPos)
     {
         if (trackedVoxels.TryGetValue(blockPos, out var block) && block.TryGetValue(localPos, out var voxel))
         {
-            return voxel.isActive ? voxel : null;
+            return voxel;
         }
         return null;
     }
-    
-    /// <summary>
-    /// 持E��ブロチE��冁E�Eボクセル数を取征E
-    /// </summary>
+
     public int CountVoxelsInBlock(Vector3Int blockPos)
     {
-        if (trackedVoxels.TryGetValue(blockPos, out var block))
+        if (!trackedVoxels.TryGetValue(blockPos, out var block)) return 0;
+
+        int count = 0;
+        foreach (var voxel in block.Values)
         {
-            int count = 0;
-            foreach (var voxel in block.Values)
-            {
-                if (voxel.isActive)
-                {
-                    count++;
-                }
-            }
-            return count;
+            if (voxel.isActive) count++;
         }
-        return 0;
+        return count;
     }
-    
-    /// <summary>
-    /// ボクセルにダメージを与えめE
-    /// </summary>
+
     public bool DamageVoxel(Vector3Int blockPos, Vector3Int localPos, int damage = 1)
     {
         Voxel voxel = GetVoxelAt(blockPos, localPos);
-        if (voxel != null)
+        if (voxel == null) return false;
+
+        voxel.health -= damage;
+        voxel.lastModifiedTime = Time.time;
+
+        if (showVoxelDebugInfo)
         {
-            voxel.health -= damage;
-            voxel.lastModifiedTime = Time.time;
-            
-            if (showVoxelDebugInfo)
-            {
-                Debug.Log($"VoxelManager: Damaged voxel at {blockPos},{localPos} - Health: {voxel.health}");
-            }
-            
-            if (voxel.health <= 0)
-            {
-                return DestroyVoxel(blockPos, localPos);
-            }
+            Debug.Log($"VoxelManager: Damaged voxel at {blockPos},{localPos} - Health: {voxel.health}");
         }
-        
+
+        if (voxel.health <= 0)
+        {
+            return DestroyVoxel(blockPos, localPos);
+        }
+
+        PersistOverrideIfNeeded(voxel);
         return false;
     }
-    
-    /// <summary>
-    /// ボクセルを破壁E
-    /// </summary>
+
     public bool DestroyVoxel(Vector3Int blockPos, Vector3Int localPos)
     {
         Voxel voxel = GetVoxelAt(blockPos, localPos);
-        if (voxel != null && voxel.voxelType != VoxelType.Unbreakable)
+        if (voxel == null || voxel.voxelType == VoxelType.Unbreakable) return false;
+
+        voxel.isActive = false;
+        voxel.lastModifiedTime = Time.time;
+        PersistOverrideIfNeeded(voxel);
+        terrainManager?.FluidManager?.NotifySolidVoxelRemoved(voxel.worldPosition);
+        candidateIndex.RefreshCellAndNeighbors(blockPos, localPos);
+
+        if (showVoxelDebugInfo)
         {
-            voxel.isActive = false;
-            voxel.lastModifiedTime = Time.time;
-            
-            if (showVoxelDebugInfo)
-            {
-                Debug.Log($"VoxelManager: Destroyed voxel at {blockPos},{localPos}");
-            }
-
-            // 永続化マネージャーに状態を記録
-            var persistenceManager = GameDataPersistenceManager.Instance;
-
-            // ブロチE��冁E�E残りのボクセル数を確誁E
-            if (CountVoxelsInBlock(blockPos) == 0)
-            {
-                // 完�Eに破壊された
-                terrainManager.BlockManager.DestroyBlock(blockPos);
-                // 壊れかけリストから�E削除
-                if (persistenceManager.partiallyDestroyedBlocks.ContainsKey(blockPos))
-                {
-                    persistenceManager.partiallyDestroyedBlocks.Remove(blockPos);
-                }
-            }
-            else
-            {
-                // 部刁E��に破壊された
-                if (!persistenceManager.partiallyDestroyedBlocks.ContainsKey(blockPos))
-                {
-                    persistenceManager.partiallyDestroyedBlocks[blockPos] = new HashSet<Vector3Int>();
-                }
-                persistenceManager.partiallyDestroyedBlocks[blockPos].Add(localPos);
-            }
-
-            terrainManager?.FluidManager?.NotifySolidVoxelRemoved(voxel.worldPosition);
-            
-            return true;
+            Debug.Log($"VoxelManager: Destroyed voxel at {blockPos},{localPos}");
         }
-        
-        return false;
+
+        if (CountVoxelsInBlock(blockPos) == 0)
+        {
+            terrainManager.BlockManager.DestroyBlock(blockPos);
+        }
+
+        SyncPersistenceForBlock(blockPos);
+        return true;
     }
-    
-    /// <summary>
-    /// ボクセルを復允E
-    /// </summary>
+
     public bool RestoreVoxel(Vector3Int blockPos, Vector3Int localPos)
     {
-        Voxel voxel = GetVoxelAt(blockPos, localPos);
-        if (voxel != null && !voxel.isActive)
+        Voxel voxel = GetVoxelIncludingInactive(blockPos, localPos);
+        if (voxel == null || voxel.isActive) return false;
+
+        voxel.isActive = true;
+        voxel.health = voxel.maxHealth;
+        voxel.lastModifiedTime = Time.time;
+        PersistOverrideIfNeeded(voxel);
+        SyncPersistenceForBlock(blockPos);
+        candidateIndex.RefreshCellAndNeighbors(blockPos, localPos);
+
+        if (showVoxelDebugInfo)
         {
-            voxel.isActive = true;
-            voxel.health = voxel.maxHealth; // 最大体力に復允E
-            voxel.lastModifiedTime = Time.time;
-            
-            if (showVoxelDebugInfo)
-            {
-                Debug.Log($"VoxelManager: Restored voxel at {blockPos},{localPos}");
-            }
-            
-            return true;
+            Debug.Log($"VoxelManager: Restored voxel at {blockPos},{localPos}");
         }
-        
+
+        return true;
+    }
+
+    public bool SetVoxelCell(Vector3Int blockPos, Vector3Int localPos, BlockData data, bool active = true, int healthOverride = -1, bool useTexture1 = true)
+    {
+        if (terrainManager == null || data == null) return false;
+        if (!NormalizeVoxelPosition(ref blockPos, ref localPos)) return false;
+
+        if (!trackedVoxels.ContainsKey(blockPos))
+        {
+            trackedVoxels[blockPos] = new Dictionary<Vector3Int, Voxel>();
+        }
+
+        Voxel voxel = GetVoxelIncludingInactive(blockPos, localPos);
+        if (voxel == null)
+        {
+            voxel = new Voxel(
+                blockPos,
+                localPos,
+                CalculateWorldPosition(blockPos, localPos),
+                data.voxelHp,
+                DetermineVoxelType(blockPos, localPos),
+                data,
+                useTexture1
+            );
+            trackedVoxels[blockPos][localPos] = voxel;
+        }
+
+        voxel.SetBlockData(data);
+        voxel.isActive = active;
+        voxel.maxHealth = Mathf.Max(1, data.voxelHp);
+        voxel.health = healthOverride > 0 ? Mathf.Clamp(healthOverride, 1, voxel.maxHealth) : voxel.maxHealth;
+        voxel.useTexture1 = useTexture1;
+        voxel.lastModifiedTime = Time.time;
+
+        PersistVoxelOverride(voxel);
+        SyncPersistenceForBlock(blockPos);
+        candidateIndex.RefreshCellAndNeighbors(blockPos, localPos);
+        return true;
+    }
+
+    public bool IsVoxelCellEmpty(Vector3Int blockPos, Vector3Int localPos)
+    {
+        if (!NormalizeVoxelPosition(ref blockPos, ref localPos)) return false;
+        Voxel voxel = GetVoxelIncludingInactive(blockPos, localPos);
+        return voxel == null || !voxel.isActive;
+    }
+
+    public bool HasActiveAdjacentVoxel(Vector3Int blockPos, Vector3Int localPos)
+    {
+        Vector3Int[] directions =
+        {
+            Vector3Int.right,
+            Vector3Int.left,
+            Vector3Int.up,
+            Vector3Int.down,
+            new Vector3Int(0, 0, 1),
+            new Vector3Int(0, 0, -1)
+        };
+
+        foreach (Vector3Int direction in directions)
+        {
+            Vector3Int neighborBlock = blockPos;
+            Vector3Int neighborLocal = localPos + direction;
+            if (!NormalizeVoxelPosition(ref neighborBlock, ref neighborLocal)) continue;
+
+            if (GetVoxelAt(neighborBlock, neighborLocal) != null)
+            {
+                return true;
+            }
+        }
+
         return false;
     }
-    
-    /// <summary>
-    /// 持E��ブロチE��のボクセルをすべて取征E
-    /// </summary>
+
+    public bool NormalizeVoxelPosition(ref Vector3Int blockPos, ref Vector3Int localPos)
+    {
+        if (terrainManager == null) return false;
+
+        int voxelsPerBlock = terrainManager.Settings.voxelsPerBlock;
+        int blockX = blockPos.x;
+        int blockY = blockPos.y;
+        int localX = localPos.x;
+        int localY = localPos.y;
+
+        NormalizeAxis(ref blockX, ref localX, voxelsPerBlock);
+        NormalizeAxis(ref blockY, ref localY, voxelsPerBlock);
+
+        blockPos.x = blockX;
+        blockPos.y = blockY;
+        localPos.x = localX;
+        localPos.y = localY;
+
+        if (localPos.z < 0 || localPos.z >= voxelsPerBlock)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private void NormalizeAxis(ref int blockValue, ref int localValue, int voxelsPerBlock)
+    {
+        while (localValue < 0)
+        {
+            localValue += voxelsPerBlock;
+            blockValue -= 1;
+        }
+
+        while (localValue >= voxelsPerBlock)
+        {
+            localValue -= voxelsPerBlock;
+            blockValue += 1;
+        }
+    }
+
     public List<Voxel> GetVoxelsInBlock(Vector3Int blockPos)
     {
         if (trackedVoxels.TryGetValue(blockPos, out var block))
@@ -254,10 +402,7 @@ public class VoxelManager : MonoBehaviour
         }
         return new List<Voxel>();
     }
-    
-    /// <summary>
-    /// アクチE��ブなボクセル数を取征E
-    /// </summary>
+
     public int GetActiveVoxelCount()
     {
         int count = 0;
@@ -270,19 +415,16 @@ public class VoxelManager : MonoBehaviour
         }
         return count;
     }
-    
-    /// <summary>
-    /// ボクセルタイプ別の統計を取征E
-    /// </summary>
+
     public Dictionary<VoxelType, int> GetVoxelTypeStatistics()
     {
         Dictionary<VoxelType, int> stats = new Dictionary<VoxelType, int>();
-        
+
         foreach (VoxelType type in System.Enum.GetValues(typeof(VoxelType)))
         {
             stats[type] = 0;
         }
-        
+
         foreach (var block in trackedVoxels.Values)
         {
             foreach (var voxel in block.Values)
@@ -293,47 +435,39 @@ public class VoxelManager : MonoBehaviour
                 }
             }
         }
-        
+
         return stats;
     }
-    
-    /// <summary>
-    /// 持E��ブロチE��のボクセルをクリア
-    /// </summary>
+
     public void ClearVoxelsInBlock(Vector3Int blockPos)
     {
         if (trackedVoxels.ContainsKey(blockPos))
         {
             trackedVoxels.Remove(blockPos);
+            candidateIndex.RemoveBlock(blockPos);
             if (showVoxelDebugInfo)
             {
                 Debug.Log($"VoxelManager: Cleared voxels for block {blockPos}");
             }
         }
     }
-    
-    /// <summary>
-    /// すべてのボクセルチE�Eタをクリア
-    /// </summary>
+
     public void ClearAllVoxels()
     {
-        int totalVoxels = 0;
-        foreach (var block in trackedVoxels.Values)
-        {
-            totalVoxels += block.Count;
-        }
-
         if (showVoxelDebugInfo)
         {
+            int totalVoxels = 0;
+            foreach (var block in trackedVoxels.Values)
+            {
+                totalVoxels += block.Count;
+            }
             Debug.Log($"VoxelManager: Clearing all {totalVoxels} voxels from {trackedVoxels.Count} blocks");
         }
-        
+
         trackedVoxels.Clear();
+        candidateIndex.Clear();
     }
-    
-    /// <summary>
-    /// チE��チE��惁E��を取征E
-    /// </summary>
+
     public string GetDebugInfo()
     {
         var stats = GetVoxelTypeStatistics();
@@ -343,17 +477,91 @@ public class VoxelManager : MonoBehaviour
         {
             totalVoxels += block.Count;
         }
-        
+
         return $"VoxelManager - Total Blocks: {trackedVoxels.Count}, Total Voxels: {totalVoxels}, Active: {activeCount}, Types: " +
                $"Standard:{stats[VoxelType.Standard]}, Reinforced:{stats[VoxelType.Reinforced]}, " +
                $"Fragile:{stats[VoxelType.Fragile]}, Unbreakable:{stats[VoxelType.Unbreakable]}, " +
                $"Special:{stats[VoxelType.Special]}";
     }
-    
+
+    public void SyncPersistenceForBlock(Vector3Int blockPos)
+    {
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (!trackedVoxels.TryGetValue(blockPos, out var block))
+        {
+            persistenceManager.destroyedBlockPositions.Remove(blockPos);
+            persistenceManager.partiallyDestroyedBlocks.Remove(blockPos);
+            return;
+        }
+
+        int activeCount = 0;
+        HashSet<Vector3Int> inactivePositions = new HashSet<Vector3Int>();
+
+        foreach (var pair in block)
+        {
+            if (pair.Value.isActive)
+            {
+                activeCount++;
+            }
+            else
+            {
+                inactivePositions.Add(pair.Key);
+            }
+        }
+
+        if (activeCount == 0)
+        {
+            persistenceManager.destroyedBlockPositions.Add(blockPos);
+            persistenceManager.partiallyDestroyedBlocks.Remove(blockPos);
+            return;
+        }
+
+        persistenceManager.destroyedBlockPositions.Remove(blockPos);
+
+        if (inactivePositions.Count > 0)
+        {
+            persistenceManager.partiallyDestroyedBlocks[blockPos] = inactivePositions;
+        }
+        else
+        {
+            persistenceManager.partiallyDestroyedBlocks.Remove(blockPos);
+        }
+    }
+
+    private void PersistVoxelOverride(Voxel voxel)
+    {
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (!persistenceManager.voxelCellOverrides.ContainsKey(voxel.blockPosition))
+        {
+            persistenceManager.voxelCellOverrides[voxel.blockPosition] = new Dictionary<Vector3Int, VoxelCellData>();
+        }
+
+        persistenceManager.voxelCellOverrides[voxel.blockPosition][voxel.localPosition] = new VoxelCellData(voxel);
+    }
+
+    private void PersistOverrideIfNeeded(Voxel voxel)
+    {
+        var persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager.voxelCellOverrides.TryGetValue(voxel.blockPosition, out var overrides) &&
+            overrides.ContainsKey(voxel.localPosition))
+        {
+            overrides[voxel.localPosition] = new VoxelCellData(voxel);
+        }
+    }
+
+    private BlockData ResolveBlockData(string blockDataName, BlockData fallback)
+    {
+        if (!string.IsNullOrEmpty(blockDataName) && terrainManager != null && terrainManager.TerrainDataManager != null)
+        {
+            BlockData resolved = terrainManager.TerrainDataManager.GetBlockDataByName(blockDataName);
+            if (resolved != null) return resolved;
+        }
+
+        return fallback;
+    }
+
     void OnDestroy()
     {
         ClearAllVoxels();
     }
 }
-
-
