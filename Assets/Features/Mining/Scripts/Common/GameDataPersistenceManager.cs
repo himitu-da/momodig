@@ -2,6 +2,13 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 
+[System.Serializable]
+public class ToolSlotPersistenceData
+{
+    public string slotId;
+    public MiningTool tool;
+}
+
 /// <summary>
 /// ゲームのセッション中、シーンをまたいでデータを保持するクラス。
 /// シード値や破壊されたブロックの情報などを管理します。
@@ -52,6 +59,12 @@ public class GameDataPersistenceManager : MonoBehaviour
 
     [Header("購入済み商品データ")]
     public Dictionary<ItemData, int> purchaseditems = new Dictionary<ItemData, int>();
+
+    [Header("Tool Inventory Data")]
+    public bool hasToolInventoryData = false;
+    public List<ToolSlotPersistenceData> toolSlots = new List<ToolSlotPersistenceData>();
+    public string mainToolSlotId = "";
+    public string subToolSlotId = "";
     
     /// <summary>
     /// purchaseditemsが変更されたことを通知します。
