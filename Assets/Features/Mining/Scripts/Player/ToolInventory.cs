@@ -40,6 +40,7 @@ public class ToolInventory : MonoBehaviour
     [SerializeField] private string mainSlotId = "slot_0";
     [SerializeField] private string subSlotId = "slot_1";
     [SerializeField] private bool allowSameSlotForRoles = false;
+    [SerializeField] private bool persistToGameData = true;
 
     public event Action OnSlotsChanged;
     public event Action OnRoleBindingsChanged;
@@ -56,8 +57,9 @@ public class ToolInventory : MonoBehaviour
 
         string oldMainSlotId = mainSlotId;
         string oldSubSlotId = subSlotId;
-        bool slotsChanged = EnsureSlotIds();
-        bool createdSlotsFromTools = false;
+        bool loadedFromPersistence = TryLoadFromGameData();
+        bool slotsChanged = loadedFromPersistence || EnsureSlotIds();
+        bool slotsWereEmpty = slots.Count == 0;
 
         if (slots.Count == 0 && tools != null)
         {
@@ -67,10 +69,14 @@ public class ToolInventory : MonoBehaviour
             }
 
             slotsChanged = tools.Count > 0;
-            createdSlotsFromTools = slotsChanged;
         }
 
-        if (createdSlotsFromTools)
+        if (!slotsWereEmpty && tools != null)
+        {
+            slotsChanged = AppendMissingTools(tools) || slotsChanged;
+        }
+
+        if (slotsWereEmpty && slotsChanged)
         {
             string preferredMainSlotId = FindSlotIdForTool(preferredMainTool);
             string preferredSubSlotId = FindSlotIdForTool(preferredSubTool);
@@ -88,6 +94,8 @@ public class ToolInventory : MonoBehaviour
 
         bool rolesChanged = EnsureRoleBindings(preferredMainTool, preferredSubTool);
         rolesChanged = rolesChanged || mainSlotId != oldMainSlotId || subSlotId != oldSubSlotId;
+
+        SaveToGameData();
 
         if (slotsChanged)
         {
@@ -120,6 +128,7 @@ public class ToolInventory : MonoBehaviour
         }
 
         slot.SetTool(tool);
+        SaveToGameData();
         OnSlotsChanged?.Invoke();
         return true;
     }
@@ -147,6 +156,7 @@ public class ToolInventory : MonoBehaviour
         MiningTool targetTool = toSlot.Tool;
         toSlot.SetTool(movingTool);
         fromSlot.SetTool(swapIfOccupied ? targetTool : null);
+        SaveToGameData();
         OnSlotsChanged?.Invoke();
         return true;
     }
@@ -163,6 +173,7 @@ public class ToolInventory : MonoBehaviour
         MiningTool firstTool = firstSlot.Tool;
         firstSlot.SetTool(secondSlot.Tool);
         secondSlot.SetTool(firstTool);
+        SaveToGameData();
         OnSlotsChanged?.Invoke();
         return true;
     }
@@ -202,6 +213,7 @@ public class ToolInventory : MonoBehaviour
             return true;
         }
 
+        SaveToGameData();
         OnRoleBindingsChanged?.Invoke();
         return true;
     }
@@ -220,6 +232,99 @@ public class ToolInventory : MonoBehaviour
         }
 
         return tools;
+    }
+
+    private bool TryLoadFromGameData()
+    {
+        if (!persistToGameData)
+        {
+            return false;
+        }
+
+        GameDataPersistenceManager persistence = GameDataPersistenceManager.Instance;
+        if (persistence == null || !persistence.hasToolInventoryData)
+        {
+            return false;
+        }
+
+        EnsureSlotList();
+        slots.Clear();
+
+        if (persistence.toolSlots != null)
+        {
+            foreach (ToolSlotPersistenceData savedSlot in persistence.toolSlots)
+            {
+                if (savedSlot == null)
+                {
+                    continue;
+                }
+
+                slots.Add(new ToolSlot(savedSlot.slotId, savedSlot.tool));
+            }
+        }
+
+        mainSlotId = persistence.mainToolSlotId;
+        subSlotId = persistence.subToolSlotId;
+        EnsureSlotIds();
+        return true;
+    }
+
+    private void SaveToGameData()
+    {
+        if (!persistToGameData)
+        {
+            return;
+        }
+
+        GameDataPersistenceManager persistence = GameDataPersistenceManager.Instance;
+        if (persistence == null)
+        {
+            return;
+        }
+
+        persistence.hasToolInventoryData = true;
+        persistence.mainToolSlotId = mainSlotId;
+        persistence.subToolSlotId = subSlotId;
+
+        if (persistence.toolSlots == null)
+        {
+            persistence.toolSlots = new List<ToolSlotPersistenceData>();
+        }
+
+        persistence.toolSlots.Clear();
+        EnsureSlotList();
+
+        foreach (ToolSlot slot in slots)
+        {
+            if (slot == null)
+            {
+                continue;
+            }
+
+            persistence.toolSlots.Add(new ToolSlotPersistenceData
+            {
+                slotId = slot.SlotId,
+                tool = slot.Tool
+            });
+        }
+    }
+
+    private bool AppendMissingTools(IList<MiningTool> tools)
+    {
+        bool changed = false;
+        for (int i = 0; i < tools.Count; i++)
+        {
+            MiningTool tool = tools[i];
+            if (tool == null || !string.IsNullOrEmpty(FindSlotIdForTool(tool)))
+            {
+                continue;
+            }
+
+            slots.Add(new ToolSlot(BuildNextAvailableSlotId(), tool));
+            changed = true;
+        }
+
+        return changed;
     }
 
     private bool EnsureRoleBindings(MiningTool preferredMainTool, MiningTool preferredSubTool)
@@ -355,6 +460,21 @@ public class ToolInventory : MonoBehaviour
         {
             slots = new List<ToolSlot>();
         }
+    }
+
+    private string BuildNextAvailableSlotId()
+    {
+        EnsureSlotList();
+
+        int index = slots.Count;
+        string slotId = BuildDefaultSlotId(index);
+        while (HasSlot(slotId))
+        {
+            index++;
+            slotId = BuildDefaultSlotId(index);
+        }
+
+        return slotId;
     }
 
     private static string BuildDefaultSlotId(int index)
