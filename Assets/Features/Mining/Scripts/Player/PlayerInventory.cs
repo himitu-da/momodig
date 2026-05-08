@@ -9,8 +9,6 @@ using System;
 [System.Serializable]
 public class PlayerInventory : IInventory
 {
-    private const float InventoryFullNotificationCooldownSeconds = 5f;
-
     [Header("インベントリ設定")]
     [SerializeField] private int _maxCapacity = 200; // プレイヤーが持てる最大数
     
@@ -21,7 +19,6 @@ public class PlayerInventory : IInventory
     public event Action<ResourceType, int> OnResourceRemoved;
     public event Action<int> OnTotalCountChanged;
     public event Action<bool> OnInventoryFullStateChanged;
-    private float lastInventoryFullNotificationTime = float.NegativeInfinity;
     
     // インターフェース実装用プロパティ
     public int maxCapacity => _maxCapacity;
@@ -51,7 +48,7 @@ public class PlayerInventory : IInventory
         if (!CanAddResource(type, amount)) return false;
         
         bool wasEmpty = IsEmpty();
-        bool wasFull = IsFull();
+        int oldCount = GetTotalItemCount();
         
         resources[type] += amount;
         
@@ -61,12 +58,7 @@ public class PlayerInventory : IInventory
         
         if (wasEmpty && !IsEmpty())
         {
-            NotifyInventoryFullStateChanged(false);
-        }
-
-        if (!wasFull && IsFull())
-        {
-            NotifyInventoryFullStateChanged(true);
+            OnInventoryFullStateChanged?.Invoke(false);
         }
         
         return true;
@@ -91,7 +83,7 @@ public class PlayerInventory : IInventory
             
             if (wasFull && GetTotalItemCount() < maxCapacity)
             {
-                NotifyInventoryFullStateChanged(false);
+                OnInventoryFullStateChanged?.Invoke(false);
             }
         }
         
@@ -158,28 +150,13 @@ public class PlayerInventory : IInventory
         if (!wasEmpty)
         {
             OnTotalCountChanged?.Invoke(0);
-            NotifyInventoryFullStateChanged(false);
+            OnInventoryFullStateChanged?.Invoke(false);
         }
     }
     
     /// <summary>
     /// デバッグ用文字列表現
     /// </summary>
-    private void NotifyInventoryFullStateChanged(bool isFull)
-    {
-        if (isFull)
-        {
-            if (Time.time - lastInventoryFullNotificationTime < InventoryFullNotificationCooldownSeconds)
-            {
-                return;
-            }
-
-            lastInventoryFullNotificationTime = Time.time;
-        }
-
-        OnInventoryFullStateChanged?.Invoke(isFull);
-    }
-
     public override string ToString()
     {
         var result = $"インベントリ ({GetTotalItemCount()}/{maxCapacity}): ";

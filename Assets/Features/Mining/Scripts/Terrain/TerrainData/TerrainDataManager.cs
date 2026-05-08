@@ -60,21 +60,6 @@ public class TerrainDataManager : ScriptableObject
 
     public BlockData GetBlockDataByName(string name)
     {
-        if (string.IsNullOrEmpty(name))
-        {
-            return null;
-        }
-
-        if (defaultBlockData != null && defaultBlockData.name == name)
-        {
-            return defaultBlockData;
-        }
-
-        if (biomeDataMappings == null)
-        {
-            return null;
-        }
-
         foreach (var mapping in biomeDataMappings)
         {
             if (mapping.biomeData != null)

@@ -226,7 +226,7 @@ public class ChunkManager : MonoBehaviour
         );
         bool[,,] pattern = terrainManager.BlockGenerator.GenerateBlockPattern(generationData);
 
-        var newBlockInstance = terrainManager.BlockManager.CreateBlock(blockPos, worldPos, terrainManager.Settings.blockSize, terrainManager.Settings.voxelsPerBlock, chunk.transform);
+        var newBlockInstance = terrainManager.BlockManager.CreateBlock(blockPos, worldPos, pattern, blockTypeData, terrainManager.Settings.blockSize, terrainManager.Settings.voxelsPerBlock, chunk.transform);
 
         terrainManager.VoxelManager.RegisterVoxelsFromPattern(pattern, blockPos, worldPos, blockTypeData, terrainManager.Settings.blockSize, terrainManager.Settings.voxelsPerBlock);
 
@@ -234,12 +234,6 @@ public class ChunkManager : MonoBehaviour
         {
             newBlockInstance.block.GenerateMesh();
         }
-    }
-
-    public Transform GetOrCreateChunkTransform(Vector3Int blockPos)
-    {
-        Chunk chunk = GetOrCreateChunk(blockPos);
-        return chunk != null ? chunk.transform : null;
     }
 
     private Chunk GetOrCreateChunk(Vector3Int blockPos)

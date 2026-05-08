@@ -1,131 +1,205 @@
 using UnityEngine;
 
-public static class BlockItemDropper
+/// <summary>
+/// ブロックからのアイテムドロップ処理を担当するクラス
+/// Block.csから分離されたアイテムドロップ関連の機能を提供
+/// </summary>
+public class BlockItemDropper
 {
-    public static void DropItem(Vector3 position, BlockData voxelBlockData, bool useTexture1, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock, float voxelWorldSize, VoxelTextureExtractor textureExtractor)
+    // 設定パラメータ
+    private BlockData blockData;
+    private bool enableTextureExtraction;
+    private float voxelWorldSize;
+    private int voxelsPerBlock;
+    private VoxelTextureExtractor textureExtractor;
+    private Texture2D texture1, texture2;
+    private bool[,,] useTexture1Pattern;
+
+    /// <summary>
+    /// BlockItemDropperを初期化
+    /// </summary>
+    public void Initialize(BlockData data, bool enableTexture, float worldSize, int vPerBlock, 
+        VoxelTextureExtractor extractor, Texture2D tex1, Texture2D tex2, bool[,,] pattern)
+    {
+        blockData = data;
+        enableTextureExtraction = enableTexture;
+        voxelWorldSize = worldSize;
+        voxelsPerBlock = vPerBlock;
+        textureExtractor = extractor;
+        texture1 = tex1;
+        texture2 = tex2;
+        useTexture1Pattern = pattern;
+    }
+
+    /// <summary>
+    /// アイテムをドロップする（座標情報なし）
+    /// </summary>
+    public void DropItem(Vector3 position)
+    {
+        DropItem(position, -1, -1, -1);
+    }
+
+    /// <summary>
+    /// アイテムをドロップする（ボクセル座標付き）
+    /// </summary>
+    public void DropItem(Vector3 position, int voxelX, int voxelY, int voxelZ)
     {
         if (DroppedItemManager.Instance == null)
         {
             Debug.LogError("DroppedItemManager.Instance is null. Please ensure a DroppedItemManager exists in the scene.");
             return;
         }
-
-        if (voxelBlockData == null)
+        if (blockData == null)
         {
-            Debug.LogError("BlockData is null. Cannot drop item.");
+            Debug.LogError("BlockData is null. Check initialization.");
+            return;
+        }
+        if (blockData.droppedItemPrefab == null)
+        {
+            Debug.LogError($"BlockData '{blockData.name}' has no droppedItemPrefab assigned.", blockData);
             return;
         }
 
-        if (voxelBlockData.droppedItemPrefab == null)
-        {
-            Debug.LogError($"BlockData '{voxelBlockData.name}' has no droppedItemPrefab assigned.", voxelBlockData);
-            return;
-        }
-
-        GameObject item = DroppedItemManager.Instance.GetItem(voxelBlockData.droppedItemPrefab);
+        // DroppedItemManagerから正しいPrefabのアイテムを取得
+        GameObject item = DroppedItemManager.Instance.GetItem(blockData.droppedItemPrefab);
         if (item == null) return;
 
         item.transform.position = position;
         item.transform.rotation = Quaternion.identity;
 
-        SetupDroppedItem(item, voxelBlockData, useTexture1, voxelX, voxelY, voxelZ, voxelsPerBlock, voxelWorldSize, textureExtractor);
+        // アイテムの初期設定
+        SetupDroppedItem(item, blockData, voxelX, voxelY, voxelZ);
     }
 
-    private static void SetupDroppedItem(GameObject item, BlockData data, bool useTexture1, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock, float voxelWorldSize, VoxelTextureExtractor textureExtractor)
+    /// <summary>
+    /// ドロップアイテムの初期設定を行う
+    /// </summary>
+    public void SetupDroppedItem(GameObject item, BlockData data, int voxelX = -1, int voxelY = -1, int voxelZ = -1)
     {
+        // 自動スケール調整が有効な場合
         if (data.autoScale)
         {
             float targetScale = voxelWorldSize * data.scaleMultiplier;
             item.transform.localScale = Vector3.one * targetScale;
         }
 
-        bool hasValidVoxelCoord = voxelX >= 0 && voxelY >= 0 && voxelZ >= 0 &&
-                                  voxelX < voxelsPerBlock && voxelY < voxelsPerBlock && voxelZ < voxelsPerBlock;
-
-        if (textureExtractor != null && hasValidVoxelCoord)
+        // ボクセル座標が有効な場合、テクスチャ抽出を実行
+        if (enableTextureExtraction && voxelX >= 0 && voxelY >= 0 && voxelZ >= 0 &&
+            voxelX < voxelsPerBlock && voxelY < voxelsPerBlock && voxelZ < voxelsPerBlock)
         {
-            ApplyVoxelTextureToDroppedItem(item, data, useTexture1, voxelX, voxelY, voxelZ, voxelsPerBlock, textureExtractor);
+            ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ);
         }
         else
         {
-            ApplyDefaultMaterial(item, data);
+            // テクスチャ抽出が無効または座標が無効な場合、デフォルトマテリアルを適用
+            ApplyDefaultMaterial(item);
         }
 
+        // Rigidbodyが無い場合は追加
         Rigidbody itemRigidbody = item.GetComponent<Rigidbody>();
         if (itemRigidbody == null)
         {
             itemRigidbody = item.AddComponent<Rigidbody>();
         }
 
+        // 質量を設定
         float volume = Mathf.Pow(voxelWorldSize, 3);
         itemRigidbody.mass = volume * data.density;
+
+        // 移動モードに応じてRigidbodyのConstraintを設定
         SetDroppedItemConstraints(itemRigidbody);
 
+        // DroppedItemコンポーネントの処理
         DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
-            droppedItemComponent.ResetSolidificationState();
-            droppedItemComponent.resourceType = data.resourceType;
-            droppedItemComponent.blockDataName = data.name;
-            droppedItemComponent.scale = item.transform.localScale;
+            droppedItemComponent.resourceType = data.resourceType; // ResourceTypeを設定
+            droppedItemComponent.blockDataName = data.name; // BlockData名を保存
+            droppedItemComponent.scale = item.transform.localScale; // スケールを保存
             droppedItemComponent.enabled = !data.disableRotation;
         }
 
+        // タグが設定されていない場合は設定
         if (!item.CompareTag("DroppedItem"))
         {
             item.tag = "DroppedItem";
         }
     }
 
-    private static void ApplyVoxelTextureToDroppedItem(GameObject item, BlockData data, bool useTexture1, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock, VoxelTextureExtractor textureExtractor)
+    /// <summary>
+    /// ドロップアイテムにボクセルテクスチャを適用
+    /// </summary>
+    private void ApplyVoxelTextureToDroppedItem(GameObject item, int voxelX, int voxelY, int voxelZ)
     {
-        Texture2D sourceTexture1 = (data.textures != null && data.textures.Count > 0) ? data.textures[0] : null;
-        Texture2D sourceTexture2 = (data.textures != null && data.textures.Count > 1) ? data.textures[1] : null;
-
-        textureExtractor.ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ,
-            sourceTexture1, sourceTexture2, useTexture1, voxelsPerBlock);
+        if (textureExtractor != null)
+        {
+            textureExtractor.ApplyVoxelTextureToDroppedItem(item, voxelX, voxelY, voxelZ, 
+                texture1, texture2, useTexture1Pattern, voxelsPerBlock);
+        }
     }
 
-    private static void ApplyDefaultMaterial(GameObject item, BlockData data)
+    /// <summary>
+    /// デフォルトマテリアルを適用
+    /// </summary>
+    private void ApplyDefaultMaterial(GameObject item)
     {
         var itemRenderer = item.GetComponent<Renderer>();
-        if (itemRenderer == null) return;
-
-        var material = new Material(Shader.Find("Custom/Default"));
-        material.renderQueue = RenderQueue.Geometry;
-        material.color = data != null ? ResourceTypeUtility.GetResourceColor(data.resourceType) : Color.white;
-        itemRenderer.material = material;
+        if (itemRenderer != null)
+        {
+            var material = new Material(Shader.Find("Custom/Default"));
+            material.renderQueue = RenderQueue.Geometry;
+            material.color = Color.white; // Unlitなのでテクスチャの色をそのまま出すために白に
+            itemRenderer.material = material;
+        }
     }
 
-    private static void SetDroppedItemConstraints(Rigidbody itemRigidbody)
+    /// <summary>
+    /// ドロップアイテムのRigidbodyに移動モードに応じた制約を設定
+    /// </summary>
+    private void SetDroppedItemConstraints(Rigidbody itemRigidbody)
     {
         if (itemRigidbody == null) return;
 
+        // 現在の移動モードを取得
         PlayerController.MoveMode currentMoveMode = GetCurrentMoveMode();
 
+        // 移動モードに応じて制約を設定
         switch (currentMoveMode)
         {
             case PlayerController.MoveMode.SideScroller:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ |
-                                            RigidbodyConstraints.FreezeRotationX |
-                                            RigidbodyConstraints.FreezeRotationY;
+                // SideScrollerモード: XY平面のみ移動、Z軸は固定
+                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ | 
+                                          RigidbodyConstraints.FreezeRotationX | 
+                                          RigidbodyConstraints.FreezeRotationY;
                 break;
 
             case PlayerController.MoveMode.TopDown:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionY |
-                                            RigidbodyConstraints.FreezeRotationX |
-                                            RigidbodyConstraints.FreezeRotationZ;
+                // TopDownモード: XZ平面のみ移動、Y軸は固定
+                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionY | 
+                                          RigidbodyConstraints.FreezeRotationX | 
+                                          RigidbodyConstraints.FreezeRotationZ;
                 break;
 
             default:
+                // デフォルトは制約なし
                 itemRigidbody.constraints = RigidbodyConstraints.None;
                 break;
         }
     }
 
-    private static PlayerController.MoveMode GetCurrentMoveMode()
+    /// <summary>
+    /// 現在のゲームの移動モードを取得
+    /// </summary>
+    private PlayerController.MoveMode GetCurrentMoveMode()
     {
+        // プレイヤーオブジェクトを探してPlayerControllerから移動モードを取得
         PlayerController playerController = Object.FindFirstObjectByType<PlayerController>();
-        return playerController != null ? playerController.currentMoveMode : PlayerController.MoveMode.TopDown;
+        if (playerController != null)
+        {
+            return playerController.currentMoveMode;
+        }
+
+        // プレイヤーが見つからない場合はデフォルトでTopDownモードを返す
+        return PlayerController.MoveMode.TopDown;
     }
 }

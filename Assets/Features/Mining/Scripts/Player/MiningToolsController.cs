@@ -5,7 +5,6 @@ public class MiningToolsController : MonoBehaviour
 {
     [Header("掘削ツール設定")]
     [SerializeField] private List<MiningTool> usableMiningTools;
-    [SerializeField] private ToolInventory toolInventory;
     [SerializeField] private MiningTool _mainMiningTool;
     [SerializeField] private MiningTool _subMiningTool; // サブ用ツール
 
@@ -17,8 +16,7 @@ public class MiningToolsController : MonoBehaviour
     [SerializeField] private Transform toolMount;
 
     // Behaviour 駆動用キャッシュと参照
-    private readonly Dictionary<MiningTool, MiningToolBehaviour> _mainBehaviourCache = new Dictionary<MiningTool, MiningToolBehaviour>();
-    private readonly Dictionary<MiningTool, MiningToolBehaviour> _subBehaviourCache = new Dictionary<MiningTool, MiningToolBehaviour>();
+    private readonly Dictionary<MiningTool, MiningToolBehaviour> _behaviourCache = new Dictionary<MiningTool, MiningToolBehaviour>();
     private MiningToolBehaviour _mainBehaviour;
     private MiningToolBehaviour _subBehaviour;
 
@@ -29,129 +27,22 @@ public class MiningToolsController : MonoBehaviour
     // 外部参照用（読み取りのみ）
     public MiningTool mainMiningTool => _mainMiningTool;
     public MiningTool subMiningTool => _subMiningTool;
-    public ToolInventory ToolInventory => toolInventory;
 
     private PlayerController _playerController; // PlayerControllerへの参照
     private Vector3 _currentDirection = Vector3.right;
-    private bool isSubscribedToToolInventory;
-    private bool hasAwakened;
 
     private void OnEnable()
     {
         GameDataPersistenceManager.OnPurchasedItemsChanged += ApplyEnhancements;
-        if (hasAwakened)
-        {
-            SubscribeToToolInventory();
-        }
     }
 
     private void OnDisable()
     {
         GameDataPersistenceManager.OnPurchasedItemsChanged -= ApplyEnhancements;
-        UnsubscribeFromToolInventory();
-    }
-
-    private void ResolveToolInventory()
-    {
-        if (toolInventory != null)
-        {
-            return;
-        }
-
-        toolInventory = GetComponent<ToolInventory>();
-        if (toolInventory == null)
-        {
-            toolInventory = gameObject.AddComponent<ToolInventory>();
-        }
-    }
-
-    private void InitializeToolInventoryFromLegacySettings()
-    {
-        if (toolInventory == null)
-        {
-            return;
-        }
-
-        toolInventory.EnsureInitializedFromTools(BuildFallbackToolList(), _mainMiningTool, _subMiningTool);
-    }
-
-    private List<MiningTool> BuildFallbackToolList()
-    {
-        List<MiningTool> tools = new List<MiningTool>();
-
-        if (usableMiningTools != null)
-        {
-            foreach (MiningTool tool in usableMiningTools)
-            {
-                AddToolIfMissing(tools, tool);
-            }
-        }
-
-        AddToolIfMissing(tools, _mainMiningTool);
-        AddToolIfMissing(tools, _subMiningTool);
-
-        return tools;
-    }
-
-    private static void AddToolIfMissing(List<MiningTool> tools, MiningTool tool)
-    {
-        if (tool != null && !tools.Contains(tool))
-        {
-            tools.Add(tool);
-        }
-    }
-
-    private void SubscribeToToolInventory()
-    {
-        if (toolInventory == null || isSubscribedToToolInventory)
-        {
-            return;
-        }
-
-        toolInventory.OnSlotsChanged += HandleToolInventoryChanged;
-        toolInventory.OnRoleBindingsChanged += HandleToolInventoryChanged;
-        isSubscribedToToolInventory = true;
-    }
-
-    private void UnsubscribeFromToolInventory()
-    {
-        if (toolInventory == null || !isSubscribedToToolInventory)
-        {
-            return;
-        }
-
-        toolInventory.OnSlotsChanged -= HandleToolInventoryChanged;
-        toolInventory.OnRoleBindingsChanged -= HandleToolInventoryChanged;
-        isSubscribedToToolInventory = false;
-    }
-
-    private void HandleToolInventoryChanged()
-    {
-        ApplyEnhancements();
-        SyncEquippedToolsFromInventory();
-    }
-
-    private void SyncEquippedToolsFromInventory()
-    {
-        MiningTool mainTool = toolInventory != null ? toolInventory.MainTool : _mainMiningTool;
-        MiningTool subTool = toolInventory != null ? toolInventory.SubTool : _subMiningTool;
-
-        if (_mainMiningTool != mainTool || (_mainBehaviour == null && mainTool != null))
-        {
-            EquipMain(mainTool, this.gameObject);
-        }
-
-        if (_subMiningTool != subTool || (_subBehaviour == null && subTool != null))
-        {
-            EquipSub(subTool, this.gameObject);
-        }
     }
 
     private void Awake()
     {
-        ResolveToolInventory();
-        InitializeToolInventoryFromLegacySettings();
-
         ApplyEnhancements(); // 初期化時に適用
 
         if (toolMount == null) toolMount = this.transform;
@@ -195,9 +86,17 @@ public class MiningToolsController : MonoBehaviour
         }
 
         // 初期装備
-        SyncEquippedToolsFromInventory();
-        hasAwakened = true;
-        SubscribeToToolInventory();
+        if (_mainMiningTool == null && usableMiningTools != null && usableMiningTools.Count > 0)
+        {
+            _mainMiningTool = usableMiningTools[0];
+        }
+        if (_subMiningTool == null && usableMiningTools != null && usableMiningTools.Count > 1)
+        {
+            _subMiningTool = usableMiningTools[1];
+        }
+
+        if (_mainMiningTool != null) EquipMain(_mainMiningTool, this.gameObject);
+        if (_subMiningTool != null) EquipSub(_subMiningTool, this.gameObject, false);
     }
 
     /// <summary>
@@ -310,119 +209,24 @@ public class MiningToolsController : MonoBehaviour
     /// </summary>
     public void SetMainTool(MiningTool tool)
     {
-        if (toolInventory != null && !string.IsNullOrEmpty(toolInventory.MainSlotId) &&
-            toolInventory.SetSlotTool(toolInventory.MainSlotId, tool))
-        {
-            SyncEquippedToolsFromInventory();
-            return;
-        }
-
         EquipMain(tool, this.gameObject);
     }
 
     /// <summary>
     /// 外部からサブツールを切り替える API
     /// </summary>
-    public void SetSubTool(MiningTool tool)
+    public void SetSubTool(MiningTool tool, bool active = true)
     {
-        if (toolInventory != null && !string.IsNullOrEmpty(toolInventory.SubSlotId) &&
-            toolInventory.SetSlotTool(toolInventory.SubSlotId, tool))
-        {
-            SyncEquippedToolsFromInventory();
-            return;
-        }
-
-        EquipSub(tool, this.gameObject);
-    }
-
-    public bool BindMainSlot(string slotId)
-    {
-        bool bound = toolInventory != null && toolInventory.BindSlotToRole(slotId, ToolActionRole.Main);
-        if (bound)
-        {
-            SyncEquippedToolsFromInventory();
-        }
-
-        return bound;
-    }
-
-    public bool BindSubSlot(string slotId)
-    {
-        bool bound = toolInventory != null && toolInventory.BindSlotToRole(slotId, ToolActionRole.Sub);
-        if (bound)
-        {
-            SyncEquippedToolsFromInventory();
-        }
-
-        return bound;
-    }
-
-    public bool MoveToolSlot(string fromSlotId, string toSlotId, bool swapIfOccupied = true)
-    {
-        bool moved = toolInventory != null && toolInventory.MoveTool(fromSlotId, toSlotId, swapIfOccupied);
-        if (moved)
-        {
-            SyncEquippedToolsFromInventory();
-        }
-
-        return moved;
-    }
-
-    public bool SwapToolSlots(string firstSlotId, string secondSlotId)
-    {
-        bool swapped = toolInventory != null && toolInventory.SwapSlots(firstSlotId, secondSlotId);
-        if (swapped)
-        {
-            SyncEquippedToolsFromInventory();
-        }
-
-        return swapped;
-    }
-
-    public ToolSlot AddToolSlot(MiningTool tool = null)
-    {
-        if (toolInventory == null)
-        {
-            return null;
-        }
-
-        ToolSlot slot = toolInventory.AddSlot(tool);
-        ApplyEnhancements();
-        SyncEquippedToolsFromInventory();
-        return slot;
-    }
-
-    public bool RemoveToolSlot(string slotId)
-    {
-        bool removed = toolInventory != null && toolInventory.RemoveSlot(slotId);
-        if (removed)
-        {
-            ApplyEnhancements();
-            SyncEquippedToolsFromInventory();
-        }
-
-        return removed;
-    }
-
-    public bool ClearToolSlot(string slotId)
-    {
-        bool cleared = toolInventory != null && toolInventory.ClearSlot(slotId);
-        if (cleared)
-        {
-            ApplyEnhancements();
-            SyncEquippedToolsFromInventory();
-        }
-
-        return cleared;
+        EquipSub(tool, this.gameObject, active);
     }
 
     /// <summary>
     /// Behaviour を生成 or キャッシュから取得
     /// </summary>
-    private MiningToolBehaviour GetOrCreateBehaviour(MiningTool tool, Dictionary<MiningTool, MiningToolBehaviour> cache)
+    private MiningToolBehaviour GetOrCreateBehaviour(MiningTool tool)
     {
         if (tool == null) return null;
-        if (cache.TryGetValue(tool, out var cached) && cached != null)
+        if (_behaviourCache.TryGetValue(tool, out var cached) && cached != null)
         {
             return cached;
         }
@@ -432,7 +236,7 @@ public class MiningToolsController : MonoBehaviour
         {
             behaviour.gameObject.name = tool.name; // ツール名を設定
             behaviour.gameObject.SetActive(false);
-            cache[tool] = behaviour;
+            _behaviourCache[tool] = behaviour;
         }
         return behaviour;
     }
@@ -450,12 +254,11 @@ public class MiningToolsController : MonoBehaviour
         }
 
         _mainMiningTool = tool;
-        _mainBehaviour = GetOrCreateBehaviour(tool, _mainBehaviourCache);
+        _mainBehaviour = GetOrCreateBehaviour(tool);
         if (_mainBehaviour != null)
         {
             _mainBehaviour.SetToolAnimator(_mainBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _mainBehaviour.SetDigger(_mainDigger);  // MainDiggerを渡す
-            _mainBehaviour.SetRole(ToolActionRole.Main);
             _mainBehaviour.gameObject.SetActive(true);
             _mainBehaviour.OnEquip(user);
         }
@@ -469,9 +272,9 @@ public class MiningToolsController : MonoBehaviour
     }
 
     /// <summary>
-    /// サブ装備処理（Sub役割では Behaviour 自身が Use 中のみ表示する）
+    /// サブ装備処理（必要なら非表示で装備）
     /// </summary>
-    public void EquipSub(MiningTool tool, GameObject user)
+    public void EquipSub(MiningTool tool, GameObject user, bool active = true)
     {
         if (_subBehaviour != null)
         {
@@ -480,14 +283,14 @@ public class MiningToolsController : MonoBehaviour
         }
 
         _subMiningTool = tool;
-        _subBehaviour = GetOrCreateBehaviour(tool, _subBehaviourCache);
+        _subBehaviour = GetOrCreateBehaviour(tool);
         if (_subBehaviour != null)
         {
             _subBehaviour.SetToolAnimator(_subBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _subBehaviour.SetDigger(_subDigger);  // SubDiggerを渡す
-            _subBehaviour.SetRole(ToolActionRole.Sub);
-            _subBehaviour.gameObject.SetActive(true);
+            _subBehaviour.gameObject.SetActive(active);
             _subBehaviour.OnEquip(user);
+            if (!active) _subBehaviour.gameObject.SetActive(false);
         }
     }
 
@@ -495,28 +298,12 @@ public class MiningToolsController : MonoBehaviour
     // PlayerControllerから呼び出され、現在アクティブなツールのBehaviourに処理を中継する。
     // ↑ このセクションは不要になったため削除
 
-    private List<MiningTool> GetEnhancementTargetTools()
-    {
-        List<MiningTool> tools = BuildFallbackToolList();
-
-        if (toolInventory != null)
-        {
-            foreach (MiningTool tool in toolInventory.GetAllTools())
-            {
-                AddToolIfMissing(tools, tool);
-            }
-        }
-
-        return tools;
-    }
-
     public void ApplyEnhancements()
     {
-        List<MiningTool> enhancementTargets = GetEnhancementTargetTools();
-        if (enhancementTargets.Count == 0) return;
+        if (usableMiningTools == null) return;
 
         // 全ての利用可能なツールのステータスをリセット
-        foreach (var tool in enhancementTargets)
+        foreach (var tool in usableMiningTools)
         {
             if (tool.miningModule != null)
             {
@@ -536,7 +323,7 @@ public class MiningToolsController : MonoBehaviour
             {
                 // どのツールのステータスを強化するかを判断する必要がある
                 // ここでは、全ツールに対して適用を試みる
-                foreach (var tool in enhancementTargets)
+                foreach (var tool in usableMiningTools)
                 {
                     // Enhancementに設定されたTargetCategoryと現在のtool名が一致する場合のみ適用
                     if (enhancement.TargetCategory == tool.name && tool.miningModule != null)

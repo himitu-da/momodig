@@ -1,101 +1,41 @@
 using UnityEngine;
 
+/// <summary>
+/// ボクセルデータ構造
+/// </summary>
 [System.Serializable]
 public class Voxel
 {
-    public Vector3Int blockPosition;
-    public Vector3Int localPosition;
-    public Vector3 worldPosition;
-    public bool isActive;
-    public int health;
-    public int maxHealth;
-    public VoxelType voxelType;
-    public BlockData blockData;
-    public string blockDataName;
-    public ResourceType resourceType;
-    public bool useTexture1;
-    public float lastModifiedTime;
-
-    public Voxel(Vector3Int blockPos, Vector3Int localPos, Vector3 worldPos, int hp, VoxelType type, BlockData data = null, bool useTexture1 = true)
+    public Vector3Int blockPosition;     // 所属ブロック座標
+    public Vector3Int localPosition;    // ブロック内でのローカル座標
+    public Vector3 worldPosition;       // ワールド座標
+    public bool isActive;               // ボクセルがアクティブかどうか
+    public int health;                  // ボクセルの耐久値
+    public int maxHealth;               // ボクセルの最大耐久値
+    public VoxelType voxelType;         // ボクセルタイプ
+    public float lastModifiedTime;      // 最後に変更された時間
+    
+    public Voxel(Vector3Int blockPos, Vector3Int localPos, Vector3 worldPos, int hp, VoxelType type)
     {
         blockPosition = blockPos;
         localPosition = localPos;
         worldPosition = worldPos;
         isActive = true;
         health = hp;
-        maxHealth = hp;
+        maxHealth = hp; // 最大HPも初期HPと同じに設定
         voxelType = type;
-        this.useTexture1 = useTexture1;
-        SetBlockData(data);
-        lastModifiedTime = Time.time;
-    }
-
-    public void SetBlockData(BlockData data)
-    {
-        blockData = data;
-        blockDataName = data != null ? data.name : string.Empty;
-        resourceType = data != null ? data.resourceType : ResourceType.Stone;
-
-        if (data != null)
-        {
-            maxHealth = Mathf.Max(1, data.voxelHp);
-            health = Mathf.Clamp(health, 1, maxHealth);
-        }
-    }
-
-    public void ApplyCellData(VoxelCellData data, BlockData resolvedBlockData)
-    {
-        SetBlockData(resolvedBlockData);
-        blockDataName = !string.IsNullOrEmpty(data.blockDataName) ? data.blockDataName : blockDataName;
-        resourceType = data.resourceType;
-        isActive = data.isActive;
-        maxHealth = Mathf.Max(1, data.maxHealth);
-        health = Mathf.Clamp(data.health, 0, maxHealth);
-        useTexture1 = data.useTexture1;
         lastModifiedTime = Time.time;
     }
 }
 
-[System.Serializable]
-public struct VoxelCellData
-{
-    public Vector3Int blockPosition;
-    public Vector3Int localVoxelPosition;
-    public string blockDataName;
-    public ResourceType resourceType;
-    public int health;
-    public int maxHealth;
-    public bool isActive;
-    public bool useTexture1;
-
-    public VoxelCellData(Voxel voxel)
-    {
-        blockPosition = voxel.blockPosition;
-        localVoxelPosition = voxel.localPosition;
-        blockDataName = voxel.blockDataName;
-        resourceType = voxel.resourceType;
-        health = voxel.health;
-        maxHealth = voxel.maxHealth;
-        isActive = voxel.isActive;
-        useTexture1 = voxel.useTexture1;
-    }
-}
-
-[System.Serializable]
-public struct SolidifiedVoxelRecord
-{
-    public Vector3Int blockPosition;
-    public Vector3Int localVoxelPosition;
-    public string blockDataName;
-    public Vector3 worldPosition;
-    public float solidifiedTime;
-}
-
+/// <summary>
+/// ボクセルタイプ列挙型
+/// </summary>
 public enum VoxelType
 {
-    Standard,
-    Reinforced,
-    Fragile,
-    Unbreakable,
-    Special
+    Standard,      // 標準ボクセル
+    Reinforced,    // 強化ボクセル
+    Fragile,       // 脆弱ボクセル
+    Unbreakable,   // 破壊不能ボクセル
+    Special        // 特殊ボクセル
 }
