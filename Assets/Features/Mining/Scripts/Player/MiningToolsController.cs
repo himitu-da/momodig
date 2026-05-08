@@ -379,6 +379,43 @@ public class MiningToolsController : MonoBehaviour
         return swapped;
     }
 
+    public ToolSlot AddToolSlot(MiningTool tool = null)
+    {
+        if (toolInventory == null)
+        {
+            return null;
+        }
+
+        ToolSlot slot = toolInventory.AddSlot(tool);
+        ApplyEnhancements();
+        SyncEquippedToolsFromInventory();
+        return slot;
+    }
+
+    public bool RemoveToolSlot(string slotId)
+    {
+        bool removed = toolInventory != null && toolInventory.RemoveSlot(slotId);
+        if (removed)
+        {
+            ApplyEnhancements();
+            SyncEquippedToolsFromInventory();
+        }
+
+        return removed;
+    }
+
+    public bool ClearToolSlot(string slotId)
+    {
+        bool cleared = toolInventory != null && toolInventory.ClearSlot(slotId);
+        if (cleared)
+        {
+            ApplyEnhancements();
+            SyncEquippedToolsFromInventory();
+        }
+
+        return cleared;
+    }
+
     /// <summary>
     /// Behaviour を生成 or キャッシュから取得
     /// </summary>

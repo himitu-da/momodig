@@ -83,6 +83,34 @@ public class ToolInventoryUI : MonoBehaviour
         }
     }
 
+    public void AddEmptySlot()
+    {
+        if (toolsController != null)
+        {
+            toolsController.AddToolSlot();
+            selectedSlotId = string.Empty;
+            Rebuild();
+        }
+    }
+
+    public void ClearSlot(string slotId)
+    {
+        if (toolsController != null && toolsController.ClearToolSlot(slotId))
+        {
+            selectedSlotId = string.Empty;
+            Refresh();
+        }
+    }
+
+    public void RemoveSlot(string slotId)
+    {
+        if (toolsController != null && toolsController.RemoveToolSlot(slotId))
+        {
+            selectedSlotId = string.Empty;
+            Rebuild();
+        }
+    }
+
     public void Rebuild()
     {
         ResolveReferences();
@@ -102,7 +130,7 @@ public class ToolInventoryUI : MonoBehaviour
 
             ToolSlotUI view = Instantiate(slotPrefab, slotContainer);
             view.gameObject.SetActive(true);
-            view.Initialize(HandleSlotClicked, BindSlotToMain, BindSlotToSub);
+            view.Initialize(HandleSlotClicked, BindSlotToMain, BindSlotToSub, ClearSlot, RemoveSlot);
             slotViews.Add(view);
         }
 

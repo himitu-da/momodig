@@ -8,6 +8,8 @@ public class ToolSlotUI : MonoBehaviour
     [SerializeField] private Button slotButton;
     [SerializeField] private Button bindMainButton;
     [SerializeField] private Button bindSubButton;
+    [SerializeField] private Button clearButton;
+    [SerializeField] private Button removeButton;
     [SerializeField] private TMP_Text toolNameText;
     [SerializeField] private TMP_Text roleText;
     [SerializeField] private TMP_Text slotIdText;
@@ -19,15 +21,24 @@ public class ToolSlotUI : MonoBehaviour
     private Action<string> onSlotClicked;
     private Action<string> onBindMainClicked;
     private Action<string> onBindSubClicked;
+    private Action<string> onClearClicked;
+    private Action<string> onRemoveClicked;
     private string slotId;
 
     public string SlotId => slotId;
 
-    public void Initialize(Action<string> onSlotClicked, Action<string> onBindMainClicked, Action<string> onBindSubClicked)
+    public void Initialize(
+        Action<string> onSlotClicked,
+        Action<string> onBindMainClicked,
+        Action<string> onBindSubClicked,
+        Action<string> onClearClicked,
+        Action<string> onRemoveClicked)
     {
         this.onSlotClicked = onSlotClicked;
         this.onBindMainClicked = onBindMainClicked;
         this.onBindSubClicked = onBindSubClicked;
+        this.onClearClicked = onClearClicked;
+        this.onRemoveClicked = onRemoveClicked;
 
         if (slotButton == null)
         {
@@ -50,6 +61,18 @@ public class ToolSlotUI : MonoBehaviour
         {
             bindSubButton.onClick.RemoveListener(HandleBindSubClicked);
             bindSubButton.onClick.AddListener(HandleBindSubClicked);
+        }
+
+        if (clearButton != null)
+        {
+            clearButton.onClick.RemoveListener(HandleClearClicked);
+            clearButton.onClick.AddListener(HandleClearClicked);
+        }
+
+        if (removeButton != null)
+        {
+            removeButton.onClick.RemoveListener(HandleRemoveClicked);
+            removeButton.onClick.AddListener(HandleRemoveClicked);
         }
     }
 
@@ -108,6 +131,16 @@ public class ToolSlotUI : MonoBehaviour
     private void HandleBindSubClicked()
     {
         onBindSubClicked?.Invoke(slotId);
+    }
+
+    private void HandleClearClicked()
+    {
+        onClearClicked?.Invoke(slotId);
+    }
+
+    private void HandleRemoveClicked()
+    {
+        onRemoveClicked?.Invoke(slotId);
     }
 
     private static string BuildRoleText(bool isMainSlot, bool isSubSlot)

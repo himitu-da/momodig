@@ -51,6 +51,88 @@ public class ToolInventory : MonoBehaviour
     public MiningTool MainTool => GetToolInSlot(mainSlotId);
     public MiningTool SubTool => GetToolInSlot(subSlotId);
 
+    public ToolSlot AddSlot(MiningTool tool = null, string requestedSlotId = "")
+    {
+        EnsureSlotList();
+
+        string slotId = string.IsNullOrWhiteSpace(requestedSlotId)
+            ? BuildNextAvailableSlotId()
+            : requestedSlotId;
+
+        if (HasSlot(slotId))
+        {
+            slotId = BuildNextAvailableSlotId();
+        }
+
+        ToolSlot slot = new ToolSlot(slotId, tool);
+        slots.Add(slot);
+
+        bool rolesChanged = EnsureRoleBindings(null, null);
+        SaveToGameData();
+        OnSlotsChanged?.Invoke();
+        if (rolesChanged)
+        {
+            OnRoleBindingsChanged?.Invoke();
+        }
+
+        return slot;
+    }
+
+    public bool RemoveSlot(string slotId)
+    {
+        ToolSlot slot = FindSlot(slotId);
+        if (slot == null)
+        {
+            return false;
+        }
+
+        bool wasMainSlot = mainSlotId == slotId;
+        bool wasSubSlot = subSlotId == slotId;
+        slots.Remove(slot);
+
+        if (wasMainSlot)
+        {
+            mainSlotId = FindFirstSlotIdExcept(subSlotId);
+            if (string.IsNullOrEmpty(mainSlotId))
+            {
+                mainSlotId = slots.Count > 0 ? slots[0].SlotId : string.Empty;
+            }
+        }
+
+        if (wasSubSlot)
+        {
+            subSlotId = FindFirstSlotIdExcept(mainSlotId);
+            if (string.IsNullOrEmpty(subSlotId))
+            {
+                subSlotId = slots.Count > 0 ? slots[0].SlotId : string.Empty;
+            }
+        }
+
+        bool rolesChanged = wasMainSlot || wasSubSlot || EnsureRoleBindings(null, null);
+        SaveToGameData();
+        OnSlotsChanged?.Invoke();
+        if (rolesChanged)
+        {
+            OnRoleBindingsChanged?.Invoke();
+        }
+
+        return true;
+    }
+
+    public bool ClearSlot(string slotId)
+    {
+        ToolSlot slot = FindSlot(slotId);
+        if (slot == null || slot.Tool == null)
+        {
+            return false;
+        }
+
+        slot.SetTool(null);
+        SaveToGameData();
+        OnSlotsChanged?.Invoke();
+        return true;
+    }
+
     public void EnsureInitializedFromTools(IList<MiningTool> tools, MiningTool preferredMainTool, MiningTool preferredSubTool)
     {
         EnsureSlotList();
