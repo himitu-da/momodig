@@ -42,6 +42,8 @@ public abstract class MiningTool : ScriptableObject
     [SerializeField] private List<MaterialSound> materialSounds;
 
     public GameObject ToolPrefab => toolPrefab;
+    public string ToolName => string.IsNullOrEmpty(toolName) ? name : toolName;
+    public Sprite ToolIcon => toolIcon;
     public int ToolTypeID => toolTypeID;
     public string AnimationTriggerName => animationTriggerName;
     public string AnimationStateName => animationStateName;
