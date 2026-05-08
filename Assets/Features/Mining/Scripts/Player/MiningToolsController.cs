@@ -143,7 +143,7 @@ public class MiningToolsController : MonoBehaviour
 
         if (_subMiningTool != subTool || (_subBehaviour == null && subTool != null))
         {
-            EquipSub(subTool, this.gameObject, false);
+            EquipSub(subTool, this.gameObject);
         }
     }
 
@@ -323,7 +323,7 @@ public class MiningToolsController : MonoBehaviour
     /// <summary>
     /// 外部からサブツールを切り替える API
     /// </summary>
-    public void SetSubTool(MiningTool tool, bool active = true)
+    public void SetSubTool(MiningTool tool)
     {
         if (toolInventory != null && !string.IsNullOrEmpty(toolInventory.SubSlotId) &&
             toolInventory.SetSlotTool(toolInventory.SubSlotId, tool))
@@ -332,7 +332,7 @@ public class MiningToolsController : MonoBehaviour
             return;
         }
 
-        EquipSub(tool, this.gameObject, active);
+        EquipSub(tool, this.gameObject);
     }
 
     public bool BindMainSlot(string slotId)
@@ -431,25 +431,10 @@ public class MiningToolsController : MonoBehaviour
         if (behaviour != null)
         {
             behaviour.gameObject.name = tool.name; // ツール名を設定
-            SetBehaviourVisible(behaviour, false);
             behaviour.gameObject.SetActive(false);
             cache[tool] = behaviour;
         }
         return behaviour;
-    }
-
-    private static void SetBehaviourVisible(MiningToolBehaviour behaviour, bool visible)
-    {
-        if (behaviour == null)
-        {
-            return;
-        }
-
-        Renderer[] renderers = behaviour.GetComponentsInChildren<Renderer>(true);
-        foreach (Renderer renderer in renderers)
-        {
-            renderer.enabled = visible;
-        }
     }
 
     /// <summary>
@@ -461,7 +446,6 @@ public class MiningToolsController : MonoBehaviour
         if (_mainBehaviour != null)
         {
             _mainBehaviour.OnUnequip();
-            SetBehaviourVisible(_mainBehaviour, false);
             _mainBehaviour.gameObject.SetActive(false);
         }
 
@@ -471,8 +455,8 @@ public class MiningToolsController : MonoBehaviour
         {
             _mainBehaviour.SetToolAnimator(_mainBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _mainBehaviour.SetDigger(_mainDigger);  // MainDiggerを渡す
+            _mainBehaviour.SetRole(ToolActionRole.Main);
             _mainBehaviour.gameObject.SetActive(true);
-            SetBehaviourVisible(_mainBehaviour, true);
             _mainBehaviour.OnEquip(user);
         }
 
@@ -485,14 +469,13 @@ public class MiningToolsController : MonoBehaviour
     }
 
     /// <summary>
-    /// サブ装備処理（必要なら非表示で装備）
+    /// サブ装備処理（Sub役割では Behaviour 自身が Use 中のみ表示する）
     /// </summary>
-    public void EquipSub(MiningTool tool, GameObject user, bool active = true)
+    public void EquipSub(MiningTool tool, GameObject user)
     {
         if (_subBehaviour != null)
         {
             _subBehaviour.OnUnequip();
-            SetBehaviourVisible(_subBehaviour, false);
             _subBehaviour.gameObject.SetActive(false);
         }
 
@@ -502,8 +485,8 @@ public class MiningToolsController : MonoBehaviour
         {
             _subBehaviour.SetToolAnimator(_subBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _subBehaviour.SetDigger(_subDigger);  // SubDiggerを渡す
+            _subBehaviour.SetRole(ToolActionRole.Sub);
             _subBehaviour.gameObject.SetActive(true);
-            SetBehaviourVisible(_subBehaviour, active);
             _subBehaviour.OnEquip(user);
         }
     }

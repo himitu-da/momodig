@@ -2,6 +2,8 @@
 
 public class DynamiteToolBehaviour : MiningToolBehaviour
 {
+    [SerializeField] private float subUseDisplayDuration = 0.3f;
+
     private GameObject owner;
     private PlayerController playerController;
 
@@ -23,6 +25,11 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             Debug.LogWarning("DynamiteToolBehaviour: owner is null.");
             return;
         }
+
+        // Sub役割の場合、投擲モーションのあいだだけ手元のダイナマイトを表示する
+        BeginUseDisplay();
+        CancelInvoke(nameof(EndSubUseDisplay));
+        Invoke(nameof(EndSubUseDisplay), subUseDisplayDuration);
 
         // ToolData と Module が忁E��E
         if (ToolData.miningModule == null)
@@ -111,10 +118,15 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         rb.linearVelocity = velocity;
     }
 
-    public override void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
+    protected override void RenderForDirection(Vector3 direction, PlayerController.MoveMode moveMode)
     {
-        base.UpdateAim(direction, moveMode);
-        // Dynamite は特に Aim 反映不要E��忁E��ならここでUI等更新�E�E
+        // Dynamite は手元の見た目を方向に合わせる必要がない（投擲時に projectile が独立する）。
+        // Main 役割で使われた場合に備え、必要になったらここで向きを反映する。
+    }
+
+    private void EndSubUseDisplay()
+    {
+        EndUseDisplay();
     }
 
     private Vector3 ComputeQuantizedDirection(GameObject user, PlayerController pc, bool isTopDown)
