@@ -431,10 +431,25 @@ public class MiningToolsController : MonoBehaviour
         if (behaviour != null)
         {
             behaviour.gameObject.name = tool.name; // ツール名を設定
+            SetBehaviourVisible(behaviour, false);
             behaviour.gameObject.SetActive(false);
             cache[tool] = behaviour;
         }
         return behaviour;
+    }
+
+    private static void SetBehaviourVisible(MiningToolBehaviour behaviour, bool visible)
+    {
+        if (behaviour == null)
+        {
+            return;
+        }
+
+        Renderer[] renderers = behaviour.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer renderer in renderers)
+        {
+            renderer.enabled = visible;
+        }
     }
 
     /// <summary>
@@ -446,6 +461,7 @@ public class MiningToolsController : MonoBehaviour
         if (_mainBehaviour != null)
         {
             _mainBehaviour.OnUnequip();
+            SetBehaviourVisible(_mainBehaviour, false);
             _mainBehaviour.gameObject.SetActive(false);
         }
 
@@ -456,6 +472,7 @@ public class MiningToolsController : MonoBehaviour
             _mainBehaviour.SetToolAnimator(_mainBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _mainBehaviour.SetDigger(_mainDigger);  // MainDiggerを渡す
             _mainBehaviour.gameObject.SetActive(true);
+            SetBehaviourVisible(_mainBehaviour, true);
             _mainBehaviour.OnEquip(user);
         }
 
@@ -475,6 +492,7 @@ public class MiningToolsController : MonoBehaviour
         if (_subBehaviour != null)
         {
             _subBehaviour.OnUnequip();
+            SetBehaviourVisible(_subBehaviour, false);
             _subBehaviour.gameObject.SetActive(false);
         }
 
@@ -484,9 +502,9 @@ public class MiningToolsController : MonoBehaviour
         {
             _subBehaviour.SetToolAnimator(_subBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _subBehaviour.SetDigger(_subDigger);  // SubDiggerを渡す
-            _subBehaviour.gameObject.SetActive(active);
+            _subBehaviour.gameObject.SetActive(true);
+            SetBehaviourVisible(_subBehaviour, active);
             _subBehaviour.OnEquip(user);
-            if (!active) _subBehaviour.gameObject.SetActive(false);
         }
     }
 
