@@ -1,19 +1,16 @@
 using UnityEngine;
 
-public class PassageController : MonoBehaviour
+public class OverworldPassageController : MonoBehaviour
 {
     [Header("Transition")]
     [SerializeField] private float transitionSpeed = 0.5f;
     [SerializeField] private float requiredInputThreshold = 0.5f;
-    [SerializeField] private string destinationSceneName;
+    [SerializeField] private string destinationSceneName = "MiningScene";
     [SerializeField] private ChangeScene changeScene;
-    [SerializeField] private Vector3 travelOffset = new Vector3(0f, 3f, 0f);
+    [SerializeField] private Vector3 travelOffset = new Vector3(0f, -3f, 0f);
     [SerializeField] private Vector3 facingDirectionDuringTransition = Vector3.up;
 
-    [Header("References")]
-    [SerializeField] private MinecartManager minecartManager;
-
-    private PlayerController playerController;
+    private OverworldPlayerController playerController;
     private PlayerVisualsController playerVisualsController;
     private Transform playerTransform;
     private Collider playerCollider;
@@ -21,19 +18,9 @@ public class PassageController : MonoBehaviour
     private Vector3 initialPlayerScale;
     private float entryProgress;
     private bool isPlayerInside;
-    private bool hasTransferredItems;
 
     private void Awake()
     {
-        if (minecartManager == null)
-        {
-            minecartManager = FindFirstObjectByType<MinecartManager>();
-            if (minecartManager == null)
-            {
-                Debug.LogWarning("PassageController: MinecartManager was not found. Minecart resources will not be stored.");
-            }
-        }
-
         if (changeScene == null)
         {
             changeScene = FindFirstObjectByType<ChangeScene>();
@@ -47,7 +34,7 @@ public class PassageController : MonoBehaviour
             return;
         }
 
-        playerController = other.GetComponentInParent<PlayerController>();
+        playerController = other.GetComponentInParent<OverworldPlayerController>();
         if (playerController == null)
         {
             return;
@@ -68,7 +55,7 @@ public class PassageController : MonoBehaviour
             return;
         }
 
-        if (!playerController.IsInPassage)
+        if (!playerController.IsMovementLocked)
         {
             ClearState();
         }
@@ -83,9 +70,9 @@ public class PassageController : MonoBehaviour
 
         float verticalInput = playerController.MoveInput.y;
 
-        if (!playerController.IsInPassage)
+        if (!playerController.IsMovementLocked)
         {
-            if (verticalInput <= requiredInputThreshold)
+            if (verticalInput >= -requiredInputThreshold)
             {
                 return;
             }
@@ -93,18 +80,18 @@ public class PassageController : MonoBehaviour
             StartPassage();
         }
 
-        entryProgress += verticalInput * transitionSpeed * Time.deltaTime;
+        entryProgress += -verticalInput * transitionSpeed * Time.deltaTime;
         entryProgress = Mathf.Clamp01(entryProgress);
 
         UpdateVisuals();
 
-        if (verticalInput < 0f && Mathf.Approximately(entryProgress, 0f))
+        if (verticalInput > 0f && Mathf.Approximately(entryProgress, 0f))
         {
             ResetState();
             return;
         }
 
-        if (entryProgress >= 1f && !hasTransferredItems)
+        if (entryProgress >= 1f)
         {
             CompletePassage();
         }
@@ -112,7 +99,7 @@ public class PassageController : MonoBehaviour
 
     private void StartPassage()
     {
-        playerController.IsInPassage = true;
+        playerController.IsMovementLocked = true;
 
         if (playerCollider != null)
         {
@@ -123,16 +110,13 @@ public class PassageController : MonoBehaviour
 
     private void CompletePassage()
     {
-        TransferAllItemsToStorage();
-        hasTransferredItems = true;
-
         if (changeScene != null && !string.IsNullOrEmpty(destinationSceneName))
         {
             changeScene.OnClickToChangeScene(destinationSceneName);
         }
         else
         {
-            Debug.LogWarning("PassageController: ChangeScene or destination scene is not configured.");
+            Debug.LogWarning("OverworldPassageController: ChangeScene or destination scene is not configured.");
         }
 
         enabled = false;
@@ -156,7 +140,7 @@ public class PassageController : MonoBehaviour
     {
         if (playerController != null)
         {
-            playerController.IsInPassage = false;
+            playerController.IsMovementLocked = false;
         }
 
         if (playerCollider != null)
@@ -176,7 +160,6 @@ public class PassageController : MonoBehaviour
         playerCollider = null;
         entryProgress = 0f;
         isPlayerInside = false;
-        hasTransferredItems = false;
     }
 
     private void ClearState()
@@ -187,7 +170,6 @@ public class PassageController : MonoBehaviour
         playerCollider = null;
         entryProgress = 0f;
         isPlayerInside = false;
-        hasTransferredItems = false;
     }
 
     private Collider ResolvePlayerCollider(Transform playerRoot, Collider triggerCollider)
@@ -218,59 +200,5 @@ public class PassageController : MonoBehaviour
         }
 
         return null;
-    }
-
-    private void TransferAllItemsToStorage()
-    {
-        if (playerController == null)
-        {
-            Debug.LogWarning("PassageController: PlayerController is null. Item transfer was skipped.");
-            return;
-        }
-
-        StorageManager storageManager = StorageManager.Instance;
-        if (storageManager == null)
-        {
-            Debug.LogError("PassageController: StorageManager was not found.");
-            return;
-        }
-
-        var playerResources = playerController.Inventory.GetAllResources();
-        foreach (var resource in playerResources)
-        {
-            if (resource.Value > 0)
-            {
-                storageManager.AddResource(resource.Key, resource.Value);
-            }
-        }
-
-        foreach (var resource in playerResources)
-        {
-            if (resource.Value > 0)
-            {
-                playerController.Inventory.RemoveResource(resource.Key, resource.Value);
-            }
-        }
-
-        if (minecartManager != null && minecartManager.minecarts != null)
-        {
-            foreach (var minecart in minecartManager.minecarts)
-            {
-                if (minecart == null || minecart.resources == null)
-                {
-                    continue;
-                }
-
-                foreach (var resource in minecart.resources)
-                {
-                    if (resource.Value > 0)
-                    {
-                        storageManager.AddResource(resource.Key, resource.Value);
-                    }
-                }
-
-                minecart.ClearResources();
-            }
-        }
     }
 }

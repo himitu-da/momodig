@@ -2959,6 +2959,8 @@ MonoBehaviour:
   requiredInputThreshold: 0.5
   destinationSceneName: OverWorldScene
   changeScene: {fileID: 168293942}
+  travelOffset: {x: 0, y: 3, z: 0}
+  facingDirectionDuringTransition: {x: 0, y: 1, z: 0}
   minecartManager: {fileID: 0}
 --- !u!65 &1700130094
 BoxCollider:
