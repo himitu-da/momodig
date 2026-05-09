@@ -20,12 +20,17 @@ public class PassageController : MonoBehaviour
 
     private PlayerController playerController;
     private Transform playerTransform;
+    private Rigidbody playerRigidbody;
+    private Collider[] playerCollisionColliders;
+    private bool[] playerCollisionColliderEnabledStates;
     private bool isPlayerInside;
     private bool isPassageActive;
     private bool hasTransferredItems;
     private float transitionStartY;
     private float transitionTargetY;
     private float transitionDirection;
+    private float passageMinX;
+    private float passageMaxX;
     private readonly PassageStencilMaskSession passageMaskSession = new PassageStencilMaskSession();
 
     private void Awake()
@@ -65,6 +70,7 @@ public class PassageController : MonoBehaviour
 
         isPlayerInside = true;
         playerTransform = playerController.transform;
+        playerRigidbody = playerController.GetComponent<Rigidbody>();
     }
 
     private void OnTriggerExit(Collider other)
@@ -115,6 +121,8 @@ public class PassageController : MonoBehaviour
         transitionDirection = requiredDirection;
         transitionStartY = playerTransform.position.y;
         transitionTargetY = transform.position.y + travelOffset.y;
+        CapturePassageBounds();
+        DisablePlayerCollision();
 
         if ((transitionTargetY - transitionStartY) * transitionDirection <= 0f)
         {
@@ -131,6 +139,11 @@ public class PassageController : MonoBehaviour
     {
         passageMaskSession.Render();
 
+        if (!ConstrainPassageMovement())
+        {
+            return;
+        }
+
         if (HasReachedTransitionTarget() && !hasTransferredItems)
         {
             CompletePassage();
@@ -141,6 +154,147 @@ public class PassageController : MonoBehaviour
         {
             ResetState();
         }
+    }
+
+    private void CapturePassageBounds()
+    {
+        Bounds bounds;
+        Collider passageCollider = GetComponent<Collider>();
+        if (passageCollider != null)
+        {
+            bounds = passageCollider.bounds;
+        }
+        else if (passageMaskRenderer != null)
+        {
+            bounds = passageMaskRenderer.bounds;
+        }
+        else
+        {
+            bounds = new Bounds(transform.position, new Vector3(1f, 1f, 1f));
+        }
+
+        passageMinX = bounds.min.x;
+        passageMaxX = bounds.max.x;
+        if (passageMinX > passageMaxX)
+        {
+            float swap = passageMinX;
+            passageMinX = passageMaxX;
+            passageMaxX = swap;
+        }
+    }
+
+    private void DisablePlayerCollision()
+    {
+        if (playerTransform == null)
+        {
+            return;
+        }
+
+        playerCollisionColliders = playerTransform.GetComponentsInChildren<Collider>(true);
+        playerCollisionColliderEnabledStates = new bool[playerCollisionColliders.Length];
+
+        for (int i = 0; i < playerCollisionColliders.Length; i++)
+        {
+            Collider playerCollider = playerCollisionColliders[i];
+            if (playerCollider == null)
+            {
+                continue;
+            }
+
+            playerCollisionColliderEnabledStates[i] = playerCollider.enabled;
+            if (!playerCollider.isTrigger)
+            {
+                playerCollider.enabled = false;
+            }
+        }
+    }
+
+    private void RestorePlayerCollision()
+    {
+        if (playerCollisionColliders != null && playerCollisionColliderEnabledStates != null)
+        {
+            int count = Mathf.Min(playerCollisionColliders.Length, playerCollisionColliderEnabledStates.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (playerCollisionColliders[i] != null)
+                {
+                    playerCollisionColliders[i].enabled = playerCollisionColliderEnabledStates[i];
+                }
+            }
+        }
+
+        playerCollisionColliders = null;
+        playerCollisionColliderEnabledStates = null;
+    }
+
+    private bool ConstrainPassageMovement()
+    {
+        if (playerTransform == null)
+        {
+            return false;
+        }
+
+        Vector3 position = playerTransform.position;
+        if (position.x < passageMinX - cancelDistance || position.x > passageMaxX + cancelDistance)
+        {
+            ResetState();
+            return false;
+        }
+
+        bool clampedX = false;
+        if (position.x < passageMinX)
+        {
+            position.x = passageMinX;
+            clampedX = true;
+        }
+        else if (position.x > passageMaxX)
+        {
+            position.x = passageMaxX;
+            clampedX = true;
+        }
+
+        float returnDistance = (position.y - transitionStartY) * transitionDirection;
+        if (returnDistance < -cancelDistance)
+        {
+            ResetState();
+            return false;
+        }
+
+        bool clampedY = false;
+        if (returnDistance < 0f)
+        {
+            position.y = transitionStartY;
+            clampedY = true;
+        }
+
+        if (clampedX || clampedY)
+        {
+            playerTransform.position = position;
+            StopBlockedVelocity(clampedX, clampedY);
+        }
+
+        return true;
+    }
+
+    private void StopBlockedVelocity(bool stopX, bool stopY)
+    {
+        if (playerRigidbody == null)
+        {
+            return;
+        }
+
+        Vector3 velocity = playerRigidbody.linearVelocity;
+        if (stopX)
+        {
+            velocity.x = 0f;
+        }
+
+        if (stopY)
+        {
+            velocity.y = 0f;
+        }
+
+        playerRigidbody.linearVelocity = velocity;
     }
 
     private void CompletePassage()
@@ -191,12 +345,16 @@ public class PassageController : MonoBehaviour
 
         playerController = null;
         playerTransform = null;
+        playerRigidbody = null;
         isPlayerInside = false;
         isPassageActive = false;
         hasTransferredItems = false;
         transitionStartY = 0f;
         transitionTargetY = 0f;
         transitionDirection = 0f;
+        passageMinX = 0f;
+        passageMaxX = 0f;
+        RestorePlayerCollision();
         passageMaskSession.End();
     }
 
@@ -204,12 +362,16 @@ public class PassageController : MonoBehaviour
     {
         playerController = null;
         playerTransform = null;
+        playerRigidbody = null;
         isPlayerInside = false;
         isPassageActive = false;
         hasTransferredItems = false;
         transitionStartY = 0f;
         transitionTargetY = 0f;
         transitionDirection = 0f;
+        passageMinX = 0f;
+        passageMaxX = 0f;
+        RestorePlayerCollision();
         passageMaskSession.End();
     }
 
@@ -220,6 +382,7 @@ public class PassageController : MonoBehaviour
             playerController.IsInPassage = false;
         }
 
+        RestorePlayerCollision();
         passageMaskSession.End();
     }
 
