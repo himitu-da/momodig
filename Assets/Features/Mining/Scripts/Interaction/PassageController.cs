@@ -3,12 +3,11 @@ using UnityEngine;
 public class PassageController : MonoBehaviour
 {
     [Header("Transition")]
-    [SerializeField] private float transitionSpeed = 0.5f;
     [SerializeField] private float requiredInputThreshold = 0.5f;
+    [SerializeField] private float cancelDistance = 0.2f;
     [SerializeField] private string destinationSceneName;
     [SerializeField] private ChangeScene changeScene;
     [SerializeField] private Vector3 travelOffset = new Vector3(0f, 3f, 0f);
-    [SerializeField] private Vector3 facingDirectionDuringTransition = Vector3.up;
 
     [Header("Passage Stencil Mask")]
     [SerializeField] private bool maskPlayerWithPassageRenderer = true;
@@ -20,14 +19,13 @@ public class PassageController : MonoBehaviour
     [SerializeField] private MinecartManager minecartManager;
 
     private PlayerController playerController;
-    private PlayerVisualsController playerVisualsController;
     private Transform playerTransform;
-    private Collider playerCollider;
-    private Vector3 initialPlayerPosition;
-    private Vector3 initialPlayerScale;
-    private float entryProgress;
     private bool isPlayerInside;
+    private bool isPassageActive;
     private bool hasTransferredItems;
+    private float transitionStartY;
+    private float transitionTargetY;
+    private float transitionDirection;
     private readonly PassageStencilMaskSession passageMaskSession = new PassageStencilMaskSession();
 
     private void Awake()
@@ -67,10 +65,6 @@ public class PassageController : MonoBehaviour
 
         isPlayerInside = true;
         playerTransform = playerController.transform;
-        playerVisualsController = playerController.GetComponentInChildren<PlayerVisualsController>();
-        initialPlayerPosition = playerTransform.position;
-        initialPlayerScale = playerTransform.localScale;
-        playerCollider = ResolvePlayerCollider(playerController.transform, other);
     }
 
     private void OnTriggerExit(Collider other)
@@ -80,7 +74,7 @@ public class PassageController : MonoBehaviour
             return;
         }
 
-        if (!playerController.IsInPassage)
+        if (!isPassageActive)
         {
             ClearState();
         }
@@ -95,45 +89,57 @@ public class PassageController : MonoBehaviour
 
         float verticalInput = playerController.MoveInput.y;
 
-        if (!playerController.IsInPassage)
+        if (!isPassageActive)
         {
-            if (verticalInput <= requiredInputThreshold)
+            float requiredDirection = GetTransitionDirection();
+            if (verticalInput * requiredDirection < requiredInputThreshold)
             {
                 return;
             }
 
-            StartPassage();
+            StartPassage(requiredDirection);
         }
 
-        entryProgress += verticalInput * transitionSpeed * Time.deltaTime;
-        entryProgress = Mathf.Clamp01(entryProgress);
+        UpdatePassage();
+    }
 
-        UpdateVisuals();
-
-        if (verticalInput < 0f && Mathf.Approximately(entryProgress, 0f))
+    private void StartPassage(float requiredDirection)
+    {
+        if (playerTransform == null)
         {
-            ResetState();
             return;
         }
 
-        if (entryProgress >= 1f && !hasTransferredItems)
-        {
-            CompletePassage();
-        }
-    }
-
-    private void StartPassage()
-    {
         playerController.IsInPassage = true;
+        isPassageActive = true;
+        transitionDirection = requiredDirection;
+        transitionStartY = playerTransform.position.y;
+        transitionTargetY = transform.position.y + travelOffset.y;
 
-        if (playerCollider != null)
+        if ((transitionTargetY - transitionStartY) * transitionDirection <= 0f)
         {
-            playerCollider.enabled = false;
+            transitionTargetY = transitionStartY + travelOffset.y;
         }
 
         if (maskPlayerWithPassageRenderer)
         {
             passageMaskSession.Begin(passageMaskRenderer, playerTransform, stencilMaskWriterMaterial, maskedPlayerMaterial);
+        }
+    }
+
+    private void UpdatePassage()
+    {
+        passageMaskSession.Render();
+
+        if (HasReachedTransitionTarget() && !hasTransferredItems)
+        {
+            CompletePassage();
+            return;
+        }
+
+        if (HasReturnedPastStart())
+        {
+            ResetState();
         }
     }
 
@@ -154,20 +160,26 @@ public class PassageController : MonoBehaviour
         enabled = false;
     }
 
-    private void UpdateVisuals()
+    private float GetTransitionDirection()
     {
-        if (playerTransform != null)
+        if (Mathf.Approximately(travelOffset.y, 0f))
         {
-            playerTransform.position = Vector3.Lerp(initialPlayerPosition, initialPlayerPosition + travelOffset, entryProgress);
-            playerTransform.localScale = initialPlayerScale;
+            return 1f;
         }
 
-        if (playerVisualsController != null)
-        {
-            playerVisualsController.UpdateMovementAnimation(facingDirectionDuringTransition);
-        }
+        return Mathf.Sign(travelOffset.y);
+    }
 
-        passageMaskSession.Render();
+    private bool HasReachedTransitionTarget()
+    {
+        return playerTransform != null
+            && (playerTransform.position.y - transitionTargetY) * transitionDirection >= 0f;
+    }
+
+    private bool HasReturnedPastStart()
+    {
+        return playerTransform != null
+            && (playerTransform.position.y - transitionStartY) * transitionDirection < -cancelDistance;
     }
 
     private void ResetState()
@@ -177,71 +189,38 @@ public class PassageController : MonoBehaviour
             playerController.IsInPassage = false;
         }
 
-        if (playerCollider != null)
-        {
-            playerCollider.enabled = true;
-        }
-
-        if (playerTransform != null)
-        {
-            playerTransform.position = initialPlayerPosition;
-            playerTransform.localScale = initialPlayerScale;
-        }
-
         playerController = null;
-        playerVisualsController = null;
         playerTransform = null;
-        playerCollider = null;
-        entryProgress = 0f;
         isPlayerInside = false;
+        isPassageActive = false;
         hasTransferredItems = false;
+        transitionStartY = 0f;
+        transitionTargetY = 0f;
+        transitionDirection = 0f;
         passageMaskSession.End();
     }
 
     private void ClearState()
     {
         playerController = null;
-        playerVisualsController = null;
         playerTransform = null;
-        playerCollider = null;
-        entryProgress = 0f;
         isPlayerInside = false;
+        isPassageActive = false;
         hasTransferredItems = false;
+        transitionStartY = 0f;
+        transitionTargetY = 0f;
+        transitionDirection = 0f;
+        passageMaskSession.End();
     }
 
     private void OnDisable()
     {
+        if (playerController != null)
+        {
+            playerController.IsInPassage = false;
+        }
+
         passageMaskSession.End();
-    }
-
-    private Collider ResolvePlayerCollider(Transform playerRoot, Collider triggerCollider)
-    {
-        Transform colliderTransform = playerRoot.Find("PlayerCollision");
-        if (colliderTransform == null)
-        {
-            colliderTransform = playerRoot.Find("PlayerCollider");
-        }
-
-        if (colliderTransform != null && colliderTransform.TryGetComponent(out Collider resolvedCollider))
-        {
-            return resolvedCollider;
-        }
-
-        if (triggerCollider != null && !triggerCollider.isTrigger)
-        {
-            return triggerCollider;
-        }
-
-        Collider[] colliders = playerRoot.GetComponentsInChildren<Collider>();
-        for (int i = 0; i < colliders.Length; i++)
-        {
-            if (colliders[i] != null && !colliders[i].isTrigger)
-            {
-                return colliders[i];
-            }
-        }
-
-        return null;
     }
 
     private void TransferAllItemsToStorage()

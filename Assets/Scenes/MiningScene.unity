@@ -2955,12 +2955,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c52b3627539ad314a805eefec2af347d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  transitionSpeed: 0.5
   requiredInputThreshold: 0.5
+  cancelDistance: 0.2
   destinationSceneName: OverWorldScene
   changeScene: {fileID: 168293942}
   travelOffset: {x: 0, y: 5, z: 0}
-  facingDirectionDuringTransition: {x: 0, y: 1.5, z: 0}
   maskPlayerWithPassageRenderer: 1
   passageMaskRenderer: {fileID: 1700130091}
   stencilMaskWriterMaterial: {fileID: 2100000, guid: 53f4b85f645840c49b0e26fa06eb9d6e, type: 2}

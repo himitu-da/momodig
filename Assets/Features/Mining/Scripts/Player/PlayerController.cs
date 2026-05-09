@@ -337,22 +337,15 @@ public class PlayerController : MonoBehaviour
         }
 
         // SmoothDampを使用して速度を滑らかに変化させる
-        // Passageに入っている間は移動を無効化
-        if (IsInPassage)
+        // Passage中も通常移動は維持し、採掘だけPassageController側で止める
+        Vector3 nextVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+        if (fluidResistance > 0f)
         {
-            rb.linearVelocity = Vector3.zero;
+            float dragFactor = 1f - Mathf.Exp(-fluidDrag * fluidResistance * Time.fixedDeltaTime);
+            nextVelocity = Vector3.Lerp(nextVelocity, targetVelocity, dragFactor);
         }
-        else
-        {
-            Vector3 nextVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
-            if (fluidResistance > 0f)
-            {
-                float dragFactor = 1f - Mathf.Exp(-fluidDrag * fluidResistance * Time.fixedDeltaTime);
-                nextVelocity = Vector3.Lerp(nextVelocity, targetVelocity, dragFactor);
-            }
 
-            rb.linearVelocity = nextVelocity;
-        }
+        rb.linearVelocity = nextVelocity;
 
         // 左右の入力があった場合、向きを更新
         if (moveInput.x != 0)
