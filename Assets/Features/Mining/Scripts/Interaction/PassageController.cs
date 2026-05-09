@@ -34,6 +34,7 @@ public class PassageController : MonoBehaviour
     private float transitionDirection;
     private float passageMinX;
     private float passageMaxX;
+    private bool isSceneTransitioning;
     private readonly PassageStencilMaskSession passageMaskSession = new PassageStencilMaskSession();
 
     private void Awake()
@@ -291,6 +292,7 @@ public class PassageController : MonoBehaviour
 
         if (changeScene != null && !string.IsNullOrEmpty(destinationSceneName))
         {
+            PrepareForSceneTransition();
             changeScene.OnClickToChangeScene(destinationSceneName);
         }
         else
@@ -391,6 +393,11 @@ public class PassageController : MonoBehaviour
 
     private void DeactivatePassage()
     {
+        if (isSceneTransitioning)
+        {
+            return;
+        }
+
         if (playerController != null)
         {
             playerController.IsInPassage = false;
@@ -420,6 +427,26 @@ public class PassageController : MonoBehaviour
     private void OnDisable()
     {
         DeactivatePassage();
+    }
+
+    private void PrepareForSceneTransition()
+    {
+        isSceneTransitioning = true;
+        RestorePlayerCollision();
+
+        if (playerTransform == null)
+        {
+            return;
+        }
+
+        Renderer[] renderers = playerTransform.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderers.Length; i++)
+        {
+            if (renderers[i] != null)
+            {
+                renderers[i].enabled = false;
+            }
+        }
     }
 
     private void TransferAllItemsToStorage()
