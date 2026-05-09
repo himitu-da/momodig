@@ -603,9 +603,7 @@ MonoBehaviour:
   followSpeed: 5
   useSmoothDamp: 0
   sideScrollerOffset: {x: 0, y: -1, z: -10}
-  topDownOffset: {x: 0, y: 10, z: 0}
   sideScrollerOrthographicSize: 6
-  topDownOrthographicSize: 6
   useDirectionalCameraInSideScroller: 1
   playerBaseViewportOffset: {x: 0, y: 0}
   maxPlayerViewportOffset: 0

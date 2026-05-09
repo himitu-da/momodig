@@ -1,4 +1,4 @@
-﻿using TMPro;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem; // Input Systemを使うために必要
@@ -15,8 +15,7 @@ public class PlayerController : MonoBehaviour
 
     public enum MoveMode
     {
-        SideScroller,
-        TopDown
+        SideScroller
     }
 
     [Header("移動設定")]
@@ -25,13 +24,13 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float deceleration = 0.2f; // 減速のスムーズさ
     [SerializeField] private float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
     [SerializeField] private float fallAcceleration = 1f; // 落下加速度
-    [SerializeField] private MoveMode _currentMoveMode;
+    [SerializeField] private MoveMode _currentMoveMode = MoveMode.SideScroller;
     public MoveMode currentMoveMode
     {
         get => _currentMoveMode;
         set
         {
-            _currentMoveMode = value;
+            _currentMoveMode = MoveMode.SideScroller;
             UpdateConstraints();
         }
     }
@@ -146,18 +145,10 @@ public class PlayerController : MonoBehaviour
         }
 
         ResolveFluidResistanceCollider();        
-        // プレイヤーの初期向きをX正方向に設定
-        if (currentMoveMode == MoveMode.SideScroller)
-        {
-            transform.rotation = Quaternion.identity; // X正方向を向く
-            lastMoveDirection = Vector3.right; // X正方向
-            IsFacingRight = true;
-        }
-        else // TopDown
-        {
-            transform.rotation = Quaternion.identity; // Z正方向を向く
-            lastMoveDirection = Vector3.forward; // Z正方向
-        }
+        _currentMoveMode = MoveMode.SideScroller;
+        transform.rotation = Quaternion.identity;
+        lastMoveDirection = Vector3.right;
+        IsFacingRight = true;
 
         controls = new InputSystem_Actions();
 
@@ -326,42 +317,29 @@ public class PlayerController : MonoBehaviour
         Vector3 moveDirection;
         Vector3 targetVelocity;
 
-        switch (currentMoveMode)
-        {
-            case MoveMode.SideScroller:
-                moveDirection = new Vector3(moveInput.x, moveInput.y, 0f);
+        moveDirection = new Vector3(moveInput.x, moveInput.y, 0f);
 
-                if (moveInput == Vector2.zero)
-                {
-                    // 無操作時は徐々に落下速度を上げる
-                    currentFallSpeed += fallAcceleration * Time.fixedDeltaTime;
-                    float maxFallSpeed = moveSpeed * fallSpeedMultiplier;
-                    currentFallSpeed = Mathf.Min(currentFallSpeed, maxFallSpeed);
-                    targetVelocity = new Vector3(0, -currentFallSpeed, 0);
-                }
-                else
-                {
-                    currentFallSpeed = 0f; // 操作中は落下速度をリセット
-                    if (moveInput.x != 0 && moveInput.y == 0)
-                    {
-                        // 左右のみの入力の場合は落下しない
-                        targetVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed;
-                    }
-                    else
-                    {
-                        // それ以外の入力（上下含む）
-                        targetVelocity = moveDirection.normalized * moveSpeed;
-                    }
-                }
-                break;
-            case MoveMode.TopDown:
-                moveDirection = new Vector3(moveInput.x, 0f, moveInput.y);
+        if (moveInput == Vector2.zero)
+        {
+            // 無操作時は徐々に落下速度を上げる
+            currentFallSpeed += fallAcceleration * Time.fixedDeltaTime;
+            float maxFallSpeed = moveSpeed * fallSpeedMultiplier;
+            currentFallSpeed = Mathf.Min(currentFallSpeed, maxFallSpeed);
+            targetVelocity = new Vector3(0, -currentFallSpeed, 0);
+        }
+        else
+        {
+            currentFallSpeed = 0f; // 操作中は落下速度をリセット
+            if (moveInput.x != 0 && moveInput.y == 0)
+            {
+                // 左右のみの入力の場合は落下しない
+                targetVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed;
+            }
+            else
+            {
+                // それ以外の入力（上下含む）
                 targetVelocity = moveDirection.normalized * moveSpeed;
-                break;
-            default:
-                moveDirection = Vector3.zero;
-                targetVelocity = Vector3.zero;
-                break;
+            }
         }
 
         // 慣性を適用する時間を決定
@@ -392,8 +370,8 @@ public class PlayerController : MonoBehaviour
             rb.linearVelocity = nextVelocity;
         }
 
-        // SideScrollerモードで左右の入力があった場合、向きを更新
-        if (currentMoveMode == MoveMode.SideScroller && moveInput.x != 0)
+        // 左右の入力があった場合、向きを更新
+        if (moveInput.x != 0)
         {
             IsFacingRight = moveInput.x > 0;
         }
@@ -405,22 +383,14 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // 入力がない（停止中）の扱い
-            if (currentMoveMode == MoveMode.SideScroller)
-            {
-                // 横スクでは停止中でも向きフラグに基づいて水平方向をlastMoveDirectionに反映
-                lastMoveDirection = new Vector3(IsFacingRight ? 1f : -1f, 0f, 0f);
-            }
-            else
-            {
-                // TopDownでは停止中は直前の向きを維持（何もしない）
-            }
+            // 停止中でも向きフラグに基づいて水平方向をlastMoveDirectionに反映
+            lastMoveDirection = new Vector3(IsFacingRight ? 1f : -1f, 0f, 0f);
         }
 
         // MiningToolsControllerに回転処理を委譲
         if (miningToolsController != null)
         {
-            miningToolsController.UpdateRotation(lastMoveDirection, currentMoveMode);
+            miningToolsController.UpdateRotation(lastMoveDirection, MoveMode.SideScroller);
         }
 
         // PlayerVisualsControllerに移動アニメーションの更新を委譲
@@ -792,17 +762,8 @@ public class PlayerController : MonoBehaviour
         // すべての物理的な回転を凍結
         rb.freezeRotation = true;
 
-        // MoveModeに応じてRigidbodyのConstraintsを設定
-        if (_currentMoveMode == MoveMode.SideScroller)
-        {
-            // Z位置を固定
-            rb.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
-        }
-        else // TopDown
-        {
-            // Y位置を固定
-            rb.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
-        }
+        _currentMoveMode = MoveMode.SideScroller;
+        rb.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
     }
     
     /// <summary>

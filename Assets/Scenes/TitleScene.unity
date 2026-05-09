@@ -152,9 +152,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b72d8998d07556445be5daed7dd44989, type: 2}
   tilePrefab: {fileID: 9132363438655162761, guid: 6aaa2e022b2659f4b86e63643fe95504, type: 3}
   tileSize: {x: 1, y: 1}
-  verticalSpeed: 0.2
-  horizontalAmplitude: 1
-  horizontalSpeed: 0.1
+  horizontalScrollSpeed: 0.2
+  verticalAmplitude: 1
+  verticalBobSpeed: 0.1
 --- !u!4 &171443322
 Transform:
   m_ObjectHideFlags: 0

@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -10,7 +10,6 @@ using UnityEngine.UI; // UIコンポ�Eネントを使用するために追加
 public enum TerrainGenerationType
 {
     SideScroller,    // XY平面�E�旧CubeSideScrollerPlacer置き換え！E
-    TopDown,         // XZ平面�E�旧CubeTopDownPlacer置き換え！E
     Custom          // カスタム�E�封E��の拡張用�E�E
 }
 

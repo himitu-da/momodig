@@ -271,19 +271,8 @@ public class MiningToolsController : MonoBehaviour
     /// </summary>
     private void UpdateToolRotation(Vector3 direction, PlayerController.MoveMode moveMode)
     {
-        Quaternion targetRotation;
-        if (moveMode == PlayerController.MoveMode.TopDown)
-        {
-            // TopDownモードの回転計算
-            float angle = Mathf.Atan2(-direction.z, direction.x) * Mathf.Rad2Deg;
-            targetRotation = Quaternion.AngleAxis(angle, Vector3.up);
-        }
-        else // SideScroller
-        {
-            // SideScrollerモードの回転計算
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-            targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
-        }
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        Quaternion targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
 
         // このオブジェクト（MiningTools）の向きを更新
         transform.rotation = targetRotation;

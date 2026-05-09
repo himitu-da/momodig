@@ -19,13 +19,13 @@ public class TitleBackgroundController : MonoBehaviour
 
     [Header("Animation Settings")]
     [Tooltip("タイルの上昇速度")]
-    public float verticalSpeed = 0.5f;
+    public float horizontalScrollSpeed = 0.5f;
 
     [Tooltip("左右の揺れの振幅")]
-    public float horizontalAmplitude = 0.2f;
+    public float verticalAmplitude = 0.2f;
 
     [Tooltip("左右の揺れの速さ")]
-    public float horizontalSpeed = 1.0f;
+    public float verticalBobSpeed = 1.0f;
 
     // 各タイルのアニメーション用情報を保持するクラス
     private class TileInfo
@@ -36,8 +36,8 @@ public class TitleBackgroundController : MonoBehaviour
 
     private List<TileInfo> tiles = new List<TileInfo>();
     private Camera mainCamera;
-    private float topBoundary;
-    private float wrapHeight;
+    private float rightBoundary;
+    private float wrapWidth;
 
     void Start()
     {
@@ -67,13 +67,12 @@ public class TitleBackgroundController : MonoBehaviour
 
         // ラッピング（画面外に出たタイルを反対側に移動させる）のための境界を計算
         float cameraHeight = mainCamera.orthographicSize * 2;
-        topBoundary = mainCamera.transform.position.y + mainCamera.orthographicSize + tileSize.y;
-        
-        // 画面を覆っているタイル全体の高さを計算
+        // 画面を覆っているタイル全体の幅を計算
         float screenAspect = (float)Screen.width / Screen.height;
         Vector2 cameraSize = new Vector2(cameraHeight * screenAspect, cameraHeight);
-        int tilesY = Mathf.CeilToInt(cameraSize.y / tileSize.y) + 2;
-        wrapHeight = tilesY * tileSize.y;
+        rightBoundary = mainCamera.transform.position.x + cameraSize.x * 0.5f + tileSize.x;
+        int tilesX = Mathf.CeilToInt(cameraSize.x / tileSize.x) + 2;
+        wrapWidth = tilesX * tileSize.x;
     }
 
     void Update()
@@ -145,20 +144,20 @@ public class TitleBackgroundController : MonoBehaviour
     {
         foreach (var tile in tiles)
         {
-            // 1. 新しいY座標を計算（上昇）
-            float newY = tile.transform.position.y + verticalSpeed * Time.deltaTime;
+            // 1. 新しいX座標を計算（右方向）
+            float newX = tile.transform.position.x + horizontalScrollSpeed * Time.deltaTime;
 
-            // 2. 新しいX座標を計算（左右の揺れ）
-            float horizontalOffset = Mathf.Sin(Time.time * horizontalSpeed) * horizontalAmplitude;
-            float newX = tile.initialPosition.x + horizontalOffset;
+            // 2. 新しいY座標を計算（上下の揺れ）
+            float verticalOffset = Mathf.Sin(Time.time * verticalBobSpeed) * verticalAmplitude;
+            float newY = tile.initialPosition.y + verticalOffset;
 
             // 3. 新しい座標を適用
             tile.transform.position = new Vector3(newX, newY, tile.initialPosition.z);
 
-            // 4. 画面の上端を超えたら、下端に移動させる（ラッピング）
-            if (tile.transform.position.y > topBoundary)
+            // 4. 画面の右端を超えたら、左端に移動させる（ラッピング）
+            if (tile.transform.position.x > rightBoundary)
             {
-                tile.transform.position -= new Vector3(0, wrapHeight, 0);
+                tile.transform.position -= new Vector3(wrapWidth, 0, 0);
             }
         }
     }

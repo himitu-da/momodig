@@ -15,13 +15,11 @@ public class CameraFollowController : MonoBehaviour
     [SerializeField] private float followSpeed = 5f;
     [SerializeField] private bool useSmoothDamp = false;
 
-    [Header("モード別オフセット（従来追従/TopDown）")]
+    [Header("モード別オフセット")]
     [SerializeField] private Vector3 sideScrollerOffset = new Vector3(0f, 2f, -10f);
-    [SerializeField] private Vector3 topDownOffset = new Vector3(0f, 10f, 0f);
 
     [Header("カメラサイズ設定")]
     [SerializeField] private float sideScrollerOrthographicSize = 5f;
-    [SerializeField] private float topDownOrthographicSize = 8f;
 
     [Header("SideScroller方向連動カメラ")]
     [Tooltip("SideScrollerで方向連動カメラを有効にする")]
@@ -118,7 +116,7 @@ public class CameraFollowController : MonoBehaviour
             OnMoveModeChanged();
         }
 
-        if (currentMode == PlayerController.MoveMode.SideScroller && useDirectionalCameraInSideScroller)
+        if (useDirectionalCameraInSideScroller)
         {
             UpdateSideScrollerDirectionalCamera();
             return;
@@ -144,7 +142,7 @@ public class CameraFollowController : MonoBehaviour
     }
 
     /// <summary>
-    /// TopDown時、または方向連動カメラが無効なときの従来追従処理。
+    /// 方向連動カメラが無効なときの従来追従処理。
     /// </summary>
     private void UpdateCameraPositionLegacy()
     {
@@ -153,20 +151,9 @@ public class CameraFollowController : MonoBehaviour
         Vector3 currentPos = mainCamera.transform.position;
         Vector3 newPosition = currentPos;
 
-        switch (currentMode)
-        {
-            case PlayerController.MoveMode.SideScroller:
-                newPosition.x = targetPosition.x;
-                newPosition.y = targetPosition.y;
-                newPosition.z = targetPosition.z;
-                break;
-
-            case PlayerController.MoveMode.TopDown:
-                newPosition.x = targetPosition.x;
-                newPosition.y = targetPosition.y;
-                newPosition.z = targetPosition.z;
-                break;
-        }
+        newPosition.x = targetPosition.x;
+        newPosition.y = targetPosition.y;
+        newPosition.z = targetPosition.z;
 
         ApplyPosition(newPosition);
     }
@@ -332,12 +319,7 @@ public class CameraFollowController : MonoBehaviour
 
     private Vector3 GetCurrentOffset()
     {
-        return currentMode switch
-        {
-            PlayerController.MoveMode.SideScroller => sideScrollerOffset,
-            PlayerController.MoveMode.TopDown => topDownOffset,
-            _ => Vector3.zero
-        };
+        return sideScrollerOffset;
     }
 
     private void OnMoveModeChanged()
@@ -353,19 +335,14 @@ public class CameraFollowController : MonoBehaviour
     {
         if (mainCamera == null) return;
 
-        float targetSize = currentMode switch
-        {
-            PlayerController.MoveMode.SideScroller => sideScrollerOrthographicSize,
-            PlayerController.MoveMode.TopDown => topDownOrthographicSize,
-            _ => 5f
-        };
+        float targetSize = sideScrollerOrthographicSize;
 
         if (mainCamera.orthographic)
         {
             mainCamera.orthographicSize = targetSize;
         }
 
-        if (currentMode == PlayerController.MoveMode.SideScroller && useDirectionalCameraInSideScroller)
+        if (useDirectionalCameraInSideScroller)
         {
             mainCamera.transform.rotation = BuildHorizonLeveledRotation(basePitchAngle, baseYawAngle);
             return;
@@ -395,14 +372,6 @@ public class CameraFollowController : MonoBehaviour
     /// </summary>
     public void SetOffset(PlayerController.MoveMode mode, Vector3 offset)
     {
-        switch (mode)
-        {
-            case PlayerController.MoveMode.SideScroller:
-                sideScrollerOffset = offset;
-                break;
-            case PlayerController.MoveMode.TopDown:
-                topDownOffset = offset;
-                break;
-        }
+        sideScrollerOffset = offset;
     }
 }

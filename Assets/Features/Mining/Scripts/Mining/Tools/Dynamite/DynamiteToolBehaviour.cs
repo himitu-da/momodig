@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class DynamiteToolBehaviour : MiningToolBehaviour
 {
@@ -54,23 +54,11 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
             return;
         }
 
-        bool isTopDown = playerController != null && playerController.currentMoveMode == PlayerController.MoveMode.TopDown;
-        Vector3 dir;
-        
-        if (isTopDown)
-        {
-            // TopDown: マウス方向への直接投封E��従来と同様！E
-            dir = ComputeQuantizedDirection(owner, playerController, isTopDown);
-        }
-        else
-        {
-            // SideScroller: マウス位置を目標とした放物運動
-            dir = ComputeBallisticDirection(owner, playerController);
-        }
+        Vector3 dir = ComputeBallisticDirection(owner, playerController);
         
         if (dir.sqrMagnitude < 0.0001f)
         {
-            dir = isTopDown ? new Vector3(1f, 0f, 0f) : new Vector3(1f, 0f, 0f);
+            dir = new Vector3(1f, 0f, 0f);
         }
 
         // プレイヤーの中忁E��置から発封E��EpawnDistanceを使わなぁE��E
@@ -83,36 +71,26 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
 
         var rb = go.GetComponent<Rigidbody>();
         if (rb == null) rb = go.AddComponent<Rigidbody>();
-        rb.useGravity = !isTopDown;
+        rb.useGravity = true;
 
-        Vector3 velocity;
-        if (isTopDown)
+        Vector3 startPos = owner.transform.position;
+        Vector3 targetPos = playerController != null ? playerController.GetMouseWorldPosition(10f) : startPos + dir.normalized * maxDistance;
+        targetPos.z = startPos.z;
+
+        float horizontalDistance = targetPos.x - startPos.x;
+        float verticalDistance = targetPos.y - startPos.y;
+
+        // 距離制限
+        float totalDistance = Mathf.Sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
+        if (totalDistance > maxDistance)
         {
-            // TopDown: 従来通りの直接速度設宁E
-            velocity = dir.normalized * force;
+            Vector3 throwDirection = (targetPos - startPos).normalized;
+            targetPos = startPos + throwDirection * maxDistance;
+            horizontalDistance = targetPos.x - startPos.x;
+            verticalDistance = targetPos.y - startPos.y;
         }
-        else
-        {
-            // SideScroller: 放物運動用の初速度を�E計箁E
-            Vector3 startPos = owner.transform.position;
-            Vector3 targetPos = playerController.GetMouseWorldPosition(10f);
-            targetPos.z = startPos.z; // Z座標を固宁E
-            
-            float horizontalDistance = targetPos.x - startPos.x;
-            float verticalDistance = targetPos.y - startPos.y;
-            
-            // 距離制陁E
-            float totalDistance = Mathf.Sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
-            if (totalDistance > maxDistance)
-            {
-                Vector3 throwDirection = (targetPos - startPos).normalized;
-                targetPos = startPos + throwDirection * maxDistance;
-                horizontalDistance = targetPos.x - startPos.x;
-                verticalDistance = targetPos.y - startPos.y;
-            }
-            
-            velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance, gravityValue);
-        }
+
+        Vector3 velocity = CalculateBallisticVelocity(horizontalDistance, verticalDistance, gravityValue);
 
         // プロジェクト�E Rigidbody 拡張: linearVelocity を使用
         rb.linearVelocity = velocity;
@@ -129,51 +107,6 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         EndUseDisplay();
     }
 
-    private Vector3 ComputeQuantizedDirection(GameObject user, PlayerController pc, bool isTopDown)
-    {
-        if (pc != null)
-        {
-            if (isTopDown)
-            {
-                // TopDown: XZ 平面
-                Vector2 base2 = new Vector2(pc.lastMoveDirection.x, pc.lastMoveDirection.z);
-                Vector2 q = Quantize8(base2);
-                if (q.sqrMagnitude < 0.5f)
-                {
-                    Vector3 fwd = user.transform.forward;
-                    q = Quantize8(new Vector2(fwd.x, fwd.z));
-                }
-                return new Vector3(q.x, 0f, q.y);
-            }
-            else
-            {
-                // SideScroller: XY 平面
-                Vector2 base2 = new Vector2(pc.lastMoveDirection.x, pc.lastMoveDirection.y);
-                Vector2 q = Quantize8(base2);
-                if (q.sqrMagnitude < 0.5f)
-                {
-                    float sign = pc.IsFacingRight ? 1f : -1f;
-                    q = Quantize8(new Vector2(sign, 0f));
-                }
-                return new Vector3(q.x, q.y, 0f);
-            }
-        }
-
-        // フォールバック
-        Vector3 fw = user != null ? user.transform.forward : Vector3.right;
-        if (isTopDown)
-        {
-            Vector2 q = Quantize8(new Vector2(fw.x, fw.z));
-            return new Vector3(q.x, 0f, q.y);
-        }
-        else
-        {
-            float sx = Mathf.Approximately(fw.x, 0f) ? 1f : Mathf.Sign(fw.x);
-            Vector2 q = Quantize8(new Vector2(sx, 0f));
-            return new Vector3(q.x, q.y, 0f);
-        }
-    }
-    
     /// <summary>
     /// SideScrollerモードでマウス位置を目標とした放物運動の方向を計箁E
     /// </summary>
@@ -255,29 +188,6 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         return new Vector3(vx, vy, 0f);
     }
     
-    // 8方向に量子化�E�E, NE, N, NW, W, SW, S, SE�E�E
-    private Vector2 Quantize8(Vector2 v)
-    {
-        if (v.sqrMagnitude < 1e-6f) return Vector2.zero;
-
-        float angle = Mathf.Atan2(v.y, v.x); // [-pi, pi]
-        float step = Mathf.PI / 4f;          // 45°
-        int idx = Mathf.RoundToInt(angle / step);
-        idx = (idx % 8 + 8) % 8;             // 0..7 に正規化
-
-        switch (idx)
-        {
-            case 0:  return new Vector2(1f, 0f);                          // E
-            case 1:  return new Vector2(0.70710678f, 0.70710678f);        // NE
-            case 2:  return new Vector2(0f, 1f);                          // N
-            case 3:  return new Vector2(-0.70710678f, 0.70710678f);       // NW
-            case 4:  return new Vector2(-1f, 0f);                         // W
-            case 5:  return new Vector2(-0.70710678f, -0.70710678f);      // SW
-            case 6:  return new Vector2(0f, -1f);                         // S
-            case 7:  return new Vector2(0.70710678f, -0.70710678f);       // SE
-            default: return new Vector2(1f, 0f);
-        }
-    }
 
     /// <summary>
     /// 爁E��による掘削を実行！Erojectile から呼び出し！E
