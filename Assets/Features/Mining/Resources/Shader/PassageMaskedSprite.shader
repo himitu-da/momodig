@@ -6,6 +6,7 @@ Shader "Custom/PassageMaskedSprite"
         [MainColor] _BaseColor("Color", Color) = (1,1,1,1)
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
         _PassageStencilRef("Passage Stencil Ref", Float) = 11
+        _UseVertexColor("Use Vertex Color", Float) = 1
     }
     SubShader
     {
@@ -54,6 +55,7 @@ Shader "Custom/PassageMaskedSprite"
                 half4 _BaseColor;
                 half _Cutoff;
                 half _PassageStencilRef;
+                half _UseVertexColor;
             CBUFFER_END
 
             Varyings vert(Attributes IN)
@@ -70,7 +72,8 @@ Shader "Custom/PassageMaskedSprite"
             half4 frag(Varyings IN) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(IN);
-                half4 color = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor * IN.color;
+                half4 vertexColor = lerp(half4(1.0, 1.0, 1.0, 1.0), IN.color, _UseVertexColor);
+                half4 color = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor * vertexColor;
                 clip(color.a - _Cutoff);
                 return color;
             }

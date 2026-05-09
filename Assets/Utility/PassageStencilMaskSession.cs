@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using System.Collections.Generic;
 
 public sealed class PassageStencilMaskSession
 {
@@ -8,19 +9,33 @@ public sealed class PassageStencilMaskSession
     private const int PassageStencilReference = 11;
 
     private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+    private static readonly int MainTexId = Shader.PropertyToID("_MainTex");
     private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
     private static readonly int ColorId = Shader.PropertyToID("_Color");
     private static readonly int CutoffId = Shader.PropertyToID("_Cutoff");
     private static readonly int PassageStencilRefId = Shader.PropertyToID("_PassageStencilRef");
+    private static readonly int UseVertexColorId = Shader.PropertyToID("_UseVertexColor");
 
     private MeshRenderer passageRenderer;
     private GameObject maskObject;
     private MeshRenderer maskRenderer;
     private Material maskWriterMaterialInstance;
-    private SpriteRenderer[] spriteRenderers;
-    private Material[] originalSpriteMaterials;
-    private Material[] maskedSpriteMaterials;
+    private RendererMaterialState[] rendererMaterialStates;
     private bool isActive;
+
+    private readonly struct RendererMaterialState
+    {
+        public RendererMaterialState(Renderer renderer, Material[] originalMaterials, Material[] maskedMaterials)
+        {
+            Renderer = renderer;
+            OriginalMaterials = originalMaterials;
+            MaskedMaterials = maskedMaterials;
+        }
+
+        public readonly Renderer Renderer;
+        public readonly Material[] OriginalMaterials;
+        public readonly Material[] MaskedMaterials;
+    }
 
     public void Begin(
         MeshRenderer sourcePassageRenderer,
@@ -54,15 +69,15 @@ public sealed class PassageStencilMaskSession
             return;
         }
 
-        spriteRenderers = playerRoot.GetComponentsInChildren<SpriteRenderer>(true);
-        if (spriteRenderers == null || spriteRenderers.Length == 0)
+        Renderer[] renderers = playerRoot.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
         {
             return;
         }
 
         passageRenderer = sourcePassageRenderer;
         CreateMaskObject(sourcePassageRenderer, passageMeshFilter.sharedMesh, resolvedMaskWriterMaterial);
-        ApplyMaskedSpriteMaterials(resolvedMaskedPlayerMaterial);
+        ApplyMaskedMaterials(renderers, resolvedMaskedPlayerMaterial);
 
         isActive = true;
         Render();
@@ -86,13 +101,13 @@ public sealed class PassageStencilMaskSession
             SetStencilReference(maskWriterMaterialInstance);
         }
 
-        UpdateMaskedSpriteMaterialProperties();
+        UpdateMaskedMaterialProperties();
     }
 
     public void End()
     {
         isActive = false;
-        RestoreSpriteMaterials();
+        RestoreMaskedMaterials();
 
         if (maskObject != null)
         {
@@ -145,77 +160,100 @@ public sealed class PassageStencilMaskSession
         maskRenderer.sortingOrder = sourcePassageRenderer.sortingOrder;
     }
 
-    private void ApplyMaskedSpriteMaterials(Material sourceMaskedPlayerMaterial)
+    private void ApplyMaskedMaterials(Renderer[] renderers, Material sourceMaskedPlayerMaterial)
     {
-        originalSpriteMaterials = new Material[spriteRenderers.Length];
-        maskedSpriteMaterials = new Material[spriteRenderers.Length];
+        List<RendererMaterialState> states = new List<RendererMaterialState>(renderers.Length);
 
-        for (int i = 0; i < spriteRenderers.Length; i++)
+        for (int i = 0; i < renderers.Length; i++)
         {
-            SpriteRenderer spriteRenderer = spriteRenderers[i];
-            if (spriteRenderer == null)
+            Renderer renderer = renderers[i];
+            if (renderer == null)
             {
                 continue;
             }
 
-            Material originalMaterial = spriteRenderer.sharedMaterial;
-            originalSpriteMaterials[i] = originalMaterial;
-
-            Material materialInstance = new Material(sourceMaskedPlayerMaterial)
+            Material[] originalMaterials = renderer.sharedMaterials;
+            if (originalMaterials == null || originalMaterials.Length == 0)
             {
-                name = $"{sourceMaskedPlayerMaterial.name}_{spriteRenderer.name}"
-            };
-            CopySpriteMaterialProperties(originalMaterial, materialInstance);
-            SetStencilReference(materialInstance);
-            maskedSpriteMaterials[i] = materialInstance;
-            spriteRenderer.sharedMaterial = materialInstance;
+                continue;
+            }
+
+            Material[] maskedMaterials = new Material[originalMaterials.Length];
+            for (int j = 0; j < originalMaterials.Length; j++)
+            {
+                Material materialInstance = new Material(sourceMaskedPlayerMaterial)
+                {
+                    name = $"{sourceMaskedPlayerMaterial.name}_{renderer.name}_{j}"
+                };
+
+                CopyMaskedRendererMaterialProperties(originalMaterials[j], materialInstance, renderer);
+                SetStencilReference(materialInstance);
+                maskedMaterials[j] = materialInstance;
+            }
+
+            renderer.sharedMaterials = maskedMaterials;
+            states.Add(new RendererMaterialState(renderer, originalMaterials, maskedMaterials));
         }
+
+        rendererMaterialStates = states.ToArray();
     }
 
-    private void UpdateMaskedSpriteMaterialProperties()
+    private void UpdateMaskedMaterialProperties()
     {
-        if (maskedSpriteMaterials == null)
+        if (rendererMaterialStates == null)
         {
             return;
         }
 
-        for (int i = 0; i < maskedSpriteMaterials.Length; i++)
+        for (int i = 0; i < rendererMaterialStates.Length; i++)
         {
-            if (maskedSpriteMaterials[i] != null)
+            RendererMaterialState state = rendererMaterialStates[i];
+            if (state.MaskedMaterials == null)
             {
-                SetStencilReference(maskedSpriteMaterials[i]);
+                continue;
+            }
+
+            for (int j = 0; j < state.MaskedMaterials.Length; j++)
+            {
+                if (state.MaskedMaterials[j] != null)
+                {
+                    SetStencilReference(state.MaskedMaterials[j]);
+                    SetUseVertexColor(state.MaskedMaterials[j], state.Renderer is SpriteRenderer);
+                }
             }
         }
     }
 
-    private void RestoreSpriteMaterials()
+    private void RestoreMaskedMaterials()
     {
-        if (spriteRenderers != null && originalSpriteMaterials != null)
+        if (rendererMaterialStates == null)
         {
-            int count = Mathf.Min(spriteRenderers.Length, originalSpriteMaterials.Length);
-            for (int i = 0; i < count; i++)
+            return;
+        }
+
+        for (int i = 0; i < rendererMaterialStates.Length; i++)
+        {
+            RendererMaterialState state = rendererMaterialStates[i];
+            if (state.Renderer != null)
             {
-                if (spriteRenderers[i] != null)
+                state.Renderer.sharedMaterials = state.OriginalMaterials;
+            }
+
+            if (state.MaskedMaterials == null)
+            {
+                continue;
+            }
+
+            for (int j = 0; j < state.MaskedMaterials.Length; j++)
+            {
+                if (state.MaskedMaterials[j] != null)
                 {
-                    spriteRenderers[i].sharedMaterial = originalSpriteMaterials[i];
+                    Object.Destroy(state.MaskedMaterials[j]);
                 }
             }
         }
 
-        if (maskedSpriteMaterials != null)
-        {
-            for (int i = 0; i < maskedSpriteMaterials.Length; i++)
-            {
-                if (maskedSpriteMaterials[i] != null)
-                {
-                    Object.Destroy(maskedSpriteMaterials[i]);
-                }
-            }
-        }
-
-        spriteRenderers = null;
-        originalSpriteMaterials = null;
-        maskedSpriteMaterials = null;
+        rendererMaterialStates = null;
     }
 
     private static void CopyPassageMaterialProperties(Material source, Material target)
@@ -247,11 +285,30 @@ public sealed class PassageStencilMaskSession
         }
     }
 
-    private static void CopySpriteMaterialProperties(Material source, Material target)
+    private static void CopyMaskedRendererMaterialProperties(Material source, Material target, Renderer renderer)
     {
-        if (source == null || target == null)
+        if (target == null)
         {
             return;
+        }
+
+        SetUseVertexColor(target, renderer is SpriteRenderer);
+
+        if (source == null)
+        {
+            return;
+        }
+
+        if (target.HasProperty(BaseMapId))
+        {
+            if (source.HasProperty(BaseMapId))
+            {
+                CopyTextureProperties(source, BaseMapId, target, BaseMapId);
+            }
+            else if (source.HasProperty(MainTexId))
+            {
+                CopyTextureProperties(source, MainTexId, target, BaseMapId);
+            }
         }
 
         if (source.HasProperty(BaseColorId) && target.HasProperty(BaseColorId))
@@ -269,11 +326,26 @@ public sealed class PassageStencilMaskSession
         }
     }
 
+    private static void CopyTextureProperties(Material source, int sourceTextureId, Material target, int targetTextureId)
+    {
+        target.SetTexture(targetTextureId, source.GetTexture(sourceTextureId));
+        target.SetTextureScale(targetTextureId, source.GetTextureScale(sourceTextureId));
+        target.SetTextureOffset(targetTextureId, source.GetTextureOffset(sourceTextureId));
+    }
+
     private static void SetStencilReference(Material material)
     {
         if (material != null && material.HasProperty(PassageStencilRefId))
         {
             material.SetFloat(PassageStencilRefId, PassageStencilReference);
+        }
+    }
+
+    private static void SetUseVertexColor(Material material, bool useVertexColor)
+    {
+        if (material != null && material.HasProperty(UseVertexColorId))
+        {
+            material.SetFloat(UseVertexColorId, useVertexColor ? 1f : 0f);
         }
     }
 }
