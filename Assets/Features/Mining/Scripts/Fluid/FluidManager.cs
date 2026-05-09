@@ -44,7 +44,7 @@ public class FluidManager : MonoBehaviour
     [SerializeField, InspectorName("1回の最大処理セル数"), Tooltip("1 tick で処理する内部セル数の上限です。")] private int maxCellsPerStep = 2048;
     [SerializeField, InspectorName("全件処理に切り替えるセル数"), Tooltip("待機セル数がこの値以下なら、その tick で全セルを処理します。")] private int fullSolveCellThreshold = 8192;
     [SerializeField, InspectorName("流れの全体倍率"), Tooltip("落下、横流れ、爆発後の移動量をまとめて増減します。")] private float flowRateMultiplier = 2f;
-    [SerializeField, InspectorName("プレイ面の半厚み"), Tooltip("SideScroller で流体がはみ出せる厚みの半分です。")] private float generationSliceHalfThickness = 0.5f;
+    [SerializeField, InspectorName("プレイ面の半厚み"), Tooltip("プレイ面から流体がはみ出せる厚みの半分です。")] private float generationSliceHalfThickness = 0.5f;
     [SerializeField, InspectorName("1回の最大落下セル数"), Tooltip("1 tick で下方向へ連続移動できる最大セル数です。")] private int maxVerticalCascadeSteps = 3;
     [SerializeField, InspectorName("1回の最大吹き飛びセル数"), Tooltip("爆発などの速度で 1 tick に連続移動できる最大セル数です。")] private int maxVelocityCascadeSteps = 4;
     [SerializeField, InspectorName("吹き飛び速度の残りやすさ"), Tooltip("爆発などで付いた速度を移動先にどれだけ残すかです。小さいほどすぐ止まります。"), Range(0f, 1f)] private float velocityTransferRetention = 0.75f;

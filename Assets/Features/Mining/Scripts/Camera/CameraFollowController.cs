@@ -2,7 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// Miningシーン用のカメラ追従・構図制御クラス。
-/// SideScrollerモードでは移動方向に応じた回転と位置計算を行う。
+/// プレイ面の移動方向に応じた回転と位置計算を行う。
 /// </summary>
 public class CameraFollowController : MonoBehaviour
 {
@@ -15,15 +15,15 @@ public class CameraFollowController : MonoBehaviour
     [SerializeField] private float followSpeed = 5f;
     [SerializeField] private bool useSmoothDamp = false;
 
-    [Header("モード別オフセット")]
-    [SerializeField] private Vector3 sideScrollerOffset = new Vector3(0f, 2f, -10f);
+    [Header("追従オフセット")]
+    [SerializeField] private Vector3 playPlaneOffset = new Vector3(0f, 2f, -10f);
 
     [Header("カメラサイズ設定")]
-    [SerializeField] private float sideScrollerOrthographicSize = 5f;
+    [SerializeField] private float playPlaneOrthographicSize = 5f;
 
-    [Header("SideScroller方向連動カメラ")]
-    [Tooltip("SideScrollerで方向連動カメラを有効にする")]
-    [SerializeField] private bool useDirectionalCameraInSideScroller = true;
+    [Header("プレイ面方向連動カメラ")]
+    [Tooltip("プレイ面で方向連動カメラを有効にする")]
+    [SerializeField] private bool useDirectionalPlayPlaneCamera = true;
 
     [Tooltip("回転後のプレイヤー基準位置（速度0のとき）")]
     [SerializeField] private Vector2 playerBaseViewportOffset = Vector2.zero;
@@ -46,7 +46,7 @@ public class CameraFollowController : MonoBehaviour
     [Tooltip("プレイヤーからカメラまでの距離")]
     [SerializeField] private float cameraDistanceFromPlayer = 10f;
 
-    [Header("SideScroller回転設定")]
+    [Header("プレイ面回転設定")]
     [Tooltip("基準ピッチ角（通常時）")]
     [SerializeField] private float basePitchAngle = 10f;
 
@@ -62,12 +62,9 @@ public class CameraFollowController : MonoBehaviour
     [Tooltip("回転追従の補間速度")]
     [SerializeField] private float rotationSmoothingSpeed = 8f;
 
-    private PlayerController playerController;
     private Rigidbody playerRigidbody;
     private Vector3 followVelocity = Vector3.zero;
     private Quaternion initialCameraRotation = Quaternion.identity;
-    private PlayerController.MoveMode currentMode;
-    private PlayerController.MoveMode lastMode;
     private Vector2 heldPlanarMoveVector = Vector2.zero;
     private float remainingMoveVectorHoldTime = 0f;
 
@@ -81,22 +78,14 @@ public class CameraFollowController : MonoBehaviour
 
         if (playerObject != null)
         {
-            playerController = playerObject.GetComponent<PlayerController>();
             playerRigidbody = playerObject.GetComponent<Rigidbody>();
-            if (playerController != null)
-            {
-                currentMode = playerController.currentMoveMode;
-                lastMode = currentMode;
-                UpdateCameraSettings();
-            }
+            UpdateCameraSettings();
         }
 
         if (mainCamera == null)
             Debug.LogWarning("CameraFollowController: MainCamera reference is missing.");
         if (playerObject == null)
             Debug.LogWarning("CameraFollowController: Player Object reference is missing.");
-        if (playerController == null && playerObject != null)
-            Debug.LogWarning("CameraFollowController: PlayerController component was not found on Player Object.");
         if (playerRigidbody == null && playerObject != null)
             Debug.LogWarning("CameraFollowController: Rigidbody component was not found on Player Object.");
     }
@@ -106,19 +95,12 @@ public class CameraFollowController : MonoBehaviour
     /// </summary>
     private void FixedUpdate()
     {
-        if (!enableFollow || mainCamera == null || playerObject == null || playerController == null)
+        if (!enableFollow || mainCamera == null || playerObject == null)
             return;
 
-        currentMode = playerController.currentMoveMode;
-        if (currentMode != lastMode)
+        if (useDirectionalPlayPlaneCamera)
         {
-            lastMode = currentMode;
-            OnMoveModeChanged();
-        }
-
-        if (useDirectionalCameraInSideScroller)
-        {
-            UpdateSideScrollerDirectionalCamera();
+            UpdatePlayPlaneDirectionalCamera();
             return;
         }
 
@@ -159,15 +141,15 @@ public class CameraFollowController : MonoBehaviour
     }
 
     /// <summary>
-    /// SideScroller向けカメラ制御。
+    /// プレイ面向けカメラ制御。
     /// 1) 移動方向から回転を決定（移動方向の逆向き）
     /// 2) 指定Viewport座標にプレイヤーが来るようカメラ位置を逆算
     /// </summary>
-    private void UpdateSideScrollerDirectionalCamera()
+    private void UpdatePlayPlaneDirectionalCamera()
     {
         Vector3 playerPosition = playerObject.transform.position;
-        Vector2 rawPlanarVelocity = GetSideScrollerPlanarVelocity();
-        Vector2 planarVelocity = GetHeldSideScrollerPlanarVelocity(rawPlanarVelocity);
+        Vector2 rawPlanarVelocity = GetPlayPlaneVelocity();
+        Vector2 planarVelocity = GetHeldPlayPlaneVelocity(rawPlanarVelocity);
         float speed = planarVelocity.magnitude;
 
         Vector2 moveDirection = speed > minimumSpeedForCameraResponse ? planarVelocity / speed : Vector2.zero;
@@ -189,7 +171,7 @@ public class CameraFollowController : MonoBehaviour
         ApplyRotation(targetRotation);
     }
 
-    private Vector2 GetSideScrollerPlanarVelocity()
+    private Vector2 GetPlayPlaneVelocity()
     {
         if (playerRigidbody == null)
         {
@@ -200,7 +182,7 @@ public class CameraFollowController : MonoBehaviour
         return new Vector2(velocity.x, velocity.y);
     }
 
-    private Vector2 GetHeldSideScrollerPlanarVelocity(Vector2 rawPlanarVelocity)
+    private Vector2 GetHeldPlayPlaneVelocity(Vector2 rawPlanarVelocity)
     {
         float rawSpeed = rawPlanarVelocity.magnitude;
         if (rawSpeed > minimumSpeedForCameraResponse)
@@ -266,7 +248,7 @@ public class CameraFollowController : MonoBehaviour
             return cameraDistanceFromPlayer;
         }
 
-        float fromOffset = Mathf.Abs(sideScrollerOffset.z);
+        float fromOffset = Mathf.Abs(playPlaneOffset.z);
         if (fromOffset > 0.01f)
         {
             return fromOffset;
@@ -319,30 +301,21 @@ public class CameraFollowController : MonoBehaviour
 
     private Vector3 GetCurrentOffset()
     {
-        return sideScrollerOffset;
-    }
-
-    private void OnMoveModeChanged()
-    {
-        Debug.Log($"CameraFollowController: Move mode changed to {currentMode}");
-        followVelocity = Vector3.zero;
-        heldPlanarMoveVector = Vector2.zero;
-        remainingMoveVectorHoldTime = 0f;
-        UpdateCameraSettings();
+        return playPlaneOffset;
     }
 
     private void UpdateCameraSettings()
     {
         if (mainCamera == null) return;
 
-        float targetSize = sideScrollerOrthographicSize;
+        float targetSize = playPlaneOrthographicSize;
 
         if (mainCamera.orthographic)
         {
             mainCamera.orthographicSize = targetSize;
         }
 
-        if (useDirectionalCameraInSideScroller)
+        if (useDirectionalPlayPlaneCamera)
         {
             mainCamera.transform.rotation = BuildHorizonLeveledRotation(basePitchAngle, baseYawAngle);
             return;
@@ -368,10 +341,10 @@ public class CameraFollowController : MonoBehaviour
     }
 
     /// <summary>
-    /// 従来追従で使用するモード別オフセットを設定する。
+    /// 従来追従で使用するオフセットを設定する。
     /// </summary>
-    public void SetOffset(PlayerController.MoveMode mode, Vector3 offset)
+    public void SetOffset(Vector3 offset)
     {
-        sideScrollerOffset = offset;
+        playPlaneOffset = offset;
     }
 }

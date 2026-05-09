@@ -4,7 +4,6 @@ using System.Collections.Generic;
 public class PickaxeToolBehaviour : MiningToolBehaviour
 {
     private Transform toolMount; // Diggerの親 = MiningToolsController
-    private PlayerController.MoveMode currentMoveMode; // 現在の移動モード
     private Vector3 currentAimDirection = Vector3.right; // 現在の照準方向
     private bool useBuffered = false; // 先行入力用のバッファフラグ
     private bool canBufferUse = false; // 先行入力の受付期間フラグ
@@ -46,7 +45,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         playerController.TriggerMineAnimation(currentAimDirection);
 
         // 採掘の向きを物理的に反映させる
-        UpdateToolRotation(currentAimDirection, currentMoveMode);
+        UpdateToolRotation(currentAimDirection);
 
         if (ToolData == null)
         {
@@ -136,9 +135,8 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         }
     }
 
-    public override void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
+    public override void UpdateAim(Vector3 direction)
     {
-        currentMoveMode = moveMode; // 移動モードをキャッシュ
         if (direction.sqrMagnitude > 0.001f)
         {
             currentAimDirection = direction.normalized;
@@ -150,12 +148,12 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             return;
         }
 
-        base.UpdateAim(direction, moveMode);
+        base.UpdateAim(direction);
     }
 
-    protected override void RenderForDirection(Vector3 direction, PlayerController.MoveMode moveMode)
+    protected override void RenderForDirection(Vector3 direction)
     {
-        UpdateToolRotation(direction, moveMode);
+        UpdateToolRotation(direction);
     }
 
     /// <summary>
@@ -202,7 +200,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
     /// <summary>
     /// ツールホルダー自体の向きを更新する
     /// </summary>
-    private void UpdateToolRotation(Vector3 direction, PlayerController.MoveMode moveMode)
+    private void UpdateToolRotation(Vector3 direction)
     {
         if (toolMount == null) return;
 

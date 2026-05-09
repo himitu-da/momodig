@@ -13,27 +13,12 @@ using UnityEditor; // Serializable用
 public class PlayerController : MonoBehaviour
 {
 
-    public enum MoveMode
-    {
-        SideScroller
-    }
-
     [Header("移動設定")]
     [SerializeField] private float moveSpeed = 5f; // 移動速度
     [SerializeField] private float acceleration = 0.1f; // 加速のスムーズさ
     [SerializeField] private float deceleration = 0.2f; // 減速のスムーズさ
     [SerializeField] private float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
     [SerializeField] private float fallAcceleration = 1f; // 落下加速度
-    [SerializeField] private MoveMode _currentMoveMode = MoveMode.SideScroller;
-    public MoveMode currentMoveMode
-    {
-        get => _currentMoveMode;
-        set
-        {
-            _currentMoveMode = MoveMode.SideScroller;
-            UpdateConstraints();
-        }
-    }
 
     [Header("UI設定")]
     [SerializeField] private TextMeshProUGUI scoreText; // スコア表示用のText
@@ -57,7 +42,7 @@ public class PlayerController : MonoBehaviour
     /// マウスのスクリーン座標をワールド座標に変換する
     /// </summary>
     /// <param name="screenPosition">スクリーン座標</param>
-    /// <param name="distance">カメラからの距離（SideScrollerモードで使用）</param>
+    /// <param name="distance">カメラからの距離（プレイ面で使用）</param>
     /// <returns>ワールド座標</returns>
     public Vector3 ScreenToWorldPoint(Vector2 screenPosition, float distance = 10f)
     {
@@ -75,7 +60,7 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// 現在のマウス位置をワールド座標で取得
     /// </summary>
-    /// <param name="distance">カメラからの距離（SideScrollerモードで使用）</param>
+    /// <param name="distance">カメラからの距離（プレイ面で使用）</param>
     /// <returns>マウス位置のワールド座標</returns>
     public Vector3 GetMouseWorldPosition(float distance = 10f)
     {
@@ -91,7 +76,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField, InspectorName("流体抵抗を有効にする"), Tooltip("オフにすると、水による移動抵抗を無効にします。")] private bool enableFluidResistance = true;
     [SerializeField, InspectorName("横方向サンプル数"), Tooltip("Collider 内を横方向に何点読むかです。大きいほど正確ですが少し重くなります。")] private int fluidHorizontalSampleCount = 2;
     [SerializeField, InspectorName("縦方向サンプル数"), Tooltip("Collider 内を高さ方向に何点読むかです。水位差に対する精度に効きます。")] private int fluidVerticalSampleCount = 3;
-    [SerializeField, InspectorName("奥行きサンプル数"), Tooltip("Collider 内を奥行き方向に何点読むかです。SideScroller では 1 でも構いません。")] private int fluidDepthSampleCount = 1;
+    [SerializeField, InspectorName("奥行きサンプル数"), Tooltip("Collider 内を奥行き方向に何点読むかです。プレイ面では 1 でも構いません。")] private int fluidDepthSampleCount = 1;
     [SerializeField, InspectorName("サンプルの内側オフセット"), Tooltip("Collider の端から少し内側を読む量です。境界の誤判定を減らします。")] private float fluidSampleInset = 0.05f;
     [SerializeField, InspectorName("抵抗の強さ"), Tooltip("水に浸かったときにどれくらい移動が重くなるかの基本倍率です。")] private float fluidResistanceStrength = 0.85f;
     [SerializeField, InspectorName("最低移動速度倍率"), Tooltip("最大まで抵抗が効いたときでも残す移動速度の割合です。"), Range(0.05f, 1f)] private float minimumFluidMoveSpeedMultiplier = 0.35f;
@@ -145,7 +130,6 @@ public class PlayerController : MonoBehaviour
         }
 
         ResolveFluidResistanceCollider();        
-        _currentMoveMode = MoveMode.SideScroller;
         transform.rotation = Quaternion.identity;
         lastMoveDirection = Vector3.right;
         IsFacingRight = true;
@@ -390,7 +374,7 @@ public class PlayerController : MonoBehaviour
         // MiningToolsControllerに回転処理を委譲
         if (miningToolsController != null)
         {
-            miningToolsController.UpdateRotation(lastMoveDirection, MoveMode.SideScroller);
+            miningToolsController.UpdateRotation(lastMoveDirection);
         }
 
         // PlayerVisualsControllerに移動アニメーションの更新を委譲
@@ -762,7 +746,6 @@ public class PlayerController : MonoBehaviour
         // すべての物理的な回転を凍結
         rb.freezeRotation = true;
 
-        _currentMoveMode = MoveMode.SideScroller;
         rb.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
     }
     

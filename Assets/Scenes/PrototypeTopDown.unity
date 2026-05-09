@@ -382,8 +382,8 @@ MonoBehaviour:
   enableFollow: 1
   followSpeed: 5
   useSmoothDamp: 0
-  sideScrollerOffset: {x: 0, y: -1, z: -10}
-  sideScrollerOrthographicSize: 5
+  playPlaneOffset: {x: 0, y: -1, z: -10}
+  playPlaneOrthographicSize: 5
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -963,7 +963,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 5
-  _currentMoveMode: 0
   scoreText: {fileID: 479779840}
   digger: {fileID: 1344430783}
 --- !u!54 &1714277497

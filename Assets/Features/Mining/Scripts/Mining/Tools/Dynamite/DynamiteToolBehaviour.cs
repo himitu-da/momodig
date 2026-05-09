@@ -96,7 +96,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         rb.linearVelocity = velocity;
     }
 
-    protected override void RenderForDirection(Vector3 direction, PlayerController.MoveMode moveMode)
+    protected override void RenderForDirection(Vector3 direction)
     {
         // Dynamite は手元の見た目を方向に合わせる必要がない（投擲時に projectile が独立する）。
         // Main 役割で使われた場合に備え、必要になったらここで向きを反映する。
@@ -108,7 +108,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     }
 
     /// <summary>
-    /// SideScrollerモードでマウス位置を目標とした放物運動の方向を計箁E
+    /// プレイ面でマウス位置を目標とした放物運動の方向を計箁E
     /// </summary>
     private Vector3 ComputeBallisticDirection(GameObject user, PlayerController pc)
     {
@@ -126,7 +126,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         Vector3 startPos = user.transform.position; // プレイヤーの中忁E��置
         Vector3 targetPos = pc.GetMouseWorldPosition(10f); // Z=0平面でのワールド座樁E
         
-        // SideScrollerなのでZ座標を0に固宁E
+        // プレイ面なのでZ座標を0に固宁E
         targetPos.z = startPos.z;
         
         // 水平距離と高度差を計箁E
