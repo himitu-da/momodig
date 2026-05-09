@@ -10,6 +10,12 @@ public class PassageController : MonoBehaviour
     [SerializeField] private Vector3 travelOffset = new Vector3(0f, 3f, 0f);
     [SerializeField] private Vector3 facingDirectionDuringTransition = Vector3.up;
 
+    [Header("Passage Stencil Mask")]
+    [SerializeField] private bool maskPlayerWithPassageRenderer = true;
+    [SerializeField] private MeshRenderer passageMaskRenderer;
+    [SerializeField] private Material stencilMaskWriterMaterial;
+    [SerializeField] private Material maskedPlayerMaterial;
+
     [Header("References")]
     [SerializeField] private MinecartManager minecartManager;
 
@@ -22,6 +28,7 @@ public class PassageController : MonoBehaviour
     private float entryProgress;
     private bool isPlayerInside;
     private bool hasTransferredItems;
+    private readonly PassageStencilMaskSession passageMaskSession = new PassageStencilMaskSession();
 
     private void Awake()
     {
@@ -37,6 +44,11 @@ public class PassageController : MonoBehaviour
         if (changeScene == null)
         {
             changeScene = FindFirstObjectByType<ChangeScene>();
+        }
+
+        if (passageMaskRenderer == null)
+        {
+            passageMaskRenderer = GetComponent<MeshRenderer>();
         }
     }
 
@@ -119,6 +131,10 @@ public class PassageController : MonoBehaviour
             playerCollider.enabled = false;
         }
 
+        if (maskPlayerWithPassageRenderer)
+        {
+            passageMaskSession.Begin(passageMaskRenderer, playerTransform, stencilMaskWriterMaterial, maskedPlayerMaterial);
+        }
     }
 
     private void CompletePassage()
@@ -150,6 +166,8 @@ public class PassageController : MonoBehaviour
         {
             playerVisualsController.UpdateMovementAnimation(facingDirectionDuringTransition);
         }
+
+        passageMaskSession.Render();
     }
 
     private void ResetState()
@@ -177,6 +195,7 @@ public class PassageController : MonoBehaviour
         entryProgress = 0f;
         isPlayerInside = false;
         hasTransferredItems = false;
+        passageMaskSession.End();
     }
 
     private void ClearState()
@@ -188,6 +207,11 @@ public class PassageController : MonoBehaviour
         entryProgress = 0f;
         isPlayerInside = false;
         hasTransferredItems = false;
+    }
+
+    private void OnDisable()
+    {
+        passageMaskSession.End();
     }
 
     private Collider ResolvePlayerCollider(Transform playerRoot, Collider triggerCollider)

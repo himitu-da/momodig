@@ -2959,8 +2959,12 @@ MonoBehaviour:
   requiredInputThreshold: 0.5
   destinationSceneName: OverWorldScene
   changeScene: {fileID: 168293942}
-  travelOffset: {x: 0, y: 3, z: 0}
-  facingDirectionDuringTransition: {x: 0, y: 1, z: 0}
+  travelOffset: {x: 0, y: 5, z: 0}
+  facingDirectionDuringTransition: {x: 0, y: 1.5, z: 0}
+  maskPlayerWithPassageRenderer: 1
+  passageMaskRenderer: {fileID: 1700130091}
+  stencilMaskWriterMaterial: {fileID: 2100000, guid: 53f4b85f645840c49b0e26fa06eb9d6e, type: 2}
+  maskedPlayerMaterial: {fileID: 2100000, guid: 2bddb99b62ee4d50b1aa2d55e55d4578, type: 2}
   minecartManager: {fileID: 0}
 --- !u!65 &1700130094
 BoxCollider:

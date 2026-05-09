@@ -10,6 +10,12 @@ public class OverworldPassageController : MonoBehaviour
     [SerializeField] private Vector3 travelOffset = new Vector3(0f, -3f, 0f);
     [SerializeField] private Vector3 facingDirectionDuringTransition = Vector3.up;
 
+    [Header("Passage Stencil Mask")]
+    [SerializeField] private bool maskPlayerWithPassageRenderer = true;
+    [SerializeField] private MeshRenderer passageMaskRenderer;
+    [SerializeField] private Material stencilMaskWriterMaterial;
+    [SerializeField] private Material maskedPlayerMaterial;
+
     private OverworldPlayerController playerController;
     private PlayerVisualsController playerVisualsController;
     private Transform playerTransform;
@@ -18,12 +24,18 @@ public class OverworldPassageController : MonoBehaviour
     private Vector3 initialPlayerScale;
     private float entryProgress;
     private bool isPlayerInside;
+    private readonly PassageStencilMaskSession passageMaskSession = new PassageStencilMaskSession();
 
     private void Awake()
     {
         if (changeScene == null)
         {
             changeScene = FindFirstObjectByType<ChangeScene>();
+        }
+
+        if (passageMaskRenderer == null)
+        {
+            passageMaskRenderer = GetComponent<MeshRenderer>();
         }
     }
 
@@ -106,6 +118,10 @@ public class OverworldPassageController : MonoBehaviour
             playerCollider.enabled = false;
         }
 
+        if (maskPlayerWithPassageRenderer)
+        {
+            passageMaskSession.Begin(passageMaskRenderer, playerTransform, stencilMaskWriterMaterial, maskedPlayerMaterial);
+        }
     }
 
     private void CompletePassage()
@@ -134,6 +150,8 @@ public class OverworldPassageController : MonoBehaviour
         {
             playerVisualsController.UpdateMovementAnimation(facingDirectionDuringTransition);
         }
+
+        passageMaskSession.Render();
     }
 
     private void ResetState()
@@ -160,6 +178,7 @@ public class OverworldPassageController : MonoBehaviour
         playerCollider = null;
         entryProgress = 0f;
         isPlayerInside = false;
+        passageMaskSession.End();
     }
 
     private void ClearState()
@@ -170,6 +189,11 @@ public class OverworldPassageController : MonoBehaviour
         playerCollider = null;
         entryProgress = 0f;
         isPlayerInside = false;
+    }
+
+    private void OnDisable()
+    {
+        passageMaskSession.End();
     }
 
     private Collider ResolvePlayerCollider(Transform playerRoot, Collider triggerCollider)
