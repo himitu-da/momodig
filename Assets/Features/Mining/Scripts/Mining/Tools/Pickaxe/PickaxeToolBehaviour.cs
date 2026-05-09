@@ -64,7 +64,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             Debug.LogWarning("MiningModule is not set on tool data.");
             return;
         }
-        
+
         if (!(ToolData.miningModule is PickaxeMiningModule pickaxeModule))
         {
             Debug.LogError("MiningModule on ToolData is not a PickaxeMiningModule.");
@@ -88,7 +88,7 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
             {
                 centerOffset.y *= -1;
             }
-            
+
             // 掘削範囲をDiggerに直接設定
             digger.SetDiggingAreaParameters(centerOffset, pickaxeModule.VerticalDiggingSize.Value);
 
@@ -117,6 +117,9 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         // 掘削モジュールと掘削情報をセット
         digger.SetPendingMining(pickaxeModule, miningInfo);
 
+        // Sub役割の場合は、ここから振り終わりまで一時的に表示する
+        BeginUseDisplay();
+
         // アニメーションを再生
         if (toolAnimator != null)
         {
@@ -135,18 +138,24 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
 
     public override void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
     {
-        base.UpdateAim(direction, moveMode);
         currentMoveMode = moveMode; // 移動モードをキャッシュ
         if (direction.sqrMagnitude > 0.001f)
         {
             currentAimDirection = direction.normalized;
         }
 
-        // 採掘中でないときは、常にツールの向きを照準に追従させる
-        if (!IsMining)
+        // 採掘中はツールの向きを固定する
+        if (IsMining)
         {
-            UpdateToolRotation(currentAimDirection, currentMoveMode);
+            return;
         }
+
+        base.UpdateAim(direction, moveMode);
+    }
+
+    protected override void RenderForDirection(Vector3 direction, PlayerController.MoveMode moveMode)
+    {
+        UpdateToolRotation(direction, moveMode);
     }
 
     /// <summary>
@@ -177,6 +186,8 @@ public class PickaxeToolBehaviour : MiningToolBehaviour
         {
             // バッファされた入力がない場合は、受付フラグもリセット
             canBufferUse = false;
+            // Sub役割の場合の使用中表示を終了
+            EndUseDisplay();
         }
     }
 

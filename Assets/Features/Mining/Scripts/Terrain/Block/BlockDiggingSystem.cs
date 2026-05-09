@@ -2,69 +2,50 @@ using UnityEngine;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 
-/// <summary>
-/// ブロックの掘削処理を担当するクラス
-/// Block.csから分離された掘削関連の機能を提供
-/// </summary>
 public class BlockDiggingSystem
 {
-    // 依存注入されるコンポーネント
     private VoxelManager voxelManager;
-    private BlockItemDropper itemDropper;
     private Block targetBlock;
-    
-    // 掘削パラメータ
+    private VoxelTextureExtractor textureExtractor;
+
     private float diggingThreshold;
     private int diggingFrameDelay;
     private int voxelsPerBlock;
     private Vector3Int blockPosition;
+    private float voxelWorldSize;
 
-    /// <summary>
-    /// BlockDiggingSystemを初期化
-    /// </summary>
-    public void Initialize(VoxelManager manager, BlockItemDropper dropper, Block block, 
-        float threshold, int frameDelay, int vPerBlock, Vector3Int position)
+    public void Initialize(VoxelManager manager, Block block,
+        float threshold, int frameDelay, int vPerBlock, Vector3Int position, float voxelWorldSize, VoxelTextureExtractor textureExtractor)
     {
         voxelManager = manager;
-        itemDropper = dropper;
         targetBlock = block;
         diggingThreshold = threshold;
         diggingFrameDelay = frameDelay;
         voxelsPerBlock = vPerBlock;
         blockPosition = position;
+        this.voxelWorldSize = voxelWorldSize;
+        this.textureExtractor = textureExtractor;
     }
 
-    /// <summary>
-    /// ブロックにダメージを与える
-    /// </summary>
     public void TakeDamage(Vector3 localPos, int damage)
     {
         int x = Mathf.FloorToInt(localPos.x + voxelsPerBlock / 2.0f);
         int y = Mathf.FloorToInt(localPos.y + voxelsPerBlock / 2.0f);
         int z = Mathf.FloorToInt(localPos.z + voxelsPerBlock / 2.0f);
-        
-        Vector3Int localVoxelPos = new Vector3Int(x, y, z);
 
-        // VoxelManagerにダメージ処理を移管
-        if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, damage))
+        Vector3Int localVoxelPos = new Vector3Int(x, y, z);
+        Voxel voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
+
+        if (voxelData != null && voxelManager.DamageVoxel(blockPosition, localVoxelPos, damage))
         {
-            // Voxelが破壊された場合
-            var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
-            if (voxelData != null)
-            {
-                 itemDropper.DropItem(voxelData.worldPosition, x, y, z);
-            }
-            targetBlock.GenerateMesh(); // メッシュを更新
+            BlockItemDropper.DropItem(voxelData.worldPosition, voxelData.blockData, voxelData.useTexture1, x, y, z, voxelsPerBlock, voxelWorldSize, textureExtractor);
+            targetBlock.GenerateMesh();
         }
     }
 
-    /// <summary>
-    /// ボクセルを掘削する
-    /// </summary>
     public async UniTask<int> DigVoxels(BoxCollider diggingArea, int damagePerHit)
     {
         int destroyedVoxelCount = 0;
-        // この掘削アクションで再生する破壊音関連の情報を決定するための変数
         AudioClip destructionSound = null;
         float destructionSoundVolume = 1.0f;
 
@@ -87,13 +68,8 @@ public class BlockDiggingSystem
         int startZ = Mathf.Max(0, Mathf.FloorToInt(localMin.z + voxelsPerBlock / 2.0f));
         int endZ = Mathf.Min(voxelsPerBlock - 1, Mathf.CeilToInt(localMax.z + voxelsPerBlock / 2.0f));
 
-        // 現在の移動モードを取得
         PlayerController playerController = Object.FindFirstObjectByType<PlayerController>();
-        PlayerController.MoveMode moveMode = PlayerController.MoveMode.TopDown;
-        if (playerController != null)
-        {
-            moveMode = playerController.currentMoveMode;
-        }
+        PlayerController.MoveMode moveMode = playerController != null ? playerController.currentMoveMode : PlayerController.MoveMode.TopDown;
 
         if (moveMode == PlayerController.MoveMode.SideScroller)
         {
@@ -120,14 +96,10 @@ public class BlockDiggingSystem
                     targetBlock.GenerateMesh();
                 }
 
-                int delay = Mathf.Max(1, diggingFrameDelay);
-                for (int i = 0; i < delay; i++)
-                {
-                    await UniTask.Yield();
-                }
+                await DelayFrames();
             }
         }
-        else // TopDown or other modes
+        else
         {
             for (int y = endY; y >= startY; y--)
             {
@@ -152,15 +124,10 @@ public class BlockDiggingSystem
                     targetBlock.GenerateMesh();
                 }
 
-                int delay = Mathf.Max(1, diggingFrameDelay);
-                for (int i = 0; i < delay; i++)
-                {
-                    await UniTask.Yield();
-                }
+                await DelayFrames();
             }
         }
 
-        // 掘削処理の最後に破壊音を再生
         if (destructionSound != null)
         {
             AudioManager.Instance.PlayVoxelDestroyedSE(destructionSound, destroyedVoxelCount, destructionSoundVolume);
@@ -169,13 +136,21 @@ public class BlockDiggingSystem
         return destroyedVoxelCount;
     }
 
-    /// <summary>
-    /// 個別ボクセルの掘削処理
-    /// </summary>
-    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples, Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center, List<System.Action> dropActions, int damagePerHit, ref AudioClip destructionSound, ref float destructionSoundVolume)
+    private async UniTask DelayFrames()
+    {
+        int delay = Mathf.Max(1, diggingFrameDelay);
+        for (int i = 0; i < delay; i++)
+        {
+            await UniTask.Yield();
+        }
+    }
+
+    private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples,
+        Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center,
+        List<System.Action> dropActions, int damagePerHit, ref AudioClip destructionSound, ref float destructionSoundVolume)
     {
         Vector3Int localVoxelPos = new Vector3Int(x, y, z);
-        var voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
+        Voxel voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
         if (voxelData == null || !voxelData.isActive) return false;
 
         int containedSamples = 0;
@@ -205,21 +180,24 @@ public class BlockDiggingSystem
         }
 
         float overlapRatio = (float)containedSamples / totalSamples;
-        if (overlapRatio >= diggingThreshold)
-        {
-            if (voxelManager.DamageVoxel(blockPosition, localVoxelPos, damagePerHit))
-            {
-                // 破壊音をまだ設定していなければ、このボクセルの破壊音と音量を設定する
-                if (destructionSound == null && targetBlock.BlockData != null && targetBlock.BlockData.destroyedSound != null)
-                {
-                    destructionSound = targetBlock.BlockData.destroyedSound;
-                    destructionSoundVolume = targetBlock.BlockData.destroyedSoundVolume;
-                }
+        if (overlapRatio < diggingThreshold) return false;
 
-                dropActions.Add(() => itemDropper.DropItem(voxelData.worldPosition, x, y, z));
-                return true;
-            }
+        BlockData voxelBlockData = voxelData.blockData;
+        bool voxelUseTexture1 = voxelData.useTexture1;
+        Vector3 dropPosition = voxelData.worldPosition;
+
+        if (!voxelManager.DamageVoxel(blockPosition, localVoxelPos, damagePerHit)) return false;
+
+        if (destructionSound == null && voxelBlockData != null && voxelBlockData.destroyedSound != null)
+        {
+            destructionSound = voxelBlockData.destroyedSound;
+            destructionSoundVolume = voxelBlockData.destroyedSoundVolume;
         }
-        return false;
+
+        int capturedX = x;
+        int capturedY = y;
+        int capturedZ = z;
+        dropActions.Add(() => BlockItemDropper.DropItem(dropPosition, voxelBlockData, voxelUseTexture1, capturedX, capturedY, capturedZ, voxelsPerBlock, voxelWorldSize, textureExtractor));
+        return true;
     }
 }

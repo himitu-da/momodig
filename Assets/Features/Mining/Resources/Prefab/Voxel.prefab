@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 7821795803463381365}
   - component: {fileID: 5809104261954367818}
   - component: {fileID: 5485147615287630904}
+  - component: {fileID: 5809104261954367819}
   m_Layer: 0
   m_Name: Voxel
   m_TagString: Untagged
@@ -64,6 +65,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -85,9 +88,11 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &7821795803463381365
 BoxCollider:
@@ -122,6 +127,48 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f8591c7ba8e1ffb4789d1d1b16c245f6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  resourceType: 1
+  canSolidify: 1
+  hasSolidificationTarget: 0
+  solidifiedBlockPosition: {x: 0, y: 0, z: 0}
+  solidifiedLocalVoxelPosition: {x: 0, y: 0, z: 0}
+  enableFluidResistance: 1
+  fluidLinearResistanceStrength: 6
+  fluidAngularResistanceStrength: 4
+  fluidHorizontalSampleCount: 2
+  fluidVerticalSampleCount: 2
+  fluidDepthSampleCount: 2
+  fluidSampleInset: 0.01
+  scale: {x: 0, y: 0, z: 0}
+  blockDataName: 
+  uvBase: {x: 0, y: 0}
+  uvSize: {x: 0, y: 0}
+  useTexture1: 0
+  faceTextureData:
+  - uvBase: {x: 0, y: 0}
+    uvSize: {x: 0, y: 0}
+    useTexture1: 0
+    hasTexture: 0
+  - uvBase: {x: 0, y: 0}
+    uvSize: {x: 0, y: 0}
+    useTexture1: 0
+    hasTexture: 0
+  - uvBase: {x: 0, y: 0}
+    uvSize: {x: 0, y: 0}
+    useTexture1: 0
+    hasTexture: 0
+  - uvBase: {x: 0, y: 0}
+    uvSize: {x: 0, y: 0}
+    useTexture1: 0
+    hasTexture: 0
+  - uvBase: {x: 0, y: 0}
+    uvSize: {x: 0, y: 0}
+    useTexture1: 0
+    hasTexture: 0
+  - uvBase: {x: 0, y: 0}
+    uvSize: {x: 0, y: 0}
+    useTexture1: 0
+    hasTexture: 0
 --- !u!54 &5485147615287630904
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -149,3 +196,26 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &5809104261954367819
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5313337329262707675}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  voxelHideVelocityThreshold: 0.15
+  outlineColor: {r: 0.9056604, g: 0.9056604, b: 0.9056604, a: 1}
+  outlineWidth: 0.025
+  surfaceOffset: 0.002
+  fullIntensity: 1
+  playerStoppedInputThreshold: 0.01
+  playerMovingInputThreshold: 0.2
+  playerMovingMultiplier: 1
+  playerStoppedMultiplier: 0
+  fadeInDuration: 1.25
+  fadeOutDuration: 0.25
