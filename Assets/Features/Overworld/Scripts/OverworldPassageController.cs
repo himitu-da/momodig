@@ -4,10 +4,13 @@ public class OverworldPassageController : MonoBehaviour
 {
     [Header("Transition")]
     [SerializeField] private float requiredInputThreshold = 0.5f;
-    [SerializeField] private float cancelDistance = 0.2f;
     [SerializeField] private string destinationSceneName = "MiningScene";
     [SerializeField] private ChangeScene changeScene;
     [SerializeField] private Vector3 travelOffset = new Vector3(0f, -3f, 0f);
+
+    [Header("Passage Areas")]
+    [SerializeField] private BoxCollider onAreaCollider;
+    [SerializeField] private BoxCollider offAreaCollider;
 
     [Header("Passage Stencil Mask")]
     [SerializeField] private bool maskPlayerWithPassageRenderer = true;
@@ -40,6 +43,8 @@ public class OverworldPassageController : MonoBehaviour
         {
             passageMaskRenderer = GetComponent<MeshRenderer>();
         }
+
+        ResolveAreaColliders();
     }
 
     private void OnTriggerEnter(Collider other)
@@ -58,6 +63,7 @@ public class OverworldPassageController : MonoBehaviour
         isPlayerInside = true;
         playerTransform = playerController.transform;
         playerRigidbody = playerController.GetComponent<Rigidbody>();
+        CapturePassageBounds();
     }
 
     private void OnTriggerExit(Collider other)
@@ -84,6 +90,18 @@ public class OverworldPassageController : MonoBehaviour
 
         if (!isPassageActive)
         {
+            CapturePassageBounds();
+
+            if (IsInOffArea())
+            {
+                return;
+            }
+
+            if (!IsInOnArea())
+            {
+                return;
+            }
+
             float requiredDirection = GetTransitionDirection();
             if (verticalInput * requiredDirection < requiredInputThreshold)
             {
@@ -130,34 +148,23 @@ public class OverworldPassageController : MonoBehaviour
             return;
         }
 
+        if (IsInOffArea())
+        {
+            DeactivatePassage();
+            return;
+        }
+
         if (HasReachedTransitionTarget())
         {
             CompletePassage();
             return;
         }
 
-        if (HasReturnedPastStart())
-        {
-            ResetState();
-        }
     }
 
     private void CapturePassageBounds()
     {
-        Bounds bounds;
-        Collider passageCollider = GetComponent<Collider>();
-        if (passageCollider != null)
-        {
-            bounds = passageCollider.bounds;
-        }
-        else if (passageMaskRenderer != null)
-        {
-            bounds = passageMaskRenderer.bounds;
-        }
-        else
-        {
-            bounds = new Bounds(transform.position, new Vector3(1f, 1f, 1f));
-        }
+        Bounds bounds = GetOnAreaBounds();
 
         passageMinX = bounds.min.x;
         passageMaxX = bounds.max.x;
@@ -221,12 +228,6 @@ public class OverworldPassageController : MonoBehaviour
         }
 
         Vector3 position = playerTransform.position;
-        if (position.x < passageMinX - cancelDistance || position.x > passageMaxX + cancelDistance)
-        {
-            ResetState();
-            return false;
-        }
-
         bool clampedX = false;
         if (position.x < passageMinX)
         {
@@ -239,24 +240,10 @@ public class OverworldPassageController : MonoBehaviour
             clampedX = true;
         }
 
-        float returnDistance = (position.y - transitionStartY) * transitionDirection;
-        if (returnDistance < -cancelDistance)
-        {
-            ResetState();
-            return false;
-        }
-
-        bool clampedY = false;
-        if (returnDistance < 0f)
-        {
-            position.y = transitionStartY;
-            clampedY = true;
-        }
-
-        if (clampedX || clampedY)
+        if (clampedX)
         {
             playerTransform.position = position;
-            StopBlockedVelocity(clampedX, clampedY);
+            StopBlockedVelocity(true, false);
         }
 
         return true;
@@ -313,57 +300,106 @@ public class OverworldPassageController : MonoBehaviour
             && (playerTransform.position.y - transitionTargetY) * transitionDirection >= 0f;
     }
 
-    private bool HasReturnedPastStart()
+    private bool IsInOffArea()
     {
-        return playerTransform != null
-            && (playerTransform.position.y - transitionStartY) * transitionDirection < -cancelDistance;
+        if (playerTransform == null || offAreaCollider == null)
+        {
+            return false;
+        }
+
+        return ContainsPoint2D(offAreaCollider.bounds, playerTransform.position);
     }
 
-    private void ResetState()
+    private bool IsInOnArea()
+    {
+        return playerTransform != null
+            && ContainsPoint2D(GetOnAreaBounds(), playerTransform.position);
+    }
+
+    private Bounds GetOnAreaBounds()
+    {
+        if (onAreaCollider != null)
+        {
+            return onAreaCollider.bounds;
+        }
+
+        Collider passageCollider = GetComponent<Collider>();
+        if (passageCollider != null)
+        {
+            return passageCollider.bounds;
+        }
+
+        if (passageMaskRenderer != null)
+        {
+            return passageMaskRenderer.bounds;
+        }
+
+        return new Bounds(transform.position, new Vector3(1f, 1f, 1f));
+    }
+
+    private static bool ContainsPoint2D(Bounds bounds, Vector3 point)
+    {
+        return point.x >= bounds.min.x
+            && point.x <= bounds.max.x
+            && point.y >= bounds.min.y
+            && point.y <= bounds.max.y;
+    }
+
+    private void ResolveAreaColliders()
+    {
+        if (onAreaCollider == null)
+        {
+            onAreaCollider = FindChildBoxCollider("PassageOnArea", "OnArea", "ONArea");
+        }
+
+        if (offAreaCollider == null)
+        {
+            offAreaCollider = FindChildBoxCollider("PassageOffArea", "OffArea", "OFFArea");
+        }
+    }
+
+    private BoxCollider FindChildBoxCollider(params string[] names)
+    {
+        for (int i = 0; i < names.Length; i++)
+        {
+            Transform child = transform.Find(names[i]);
+            if (child != null && child.TryGetComponent(out BoxCollider boxCollider))
+            {
+                return boxCollider;
+            }
+        }
+
+        return null;
+    }
+
+    private void DeactivatePassage()
     {
         if (playerController != null)
         {
             playerController.IsMovementLocked = false;
         }
 
-        playerController = null;
-        playerTransform = null;
-        playerRigidbody = null;
-        isPlayerInside = false;
         isPassageActive = false;
         transitionStartY = 0f;
         transitionTargetY = 0f;
         transitionDirection = 0f;
-        passageMinX = 0f;
-        passageMaxX = 0f;
         RestorePlayerCollision();
         passageMaskSession.End();
     }
 
     private void ClearState()
     {
+        DeactivatePassage();
         playerController = null;
         playerTransform = null;
         playerRigidbody = null;
         isPlayerInside = false;
-        isPassageActive = false;
-        transitionStartY = 0f;
-        transitionTargetY = 0f;
-        transitionDirection = 0f;
         passageMinX = 0f;
         passageMaxX = 0f;
-        RestorePlayerCollision();
-        passageMaskSession.End();
     }
 
     private void OnDisable()
     {
-        if (playerController != null)
-        {
-            playerController.IsMovementLocked = false;
-        }
-
-        RestorePlayerCollision();
-        passageMaskSession.End();
+        DeactivatePassage();
     }
 }
