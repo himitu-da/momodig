@@ -68,64 +68,30 @@ public class BlockDiggingSystem
         int startZ = Mathf.Max(0, Mathf.FloorToInt(localMin.z + voxelsPerBlock / 2.0f));
         int endZ = Mathf.Min(voxelsPerBlock - 1, Mathf.CeilToInt(localMax.z + voxelsPerBlock / 2.0f));
 
-        PlayerController playerController = Object.FindFirstObjectByType<PlayerController>();
-        PlayerController.MoveMode moveMode = playerController != null ? playerController.currentMoveMode : PlayerController.MoveMode.TopDown;
-
-        if (moveMode == PlayerController.MoveMode.SideScroller)
+        for (int z = startZ; z <= endZ; z++)
         {
-            for (int z = startZ; z <= endZ; z++)
-            {
-                bool layerModified = false;
-                List<System.Action> dropActions = new List<System.Action>();
+            bool layerModified = false;
+            List<System.Action> dropActions = new List<System.Action>();
 
-                for (int x = startX; x <= endX; x++)
+            for (int x = startX; x <= endX; x++)
+            {
+                for (int y = startY; y <= endY; y++)
                 {
-                    for (int y = startY; y <= endY; y++)
+                    if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, ref destructionSound, ref destructionSoundVolume))
                     {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, ref destructionSound, ref destructionSoundVolume))
-                        {
-                            layerModified = true;
-                            destroyedVoxelCount++;
-                        }
+                        layerModified = true;
+                        destroyedVoxelCount++;
                     }
                 }
-
-                if (layerModified)
-                {
-                    foreach (var action in dropActions) action.Invoke();
-                    targetBlock.GenerateMesh();
-                }
-
-                await DelayFrames();
             }
-        }
-        else
-        {
-            for (int y = endY; y >= startY; y--)
+
+            if (layerModified)
             {
-                bool layerModified = false;
-                List<System.Action> dropActions = new List<System.Action>();
-
-                for (int x = startX; x <= endX; x++)
-                {
-                    for (int z = startZ; z <= endZ; z++)
-                    {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, ref destructionSound, ref destructionSoundVolume))
-                        {
-                            layerModified = true;
-                            destroyedVoxelCount++;
-                        }
-                    }
-                }
-
-                if (layerModified)
-                {
-                    foreach (var action in dropActions) action.Invoke();
-                    targetBlock.GenerateMesh();
-                }
-
-                await DelayFrames();
+                foreach (var action in dropActions) action.Invoke();
+                targetBlock.GenerateMesh();
             }
+
+            await DelayFrames();
         }
 
         if (destructionSound != null)

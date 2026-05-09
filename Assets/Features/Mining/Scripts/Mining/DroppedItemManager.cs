@@ -952,38 +952,8 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
     {
         if (itemRigidbody == null) return;
 
-        PlayerController.MoveMode currentMoveMode = GetCurrentMoveMode();
-
-        switch (currentMoveMode)
-        {
-            case PlayerController.MoveMode.SideScroller:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ | 
-                                          RigidbodyConstraints.FreezeRotationX | 
-                                          RigidbodyConstraints.FreezeRotationY;
-                break;
-
-            case PlayerController.MoveMode.TopDown:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionY | 
-                                          RigidbodyConstraints.FreezeRotationX | 
-                                          RigidbodyConstraints.FreezeRotationZ;
-                break;
-
-            default:
-                itemRigidbody.constraints = RigidbodyConstraints.None;
-                break;
-        }
-    }
-
-    /// <summary>
-    /// 現在のゲームの移動モードを取得
-    /// </summary>
-    private PlayerController.MoveMode GetCurrentMoveMode()
-    {
-        PlayerController playerController = FindFirstObjectByType<PlayerController>();
-        if (playerController != null)
-        {
-            return playerController.currentMoveMode;
-        }
-        return PlayerController.MoveMode.TopDown;
+        itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ |
+                                    RigidbodyConstraints.FreezeRotationX |
+                                    RigidbodyConstraints.FreezeRotationY;
     }
 }

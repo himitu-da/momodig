@@ -3,13 +3,11 @@ using UnityEngine;
 public class PlayerVisualsController : MonoBehaviour
 {
     private Animator _animator;
-    private PlayerController _playerController;
     private Vector2 _lastMoveDirection = Vector2.right; // 停止時の向きを保持するため
 
     void Awake()
     {
         _animator = GetComponentInParent<Animator>();
-        _playerController = GetComponentInParent<PlayerController>();
     }
 
     /// <summary>
@@ -56,8 +54,7 @@ public class PlayerVisualsController : MonoBehaviour
     /// <returns>アニメーション用の(x, y)ベクトル</returns>
     private Vector2 GetAnimationDirection(Vector3 direction)
     {
-        // TopDownモードではZ軸をYとして扱う
-        float y = (_playerController.currentMoveMode == PlayerController.MoveMode.TopDown) ? direction.z : direction.y;
+        float y = direction.y;
         float x = direction.x;
 
         // 非常に小さい入力は無視

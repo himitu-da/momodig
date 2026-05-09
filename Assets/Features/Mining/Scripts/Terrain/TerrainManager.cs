@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,14 +9,13 @@ using UnityEngine.UI; // UIコンポ�Eネントを使用するために追加
 /// </summary>
 public enum TerrainGenerationType
 {
-    SideScroller,    // XY平面�E�旧CubeSideScrollerPlacer置き換え！E
-    TopDown,         // XZ平面�E�旧CubeTopDownPlacer置き換え！E
-    Custom          // カスタム�E�封E��の拡張用�E�E
+    PlayPlane,
+    Custom
 }
 
 /// <summary>
 /// 地形設定データ構造
-/// 旧BaseCubePlacer + CubeSideScrollerPlacerの全設定を統吁E
+/// Legacy cube placer settings are unified here.
 /// </summary>
 [System.Serializable]
 public class TerrainSettings
@@ -31,7 +30,7 @@ public class TerrainSettings
     public int voxelsPerBlock = 4;
 
     [Header("Generation Type")]
-    public TerrainGenerationType generationType = TerrainGenerationType.SideScroller;
+    public TerrainGenerationType generationType = TerrainGenerationType.PlayPlane;
     
     [Header("Performance")]
     public int blocksPerFrame = 16; // 1フレームあたり�EブロチE��生�E数
@@ -44,7 +43,7 @@ public class TerrainSettings
 /// 地形全体を管琁E��る�Eネ�Eジャー
 /// WorldGeneratorオブジェクトにアタチE��して使用
 /// 
-/// レガシーシスチE���E�EaseCubePlacer、CubeSideScrollerPlacer�E�を完�E置き換ぁE
+/// Legacy terrain placement systems are replaced by this unified setup.
 /// 不忁E��な継承関係を排除し、Blockを直接使用する統合設訁E
 /// </summary>
 public class TerrainManager : MonoBehaviour

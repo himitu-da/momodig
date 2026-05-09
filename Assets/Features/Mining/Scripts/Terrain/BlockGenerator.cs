@@ -2,8 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// ブロチE��生�Eクラス
-/// ボクセルパターンの生�Eを担彁E
+/// ブロチE��生�Eクラス
+/// ボクセルパターンの生�Eを担彁E
 /// </summary>
 public class BlockGenerator : MonoBehaviour
 {
@@ -11,7 +11,7 @@ public class BlockGenerator : MonoBehaviour
     [SerializeField] private bool showBlockDebugInfo = false;
     
     /// <summary>
-    /// ブロチE��生�EチE�Eタ
+    /// ブロチE��生�EチE�Eタ
     /// </summary>
     [System.Serializable]
     public class BlockGenerationData
@@ -33,7 +33,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// TerrainManagerからの参�E
+    /// TerrainManagerからの参�E
     /// </summary>
     private TerrainManager terrainManager;
     private System.Random random;
@@ -58,7 +58,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// 持E��されたチャンクのブロチE��パターンを生戁E
+    /// 持E��されたチャンクのブロチE��パターンを生戁E
     /// </summary>
     public bool[,,] GenerateBlockPattern(BlockGenerationData data)
     {
@@ -71,11 +71,8 @@ public class BlockGenerator : MonoBehaviour
         
         switch (data.generationType)
         {
-            case TerrainGenerationType.SideScroller:
-                return GenerateSideScrollerPattern(data, pattern);
-                
-            case TerrainGenerationType.TopDown:
-                return GenerateTopDownPattern(data, pattern);
+            case TerrainGenerationType.PlayPlane:
+                return GeneratePlayPlanePattern(data, pattern);
                 
             case TerrainGenerationType.Custom:
                 return GenerateCustomPattern(data, pattern);
@@ -87,13 +84,13 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// サイドスクローラー用パターン生�E�E�EY平面、Z軸制限！E
+    /// Play plane pattern generation (XY plane with Z-axis constraint).
     /// </summary>
-    private bool[,,] GenerateSideScrollerPattern(BlockGenerationData data, bool[,,] pattern)
+    private bool[,,] GeneratePlayPlanePattern(BlockGenerationData data, bool[,,] pattern)
     {
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockGenerator: Generating SideScroller pattern, voxelWorldSize: {data.voxelWorldSize}");
+            Debug.Log($"BlockGenerator: Generating PlayPlane pattern, voxelWorldSize: {data.voxelWorldSize}");
         }
         
         for (int x = 0; x < data.voxelsPerBlock; x++)
@@ -111,31 +108,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// トップダウン用パターン生�E�E�EZ平面、Y軸制限！E
-    /// </summary>
-    private bool[,,] GenerateTopDownPattern(BlockGenerationData data, bool[,,] pattern)
-    {
-        if (showBlockDebugInfo)
-        {
-            Debug.Log($"BlockGenerator: Generating TopDown pattern, voxelWorldSize: {data.voxelWorldSize}");
-        }
-        
-        for (int x = 0; x < data.voxelsPerBlock; x++)
-        {
-            for (int y = 0; y < data.voxelsPerBlock; y++)
-            {
-                for (int z = 0; z < data.voxelsPerBlock; z++)
-                {
-                    pattern[x, y, z] = IsVoxelSolid(data.generationType, data.voxelsPerBlock, data.blockSize, data.blockPosition, new Vector3Int(x, y, z));
-                }
-            }
-        }
-        
-        return pattern;
-    }
-    
-    /// <summary>
-    /// カスタムパターン生�E�E�拡張用�E�E
+    /// カスタムパターン生�E�E�拡張用�E�E
     /// </summary>
     private bool[,,] GenerateCustomPattern(BlockGenerationData data, bool[,,] pattern)
     {
@@ -144,7 +117,7 @@ public class BlockGenerator : MonoBehaviour
             Debug.Log($"BlockGenerator: Generating Custom pattern - using full cube");
         }
         
-        // チE��ォルト�E全ブロチE��を生戁E
+        // チE��ォルト�E全ブロチE��を生戁E
         for (int x = 0; x < data.voxelsPerBlock; x++)
         {
             for (int y = 0; y < data.voxelsPerBlock; y++)
@@ -160,7 +133,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// パターン冁E�EアクチE��ブ�Eクセル数を取征E
+    /// パターン冁E�EアクチE��ブ�Eクセル数を取征E
     /// </summary>
     public bool IsVoxelSolid(TerrainGenerationType generationType, int voxelsPerBlock, float blockSize, Vector3Int blockPosition, Vector3Int localPosition)
     {
@@ -168,16 +141,10 @@ public class BlockGenerator : MonoBehaviour
 
         switch (generationType)
         {
-            case TerrainGenerationType.SideScroller:
+            case TerrainGenerationType.PlayPlane:
             {
                 float zPos = (localPosition.z - (voxelsPerBlock - 1) / 2.0f) * voxelWorldSize;
                 return Mathf.Abs(zPos) <= 0.5f;
-            }
-
-            case TerrainGenerationType.TopDown:
-            {
-                float yPos = (localPosition.y - (voxelsPerBlock - 1) / 2.0f) * voxelWorldSize;
-                return Mathf.Abs(yPos) <= 0.5f;
             }
 
             case TerrainGenerationType.Custom:
@@ -210,7 +177,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// パターンの寁E��を計算！E.0�E�E.0�E�E
+    /// パターンの寁E��を計算！E.0�E�E.0�E�E
     /// </summary>
     public float CalculatePatternDensity(bool[,,] pattern)
     {
@@ -228,7 +195,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// パターンを可視化�E�デバッグ用�E�E
+    /// パターンを可視化�E�デバッグ用�E�E
     /// </summary>
     public string VisualizePattern(bool[,,] pattern, int layer = 0)
     {
@@ -250,7 +217,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// パターンを褁E��
+    /// パターンを褁E��
     /// </summary>
     public bool[,,] ClonePattern(bool[,,] source)
     {
@@ -275,7 +242,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// チE��チE��惁E��を取征E
+    /// チE��チE��惁E��を取征E
     /// </summary>
     public string GetDebugInfo()
     {
@@ -283,7 +250,7 @@ public class BlockGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// 持E��された論理座標に対応するBlockDataを取征E
+    /// 持E��された論理座標に対応するBlockDataを取征E
     /// </summary>
     public BlockData GetBlockDataForPosition(Vector3Int blockPosition)
     {
@@ -292,14 +259,14 @@ public class BlockGenerator : MonoBehaviour
             return null;
         }
 
-        // 論理Y座標に基づぁE��バイオームを取征E
+        // 論理Y座標に基づぁE��バイオームを取征E
         var biome = terrainManager.TerrainDataManager.GetBiomeForHeight(blockPosition.y);
         if (biome == null || biome.availableBlocks == null || biome.availableBlocks.Count == 0)
         {
             return null;
         }
 
-        // 吁E��ロチE��の重みを計箁E
+        // 吁E��ロチE��の重みを計箁E
         List<float> weights = new List<float>();
         float totalWeight = 0f;
         foreach (var blockDist in biome.availableBlocks)
@@ -310,7 +277,7 @@ public class BlockGenerator : MonoBehaviour
             totalWeight += weight;
         }
 
-        // 合計�E重みぁE以下なら、何も生�EしなぁE
+        // 合計�E重みぁE以下なら、何も生�EしなぁE
         if (totalWeight <= 0)
         {
             return null;
@@ -327,7 +294,7 @@ public class BlockGenerator : MonoBehaviour
             randomValue -= weights[i];
         }
 
-        // フォールバック�E�計算誤差などでここまで来た場合！E
+        // フォールバック�E�計算誤差などでここまで来た場合！E
         return biome.availableBlocks[biome.availableBlocks.Count - 1].blockData;
     }
 }

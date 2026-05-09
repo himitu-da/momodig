@@ -602,11 +602,9 @@ MonoBehaviour:
   enableFollow: 1
   followSpeed: 5
   useSmoothDamp: 0
-  sideScrollerOffset: {x: 0, y: -1, z: -10}
-  topDownOffset: {x: 0, y: 10, z: 0}
-  sideScrollerOrthographicSize: 6
-  topDownOrthographicSize: 6
-  useDirectionalCameraInSideScroller: 1
+  playPlaneOffset: {x: 0, y: -1, z: -10}
+  playPlaneOrthographicSize: 6
+  useDirectionalPlayPlaneCamera: 1
   playerBaseViewportOffset: {x: 0, y: 0}
   maxPlayerViewportOffset: 0
   speedForMaxCameraResponse: 20.5
@@ -1296,7 +1294,6 @@ MonoBehaviour:
   deceleration: 0.1
   fallSpeedMultiplier: 0.5
   fallAcceleration: 1
-  _currentMoveMode: 0
   scoreText: {fileID: 0}
   depthText: {fileID: 0}
   inventoryText: {fileID: 0}

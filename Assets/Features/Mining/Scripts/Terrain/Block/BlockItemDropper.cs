@@ -101,31 +101,9 @@ public static class BlockItemDropper
     {
         if (itemRigidbody == null) return;
 
-        PlayerController.MoveMode currentMoveMode = GetCurrentMoveMode();
-
-        switch (currentMoveMode)
-        {
-            case PlayerController.MoveMode.SideScroller:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ |
-                                            RigidbodyConstraints.FreezeRotationX |
-                                            RigidbodyConstraints.FreezeRotationY;
-                break;
-
-            case PlayerController.MoveMode.TopDown:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionY |
-                                            RigidbodyConstraints.FreezeRotationX |
-                                            RigidbodyConstraints.FreezeRotationZ;
-                break;
-
-            default:
-                itemRigidbody.constraints = RigidbodyConstraints.None;
-                break;
-        }
+        itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ |
+                                    RigidbodyConstraints.FreezeRotationX |
+                                    RigidbodyConstraints.FreezeRotationY;
     }
 
-    private static PlayerController.MoveMode GetCurrentMoveMode()
-    {
-        PlayerController playerController = Object.FindFirstObjectByType<PlayerController>();
-        return playerController != null ? playerController.currentMoveMode : PlayerController.MoveMode.TopDown;
-    }
 }
