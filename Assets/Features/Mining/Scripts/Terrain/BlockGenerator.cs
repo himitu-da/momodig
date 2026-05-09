@@ -71,8 +71,8 @@ public class BlockGenerator : MonoBehaviour
         
         switch (data.generationType)
         {
-            case TerrainGenerationType.SideScroller:
-                return GenerateSideScrollerPattern(data, pattern);
+            case TerrainGenerationType.PlayPlane:
+                return GeneratePlayPlanePattern(data, pattern);
                 
             case TerrainGenerationType.Custom:
                 return GenerateCustomPattern(data, pattern);
@@ -84,13 +84,13 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// サイドスクローラー用パターン生�E�E�EY平面、Z軸制限！E
+    /// Play plane pattern generation (XY plane with Z-axis constraint).
     /// </summary>
-    private bool[,,] GenerateSideScrollerPattern(BlockGenerationData data, bool[,,] pattern)
+    private bool[,,] GeneratePlayPlanePattern(BlockGenerationData data, bool[,,] pattern)
     {
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockGenerator: Generating SideScroller pattern, voxelWorldSize: {data.voxelWorldSize}");
+            Debug.Log($"BlockGenerator: Generating PlayPlane pattern, voxelWorldSize: {data.voxelWorldSize}");
         }
         
         for (int x = 0; x < data.voxelsPerBlock; x++)
@@ -141,7 +141,7 @@ public class BlockGenerator : MonoBehaviour
 
         switch (generationType)
         {
-            case TerrainGenerationType.SideScroller:
+            case TerrainGenerationType.PlayPlane:
             {
                 float zPos = (localPosition.z - (voxelsPerBlock - 1) / 2.0f) * voxelWorldSize;
                 return Mathf.Abs(zPos) <= 0.5f;
