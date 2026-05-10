@@ -2741,6 +2741,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   changescene: {fileID: 1067940504}
+  facilityUIHost: {fileID: 900000202}
+  miningSceneName: MiningScene
+  legacyShopSceneName: ShopScene
+  workshopFacility: {fileID: 11400000, guid: e17c652b84ba44d19846990aa0f65e4a, type: 2}
+  garageFacility: {fileID: 11400000, guid: 427a7121d9ea4a4f9e969e544c405ae1, type: 2}
+  legacyShopStateManager: {fileID: 1342635314}
 --- !u!114 &1067940504
 MonoBehaviour:
   m_ObjectHideFlags: 0

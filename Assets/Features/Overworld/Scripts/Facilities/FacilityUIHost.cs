@@ -39,6 +39,7 @@ public class FacilityUIHost : MonoBehaviour
         if (currentPanel != null)
         {
             currentPanel.CloseRequested -= HandlePanelCloseRequested;
+            currentPanel.NotifyClosing();
         }
 
         RestoreMovementLockState();
@@ -78,9 +79,28 @@ public class FacilityUIHost : MonoBehaviour
 
         SetBaseUiVisible(false);
         panelRoot.gameObject.SetActive(true);
+        FacilityPanel createdPanel = Instantiate(facility.PanelPrefab, panelRoot);
+        if (!createdPanel.gameObject.activeSelf)
+        {
+            Debug.LogError($"FacilityUIHost: panel prefab for '{facility.DisplayName}' must have an active root GameObject.", createdPanel);
+            Destroy(createdPanel.gameObject);
+            panelRoot.gameObject.SetActive(false);
+            SetBaseUiVisible(true);
+            RestoreMovementLockState();
+            return false;
+        }
+
+        if (!createdPanel.Initialize(this, facility))
+        {
+            Destroy(createdPanel.gameObject);
+            panelRoot.gameObject.SetActive(false);
+            SetBaseUiVisible(true);
+            RestoreMovementLockState();
+            return false;
+        }
+
         currentFacility = facility;
-        currentPanel = Instantiate(facility.PanelPrefab, panelRoot);
-        currentPanel.Initialize(this, facility);
+        currentPanel = createdPanel;
         currentPanel.CloseRequested += HandlePanelCloseRequested;
 
         if (lockPlayerMovementWhileOpen)
@@ -101,6 +121,7 @@ public class FacilityUIHost : MonoBehaviour
         }
 
         currentPanel.CloseRequested -= HandlePanelCloseRequested;
+        currentPanel.NotifyClosing();
         Destroy(currentPanel.gameObject);
         currentPanel = null;
         currentFacility = null;
