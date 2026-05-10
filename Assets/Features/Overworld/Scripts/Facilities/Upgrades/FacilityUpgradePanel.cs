@@ -11,6 +11,8 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
     [Header("Required Text")]
     [SerializeField] private TMP_Text titleText;
     [SerializeField] private TMP_Text selectedNameText;
+
+    [Header("Optional Text")]
     [SerializeField] private TMP_Text selectedLevelText;
     [SerializeField] private TMP_Text selectedDescriptionText;
     [SerializeField] private TMP_Text purchaseStatusText;
@@ -69,9 +71,6 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
 
         isValid &= ValidateReference(titleText, nameof(titleText));
         isValid &= ValidateReference(selectedNameText, nameof(selectedNameText));
-        isValid &= ValidateReference(selectedLevelText, nameof(selectedLevelText));
-        isValid &= ValidateReference(selectedDescriptionText, nameof(selectedDescriptionText));
-        isValid &= ValidateReference(purchaseStatusText, nameof(purchaseStatusText));
         isValid &= ValidateReference(categoryRoot, nameof(categoryRoot));
         isValid &= ValidateReference(upgradeRoot, nameof(upgradeRoot));
         isValid &= ValidateReference(costRoot, nameof(costRoot));
@@ -129,6 +128,9 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
     private void Rebuild()
     {
         ClearCreatedViews();
+        ClearRootChildren(categoryRoot);
+        ClearRootChildren(upgradeRoot);
+        ClearRootChildren(costRoot);
         currentFacilityUpgrades.Clear();
         categoryOrder.Clear();
         categoryLabels.Clear();
@@ -273,9 +275,22 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         }
 
         int level = upgradeService.GetLevel(selectedUpgrade);
-        selectedNameText.SetText(selectedUpgrade.DisplayName);
-        selectedLevelText.SetText($"Level {level} / {selectedUpgrade.MaxLevel}");
-        selectedDescriptionText.SetText(selectedUpgrade.Description);
+        string levelText = $"Level {level} / {selectedUpgrade.MaxLevel}";
+        if (selectedLevelText == null)
+        {
+            selectedNameText.SetText($"{selectedUpgrade.DisplayName}\n{levelText}");
+        }
+        else
+        {
+            selectedNameText.SetText(selectedUpgrade.DisplayName);
+            selectedLevelText.SetText(levelText);
+        }
+
+        if (selectedDescriptionText != null)
+        {
+            selectedDescriptionText.SetText(selectedUpgrade.Description);
+        }
+
         RefreshCostRows();
         RefreshUpgradeRows();
         RefreshPurchaseState();
@@ -315,7 +330,7 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         if (selectedUpgrade == null)
         {
             purchaseButton.interactable = false;
-            purchaseStatusText.SetText("Select an upgrade");
+            SetPurchaseStatus("Select an upgrade");
             return;
         }
 
@@ -323,13 +338,13 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         if (selectedUpgrade.IsMaxLevel(level))
         {
             purchaseButton.interactable = false;
-            purchaseStatusText.SetText("Max level");
+            SetPurchaseStatus("Max level");
             return;
         }
 
         bool canPurchase = upgradeService.CanPurchase(selectedUpgrade, 1);
         purchaseButton.interactable = canPurchase;
-        purchaseStatusText.SetText(canPurchase ? "Ready" : "Not enough materials");
+        SetPurchaseStatus(canPurchase ? "Ready" : "Not enough materials");
     }
 
     private void HandlePurchaseClicked()
@@ -358,12 +373,28 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
     {
         selectedUpgrade = null;
         selectedNameText.SetText("No upgrade");
-        selectedLevelText.SetText("-");
-        selectedDescriptionText.SetText("No upgrade is configured for this facility.");
-        purchaseStatusText.SetText("Unavailable");
+        if (selectedLevelText != null)
+        {
+            selectedLevelText.SetText("-");
+        }
+
+        if (selectedDescriptionText != null)
+        {
+            selectedDescriptionText.SetText("No upgrade is configured for this facility.");
+        }
+
+        SetPurchaseStatus("Unavailable");
         purchaseButton.interactable = false;
         ClearUpgradeRows();
         ClearCostRows();
+    }
+
+    private void SetPurchaseStatus(string message)
+    {
+        if (purchaseStatusText != null)
+        {
+            purchaseStatusText.SetText(message);
+        }
     }
 
     private void ClearCreatedViews()
@@ -411,6 +442,14 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         }
 
         createdCostRows.Clear();
+    }
+
+    private void ClearRootChildren(Transform root)
+    {
+        for (int i = root.childCount - 1; i >= 0; i--)
+        {
+            Destroy(root.GetChild(i).gameObject);
+        }
     }
 
     private bool ValidateReference(Object reference, string fieldName)

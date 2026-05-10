@@ -1891,6 +1891,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 842856062cdb6984b8e8b752700bc636, type: 2}
   - {fileID: 11400000, guid: 5a96d83544394f4468d129086e7df425, type: 2}
   toolInventory: {fileID: 1227563695}
+  facilityUpgradeCatalog: {fileID: 11400000, guid: 9162f2accb0641959747b09f002fb1b, type: 2}
   _mainMiningTool: {fileID: 11400000, guid: 842856062cdb6984b8e8b752700bc636, type: 2}
   _subMiningTool: {fileID: 11400000, guid: 5a96d83544394f4468d129086e7df425, type: 2}
   _mainDiggerPrefab: {fileID: 1220892178057369463, guid: 66567eefa547b094ba204c59ae2595db, type: 3}
@@ -2172,6 +2173,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerTransform: {fileID: 672003891}
   minecartPrefab: {fileID: 1242165045067032922, guid: 57b4c4f6783a13c45909b1fc9784d4b1, type: 3}
+  facilityUpgradeCatalog: {fileID: 11400000, guid: 9162f2accb0641959747b09f002fb1b, type: 2}
   CartCapacity:
     BaseValue: 50
   minecartCapacityUIPrefab: {fileID: 389274024485993804, guid: 393ff803e241034418760f2c9c02f0e5, type: 3}

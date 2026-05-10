@@ -8,6 +8,8 @@ public class FacilityUpgradeRow : MonoBehaviour
     [Header("Required References")]
     [SerializeField] private Button button;
     [SerializeField] private TMP_Text nameText;
+
+    [Header("Optional Text")]
     [SerializeField] private TMP_Text levelText;
 
     [Header("Optional State")]
@@ -71,6 +73,12 @@ public class FacilityUpgradeRow : MonoBehaviour
         }
 
         int level = service.GetLevel(upgrade);
+        if (levelText == null)
+        {
+            nameText.SetText($"{upgrade.DisplayName}  Lv {level}/{upgrade.MaxLevel}");
+            return;
+        }
+
         nameText.SetText(upgrade.DisplayName);
         levelText.SetText($"Lv {level}/{upgrade.MaxLevel}");
     }
@@ -107,12 +115,6 @@ public class FacilityUpgradeRow : MonoBehaviour
         if (nameText == null)
         {
             Debug.LogError($"FacilityUpgradeRow '{name}': nameText is not configured.", this);
-            isValid = false;
-        }
-
-        if (levelText == null)
-        {
-            Debug.LogError($"FacilityUpgradeRow '{name}': levelText is not configured.", this);
             isValid = false;
         }
 

@@ -5,6 +5,8 @@ public class FacilityUpgradeCostRow : MonoBehaviour
 {
     [Header("Required References")]
     [SerializeField] private TMP_Text resourceNameText;
+
+    [Header("Optional Text")]
     [SerializeField] private TMP_Text amountText;
 
     public bool SetCost(FacilityUpgradeCostPreview cost)
@@ -20,8 +22,16 @@ public class FacilityUpgradeCostRow : MonoBehaviour
             return false;
         }
 
-        resourceNameText.SetText(ResourceTypeUtility.GetDisplayName(cost.ResourceType));
-        amountText.SetText($"{cost.OwnedAmount}/{cost.RequiredAmount}");
+        string resourceName = ResourceTypeUtility.GetDisplayName(cost.ResourceType);
+        string amount = $"{cost.OwnedAmount}/{cost.RequiredAmount}";
+        if (amountText == null)
+        {
+            resourceNameText.SetText($"{resourceName}  {amount}");
+            return true;
+        }
+
+        resourceNameText.SetText(resourceName);
+        amountText.SetText(amount);
         return true;
     }
 
@@ -32,12 +42,6 @@ public class FacilityUpgradeCostRow : MonoBehaviour
         if (resourceNameText == null)
         {
             Debug.LogError($"FacilityUpgradeCostRow '{name}': resourceNameText is not configured.", this);
-            isValid = false;
-        }
-
-        if (amountText == null)
-        {
-            Debug.LogError($"FacilityUpgradeCostRow '{name}': amountText is not configured.", this);
             isValid = false;
         }
 

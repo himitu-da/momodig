@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
+  m_Name: GarageMinecartUnit
+  m_EditorClassIdentifier: 
+  upgradeId: garage.minecart.unit
+  facilityType: 1
+  categoryId: minecart
+  categoryLabel: Minecart
+  displayName: Minecart Unit
+  description: Adds one minecart to the mining convoy.
+  initialLevel: 0
+  maxLevel: 8
+  costScaling: 0
+  resourceCosts:
+  - resourceType: 1
+    baseAmount: 20
+  - resourceType: 5
+    baseAmount: 10
+  - resourceType: 11
+    baseAmount: 5
+  enhancements:
+  - {fileID: 11400000, guid: 1571f13da5e9af7438fce21969d86c5c, type: 2}
