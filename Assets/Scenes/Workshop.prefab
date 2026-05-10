@@ -3130,15 +3130,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
-    m_Left: 0
-    m_Right: 0
-    m_Top: 0
-    m_Bottom: 0
+    m_Left: 4
+    m_Right: 4
+    m_Top: 4
+    m_Bottom: 4
   m_ChildAlignment: 0
-  m_Spacing: 0
+  m_Spacing: 8
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 0
-  m_ChildControlWidth: 0
+  m_ChildControlWidth: 1
   m_ChildControlHeight: 0
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
@@ -5728,6 +5728,7 @@ MonoBehaviour:
   purchaseStatusText: {fileID: 0}
   categoryRoot: {fileID: 8968364968892953309}
   shopScroll: {fileID: 7579542976745531557}
+  upgradeToggleGroup: {fileID: 1965356187883014088}
   costRoot: {fileID: 1412902063041663394}
   categoryTabPrefab: {fileID: 106000000, guid: 3aa32283d84241a28e144164af23d04e, type: 3}
   upgradeRowPrefab: {fileID: 206000000, guid: 474912db2a6d4059999545c1c4345da1, type: 3}

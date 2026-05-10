@@ -20,6 +20,7 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
     [Header("Required Lists")]
     [SerializeField] private Transform categoryRoot;
     [SerializeField] private ScrollRect shopScroll;
+    [SerializeField] private ToggleGroup upgradeToggleGroup;
     [SerializeField] private Transform costRoot;
     [SerializeField] private FacilityUpgradeCategoryTab categoryTabPrefab;
     [SerializeField] private FacilityUpgradeRow upgradeRowPrefab;
@@ -73,9 +74,22 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         isValid &= ValidateReference(selectedNameText, nameof(selectedNameText));
         isValid &= ValidateReference(categoryRoot, nameof(categoryRoot));
         isValid &= ValidateReference(shopScroll, nameof(shopScroll));
+        isValid &= ValidateReference(upgradeToggleGroup, nameof(upgradeToggleGroup));
         if (shopScroll != null && shopScroll.content == null)
         {
             Debug.LogError($"FacilityUpgradePanel '{name}': shopScroll.content is not configured.", this);
+            isValid = false;
+        }
+
+        if (shopScroll != null && upgradeToggleGroup != null && upgradeToggleGroup.transform != shopScroll.content)
+        {
+            Debug.LogError($"FacilityUpgradePanel '{name}': upgradeToggleGroup must be assigned on shopScroll.content.", this);
+            isValid = false;
+        }
+
+        if (upgradeToggleGroup != null && upgradeToggleGroup.allowSwitchOff)
+        {
+            Debug.LogError($"FacilityUpgradePanel '{name}': upgradeToggleGroup.allowSwitchOff must be disabled.", this);
             isValid = false;
         }
 
@@ -235,7 +249,7 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
             }
 
             FacilityUpgradeRow row = Instantiate(upgradeRowPrefab, shopScroll.content);
-            if (!row.Initialize(upgrade, upgradeService, SelectUpgrade))
+            if (!row.Initialize(upgrade, upgradeService, upgradeToggleGroup, SelectUpgrade))
             {
                 Debug.LogError($"FacilityUpgradePanel '{name}': failed to initialize upgrade row '{upgrade.UpgradeId}'.", this);
                 Destroy(row.gameObject);
@@ -310,6 +324,7 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         {
             FacilityUpgradeRow row = createdUpgradeRows[i];
             row.Refresh();
+            row.SetSelected(row.Upgrade == selectedUpgrade);
         }
     }
 

@@ -6,7 +6,7 @@ using UnityEngine.UI;
 public class FacilityUpgradeRow : MonoBehaviour
 {
     [Header("Required References")]
-    [SerializeField] private Button button;
+    [SerializeField] private Toggle toggle;
     [SerializeField] private TMP_Text nameText;
 
     [Header("Optional Text")]
@@ -19,17 +19,20 @@ public class FacilityUpgradeRow : MonoBehaviour
     private FacilityUpgradeService service;
     private Action<FacilityUpgradeDefinition> selectedCallback;
 
+    public FacilityUpgradeDefinition Upgrade => upgrade;
+
     private void OnDestroy()
     {
-        if (button != null)
+        if (toggle != null)
         {
-            button.onClick.RemoveListener(HandleClicked);
+            toggle.onValueChanged.RemoveListener(HandleToggleChanged);
         }
     }
 
     public bool Initialize(
         FacilityUpgradeDefinition upgradeDefinition,
         FacilityUpgradeService upgradeService,
+        ToggleGroup toggleGroup,
         Action<FacilityUpgradeDefinition> callback)
     {
         if (!ValidateRequiredReferences())
@@ -49,6 +52,12 @@ public class FacilityUpgradeRow : MonoBehaviour
             return false;
         }
 
+        if (toggleGroup == null)
+        {
+            Debug.LogError($"FacilityUpgradeRow '{name}': toggleGroup is not configured.", this);
+            return false;
+        }
+
         if (callback == null)
         {
             Debug.LogError($"FacilityUpgradeRow '{name}': callback is not configured.", this);
@@ -58,7 +67,8 @@ public class FacilityUpgradeRow : MonoBehaviour
         upgrade = upgradeDefinition;
         service = upgradeService;
         selectedCallback = callback;
-        button.onClick.AddListener(HandleClicked);
+        toggle.group = toggleGroup;
+        toggle.onValueChanged.AddListener(HandleToggleChanged);
         Refresh();
         SetSelected(false);
         return true;
@@ -85,17 +95,34 @@ public class FacilityUpgradeRow : MonoBehaviour
 
     public void SetSelected(bool selected)
     {
+        if (toggle == null)
+        {
+            Debug.LogError($"FacilityUpgradeRow '{name}': toggle is not configured.", this);
+            return;
+        }
+
+        toggle.SetIsOnWithoutNotify(selected);
         if (selectedMarker != null)
         {
             selectedMarker.SetActive(selected);
         }
     }
 
-    private void HandleClicked()
+    private void HandleToggleChanged(bool isOn)
     {
+        if (selectedMarker != null)
+        {
+            selectedMarker.SetActive(isOn);
+        }
+
+        if (!isOn)
+        {
+            return;
+        }
+
         if (upgrade == null || selectedCallback == null)
         {
-            Debug.LogError($"FacilityUpgradeRow '{name}': clicked before Initialize.", this);
+            Debug.LogError($"FacilityUpgradeRow '{name}': toggled before Initialize.", this);
             return;
         }
 
@@ -106,9 +133,9 @@ public class FacilityUpgradeRow : MonoBehaviour
     {
         bool isValid = true;
 
-        if (button == null)
+        if (toggle == null)
         {
-            Debug.LogError($"FacilityUpgradeRow '{name}': button is not configured.", this);
+            Debug.LogError($"FacilityUpgradeRow '{name}': toggle is not configured.", this);
             isValid = false;
         }
 
