@@ -10,6 +10,8 @@ public static class PassageTransitionContext
     private static Vector3 normalizedPosition;
     private static Vector3 sourceAreaSize;
 
+    public static bool HasPendingTransition => hasPendingTransition;
+
     public static void Begin(string sourceScene, string targetScene, BoxCollider sourceTransitionArea, Vector3 sourceWorldPosition)
     {
         if (string.IsNullOrEmpty(sourceScene) || string.IsNullOrEmpty(targetScene) || sourceTransitionArea == null)

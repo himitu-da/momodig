@@ -71,6 +71,11 @@ public class CameraFollowController : MonoBehaviour, IGameSceneTransitionHandler
     private Vector2 heldPlanarMoveVector = Vector2.zero;
     private float remainingMoveVectorHoldTime = 0f;
     private bool referencesAreValid;
+    private Renderer[] sceneRenderers;
+    private bool[] sceneRendererEnabledStates;
+    private Canvas[] sceneCanvases;
+    private bool[] sceneCanvasEnabledStates;
+    private bool isScenePresentationHidden;
 
     private void Awake()
     {
@@ -86,6 +91,10 @@ public class CameraFollowController : MonoBehaviour, IGameSceneTransitionHandler
         if (disableCameraUntilInitialSnap)
         {
             mainCamera.enabled = false;
+            if (ShouldHideScenePresentationUntilSnap())
+            {
+                HideScenePresentationUntilInitialSnap();
+            }
         }
     }
 
@@ -117,6 +126,11 @@ public class CameraFollowController : MonoBehaviour, IGameSceneTransitionHandler
             return;
         }
 
+        if (PassageTransitionContext.HasPendingTransition)
+        {
+            return;
+        }
+
         SnapToFollowTargetAndEnable();
     }
 
@@ -142,6 +156,7 @@ public class CameraFollowController : MonoBehaviour, IGameSceneTransitionHandler
             return false;
         }
 
+        RestoreScenePresentation();
         mainCamera.enabled = true;
         return true;
     }
@@ -390,10 +405,134 @@ public class CameraFollowController : MonoBehaviour, IGameSceneTransitionHandler
         remainingMoveVectorHoldTime = 0f;
     }
 
+    private void HideScenePresentationUntilInitialSnap()
+    {
+        if (isScenePresentationHidden)
+        {
+            return;
+        }
+
+        CaptureScenePresentationState();
+        SetScenePresentationEnabled(false);
+        isScenePresentationHidden = true;
+    }
+
+    private void RestoreScenePresentation()
+    {
+        if (!isScenePresentationHidden)
+        {
+            return;
+        }
+
+        RestoreScenePresentationState();
+        isScenePresentationHidden = false;
+    }
+
+    private void CaptureScenePresentationState()
+    {
+        GameObject[] rootObjects = gameObject.scene.GetRootGameObjects();
+        int rendererCount = 0;
+        int canvasCount = 0;
+
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            rendererCount += rootObjects[i].GetComponentsInChildren<Renderer>(true).Length;
+            canvasCount += rootObjects[i].GetComponentsInChildren<Canvas>(true).Length;
+        }
+
+        sceneRenderers = new Renderer[rendererCount];
+        sceneRendererEnabledStates = new bool[rendererCount];
+        sceneCanvases = new Canvas[canvasCount];
+        sceneCanvasEnabledStates = new bool[canvasCount];
+
+        int rendererIndex = 0;
+        int canvasIndex = 0;
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            Renderer[] renderers = rootObjects[i].GetComponentsInChildren<Renderer>(true);
+            for (int j = 0; j < renderers.Length; j++)
+            {
+                sceneRenderers[rendererIndex] = renderers[j];
+                sceneRendererEnabledStates[rendererIndex] = renderers[j] != null && renderers[j].enabled;
+                rendererIndex++;
+            }
+
+            Canvas[] canvases = rootObjects[i].GetComponentsInChildren<Canvas>(true);
+            for (int j = 0; j < canvases.Length; j++)
+            {
+                sceneCanvases[canvasIndex] = canvases[j];
+                sceneCanvasEnabledStates[canvasIndex] = canvases[j] != null && canvases[j].enabled;
+                canvasIndex++;
+            }
+        }
+    }
+
+    private void SetScenePresentationEnabled(bool enabled)
+    {
+        if (sceneRenderers != null)
+        {
+            for (int i = 0; i < sceneRenderers.Length; i++)
+            {
+                if (sceneRenderers[i] != null)
+                {
+                    sceneRenderers[i].enabled = enabled;
+                }
+            }
+        }
+
+        if (sceneCanvases != null)
+        {
+            for (int i = 0; i < sceneCanvases.Length; i++)
+            {
+                if (sceneCanvases[i] != null)
+                {
+                    sceneCanvases[i].enabled = enabled;
+                }
+            }
+        }
+    }
+
+    private void RestoreScenePresentationState()
+    {
+        if (sceneRenderers != null && sceneRendererEnabledStates != null)
+        {
+            int count = Mathf.Min(sceneRenderers.Length, sceneRendererEnabledStates.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (sceneRenderers[i] != null)
+                {
+                    sceneRenderers[i].enabled = sceneRendererEnabledStates[i];
+                }
+            }
+        }
+
+        if (sceneCanvases != null && sceneCanvasEnabledStates != null)
+        {
+            int count = Mathf.Min(sceneCanvases.Length, sceneCanvasEnabledStates.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (sceneCanvases[i] != null)
+                {
+                    sceneCanvases[i].enabled = sceneCanvasEnabledStates[i];
+                }
+            }
+        }
+
+        sceneRenderers = null;
+        sceneRendererEnabledStates = null;
+        sceneCanvases = null;
+        sceneCanvasEnabledStates = null;
+    }
+
     private static bool ShouldWaitForManagedSceneTransitionSnap()
     {
         GameSceneCoordinator coordinator = GameSceneCoordinator.Instance;
         return coordinator != null && coordinator.IsTransitioning;
+    }
+
+    private static bool ShouldHideScenePresentationUntilSnap()
+    {
+        return PassageTransitionContext.HasPendingTransition || ShouldWaitForManagedSceneTransitionSnap();
     }
 
     private void UpdateCameraSettings()

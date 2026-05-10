@@ -698,20 +698,6 @@ public class MiningPassageController : MonoBehaviour, IGameSceneTransitionHandle
     {
         isSceneTransitioning = true;
         RestorePlayerCollision();
-
-        if (playerTransform == null)
-        {
-            return;
-        }
-
-        Renderer[] renderers = playerTransform.GetComponentsInChildren<Renderer>(true);
-        for (int i = 0; i < renderers.Length; i++)
-        {
-            if (renderers[i] != null)
-            {
-                renderers[i].enabled = false;
-            }
-        }
     }
 
     private void TransferAllItemsToStorage()
