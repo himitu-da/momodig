@@ -8,6 +8,13 @@ public class GameSceneCoordinator : MonoBehaviour
 {
     public static GameSceneCoordinator Instance { get; private set; }
 
+    private static readonly string[] DefaultManagedContentSceneNames =
+    {
+        "OverWorldScene",
+        "MiningScene",
+        "ShopScene"
+    };
+
     [Header("Content Scenes")]
     [SerializeField] private string initialContentSceneName = "OverWorldScene";
     [SerializeField] private List<string> managedContentSceneNames = new List<string>
@@ -26,6 +33,12 @@ public class GameSceneCoordinator : MonoBehaviour
 
     public string CurrentContentSceneName => currentContentSceneName;
     public bool IsTransitioning => transitionCoroutine != null;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void BootstrapForDirectContentScenePlay()
+    {
+        TryCreateDirectPlayCoordinatorForActiveContentScene();
+    }
 
     private void Awake()
     {
@@ -93,6 +106,8 @@ public class GameSceneCoordinator : MonoBehaviour
 
     public static bool TrySwitchToScene(string sceneName, string entryPointId)
     {
+        TryCreateDirectPlayCoordinatorForActiveContentScene();
+
         if (Instance == null || !Instance.CanSwitchToScene(sceneName))
         {
             return false;
@@ -285,5 +300,44 @@ public class GameSceneCoordinator : MonoBehaviour
         }
 
         return handlers;
+    }
+
+    private static void TryCreateDirectPlayCoordinatorForActiveContentScene()
+    {
+        if (Instance != null)
+        {
+            return;
+        }
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (!IsDefaultManagedContentSceneName(activeScene.name))
+        {
+            return;
+        }
+
+        GameObject coordinatorObject = new GameObject("GameSceneCoordinator");
+        DontDestroyOnLoad(coordinatorObject);
+
+        GameSceneCoordinator coordinator = coordinatorObject.AddComponent<GameSceneCoordinator>();
+        coordinator.loadInitialContentSceneOnStart = false;
+        coordinator.currentContentSceneName = activeScene.name;
+    }
+
+    private static bool IsDefaultManagedContentSceneName(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < DefaultManagedContentSceneNames.Length; i++)
+        {
+            if (DefaultManagedContentSceneNames[i] == sceneName)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
