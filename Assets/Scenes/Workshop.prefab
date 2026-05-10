@@ -3091,14 +3091,13 @@ GameObject:
   - component: {fileID: 5185645508639990986}
   - component: {fileID: 1965356187883014088}
   - component: {fileID: 4900737029627328098}
-  - component: {fileID: 6173783012130045898}
   m_Layer: 5
-  m_Name: GarageContent1
+  m_Name: Content
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1202547261755314659
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3171,26 +3170,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_HorizontalFit: 0
   m_VerticalFit: 2
---- !u!114 &6173783012130045898
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4472208832920692407}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 89cfe5620dfe64146b24a0c646d81110, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  scrollview: {fileID: 1202547261755314659}
-  itemUIPrefab: {fileID: 3513343272586606519, guid: 5ffb06caf2ba4224da541bdef92f05e8, type: 3}
-  group: {fileID: 1965356187883014088}
-  items:
-  - {fileID: 11400000, guid: 9dcb82b1ed00b4e458a2cc1d7671536d, type: 2}
-  productname: {fileID: 1083132758199581991}
-  flavortext: {fileID: 1428083882536766684}
-  buymanager: {fileID: 0}
 --- !u!1 &4480532133527945032
 GameObject:
   m_ObjectHideFlags: 0
