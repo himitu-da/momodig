@@ -33,13 +33,28 @@ public class StorageManager : MonoBehaviour
     {
         if (_instance != null && _instance != this)
         {
-            Destroy(gameObject);
-            return;
+            StorageManager previousInstance = _instance;
+            if (previousInstance.storedResources != null)
+            {
+                storedResources = new Dictionary<ResourceType, int>(previousInstance.storedResources);
+            }
+
+            if (previousInstance.gameObject == gameObject)
+            {
+                Destroy(previousInstance);
+            }
+            else
+            {
+                Destroy(previousInstance.gameObject);
+            }
         }
         _instance = this;
         
         // GameDataPersistenceManagerからリソースをロード
-        storedResources = new Dictionary<ResourceType, int>(GameDataPersistenceManager.Instance.storedResources);
+        if (GameDataPersistenceManager.Instance.storedResources != null)
+        {
+            storedResources = new Dictionary<ResourceType, int>(GameDataPersistenceManager.Instance.storedResources);
+        }
 
         // 全てのリソースタイプを0で初期化（もし永続化データになければ）
         foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
@@ -116,6 +131,46 @@ public class StorageManager : MonoBehaviour
     /// </summary>
     /// <param name="type">リソースタイプ</param>
     /// <returns>貯蔵量</returns>
+    public bool CanSpendResources(Dictionary<ResourceType, int> resourcesToSpend)
+    {
+        if (!ValidateSpendRequest(resourcesToSpend))
+        {
+            return false;
+        }
+
+        foreach (KeyValuePair<ResourceType, int> resource in resourcesToSpend)
+        {
+            if (!storedResources.ContainsKey(resource.Key))
+            {
+                Debug.LogError($"StorageManager: resource '{resource.Key}' is not initialized.");
+                return false;
+            }
+
+            if (storedResources[resource.Key] < resource.Value)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public bool TrySpendResources(Dictionary<ResourceType, int> resourcesToSpend)
+    {
+        if (!CanSpendResources(resourcesToSpend))
+        {
+            return false;
+        }
+
+        foreach (KeyValuePair<ResourceType, int> resource in resourcesToSpend)
+        {
+            storedResources[resource.Key] -= resource.Value;
+        }
+
+        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+        return true;
+    }
+
     public int GetResourceAmount(ResourceType type)
     {
         if (storedResources.ContainsKey(type))
@@ -132,5 +187,31 @@ public class StorageManager : MonoBehaviour
     public Dictionary<ResourceType, int> GetAllStoredResources()
     {
         return new Dictionary<ResourceType, int>(storedResources);
+    }
+
+    private bool ValidateSpendRequest(Dictionary<ResourceType, int> resourcesToSpend)
+    {
+        if (storedResources == null)
+        {
+            Debug.LogError("StorageManager: storedResources is not initialized.");
+            return false;
+        }
+
+        if (resourcesToSpend == null || resourcesToSpend.Count == 0)
+        {
+            Debug.LogError("StorageManager: resourcesToSpend is not configured.");
+            return false;
+        }
+
+        foreach (KeyValuePair<ResourceType, int> resource in resourcesToSpend)
+        {
+            if (resource.Value <= 0)
+            {
+                Debug.LogError($"StorageManager: spend amount for '{resource.Key}' must be greater than zero.");
+                return false;
+            }
+        }
+
+        return true;
     }
 }

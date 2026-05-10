@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
+  m_Name: GarageMinecartUnloadTime
+  m_EditorClassIdentifier: 
+  upgradeId: garage.minecart.unload_time
+  facilityType: 1
+  categoryId: minecart
+  categoryLabel: "\u30C8\u30ED\u30C3\u30B3\u3000Minecart"
+  displayName: Minecart Unload Speed
+  description: Reduces the time needed for minecarts to unload resources.
+  initialLevel: 0
+  maxLevel: 20
+  costScaling: 1
+  resourceCosts:
+  - resourceType: 10
+    baseAmount: 1
+  - resourceType: 5
+    baseAmount: 8
+  enhancements:
+  - {fileID: 11400000, guid: 74cd8db727c84fc48f0afcb950580a56, type: 2}

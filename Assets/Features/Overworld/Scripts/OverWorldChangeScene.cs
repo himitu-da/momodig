@@ -1,20 +1,163 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
+
 public class OverWorldChangeScene : MonoBehaviour
 {
-    public ChangeScene changescene;
+    [Header("Required References")]
+    [SerializeField] private ChangeScene changescene;
+    [SerializeField] private FacilityUIHost facilityUIHost;
+
+    [Header("Scene Names")]
+    [SerializeField] private string miningSceneName;
+    [SerializeField] private string legacyShopSceneName;
+
+    [Header("Facilities")]
+    [SerializeField] private FacilityDefinition workshopFacility;
+    [SerializeField] private FacilityDefinition garageFacility;
+
+    [Header("Legacy ShopScene")]
+    [SerializeField] private ShopStateManager legacyShopStateManager;
+
+    private bool isConfigured;
+
+    private void Awake()
+    {
+        isConfigured = ValidateRequiredReferences();
+    }
+
     public void SelectMineplace()
     {
-        changescene.OnClickToChangeScene("MiningScene");
+        if (!EnsureConfigured())
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(miningSceneName))
+        {
+            Debug.LogError("OverWorldChangeScene: miningSceneName is not configured.", this);
+            return;
+        }
+
+        changescene.OnClickToChangeScene(miningSceneName);
     }
+
     public void SelectWorkshop()
     {
-        ShopStateManager.Instance.startMode = ShopStateManager.ShopMode.Workshop;
-        changescene.OnClickToChangeScene("ShopScene");
+        OpenFacility(workshopFacility, nameof(workshopFacility));
     }
+
     public void SelectGarage()
     {
-        ShopStateManager.Instance.startMode = ShopStateManager.ShopMode.Garage;
-        changescene.OnClickToChangeScene("ShopScene");
+        OpenFacility(garageFacility, nameof(garageFacility));
+    }
+
+    public void SelectWorkshopLegacyShopScene()
+    {
+        OpenLegacyShopScene(ShopStateManager.ShopMode.Workshop);
+    }
+
+    public void SelectGarageLegacyShopScene()
+    {
+        OpenLegacyShopScene(ShopStateManager.ShopMode.Garage);
+    }
+
+    private void OpenFacility(FacilityDefinition facility, string fieldName)
+    {
+        if (!EnsureConfigured())
+        {
+            return;
+        }
+
+        if (facility == null)
+        {
+            Debug.LogError($"OverWorldChangeScene: {fieldName} is not configured.", this);
+            return;
+        }
+
+        if (!facility.ValidateConfiguration(this))
+        {
+            return;
+        }
+
+        facilityUIHost.Open(facility);
+    }
+
+    private void OpenLegacyShopScene(ShopStateManager.ShopMode mode)
+    {
+        if (!EnsureConfigured())
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(legacyShopSceneName))
+        {
+            Debug.LogError("OverWorldChangeScene: legacyShopSceneName is not configured.", this);
+            return;
+        }
+
+        legacyShopStateManager.startMode = mode;
+        changescene.OnClickToChangeScene(legacyShopSceneName);
+    }
+
+    private bool EnsureConfigured()
+    {
+        if (isConfigured)
+        {
+            return true;
+        }
+
+        Debug.LogError("OverWorldChangeScene: required references are not configured.", this);
+        return false;
+    }
+
+    private bool ValidateRequiredReferences()
+    {
+        bool isValid = true;
+
+        if (changescene == null)
+        {
+            Debug.LogError("OverWorldChangeScene: changescene is not configured.", this);
+            isValid = false;
+        }
+
+        if (facilityUIHost == null)
+        {
+            Debug.LogError("OverWorldChangeScene: facilityUIHost is not configured.", this);
+            isValid = false;
+        }
+
+        isValid &= ValidateSceneName(miningSceneName, nameof(miningSceneName));
+        isValid &= ValidateSceneName(legacyShopSceneName, nameof(legacyShopSceneName));
+        isValid &= ValidateFacility(workshopFacility, nameof(workshopFacility));
+        isValid &= ValidateFacility(garageFacility, nameof(garageFacility));
+
+        if (legacyShopStateManager == null)
+        {
+            Debug.LogError("OverWorldChangeScene: legacyShopStateManager is not configured.", this);
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    private bool ValidateSceneName(string sceneName, string fieldName)
+    {
+        if (!string.IsNullOrWhiteSpace(sceneName))
+        {
+            return true;
+        }
+
+        Debug.LogError($"OverWorldChangeScene: {fieldName} is not configured.", this);
+        return false;
+    }
+
+    private bool ValidateFacility(FacilityDefinition facility, string fieldName)
+    {
+        if (facility == null)
+        {
+            Debug.LogError($"OverWorldChangeScene: {fieldName} is not configured.", this);
+            return false;
+        }
+
+        return facility.ValidateConfiguration(this);
     }
 }

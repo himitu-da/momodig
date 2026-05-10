@@ -10,6 +10,7 @@ public class MinecartManager : MonoBehaviour
 
     [Header("トロッコ設定")]
     public GameObject minecartPrefab; // トロッコのプレハブ
+    [SerializeField] private FacilityUpgradeCatalog facilityUpgradeCatalog;
     public Stat CartCapacity = new Stat { BaseValue = 500 };
 
     [Header("UI設定")]
@@ -38,12 +39,12 @@ public class MinecartManager : MonoBehaviour
 
     private void OnEnable()
     {
-        GameDataPersistenceManager.OnPurchasedItemsChanged += ApplyEnhancements;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged += ApplyEnhancements;
     }
 
     private void OnDisable()
     {
-        GameDataPersistenceManager.OnPurchasedItemsChanged -= ApplyEnhancements;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged -= ApplyEnhancements;
     }
 
     void Start()
@@ -285,6 +286,11 @@ public class MinecartManager : MonoBehaviour
 
     public void ApplyEnhancements()
     {
+        if (!ValidateFacilityUpgradeCatalog())
+        {
+            return;
+        }
+
         // Statの補正値をリセット
         CartCapacity.RemoveAllModifiers();
         followMoveSpeed.RemoveAllModifiers();
@@ -292,30 +298,49 @@ public class MinecartManager : MonoBehaviour
         unloadTime.RemoveAllModifiers();
         cartunit.RemoveAllModifiers();
 
-        var purchasedItems = GameDataPersistenceManager.Instance.purchaseditems;
-        foreach (var item in purchasedItems)
+        GameDataPersistenceManager persistence = GameDataPersistenceManager.Instance;
+        IReadOnlyList<FacilityUpgradeDefinition> upgrades = facilityUpgradeCatalog.Upgrades;
+        for (int upgradeIndex = 0; upgradeIndex < upgrades.Count; upgradeIndex++)
         {
-            ItemData itemData = item.Key;
-            int level = item.Value;
+            FacilityUpgradeDefinition upgrade = upgrades[upgradeIndex];
+            int level = persistence.GetFacilityUpgradeLevel(upgrade.UpgradeId, upgrade.InitialLevel);
 
             if (level == 0) continue; // レベル0のアイテムは効果なし
 
-            foreach (var enhancement in itemData.enhancements)
+            IReadOnlyList<Enhancement> enhancements = upgrade.Enhancements;
+            for (int enhancementIndex = 0; enhancementIndex < enhancements.Count; enhancementIndex++)
             {
+                Enhancement enhancement = enhancements[enhancementIndex];
                 // カテゴリが "Minecart" の場合のみ適用
                 if (enhancement.TargetCategory == "Minecart")
                 {
                     Stat targetStat = GetStatByName(enhancement.TargetStatName);
-                    if (targetStat != null)
+                    if (targetStat == null)
                     {
-                        ApplyModifier(targetStat, enhancement, level);
+                        Debug.LogError(
+                            $"MinecartManager: enhancement '{enhancement.name}' targets unsupported stat '{enhancement.TargetStatName}'.",
+                            this);
+                        continue;
                     }
+
+                    ApplyModifier(targetStat, enhancement, level);
                 }
             }
         }
 
         // トロッコ数が変わった可能性があるので更新
         UpdateCartCount();
+    }
+
+    private bool ValidateFacilityUpgradeCatalog()
+    {
+        if (facilityUpgradeCatalog == null)
+        {
+            Debug.LogError("MinecartManager: facilityUpgradeCatalog is not configured.", this);
+            return false;
+        }
+
+        return facilityUpgradeCatalog.ValidateConfiguration(this);
     }
 
     private Stat GetStatByName(string statName)
