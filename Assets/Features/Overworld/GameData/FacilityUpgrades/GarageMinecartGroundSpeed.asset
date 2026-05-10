@@ -15,7 +15,7 @@ MonoBehaviour:
   upgradeId: garage.minecart.ground_speed
   facilityType: 1
   categoryId: minecart
-  categoryLabel: Minecart
+  categoryLabel: "\u30C8\u30ED\u30C3\u30B3\u3000Minecart"
   displayName: Minecart Return Speed
   description: Improves minecart movement while returning to the surface.
   initialLevel: 0

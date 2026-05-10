@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
-  m_Name: WorkshopBombDamage
+  m_Name: WorkshopDynamiteDamage
   m_EditorClassIdentifier: 
-  upgradeId: workshop.bomb.damage
+  upgradeId: workshop.dynamite.damage
   facilityType: 0
-  categoryId: bomb
-  categoryLabel: Bomb
-  displayName: Bomb Damage
+  categoryId: dynamite
+  categoryLabel: "\u30C0\u30A4\u30CA\u30DE\u30A4\u30C8\u3000Dynamite"
+  displayName: Dynamite Damage
   description: Improves dynamite damage per blast.
   initialLevel: 0
   maxLevel: 30

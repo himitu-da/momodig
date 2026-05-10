@@ -15,7 +15,7 @@ MonoBehaviour:
   upgradeId: garage.minecart.capacity
   facilityType: 1
   categoryId: minecart
-  categoryLabel: Minecart
+  categoryLabel: "\u30C8\u30ED\u30C3\u30B3\u3000Minecart"
   displayName: Minecart Capacity
   description: Increases the resource capacity of each minecart.
   initialLevel: 0

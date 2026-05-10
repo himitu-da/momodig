@@ -15,7 +15,7 @@ MonoBehaviour:
   upgradeId: workshop.pickaxe.vertical_range
   facilityType: 0
   categoryId: pickaxe
-  categoryLabel: Pickaxe
+  categoryLabel: "\u30D4\u30C3\u30B1\u30EB\u3000Pickaxe"
   displayName: Pickaxe Vertical Range
   description: Expands the vertical digging area for the pickaxe.
   initialLevel: 0
