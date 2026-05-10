@@ -191,10 +191,23 @@ public class GameSceneCoordinator : MonoBehaviour
             SceneManager.SetActiveScene(targetScene);
         }
 
+        ApplyPlayerPlacement(targetScene, entryPointId, hasDestinationPlayerPosition, destinationPlayerPosition);
+        NotifyAfterSceneLoad(targetScene, previousContentSceneName);
+
+        if (!HasEnabledCamera(targetScene))
+        {
+            Debug.LogError($"GameSceneCoordinator: Scene '{targetSceneName}' has no enabled camera after scene load preparation.");
+            transitionCoroutine = null;
+            yield break;
+        }
+
+        currentContentSceneName = targetSceneName;
+
         List<Scene> scenesToUnload = GetLoadedManagedContentScenesExcept(targetSceneName);
         for (int i = 0; i < scenesToUnload.Count; i++)
         {
             NotifyBeforeSceneUnload(scenesToUnload[i], targetSceneName);
+            DisableSceneRendering(scenesToUnload[i]);
 
             AsyncOperation unloadOperation = SceneManager.UnloadSceneAsync(scenesToUnload[i]);
             if (unloadOperation == null)
@@ -208,10 +221,6 @@ public class GameSceneCoordinator : MonoBehaviour
             }
         }
 
-        ApplyPlayerPlacement(targetScene, entryPointId, hasDestinationPlayerPosition, destinationPlayerPosition);
-        NotifyAfterSceneLoad(targetScene, previousContentSceneName);
-
-        currentContentSceneName = targetSceneName;
         transitionCoroutine = null;
     }
 
@@ -335,6 +344,59 @@ public class GameSceneCoordinator : MonoBehaviour
                 Debug.LogException(exception);
             }
         }
+    }
+
+    private static void DisableSceneRendering(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded)
+        {
+            return;
+        }
+
+        GameObject[] rootObjects = scene.GetRootGameObjects();
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            Camera[] cameras = rootObjects[i].GetComponentsInChildren<Camera>(true);
+            for (int j = 0; j < cameras.Length; j++)
+            {
+                if (cameras[j] != null)
+                {
+                    cameras[j].enabled = false;
+                }
+            }
+
+            AudioListener[] audioListeners = rootObjects[i].GetComponentsInChildren<AudioListener>(true);
+            for (int j = 0; j < audioListeners.Length; j++)
+            {
+                if (audioListeners[j] != null)
+                {
+                    audioListeners[j].enabled = false;
+                }
+            }
+        }
+    }
+
+    private static bool HasEnabledCamera(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded)
+        {
+            return false;
+        }
+
+        GameObject[] rootObjects = scene.GetRootGameObjects();
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            Camera[] cameras = rootObjects[i].GetComponentsInChildren<Camera>(true);
+            for (int j = 0; j < cameras.Length; j++)
+            {
+                if (cameras[j] != null && cameras[j].enabled)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static List<IGameSceneTransitionHandler> GetTransitionHandlers(Scene scene)
