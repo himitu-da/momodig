@@ -5,6 +5,7 @@ public class FacilityUIHost : MonoBehaviour
 {
     [Header("Required References")]
     [SerializeField] private RectTransform panelRoot;
+    [SerializeField] private CanvasGroup baseUiGroup;
     [SerializeField] private OverworldPlayerController playerController;
 
     [Header("Behavior")]
@@ -30,6 +31,7 @@ public class FacilityUIHost : MonoBehaviour
         }
 
         panelRoot.gameObject.SetActive(false);
+        SetBaseUiVisible(true);
     }
 
     private void OnDestroy()
@@ -40,6 +42,11 @@ public class FacilityUIHost : MonoBehaviour
         }
 
         RestoreMovementLockState();
+
+        if (baseUiGroup != null)
+        {
+            SetBaseUiVisible(true);
+        }
     }
 
     public bool Open(FacilityDefinition facility)
@@ -69,6 +76,7 @@ public class FacilityUIHost : MonoBehaviour
 
         StoreMovementLockState();
 
+        SetBaseUiVisible(false);
         panelRoot.gameObject.SetActive(true);
         currentFacility = facility;
         currentPanel = Instantiate(facility.PanelPrefab, panelRoot);
@@ -97,6 +105,7 @@ public class FacilityUIHost : MonoBehaviour
         currentPanel = null;
         currentFacility = null;
         panelRoot.gameObject.SetActive(false);
+        SetBaseUiVisible(true);
         RestoreMovementLockState();
 
         PanelClosed?.Invoke();
@@ -135,6 +144,13 @@ public class FacilityUIHost : MonoBehaviour
         hasStoredMovementLockState = false;
     }
 
+    private void SetBaseUiVisible(bool visible)
+    {
+        baseUiGroup.alpha = visible ? 1f : 0f;
+        baseUiGroup.interactable = visible;
+        baseUiGroup.blocksRaycasts = visible;
+    }
+
     private bool ValidateRequiredReferences()
     {
         bool isValid = true;
@@ -142,6 +158,12 @@ public class FacilityUIHost : MonoBehaviour
         if (panelRoot == null)
         {
             Debug.LogError("FacilityUIHost: panelRoot is not configured.", this);
+            isValid = false;
+        }
+
+        if (baseUiGroup == null)
+        {
+            Debug.LogError("FacilityUIHost: baseUiGroup is not configured.", this);
             isValid = false;
         }
 

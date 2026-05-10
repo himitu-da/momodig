@@ -7,6 +7,7 @@ public class FacilityPromptView : MonoBehaviour
 {
     [Header("Required References")]
     [SerializeField] private RectTransform root;
+    [SerializeField] private CanvasGroup visibilityGroup;
     [SerializeField] private Canvas parentCanvas;
     [SerializeField] private Camera worldCamera;
     [SerializeField] private Button openButton;
@@ -14,18 +15,13 @@ public class FacilityPromptView : MonoBehaviour
 
     private Transform currentAnchor;
     private Action openRequested;
+    private bool isInitialized;
 
     public bool IsVisible { get; private set; }
 
     private void Awake()
     {
-        if (!ValidateRequiredReferences())
-        {
-            enabled = false;
-            return;
-        }
-
-        openButton.onClick.AddListener(HandleOpenClicked);
+        Initialize();
         Hide();
     }
 
@@ -41,7 +37,7 @@ public class FacilityPromptView : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (openButton != null)
+        if (isInitialized && openButton != null)
         {
             openButton.onClick.RemoveListener(HandleOpenClicked);
         }
@@ -50,6 +46,11 @@ public class FacilityPromptView : MonoBehaviour
     public void Show(FacilityDefinition facility, Transform anchor, Action openRequestedCallback)
     {
         if (!enabled)
+        {
+            return;
+        }
+
+        if (!Initialize())
         {
             return;
         }
@@ -81,21 +82,22 @@ public class FacilityPromptView : MonoBehaviour
             return;
         }
 
+        if (!root.gameObject.activeSelf)
+        {
+            root.gameObject.SetActive(true);
+        }
+
         currentAnchor = anchor;
         openRequested = openRequestedCallback;
         promptLabel.SetText(facility.PromptLabel);
-        root.gameObject.SetActive(true);
+        SetVisibility(true);
         IsVisible = true;
         UpdatePosition();
     }
 
     public void Hide()
     {
-        if (root != null)
-        {
-            root.gameObject.SetActive(false);
-        }
-
+        SetVisibility(false);
         IsVisible = false;
         currentAnchor = null;
         openRequested = null;
@@ -148,6 +150,36 @@ public class FacilityPromptView : MonoBehaviour
         root.anchoredPosition = localPoint;
     }
 
+    private bool Initialize()
+    {
+        if (isInitialized)
+        {
+            return true;
+        }
+
+        if (!ValidateRequiredReferences())
+        {
+            enabled = false;
+            return false;
+        }
+
+        openButton.onClick.AddListener(HandleOpenClicked);
+        isInitialized = true;
+        return true;
+    }
+
+    private void SetVisibility(bool visible)
+    {
+        if (visibilityGroup == null)
+        {
+            return;
+        }
+
+        visibilityGroup.alpha = visible ? 1f : 0f;
+        visibilityGroup.interactable = visible;
+        visibilityGroup.blocksRaycasts = visible;
+    }
+
     private bool ValidateRequiredReferences()
     {
         bool isValid = true;
@@ -155,6 +187,12 @@ public class FacilityPromptView : MonoBehaviour
         if (root == null)
         {
             Debug.LogError("FacilityPromptView: root is not configured.", this);
+            isValid = false;
+        }
+
+        if (visibilityGroup == null)
+        {
+            Debug.LogError("FacilityPromptView: visibilityGroup is not configured.", this);
             isValid = false;
         }
 
