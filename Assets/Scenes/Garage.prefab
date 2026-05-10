@@ -182,6 +182,7 @@ GameObject:
   - component: {fileID: 3971056702239745846}
   - component: {fileID: 6501602751708026709}
   - component: {fileID: 1621984275817506308}
+  - component: {fileID: 900000102}
   m_Layer: 0
   m_Name: Garage
   m_TagString: Untagged
@@ -247,6 +248,19 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &900000102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1274863471822254948}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d7054115bde42c5ae180d98003bd88d, type: 3}
+  m_Name: ""
+  m_EditorClassIdentifier: ""
+  closeButton: {fileID: 2177352945346013679}
 --- !u!1 &7026612593707160105
 GameObject:
   m_ObjectHideFlags: 0
