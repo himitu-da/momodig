@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class OverworldStaticBlockField : MonoBehaviour
@@ -15,72 +16,98 @@ public class OverworldStaticBlockField : MonoBehaviour
     [SerializeField] private float surfaceY = -2.6f;
     [SerializeField] private int sortingOrder = -5;
 
+    [Header("Rendering")]
+    [SerializeField] private Material blockMaterial;
+
     [Header("Collision")]
     [SerializeField] private bool createSingleCollider = true;
+    [SerializeField] private BoxCollider groundCollider;
     [SerializeField] private float colliderDepth = 2f;
 
-    private const string GeneratedBlockPrefix = "GeneratedBlock_";
+    private readonly List<GameObject> generatedBlocks = new List<GameObject>();
+    private Material runtimeBlockMaterial;
 
     private void Awake()
     {
+        if (!ValidateRequiredReferences())
+        {
+            enabled = false;
+            return;
+        }
+
         BuildField();
+    }
+
+    private void OnDestroy()
+    {
+        if (runtimeBlockMaterial != null)
+        {
+            Destroy(runtimeBlockMaterial);
+            runtimeBlockMaterial = null;
+        }
     }
 
     private void BuildField()
     {
         ClearGeneratedBlocks();
 
-        int safeColumns = Mathf.Max(1, columns);
-        int safeRows = Mathf.Max(1, rows);
-        float safeBlockSize = Mathf.Max(0.1f, blockSize);
-        float startX = centerX - ((safeColumns - 1) * safeBlockSize * 0.5f);
+        if (runtimeBlockMaterial != null)
+        {
+            Destroy(runtimeBlockMaterial);
+        }
+
+        runtimeBlockMaterial = new Material(blockMaterial)
+        {
+            name = $"{blockMaterial.name}_{name}"
+        };
+        runtimeBlockMaterial.renderQueue = RenderQueue.Geometry;
+
+        float startX = centerX - ((columns - 1) * blockSize * 0.5f);
         Sprite surfaceBlockSprite = CreateSprite(surfaceBlockTexture);
         Sprite fillBlockSprite = CreateSprite(fillBlockTexture);
 
-        for (int row = 0; row < safeRows; row++)
+        for (int row = 0; row < rows; row++)
         {
-            for (int column = 0; column < safeColumns; column++)
+            for (int column = 0; column < columns; column++)
             {
                 Sprite sprite = row == 0 ? surfaceBlockSprite : fillBlockSprite;
-                if (sprite == null)
-                {
-                    continue;
-                }
 
-                GameObject block = new GameObject($"{GeneratedBlockPrefix}{row}_{column}");
+                GameObject block = new GameObject($"GeneratedBlock_{row}_{column}");
+                generatedBlocks.Add(block);
                 block.transform.SetParent(transform, false);
                 block.transform.localPosition = new Vector3(
-                    startX + column * safeBlockSize,
-                    surfaceY - safeBlockSize * 0.5f - row * safeBlockSize,
+                    startX + column * blockSize,
+                    surfaceY - blockSize * 0.5f - row * blockSize,
                     0f
                 );
 
                 SpriteRenderer renderer = block.AddComponent<SpriteRenderer>();
                 renderer.sprite = sprite;
+                renderer.sharedMaterial = runtimeBlockMaterial;
                 renderer.drawMode = SpriteDrawMode.Sliced;
-                renderer.size = new Vector2(safeBlockSize, safeBlockSize);
+                renderer.size = new Vector2(blockSize, blockSize);
                 renderer.sortingOrder = sortingOrder - row;
             }
         }
 
-        UpdateCollider(safeColumns, safeRows, safeBlockSize);
+        UpdateCollider();
     }
 
     private void ClearGeneratedBlocks()
     {
-        for (int i = transform.childCount - 1; i >= 0; i--)
+        for (int i = 0; i < generatedBlocks.Count; i++)
         {
-            Transform child = transform.GetChild(i);
-            if (child != null && child.name.StartsWith(GeneratedBlockPrefix))
+            if (generatedBlocks[i] != null)
             {
-                Destroy(child.gameObject);
+                Destroy(generatedBlocks[i]);
             }
         }
+
+        generatedBlocks.Clear();
     }
 
-    private void UpdateCollider(int safeColumns, int safeRows, float safeBlockSize)
+    private void UpdateCollider()
     {
-        BoxCollider groundCollider = GetComponent<BoxCollider>();
         if (!createSingleCollider)
         {
             if (groundCollider != null)
@@ -90,30 +117,80 @@ public class OverworldStaticBlockField : MonoBehaviour
             return;
         }
 
-        if (groundCollider == null)
-        {
-            groundCollider = gameObject.AddComponent<BoxCollider>();
-        }
-
         groundCollider.enabled = true;
         groundCollider.isTrigger = false;
-        groundCollider.size = new Vector3(safeColumns * safeBlockSize, safeRows * safeBlockSize, colliderDepth);
-        groundCollider.center = new Vector3(centerX, surfaceY - safeRows * safeBlockSize * 0.5f, 0f);
+        groundCollider.size = new Vector3(columns * blockSize, rows * blockSize, colliderDepth);
+        groundCollider.center = new Vector3(centerX, surfaceY - rows * blockSize * 0.5f, 0f);
     }
 
     private Sprite CreateSprite(Texture2D texture)
     {
-        if (texture == null)
-        {
-            return null;
-        }
-
-        float safePixelsPerUnit = Mathf.Max(1f, pixelsPerUnit);
         return Sprite.Create(
             texture,
             new Rect(0f, 0f, texture.width, texture.height),
             new Vector2(0.5f, 0.5f),
-            safePixelsPerUnit
+            pixelsPerUnit
         );
+    }
+
+    private bool ValidateRequiredReferences()
+    {
+        bool isValid = true;
+
+        if (surfaceBlockTexture == null)
+        {
+            Debug.LogError("OverworldStaticBlockField: surfaceBlockTexture is not configured.", this);
+            isValid = false;
+        }
+
+        if (fillBlockTexture == null)
+        {
+            Debug.LogError("OverworldStaticBlockField: fillBlockTexture is not configured.", this);
+            isValid = false;
+        }
+
+        if (blockMaterial == null)
+        {
+            Debug.LogError("OverworldStaticBlockField: blockMaterial is not configured.", this);
+            isValid = false;
+        }
+
+        if (createSingleCollider && groundCollider == null)
+        {
+            Debug.LogError("OverworldStaticBlockField: groundCollider is not configured.", this);
+            isValid = false;
+        }
+
+        if (columns <= 0)
+        {
+            Debug.LogError("OverworldStaticBlockField: columns must be greater than 0.", this);
+            isValid = false;
+        }
+
+        if (rows <= 0)
+        {
+            Debug.LogError("OverworldStaticBlockField: rows must be greater than 0.", this);
+            isValid = false;
+        }
+
+        if (pixelsPerUnit <= 0f)
+        {
+            Debug.LogError("OverworldStaticBlockField: pixelsPerUnit must be greater than 0.", this);
+            isValid = false;
+        }
+
+        if (blockSize <= 0f)
+        {
+            Debug.LogError("OverworldStaticBlockField: blockSize must be greater than 0.", this);
+            isValid = false;
+        }
+
+        if (colliderDepth <= 0f)
+        {
+            Debug.LogError("OverworldStaticBlockField: colliderDepth must be greater than 0.", this);
+            isValid = false;
+        }
+
+        return isValid;
     }
 }
