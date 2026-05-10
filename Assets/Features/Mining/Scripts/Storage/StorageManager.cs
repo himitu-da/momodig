@@ -33,13 +33,28 @@ public class StorageManager : MonoBehaviour
     {
         if (_instance != null && _instance != this)
         {
-            Destroy(gameObject);
-            return;
+            StorageManager previousInstance = _instance;
+            if (previousInstance.storedResources != null)
+            {
+                storedResources = new Dictionary<ResourceType, int>(previousInstance.storedResources);
+            }
+
+            if (previousInstance.gameObject == gameObject)
+            {
+                Destroy(previousInstance);
+            }
+            else
+            {
+                Destroy(previousInstance.gameObject);
+            }
         }
         _instance = this;
         
         // GameDataPersistenceManagerからリソースをロード
-        storedResources = new Dictionary<ResourceType, int>(GameDataPersistenceManager.Instance.storedResources);
+        if (GameDataPersistenceManager.Instance.storedResources != null)
+        {
+            storedResources = new Dictionary<ResourceType, int>(GameDataPersistenceManager.Instance.storedResources);
+        }
 
         // 全てのリソースタイプを0で初期化（もし永続化データになければ）
         foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
