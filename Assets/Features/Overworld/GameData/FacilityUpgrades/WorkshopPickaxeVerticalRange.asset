@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
+  m_Name: WorkshopPickaxeVerticalRange
+  m_EditorClassIdentifier: 
+  upgradeId: workshop.pickaxe.vertical_range
+  facilityType: 0
+  categoryId: pickaxe
+  categoryLabel: Pickaxe
+  displayName: Pickaxe Vertical Range
+  description: Expands the vertical digging area for the pickaxe.
+  initialLevel: 0
+  maxLevel: 20
+  costScaling: 1
+  resourceCosts:
+  - resourceType: 2
+    baseAmount: 3
+  - resourceType: 8
+    baseAmount: 2
+  enhancements:
+  - {fileID: 11400000, guid: b746de1e86904a96b0350585f84d0001, type: 2}
+  - {fileID: 11400000, guid: 7bd00e0f74024a60a34b72e24666f2e1, type: 2}
+  - {fileID: 11400000, guid: 8db92539b3be4fbf83e2a9992f16a3d2, type: 2}

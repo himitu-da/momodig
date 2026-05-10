@@ -315,10 +315,15 @@ public class MinecartManager : MonoBehaviour
                 if (enhancement.TargetCategory == "Minecart")
                 {
                     Stat targetStat = GetStatByName(enhancement.TargetStatName);
-                    if (targetStat != null)
+                    if (targetStat == null)
                     {
-                        ApplyModifier(targetStat, enhancement, level);
+                        Debug.LogError(
+                            $"MinecartManager: enhancement '{enhancement.name}' targets unsupported stat '{enhancement.TargetStatName}'.",
+                            this);
+                        continue;
                     }
+
+                    ApplyModifier(targetStat, enhancement, level);
                 }
             }
         }

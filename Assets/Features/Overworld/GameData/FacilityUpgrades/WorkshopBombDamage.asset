@@ -10,23 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
-  m_Name: WorkshopPickaxeDamage
+  m_Name: WorkshopBombDamage
   m_EditorClassIdentifier: 
-  upgradeId: workshop.pickaxe.damage
+  upgradeId: workshop.bomb.damage
   facilityType: 0
-  categoryId: pickaxe
-  categoryLabel: Pickaxe
-  displayName: Pickaxe Damage
-  description: Improves pickaxe damage per hit.
-  initialLevel: 1
-  maxLevel: 99
-  costScaling: 2
+  categoryId: bomb
+  categoryLabel: Bomb
+  displayName: Bomb Damage
+  description: Improves dynamite damage per blast.
+  initialLevel: 0
+  maxLevel: 30
+  costScaling: 1
   resourceCosts:
-  - resourceType: 2
-    baseAmount: 1
-  - resourceType: 5
-    baseAmount: 1
   - resourceType: 1
-    baseAmount: 5
+    baseAmount: 12
+  - resourceType: 2
+    baseAmount: 2
   enhancements:
-  - {fileID: 11400000, guid: b7a9154c476642aeadc33d614df3f108, type: 2}
+  - {fileID: 11400000, guid: a06f9e7b2c8e4f47bf4e87e8c2f75d29, type: 2}

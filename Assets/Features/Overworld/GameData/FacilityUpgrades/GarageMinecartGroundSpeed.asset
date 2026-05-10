@@ -10,23 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
-  m_Name: GarageMinecartUnit
+  m_Name: GarageMinecartGroundSpeed
   m_EditorClassIdentifier: 
-  upgradeId: garage.minecart.unit
+  upgradeId: garage.minecart.ground_speed
   facilityType: 1
   categoryId: minecart
   categoryLabel: Minecart
-  displayName: Minecart Unit
-  description: Adds one minecart to the mining convoy.
+  displayName: Minecart Return Speed
+  description: Improves minecart movement while returning to the surface.
   initialLevel: 0
-  maxLevel: 8
-  costScaling: 0
+  maxLevel: 20
+  costScaling: 1
   resourceCosts:
-  - resourceType: 1
-    baseAmount: 20
-  - resourceType: 5
-    baseAmount: 10
-  - resourceType: 11
-    baseAmount: 5
+  - resourceType: 2
+    baseAmount: 8
+  - resourceType: 7
+    baseAmount: 2
   enhancements:
-  - {fileID: 11400000, guid: e8c6765a36544e3b9051f7231ae5d2ad, type: 2}
+  - {fileID: 11400000, guid: dfd2781e48db4dc592cf4e4c7fc8efbb, type: 2}

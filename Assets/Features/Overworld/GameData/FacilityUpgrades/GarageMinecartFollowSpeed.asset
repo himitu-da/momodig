@@ -10,23 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
-  m_Name: WorkshopPickaxeDamage
+  m_Name: GarageMinecartFollowSpeed
   m_EditorClassIdentifier: 
-  upgradeId: workshop.pickaxe.damage
-  facilityType: 0
-  categoryId: pickaxe
-  categoryLabel: Pickaxe
-  displayName: Pickaxe Damage
-  description: Improves pickaxe damage per hit.
-  initialLevel: 1
-  maxLevel: 99
-  costScaling: 2
+  upgradeId: garage.minecart.follow_speed
+  facilityType: 1
+  categoryId: minecart
+  categoryLabel: Minecart
+  displayName: Minecart Follow Speed
+  description: Improves minecart movement while following the player.
+  initialLevel: 0
+  maxLevel: 20
+  costScaling: 1
   resourceCosts:
-  - resourceType: 2
-    baseAmount: 1
   - resourceType: 5
-    baseAmount: 1
-  - resourceType: 1
-    baseAmount: 5
+    baseAmount: 6
+  - resourceType: 6
+    baseAmount: 6
   enhancements:
-  - {fileID: 11400000, guid: b7a9154c476642aeadc33d614df3f108, type: 2}
+  - {fileID: 11400000, guid: eaf9054522c14fb0afe971b942a633bd, type: 2}

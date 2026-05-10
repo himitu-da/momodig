@@ -10,23 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
-  m_Name: WorkshopPickaxeDamage
+  m_Name: WorkshopPickaxeVerticalForce
   m_EditorClassIdentifier: 
-  upgradeId: workshop.pickaxe.damage
+  upgradeId: workshop.pickaxe.vertical_force
   facilityType: 0
   categoryId: pickaxe
   categoryLabel: Pickaxe
-  displayName: Pickaxe Damage
-  description: Improves pickaxe damage per hit.
-  initialLevel: 1
-  maxLevel: 99
-  costScaling: 2
+  displayName: Pickaxe Vertical Force
+  description: Improves pickaxe force while digging up or down.
+  initialLevel: 0
+  maxLevel: 30
+  costScaling: 1
   resourceCosts:
   - resourceType: 2
-    baseAmount: 1
-  - resourceType: 5
-    baseAmount: 1
-  - resourceType: 1
-    baseAmount: 5
+    baseAmount: 2
+  - resourceType: 6
+    baseAmount: 3
   enhancements:
-  - {fileID: 11400000, guid: b7a9154c476642aeadc33d614df3f108, type: 2}
+  - {fileID: 11400000, guid: 49125d7e79684286a83a3a70d6d57976, type: 2}

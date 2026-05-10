@@ -626,10 +626,15 @@ public class MiningToolsController : MonoBehaviour
         }
 
 
-        if (targetStat != null)
+        if (targetStat == null)
         {
-            ApplyModifier(targetStat, enhancement, level);
+            Debug.LogError(
+                $"MiningToolsController: enhancement '{enhancement.name}' targets unsupported stat '{enhancement.TargetStatName}'.",
+                this);
+            return;
         }
+
+        ApplyModifier(targetStat, enhancement, level);
     }
 
     private void ApplyModifier(Stat stat, Enhancement enhancement, int level)
