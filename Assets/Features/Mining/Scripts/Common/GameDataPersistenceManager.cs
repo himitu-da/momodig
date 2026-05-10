@@ -9,6 +9,13 @@ public class ToolSlotPersistenceData
     public MiningTool tool;
 }
 
+[System.Serializable]
+public class FacilityUpgradeProgressRecord
+{
+    public string upgradeId;
+    public int level;
+}
+
 /// <summary>
 /// ゲームのセッション中、シーンをまたいでデータを保持するクラス。
 /// シード値や破壊されたブロックの情報などを管理します。
@@ -36,6 +43,7 @@ public class GameDataPersistenceManager : MonoBehaviour
 
     // --- Events ---
     public static event Action OnPurchasedItemsChanged;
+    public static event Action OnFacilityUpgradesChanged;
 
     // --- 永続化するデータ ---
 
@@ -60,6 +68,9 @@ public class GameDataPersistenceManager : MonoBehaviour
     [Header("購入済み商品データ")]
     public Dictionary<ItemData, int> purchaseditems = new Dictionary<ItemData, int>();
 
+    [Header("Facility Upgrade Data")]
+    public List<FacilityUpgradeProgressRecord> facilityUpgradeProgress = new List<FacilityUpgradeProgressRecord>();
+
     [Header("Tool Inventory Data")]
     public bool hasToolInventoryData = false;
     public List<ToolSlotPersistenceData> toolSlots = new List<ToolSlotPersistenceData>();
@@ -73,6 +84,83 @@ public class GameDataPersistenceManager : MonoBehaviour
     public void NotifyPurchasedItemsChanged()
     {
         OnPurchasedItemsChanged?.Invoke();
+    }
+
+    public int GetFacilityUpgradeLevel(string upgradeId, int defaultLevel)
+    {
+        if (string.IsNullOrWhiteSpace(upgradeId))
+        {
+            Debug.LogError("GameDataPersistenceManager: upgradeId is not configured.");
+            return defaultLevel;
+        }
+
+        if (facilityUpgradeProgress == null)
+        {
+            Debug.LogError("GameDataPersistenceManager: facilityUpgradeProgress is not configured.");
+            return defaultLevel;
+        }
+
+        for (int i = 0; i < facilityUpgradeProgress.Count; i++)
+        {
+            FacilityUpgradeProgressRecord record = facilityUpgradeProgress[i];
+            if (record != null && record.upgradeId == upgradeId)
+            {
+                return record.level;
+            }
+        }
+
+        return defaultLevel;
+    }
+
+    public bool SetFacilityUpgradeLevel(string upgradeId, int level)
+    {
+        if (string.IsNullOrWhiteSpace(upgradeId))
+        {
+            Debug.LogError("GameDataPersistenceManager: upgradeId is not configured.");
+            return false;
+        }
+
+        if (level < 0)
+        {
+            Debug.LogError($"GameDataPersistenceManager: level for '{upgradeId}' must not be negative.");
+            return false;
+        }
+
+        if (facilityUpgradeProgress == null)
+        {
+            Debug.LogError("GameDataPersistenceManager: facilityUpgradeProgress is not configured.");
+            return false;
+        }
+
+        for (int i = 0; i < facilityUpgradeProgress.Count; i++)
+        {
+            FacilityUpgradeProgressRecord record = facilityUpgradeProgress[i];
+            if (record == null)
+            {
+                Debug.LogError($"GameDataPersistenceManager: facilityUpgradeProgress contains a null record at index {i}.");
+                return false;
+            }
+
+            if (record.upgradeId == upgradeId)
+            {
+                record.level = level;
+                NotifyFacilityUpgradesChanged();
+                return true;
+            }
+        }
+
+        facilityUpgradeProgress.Add(new FacilityUpgradeProgressRecord
+        {
+            upgradeId = upgradeId,
+            level = level
+        });
+        NotifyFacilityUpgradesChanged();
+        return true;
+    }
+
+    public void NotifyFacilityUpgradesChanged()
+    {
+        OnFacilityUpgradesChanged?.Invoke();
     }
 
     void Awake()
