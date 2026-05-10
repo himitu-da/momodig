@@ -9,6 +9,7 @@ public class PassageController : MonoBehaviour, IGameSceneTransitionHandler, IPa
     [SerializeField] private ChangeScene changeScene;
     [SerializeField] private Vector3 travelOffset = new Vector3(0f, 3f, 0f);
     [SerializeField] private bool continuePassageAfterSceneTransition = true;
+    [SerializeField] private CameraFollowController cameraFollowController;
 
     [Header("Passage Areas")]
     [SerializeField] private BoxCollider onAreaCollider;
@@ -381,6 +382,11 @@ public class PassageController : MonoBehaviour, IGameSceneTransitionHandler, IPa
             return;
         }
 
+        if (!cameraFollowController.SnapToFollowTargetAndEnable())
+        {
+            return;
+        }
+
         isPlayerInside = true;
         playerTransform = playerController.transform;
         playerRigidbody = playerController.GetComponent<Rigidbody>();
@@ -618,6 +624,7 @@ public class PassageController : MonoBehaviour, IGameSceneTransitionHandler, IPa
         }
 
         isValid &= ValidateReference(changeScene, nameof(changeScene));
+        isValid &= ValidateReference(cameraFollowController, nameof(cameraFollowController));
         isValid &= ValidateReference(onAreaCollider, nameof(onAreaCollider));
         isValid &= ValidateReference(offAreaCollider, nameof(offAreaCollider));
         isValid &= ValidateReference(movementAreaCollider, nameof(movementAreaCollider));

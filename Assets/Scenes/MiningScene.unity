@@ -599,6 +599,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   mainCamera: {fileID: 330585545}
   playerObject: {fileID: 672003887}
+  playerRigidbody: {fileID: 672003893}
+  disableCameraUntilInitialSnap: 1
   enableFollow: 1
   followSpeed: 5
   useSmoothDamp: 0
@@ -2965,6 +2967,7 @@ MonoBehaviour:
   changeScene: {fileID: 168293942}
   travelOffset: {x: 0, y: 5, z: 0}
   continuePassageAfterSceneTransition: 1
+  cameraFollowController: {fileID: 330585548}
   onAreaCollider: {fileID: 1700130102}
   offAreaCollider: {fileID: 1700130112}
   movementAreaCollider: {fileID: 1700130122}

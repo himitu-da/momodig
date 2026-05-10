@@ -4,11 +4,15 @@ using UnityEngine;
 /// Miningシーン用のカメラ追従・構図制御クラス。
 /// プレイ面の移動方向に応じた回転と位置計算を行う。
 /// </summary>
-public class CameraFollowController : MonoBehaviour
+public class CameraFollowController : MonoBehaviour, IGameSceneTransitionHandler
 {
     [Header("オブジェクト参照")]
     [SerializeField] private Camera mainCamera;
     [SerializeField] private GameObject playerObject;
+    [SerializeField] private Rigidbody playerRigidbody;
+
+    [Header("Initial Snap")]
+    [SerializeField] private bool disableCameraUntilInitialSnap = true;
 
     [Header("追従設定")]
     [SerializeField] private bool enableFollow = true;
@@ -62,32 +66,84 @@ public class CameraFollowController : MonoBehaviour
     [Tooltip("回転追従の補間速度")]
     [SerializeField] private float rotationSmoothingSpeed = 8f;
 
-    private Rigidbody playerRigidbody;
     private Vector3 followVelocity = Vector3.zero;
     private Quaternion initialCameraRotation = Quaternion.identity;
     private Vector2 heldPlanarMoveVector = Vector2.zero;
     private float remainingMoveVectorHoldTime = 0f;
+    private bool referencesAreValid;
+
+    private void Awake()
+    {
+        referencesAreValid = ValidateRequiredReferences();
+        if (!referencesAreValid)
+        {
+            enabled = false;
+            return;
+        }
+
+        initialCameraRotation = mainCamera.transform.rotation;
+
+        if (disableCameraUntilInitialSnap)
+        {
+            mainCamera.enabled = false;
+        }
+    }
 
     private void Start()
     {
-        ValidateReferences();
-        if (mainCamera != null)
+        if (!referencesAreValid)
         {
-            initialCameraRotation = mainCamera.transform.rotation;
+            return;
         }
 
-        if (playerObject != null)
+        UpdateCameraSettings();
+
+        if (ShouldWaitForManagedSceneTransitionSnap())
         {
-            playerRigidbody = playerObject.GetComponent<Rigidbody>();
-            UpdateCameraSettings();
+            return;
         }
 
-        if (mainCamera == null)
-            Debug.LogWarning("CameraFollowController: MainCamera reference is missing.");
-        if (playerObject == null)
-            Debug.LogWarning("CameraFollowController: Player Object reference is missing.");
-        if (playerRigidbody == null && playerObject != null)
-            Debug.LogWarning("CameraFollowController: Rigidbody component was not found on Player Object.");
+        SnapToFollowTargetAndEnable();
+    }
+
+    public void OnBeforeContentSceneUnload(string nextSceneName)
+    {
+    }
+
+    public void OnAfterContentSceneLoad(string previousSceneName)
+    {
+        if (!referencesAreValid)
+        {
+            return;
+        }
+
+        SnapToFollowTargetAndEnable();
+    }
+
+    public bool SnapToFollowTarget()
+    {
+        if (!referencesAreValid)
+        {
+            Debug.LogError("CameraFollowController: Cannot snap because required references are not configured.", this);
+            return false;
+        }
+
+        UpdateCameraSettings();
+        ResetCameraSmoothingState();
+        CalculateTargetCameraPose(out Vector3 targetPosition, out Quaternion targetRotation);
+        mainCamera.transform.SetPositionAndRotation(targetPosition, targetRotation);
+        return true;
+    }
+
+    public bool SnapToFollowTargetAndEnable()
+    {
+        if (!SnapToFollowTarget())
+        {
+            return false;
+        }
+
+        mainCamera.enabled = true;
+        return true;
     }
 
     /// <summary>
@@ -110,17 +166,26 @@ public class CameraFollowController : MonoBehaviour
     /// <summary>
     /// 参照の妥当性を確認し、未設定時に警告を出す。
     /// </summary>
-    private void ValidateReferences()
+    private bool ValidateRequiredReferences()
     {
-        if (mainCamera == null)
+        bool isValid = true;
+
+        isValid &= ValidateReference(mainCamera, nameof(mainCamera));
+        isValid &= ValidateReference(playerObject, nameof(playerObject));
+        isValid &= ValidateReference(playerRigidbody, nameof(playerRigidbody));
+
+        return isValid;
+    }
+
+    private bool ValidateReference(UnityEngine.Object reference, string fieldName)
+    {
+        if (reference != null)
         {
-            Debug.LogWarning("CameraFollowController: MainCamera reference is not set. Please assign it in the Inspector.");
+            return true;
         }
 
-        if (playerObject == null)
-        {
-            Debug.LogWarning("CameraFollowController: Player Object reference is not set. Please assign it in the Inspector.");
-        }
+        Debug.LogError($"CameraFollowController: {fieldName} is not configured.", this);
+        return false;
     }
 
     /// <summary>
@@ -128,16 +193,8 @@ public class CameraFollowController : MonoBehaviour
     /// </summary>
     private void UpdateCameraPositionLegacy()
     {
-        Vector3 targetOffset = GetCurrentOffset();
-        Vector3 targetPosition = playerObject.transform.position + targetOffset;
-        Vector3 currentPos = mainCamera.transform.position;
-        Vector3 newPosition = currentPos;
-
-        newPosition.x = targetPosition.x;
-        newPosition.y = targetPosition.y;
-        newPosition.z = targetPosition.z;
-
-        ApplyPosition(newPosition);
+        CalculateLegacyCameraPose(out Vector3 targetPosition, out _);
+        ApplyPosition(targetPosition);
     }
 
     /// <summary>
@@ -146,6 +203,31 @@ public class CameraFollowController : MonoBehaviour
     /// 2) 指定Viewport座標にプレイヤーが来るようカメラ位置を逆算
     /// </summary>
     private void UpdatePlayPlaneDirectionalCamera()
+    {
+        CalculateDirectionalCameraPose(out Vector3 targetPosition, out Quaternion targetRotation);
+
+        ApplyPosition(targetPosition);
+        ApplyRotation(targetRotation);
+    }
+
+    private void CalculateTargetCameraPose(out Vector3 targetPosition, out Quaternion targetRotation)
+    {
+        if (useDirectionalPlayPlaneCamera)
+        {
+            CalculateDirectionalCameraPose(out targetPosition, out targetRotation);
+            return;
+        }
+
+        CalculateLegacyCameraPose(out targetPosition, out targetRotation);
+    }
+
+    private void CalculateLegacyCameraPose(out Vector3 targetPosition, out Quaternion targetRotation)
+    {
+        targetPosition = playerObject.transform.position + GetCurrentOffset();
+        targetRotation = initialCameraRotation;
+    }
+
+    private void CalculateDirectionalCameraPose(out Vector3 targetPosition, out Quaternion targetRotation)
     {
         Vector3 playerPosition = playerObject.transform.position;
         Vector2 rawPlanarVelocity = GetPlayPlaneVelocity();
@@ -161,14 +243,11 @@ public class CameraFollowController : MonoBehaviour
         // カメラは移動方向の逆向きへ回転させる。
         float targetPitch = basePitchAngle - (moveDirection.y * maxPitchAngleOffset * speedInfluence);
         float targetYaw = baseYawAngle + (moveDirection.x * maxYawAngleOffset * speedInfluence);
-        Quaternion targetRotation = BuildHorizonLeveledRotation(targetPitch, targetYaw);
+        targetRotation = BuildHorizonLeveledRotation(targetPitch, targetYaw);
 
         float distanceFromPlayer = ResolveCameraDistance();
         Vector3 localPlayerOffset = BuildLocalPlayerOffset(targetPlayerViewportOffset, distanceFromPlayer);
-        Vector3 targetPosition = playerPosition - (targetRotation * localPlayerOffset);
-
-        ApplyPosition(targetPosition);
-        ApplyRotation(targetRotation);
+        targetPosition = playerPosition - (targetRotation * localPlayerOffset);
     }
 
     private Vector2 GetPlayPlaneVelocity()
@@ -302,6 +381,19 @@ public class CameraFollowController : MonoBehaviour
     private Vector3 GetCurrentOffset()
     {
         return playPlaneOffset;
+    }
+
+    private void ResetCameraSmoothingState()
+    {
+        followVelocity = Vector3.zero;
+        heldPlanarMoveVector = Vector2.zero;
+        remainingMoveVectorHoldTime = 0f;
+    }
+
+    private static bool ShouldWaitForManagedSceneTransitionSnap()
+    {
+        GameSceneCoordinator coordinator = GameSceneCoordinator.Instance;
+        return coordinator != null && coordinator.IsTransitioning;
     }
 
     private void UpdateCameraSettings()

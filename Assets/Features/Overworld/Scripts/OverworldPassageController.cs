@@ -9,6 +9,7 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
     [SerializeField] private ChangeScene changeScene;
     [SerializeField] private Vector3 travelOffset = new Vector3(0f, -3f, 0f);
     [SerializeField] private bool continuePassageAfterSceneTransition = true;
+    [SerializeField] private CameraFollowController cameraFollowController;
 
     [Header("Passage Areas")]
     [SerializeField] private BoxCollider onAreaCollider;
@@ -374,6 +375,11 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
             return;
         }
 
+        if (!cameraFollowController.SnapToFollowTargetAndEnable())
+        {
+            return;
+        }
+
         isPlayerInside = true;
         playerTransform = playerController.transform;
         playerRigidbody = playerController.GetComponent<Rigidbody>();
@@ -606,6 +612,7 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
         }
 
         isValid &= ValidateReference(changeScene, nameof(changeScene));
+        isValid &= ValidateReference(cameraFollowController, nameof(cameraFollowController));
         isValid &= ValidateReference(onAreaCollider, nameof(onAreaCollider));
         isValid &= ValidateReference(offAreaCollider, nameof(offAreaCollider));
         isValid &= ValidateReference(movementAreaCollider, nameof(movementAreaCollider));
