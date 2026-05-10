@@ -116,14 +116,20 @@ public class FacilityUpgradeService : MonoBehaviour
         }
 
         Dictionary<ResourceType, int> totalCost = CalculateTotalCost(upgrade, purchaseCount);
+        int currentLevel = GetLevel(upgrade);
+        int nextLevel = currentLevel + purchaseCount;
+        if (!persistenceManager.CanSetFacilityUpgradeLevel(upgrade.UpgradeId, nextLevel))
+        {
+            Debug.LogError($"FacilityUpgradeService: cannot persist level {nextLevel} for '{upgrade.UpgradeId}'.", this);
+            return false;
+        }
+
         if (!storageManager.TrySpendResources(totalCost))
         {
             Debug.LogError($"FacilityUpgradeService: not enough resources to purchase '{upgrade.DisplayName}'.", this);
             return false;
         }
 
-        int currentLevel = GetLevel(upgrade);
-        int nextLevel = currentLevel + purchaseCount;
         if (!persistenceManager.SetFacilityUpgradeLevel(upgrade.UpgradeId, nextLevel))
         {
             Debug.LogError($"FacilityUpgradeService: failed to persist level {nextLevel} for '{upgrade.UpgradeId}'.", this);

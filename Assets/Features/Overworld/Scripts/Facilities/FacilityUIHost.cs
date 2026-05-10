@@ -8,6 +8,9 @@ public class FacilityUIHost : MonoBehaviour
     [SerializeField] private CanvasGroup baseUiGroup;
     [SerializeField] private OverworldPlayerController playerController;
 
+    [Header("Runtime Services")]
+    [SerializeField] private FacilityUpgradeService facilityUpgradeService;
+
     [Header("Behavior")]
     [SerializeField] private bool lockPlayerMovementWhileOpen = true;
 
@@ -90,6 +93,15 @@ public class FacilityUIHost : MonoBehaviour
             return false;
         }
 
+        if (!BindRuntimeServices(createdPanel, facility))
+        {
+            Destroy(createdPanel.gameObject);
+            panelRoot.gameObject.SetActive(false);
+            SetBaseUiVisible(true);
+            RestoreMovementLockState();
+            return false;
+        }
+
         if (!createdPanel.Initialize(this, facility))
         {
             Destroy(createdPanel.gameObject);
@@ -141,6 +153,22 @@ public class FacilityUIHost : MonoBehaviour
         }
 
         CloseCurrentPanel();
+    }
+
+    private bool BindRuntimeServices(FacilityPanel panel, FacilityDefinition facility)
+    {
+        if (panel is IFacilityPanelRuntimeBinding runtimeBinding)
+        {
+            if (facilityUpgradeService == null)
+            {
+                Debug.LogError($"FacilityUIHost: facilityUpgradeService is not configured for '{facility.DisplayName}'.", this);
+                return false;
+            }
+
+            return runtimeBinding.BindRuntime(facilityUpgradeService);
+        }
+
+        return true;
     }
 
     private void StoreMovementLockState()

@@ -114,21 +114,8 @@ public class GameDataPersistenceManager : MonoBehaviour
 
     public bool SetFacilityUpgradeLevel(string upgradeId, int level)
     {
-        if (string.IsNullOrWhiteSpace(upgradeId))
+        if (!CanSetFacilityUpgradeLevel(upgradeId, level))
         {
-            Debug.LogError("GameDataPersistenceManager: upgradeId is not configured.");
-            return false;
-        }
-
-        if (level < 0)
-        {
-            Debug.LogError($"GameDataPersistenceManager: level for '{upgradeId}' must not be negative.");
-            return false;
-        }
-
-        if (facilityUpgradeProgress == null)
-        {
-            Debug.LogError("GameDataPersistenceManager: facilityUpgradeProgress is not configured.");
             return false;
         }
 
@@ -155,6 +142,38 @@ public class GameDataPersistenceManager : MonoBehaviour
             level = level
         });
         NotifyFacilityUpgradesChanged();
+        return true;
+    }
+
+    public bool CanSetFacilityUpgradeLevel(string upgradeId, int level)
+    {
+        if (string.IsNullOrWhiteSpace(upgradeId))
+        {
+            Debug.LogError("GameDataPersistenceManager: upgradeId is not configured.");
+            return false;
+        }
+
+        if (level < 0)
+        {
+            Debug.LogError($"GameDataPersistenceManager: level for '{upgradeId}' must not be negative.");
+            return false;
+        }
+
+        if (facilityUpgradeProgress == null)
+        {
+            Debug.LogError("GameDataPersistenceManager: facilityUpgradeProgress is not configured.");
+            return false;
+        }
+
+        for (int i = 0; i < facilityUpgradeProgress.Count; i++)
+        {
+            if (facilityUpgradeProgress[i] == null)
+            {
+                Debug.LogError($"GameDataPersistenceManager: facilityUpgradeProgress contains a null record at index {i}.");
+                return false;
+            }
+        }
+
         return true;
     }
 
