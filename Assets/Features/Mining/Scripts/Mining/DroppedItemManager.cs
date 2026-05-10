@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 
-public class DroppedItemManager : MonoBehaviour, IItemManager
+public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransitionHandler
 {
     [Header("アイテム管理設定")]
     [SerializeField] private float _wakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
@@ -139,6 +139,15 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
     {
         // シーン終了時にアイテムをセーブ
         SaveItems();
+    }
+
+    public void OnBeforeContentSceneUnload(string nextSceneName)
+    {
+        SaveItems();
+    }
+
+    public void OnAfterContentSceneLoad(string previousSceneName)
+    {
     }
 
     void Update()

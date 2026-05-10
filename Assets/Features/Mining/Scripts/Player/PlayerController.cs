@@ -87,7 +87,7 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
-    public Vector2 MoveInput => moveInput; // PassageControllerから入力を取得するため
+    public Vector2 MoveInput => moveInput; // MiningPassageControllerから入力を取得するため
     private Vector2 mousePosition; // マウスのスクリーン座標
     private float currentFallSpeed = 0f; // 現在の落下速度
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
@@ -95,7 +95,7 @@ public class PlayerController : MonoBehaviour
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
     private PlayerVisualsController playerVisualsController; // ビジュアル担当
     
-    // PassageControllerからの制御用
+    // MiningPassageControllerからの制御用
     public bool IsInPassage { get; set; } = false;
     
     // 接触中のアイテム管理用
@@ -337,22 +337,15 @@ public class PlayerController : MonoBehaviour
         }
 
         // SmoothDampを使用して速度を滑らかに変化させる
-        // Passageに入っている間は移動を無効化
-        if (IsInPassage)
+        // Passage中も通常移動は維持し、採掘だけMiningPassageController側で止める
+        Vector3 nextVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+        if (fluidResistance > 0f)
         {
-            rb.linearVelocity = Vector3.zero;
+            float dragFactor = 1f - Mathf.Exp(-fluidDrag * fluidResistance * Time.fixedDeltaTime);
+            nextVelocity = Vector3.Lerp(nextVelocity, targetVelocity, dragFactor);
         }
-        else
-        {
-            Vector3 nextVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
-            if (fluidResistance > 0f)
-            {
-                float dragFactor = 1f - Mathf.Exp(-fluidDrag * fluidResistance * Time.fixedDeltaTime);
-                nextVelocity = Vector3.Lerp(nextVelocity, targetVelocity, dragFactor);
-            }
 
-            rb.linearVelocity = nextVelocity;
-        }
+        rb.linearVelocity = nextVelocity;
 
         // 左右の入力があった場合、向きを更新
         if (moveInput.x != 0)
