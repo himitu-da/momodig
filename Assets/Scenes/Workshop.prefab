@@ -5748,7 +5748,7 @@ MonoBehaviour:
   selectedDescriptionText: {fileID: 1428083882536766684}
   purchaseStatusText: {fileID: 0}
   categoryRoot: {fileID: 8968364968892953309}
-  upgradeRoot: {fileID: 1202547261755314659}
+  shopScroll: {fileID: 7579542976745531557}
   costRoot: {fileID: 1412902063041663394}
   categoryTabPrefab: {fileID: 106000000, guid: 3aa32283d84241a28e144164af23d04e, type: 3}
   upgradeRowPrefab: {fileID: 206000000, guid: 474912db2a6d4059999545c1c4345da1, type: 3}

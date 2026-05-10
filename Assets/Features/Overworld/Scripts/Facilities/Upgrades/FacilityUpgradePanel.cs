@@ -19,7 +19,7 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
 
     [Header("Required Lists")]
     [SerializeField] private Transform categoryRoot;
-    [SerializeField] private Transform upgradeRoot;
+    [SerializeField] private ScrollRect shopScroll;
     [SerializeField] private Transform costRoot;
     [SerializeField] private FacilityUpgradeCategoryTab categoryTabPrefab;
     [SerializeField] private FacilityUpgradeRow upgradeRowPrefab;
@@ -72,7 +72,13 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         isValid &= ValidateReference(titleText, nameof(titleText));
         isValid &= ValidateReference(selectedNameText, nameof(selectedNameText));
         isValid &= ValidateReference(categoryRoot, nameof(categoryRoot));
-        isValid &= ValidateReference(upgradeRoot, nameof(upgradeRoot));
+        isValid &= ValidateReference(shopScroll, nameof(shopScroll));
+        if (shopScroll != null && shopScroll.content == null)
+        {
+            Debug.LogError($"FacilityUpgradePanel '{name}': shopScroll.content is not configured.", this);
+            isValid = false;
+        }
+
         isValid &= ValidateReference(costRoot, nameof(costRoot));
         isValid &= ValidateReference(categoryTabPrefab, nameof(categoryTabPrefab));
         isValid &= ValidateReference(upgradeRowPrefab, nameof(upgradeRowPrefab));
@@ -129,7 +135,7 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
     {
         ClearCreatedViews();
         ClearRootChildren(categoryRoot);
-        ClearRootChildren(upgradeRoot);
+        ClearRootChildren(shopScroll.content);
         ClearRootChildren(costRoot);
         currentFacilityUpgrades.Clear();
         categoryOrder.Clear();
@@ -203,6 +209,7 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         selectedCategoryId = categoryId;
         RefreshCategorySelection();
         RefreshUpgradeList();
+        ResetShopScrollPosition();
     }
 
     private void RefreshCategorySelection()
@@ -227,7 +234,7 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
                 continue;
             }
 
-            FacilityUpgradeRow row = Instantiate(upgradeRowPrefab, upgradeRoot);
+            FacilityUpgradeRow row = Instantiate(upgradeRowPrefab, shopScroll.content);
             if (!row.Initialize(upgrade, upgradeService, SelectUpgrade))
             {
                 Debug.LogError($"FacilityUpgradePanel '{name}': failed to initialize upgrade row '{upgrade.UpgradeId}'.", this);
@@ -252,6 +259,7 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         }
 
         RefreshSelection();
+        ResetShopScrollPosition();
     }
 
     private void SelectUpgrade(FacilityUpgradeDefinition upgrade)
@@ -449,6 +457,14 @@ public class FacilityUpgradePanel : FacilityPanel, IFacilityPanelRuntimeBinding
         for (int i = root.childCount - 1; i >= 0; i--)
         {
             Destroy(root.GetChild(i).gameObject);
+        }
+    }
+
+    private void ResetShopScrollPosition()
+    {
+        if (shopScroll != null)
+        {
+            shopScroll.verticalNormalizedPosition = 1f;
         }
     }
 
