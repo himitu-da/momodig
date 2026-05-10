@@ -5,24 +5,38 @@ using UnityEngine.UI;
 
 public class FacilityPromptView : MonoBehaviour
 {
-    [Header("Required References")]
+    [Header("Prefab References")]
     [SerializeField] private RectTransform root;
     [SerializeField] private CanvasGroup visibilityGroup;
-    [SerializeField] private Canvas parentCanvas;
-    [SerializeField] private Camera worldCamera;
     [SerializeField] private Button openButton;
     [SerializeField] private TMP_Text promptLabel;
 
+    private Canvas parentCanvas;
+    private Camera worldCamera;
     private Transform currentAnchor;
     private Action openRequested;
     private bool isInitialized;
+    private bool hasSceneReferences;
 
     public bool IsVisible { get; private set; }
 
     private void Awake()
     {
-        Initialize();
+        if (!InitializePrefabReferences())
+        {
+            enabled = false;
+            return;
+        }
+
         Hide();
+    }
+
+    private void Start()
+    {
+        if (!ValidateSceneReferences())
+        {
+            enabled = false;
+        }
     }
 
     private void LateUpdate()
@@ -43,6 +57,41 @@ public class FacilityPromptView : MonoBehaviour
         }
     }
 
+    public bool BindSceneReferences(Canvas requiredParentCanvas, Camera requiredWorldCamera)
+    {
+        if (!enabled)
+        {
+            Debug.LogError("FacilityPromptView: cannot bind scene references because the view is disabled.", this);
+            return false;
+        }
+
+        bool isValid = true;
+
+        if (requiredParentCanvas == null)
+        {
+            Debug.LogError("FacilityPromptView: parentCanvas is not configured.", this);
+            isValid = false;
+        }
+
+        if (requiredWorldCamera == null)
+        {
+            Debug.LogError("FacilityPromptView: worldCamera is not configured.", this);
+            isValid = false;
+        }
+
+        if (!isValid)
+        {
+            enabled = false;
+            return false;
+        }
+
+        parentCanvas = requiredParentCanvas;
+        worldCamera = requiredWorldCamera;
+        hasSceneReferences = true;
+        Hide();
+        return true;
+    }
+
     public void Show(FacilityDefinition facility, Transform anchor, Action openRequestedCallback)
     {
         if (!enabled)
@@ -50,7 +99,13 @@ public class FacilityPromptView : MonoBehaviour
             return;
         }
 
-        if (!Initialize())
+        if (!isInitialized)
+        {
+            Debug.LogError("FacilityPromptView: prefab references are not initialized.", this);
+            return;
+        }
+
+        if (!ValidateSceneReferences())
         {
             return;
         }
@@ -116,6 +171,12 @@ public class FacilityPromptView : MonoBehaviour
 
     private void UpdatePosition()
     {
+        if (!ValidateSceneReferences())
+        {
+            Hide();
+            return;
+        }
+
         if (currentAnchor == null)
         {
             Debug.LogError("FacilityPromptView: current anchor was lost while visible.", this);
@@ -150,14 +211,14 @@ public class FacilityPromptView : MonoBehaviour
         root.anchoredPosition = localPoint;
     }
 
-    private bool Initialize()
+    private bool InitializePrefabReferences()
     {
         if (isInitialized)
         {
             return true;
         }
 
-        if (!ValidateRequiredReferences())
+        if (!ValidatePrefabReferences())
         {
             enabled = false;
             return false;
@@ -172,6 +233,8 @@ public class FacilityPromptView : MonoBehaviour
     {
         if (visibilityGroup == null)
         {
+            Debug.LogError("FacilityPromptView: visibilityGroup is not configured.", this);
+            enabled = false;
             return;
         }
 
@@ -180,7 +243,7 @@ public class FacilityPromptView : MonoBehaviour
         visibilityGroup.blocksRaycasts = visible;
     }
 
-    private bool ValidateRequiredReferences()
+    private bool ValidatePrefabReferences()
     {
         bool isValid = true;
 
@@ -196,6 +259,31 @@ public class FacilityPromptView : MonoBehaviour
             isValid = false;
         }
 
+        if (openButton == null)
+        {
+            Debug.LogError("FacilityPromptView: openButton is not configured.", this);
+            isValid = false;
+        }
+
+        if (promptLabel == null)
+        {
+            Debug.LogError("FacilityPromptView: promptLabel is not configured.", this);
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    private bool ValidateSceneReferences()
+    {
+        bool isValid = true;
+
+        if (!hasSceneReferences)
+        {
+            Debug.LogError("FacilityPromptView: scene references are not configured.", this);
+            isValid = false;
+        }
+
         if (parentCanvas == null)
         {
             Debug.LogError("FacilityPromptView: parentCanvas is not configured.", this);
@@ -208,16 +296,10 @@ public class FacilityPromptView : MonoBehaviour
             isValid = false;
         }
 
-        if (openButton == null)
+        if (!isValid)
         {
-            Debug.LogError("FacilityPromptView: openButton is not configured.", this);
-            isValid = false;
-        }
-
-        if (promptLabel == null)
-        {
-            Debug.LogError("FacilityPromptView: promptLabel is not configured.", this);
-            isValid = false;
+            hasSceneReferences = false;
+            enabled = false;
         }
 
         return isValid;

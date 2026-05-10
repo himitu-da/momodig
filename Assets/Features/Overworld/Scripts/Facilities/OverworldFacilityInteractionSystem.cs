@@ -6,10 +6,14 @@ public class OverworldFacilityInteractionSystem : MonoBehaviour
 {
     [Header("Required References")]
     [SerializeField] private Transform playerRoot;
-    [SerializeField] private FacilityPromptView promptView;
+    [SerializeField] private FacilityPromptView promptViewPrefab;
+    [SerializeField] private RectTransform promptViewParent;
+    [SerializeField] private Canvas promptCanvas;
+    [SerializeField] private Camera promptWorldCamera;
     [SerializeField] private FacilityUIHost facilityUIHost;
 
     private readonly Dictionary<FacilityTrigger, HashSet<Collider>> activeContacts = new Dictionary<FacilityTrigger, HashSet<Collider>>();
+    private FacilityPromptView promptView;
     private FacilityTrigger currentTrigger;
     private bool hasReportedAmbiguousContact;
 
@@ -17,6 +21,15 @@ public class OverworldFacilityInteractionSystem : MonoBehaviour
     {
         if (!ValidateRequiredReferences())
         {
+            enabled = false;
+            return;
+        }
+
+        promptView = Instantiate(promptViewPrefab, promptViewParent, false);
+        if (!promptView.BindSceneReferences(promptCanvas, promptWorldCamera))
+        {
+            Destroy(promptView.gameObject);
+            promptView = null;
             enabled = false;
             return;
         }
@@ -32,6 +45,11 @@ public class OverworldFacilityInteractionSystem : MonoBehaviour
         {
             facilityUIHost.PanelOpened -= HandlePanelOpened;
             facilityUIHost.PanelClosed -= HandlePanelClosed;
+        }
+
+        if (promptView != null)
+        {
+            Destroy(promptView.gameObject);
         }
     }
 
@@ -193,9 +211,27 @@ public class OverworldFacilityInteractionSystem : MonoBehaviour
             isValid = false;
         }
 
-        if (promptView == null)
+        if (promptViewPrefab == null)
         {
-            Debug.LogError("OverworldFacilityInteractionSystem: promptView is not configured.", this);
+            Debug.LogError("OverworldFacilityInteractionSystem: promptViewPrefab is not configured.", this);
+            isValid = false;
+        }
+
+        if (promptViewParent == null)
+        {
+            Debug.LogError("OverworldFacilityInteractionSystem: promptViewParent is not configured.", this);
+            isValid = false;
+        }
+
+        if (promptCanvas == null)
+        {
+            Debug.LogError("OverworldFacilityInteractionSystem: promptCanvas is not configured.", this);
+            isValid = false;
+        }
+
+        if (promptWorldCamera == null)
+        {
+            Debug.LogError("OverworldFacilityInteractionSystem: promptWorldCamera is not configured.", this);
             isValid = false;
         }
 
