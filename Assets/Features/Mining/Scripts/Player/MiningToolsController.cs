@@ -6,6 +6,7 @@ public class MiningToolsController : MonoBehaviour
     [Header("掘削ツール設定")]
     [SerializeField] private List<MiningTool> usableMiningTools;
     [SerializeField] private ToolInventory toolInventory;
+    [SerializeField] private FacilityUpgradeCatalog facilityUpgradeCatalog;
     [SerializeField] private MiningTool _mainMiningTool;
     [SerializeField] private MiningTool _subMiningTool; // サブ用ツール
 
@@ -38,7 +39,7 @@ public class MiningToolsController : MonoBehaviour
 
     private void OnEnable()
     {
-        GameDataPersistenceManager.OnPurchasedItemsChanged += ApplyEnhancements;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged += ApplyEnhancements;
         if (hasAwakened)
         {
             SubscribeToToolInventory();
@@ -47,7 +48,7 @@ public class MiningToolsController : MonoBehaviour
 
     private void OnDisable()
     {
-        GameDataPersistenceManager.OnPurchasedItemsChanged -= ApplyEnhancements;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged -= ApplyEnhancements;
         UnsubscribeFromToolInventory();
     }
 
@@ -501,6 +502,11 @@ public class MiningToolsController : MonoBehaviour
 
     public void ApplyEnhancements()
     {
+        if (!ValidateFacilityUpgradeCatalog())
+        {
+            return;
+        }
+
         List<MiningTool> enhancementTargets = GetEnhancementTargetTools();
         if (enhancementTargets.Count == 0) return;
 
@@ -513,16 +519,19 @@ public class MiningToolsController : MonoBehaviour
             }
         }
 
-        var purchasedItems = GameDataPersistenceManager.Instance.purchaseditems;
-        foreach (var item in purchasedItems)
+        GameDataPersistenceManager persistence = GameDataPersistenceManager.Instance;
+        IReadOnlyList<FacilityUpgradeDefinition> upgrades = facilityUpgradeCatalog.Upgrades;
+        for (int upgradeIndex = 0; upgradeIndex < upgrades.Count; upgradeIndex++)
         {
-            ItemData itemData = item.Key;
-            int level = item.Value;
+            FacilityUpgradeDefinition upgrade = upgrades[upgradeIndex];
+            int level = persistence.GetFacilityUpgradeLevel(upgrade.UpgradeId, upgrade.InitialLevel);
 
             if (level == 0) continue;
 
-            foreach (var enhancement in itemData.enhancements)
+            IReadOnlyList<Enhancement> enhancements = upgrade.Enhancements;
+            for (int enhancementIndex = 0; enhancementIndex < enhancements.Count; enhancementIndex++)
             {
+                Enhancement enhancement = enhancements[enhancementIndex];
                 // どのツールのステータスを強化するかを判断する必要がある
                 // ここでは、全ツールに対して適用を試みる
                 foreach (var tool in enhancementTargets)
@@ -535,6 +544,17 @@ public class MiningToolsController : MonoBehaviour
                 }
             }
         }
+    }
+
+    private bool ValidateFacilityUpgradeCatalog()
+    {
+        if (facilityUpgradeCatalog == null)
+        {
+            Debug.LogError("MiningToolsController: facilityUpgradeCatalog is not configured.", this);
+            return false;
+        }
+
+        return facilityUpgradeCatalog.ValidateConfiguration(this);
     }
 
     private void ResetMiningModuleStats(MiningModule module)
