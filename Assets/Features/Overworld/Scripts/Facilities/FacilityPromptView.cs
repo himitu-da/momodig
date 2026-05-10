@@ -5,48 +5,30 @@ using UnityEngine.UI;
 
 public class FacilityPromptView : MonoBehaviour
 {
-    [Header("Prefab References")]
+    [Header("Required References")]
+    [SerializeField] private Canvas worldCanvas;
+    [SerializeField] private GraphicRaycaster graphicRaycaster;
     [SerializeField] private RectTransform root;
     [SerializeField] private CanvasGroup visibilityGroup;
     [SerializeField] private Button openButton;
     [SerializeField] private TMP_Text promptLabel;
 
-    private Canvas parentCanvas;
-    private Camera worldCamera;
-    private Transform currentAnchor;
+    private FacilityDefinition boundFacility;
     private Action openRequested;
     private bool isInitialized;
-    private bool hasSceneReferences;
+    private bool isBound;
 
     public bool IsVisible { get; private set; }
 
     private void Awake()
     {
-        if (!InitializePrefabReferences())
+        if (!InitializeRequiredReferences())
         {
             enabled = false;
             return;
         }
 
         Hide();
-    }
-
-    private void Start()
-    {
-        if (!ValidateSceneReferences())
-        {
-            enabled = false;
-        }
-    }
-
-    private void LateUpdate()
-    {
-        if (!IsVisible)
-        {
-            return;
-        }
-
-        UpdatePosition();
     }
 
     private void OnDestroy()
@@ -57,83 +39,70 @@ public class FacilityPromptView : MonoBehaviour
         }
     }
 
-    public bool BindSceneReferences(Canvas requiredParentCanvas, Camera requiredWorldCamera)
+    public bool Bind(FacilityDefinition facility, Action openRequestedCallback)
     {
         if (!enabled)
         {
-            Debug.LogError("FacilityPromptView: cannot bind scene references because the view is disabled.", this);
+            Debug.LogError("FacilityPromptView: cannot bind because the view is disabled.", this);
             return false;
         }
 
-        bool isValid = true;
-
-        if (requiredParentCanvas == null)
+        if (!isInitialized && !InitializeRequiredReferences())
         {
-            Debug.LogError("FacilityPromptView: parentCanvas is not configured.", this);
-            isValid = false;
-        }
-
-        if (requiredWorldCamera == null)
-        {
-            Debug.LogError("FacilityPromptView: worldCamera is not configured.", this);
-            isValid = false;
-        }
-
-        if (!isValid)
-        {
-            enabled = false;
             return false;
-        }
-
-        parentCanvas = requiredParentCanvas;
-        worldCamera = requiredWorldCamera;
-        hasSceneReferences = true;
-        Hide();
-        return true;
-    }
-
-    public void Show(FacilityDefinition facility, Transform anchor, Action openRequestedCallback)
-    {
-        if (!enabled)
-        {
-            return;
-        }
-
-        if (!isInitialized)
-        {
-            Debug.LogError("FacilityPromptView: prefab references are not initialized.", this);
-            return;
-        }
-
-        if (!ValidateSceneReferences())
-        {
-            return;
         }
 
         if (facility == null)
         {
             Debug.LogError("FacilityPromptView: facility is not configured.", this);
-            Hide();
-            return;
+            DisableView();
+            return false;
         }
 
         if (!facility.ValidateConfiguration(this))
         {
-            Hide();
-            return;
-        }
-
-        if (anchor == null)
-        {
-            Debug.LogError($"FacilityPromptView: prompt anchor is not configured for '{facility.DisplayName}'.", this);
-            Hide();
-            return;
+            DisableView();
+            return false;
         }
 
         if (openRequestedCallback == null)
         {
             Debug.LogError($"FacilityPromptView: open callback is not configured for '{facility.DisplayName}'.", this);
+            DisableView();
+            return false;
+        }
+
+        boundFacility = facility;
+        openRequested = openRequestedCallback;
+        promptLabel.SetText(facility.PromptLabel);
+        isBound = true;
+        Hide();
+        return true;
+    }
+
+    public void Show()
+    {
+        if (!enabled)
+        {
+            return;
+        }
+
+        if (!isInitialized && !InitializeRequiredReferences())
+        {
+            return;
+        }
+
+        if (!isBound || boundFacility == null || openRequested == null)
+        {
+            Debug.LogError("FacilityPromptView: cannot show because the view is not bound.", this);
+            DisableView();
+            return;
+        }
+
+        if (!boundFacility.ValidateConfiguration(this))
+        {
             Hide();
+            DisableView();
             return;
         }
 
@@ -142,20 +111,19 @@ public class FacilityPromptView : MonoBehaviour
             root.gameObject.SetActive(true);
         }
 
-        currentAnchor = anchor;
-        openRequested = openRequestedCallback;
-        promptLabel.SetText(facility.PromptLabel);
         SetVisibility(true);
         IsVisible = true;
-        UpdatePosition();
     }
 
     public void Hide()
     {
+        if (visibilityGroup == null)
+        {
+            return;
+        }
+
         SetVisibility(false);
         IsVisible = false;
-        currentAnchor = null;
-        openRequested = null;
     }
 
     private void HandleOpenClicked()
@@ -169,58 +137,16 @@ public class FacilityPromptView : MonoBehaviour
         openRequested.Invoke();
     }
 
-    private void UpdatePosition()
-    {
-        if (!ValidateSceneReferences())
-        {
-            Hide();
-            return;
-        }
-
-        if (currentAnchor == null)
-        {
-            Debug.LogError("FacilityPromptView: current anchor was lost while visible.", this);
-            Hide();
-            return;
-        }
-
-        RectTransform canvasRect = parentCanvas.transform as RectTransform;
-        if (canvasRect == null)
-        {
-            Debug.LogError("FacilityPromptView: parentCanvas does not have a RectTransform.", this);
-            Hide();
-            return;
-        }
-
-        Vector3 screenPoint = worldCamera.WorldToScreenPoint(currentAnchor.position);
-        Camera canvasCamera = parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : parentCanvas.worldCamera;
-        if (parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay && canvasCamera == null)
-        {
-            Debug.LogError("FacilityPromptView: parentCanvas.worldCamera is not configured.", this);
-            Hide();
-            return;
-        }
-
-        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screenPoint, canvasCamera, out Vector2 localPoint))
-        {
-            Debug.LogError("FacilityPromptView: failed to convert prompt position to canvas coordinates.", this);
-            Hide();
-            return;
-        }
-
-        root.anchoredPosition = localPoint;
-    }
-
-    private bool InitializePrefabReferences()
+    private bool InitializeRequiredReferences()
     {
         if (isInitialized)
         {
             return true;
         }
 
-        if (!ValidatePrefabReferences())
+        if (!ValidateRequiredReferences())
         {
-            enabled = false;
+            DisableView();
             return false;
         }
 
@@ -234,7 +160,7 @@ public class FacilityPromptView : MonoBehaviour
         if (visibilityGroup == null)
         {
             Debug.LogError("FacilityPromptView: visibilityGroup is not configured.", this);
-            enabled = false;
+            DisableView();
             return;
         }
 
@@ -243,9 +169,35 @@ public class FacilityPromptView : MonoBehaviour
         visibilityGroup.blocksRaycasts = visible;
     }
 
-    private bool ValidatePrefabReferences()
+    private bool ValidateRequiredReferences()
     {
         bool isValid = true;
+
+        if (worldCanvas == null)
+        {
+            Debug.LogError("FacilityPromptView: worldCanvas is not configured.", this);
+            isValid = false;
+        }
+        else
+        {
+            if (worldCanvas.renderMode != RenderMode.WorldSpace)
+            {
+                Debug.LogError("FacilityPromptView: worldCanvas must use RenderMode.WorldSpace.", worldCanvas);
+                isValid = false;
+            }
+
+            if (worldCanvas.worldCamera == null)
+            {
+                Debug.LogError("FacilityPromptView: worldCanvas.worldCamera is not configured.", worldCanvas);
+                isValid = false;
+            }
+        }
+
+        if (graphicRaycaster == null)
+        {
+            Debug.LogError("FacilityPromptView: graphicRaycaster is not configured.", this);
+            isValid = false;
+        }
 
         if (root == null)
         {
@@ -274,34 +226,8 @@ public class FacilityPromptView : MonoBehaviour
         return isValid;
     }
 
-    private bool ValidateSceneReferences()
+    private void DisableView()
     {
-        bool isValid = true;
-
-        if (!hasSceneReferences)
-        {
-            Debug.LogError("FacilityPromptView: scene references are not configured.", this);
-            isValid = false;
-        }
-
-        if (parentCanvas == null)
-        {
-            Debug.LogError("FacilityPromptView: parentCanvas is not configured.", this);
-            isValid = false;
-        }
-
-        if (worldCamera == null)
-        {
-            Debug.LogError("FacilityPromptView: worldCamera is not configured.", this);
-            isValid = false;
-        }
-
-        if (!isValid)
-        {
-            hasSceneReferences = false;
-            enabled = false;
-        }
-
-        return isValid;
+        enabled = false;
     }
 }
