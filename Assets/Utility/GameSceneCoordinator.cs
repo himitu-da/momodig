@@ -99,6 +99,23 @@ public class GameSceneCoordinator : MonoBehaviour
         transitionCoroutine = StartCoroutine(SwitchToSceneRoutine(sceneName, entryPointId));
     }
 
+    public void SwitchToScene(string sceneName, string entryPointId, Vector3 destinationPlayerPosition)
+    {
+        if (!CanSwitchToScene(sceneName))
+        {
+            Debug.LogWarning($"GameSceneCoordinator: Scene '{sceneName}' is not a managed content scene.");
+            return;
+        }
+
+        if (transitionCoroutine != null)
+        {
+            Debug.LogWarning($"GameSceneCoordinator: Ignored scene switch to '{sceneName}' because another transition is running.");
+            return;
+        }
+
+        transitionCoroutine = StartCoroutine(SwitchToSceneRoutine(sceneName, entryPointId, true, destinationPlayerPosition));
+    }
+
     public static bool TrySwitchToScene(string sceneName)
     {
         return TrySwitchToScene(sceneName, string.Empty);
@@ -117,7 +134,25 @@ public class GameSceneCoordinator : MonoBehaviour
         return true;
     }
 
+    public static bool TrySwitchToScene(string sceneName, string entryPointId, Vector3 destinationPlayerPosition)
+    {
+        TryCreateDirectPlayCoordinatorForActiveContentScene();
+
+        if (Instance == null || !Instance.CanSwitchToScene(sceneName))
+        {
+            return false;
+        }
+
+        Instance.SwitchToScene(sceneName, entryPointId, destinationPlayerPosition);
+        return true;
+    }
+
     private IEnumerator SwitchToSceneRoutine(string targetSceneName, string entryPointId)
+    {
+        return SwitchToSceneRoutine(targetSceneName, entryPointId, false, Vector3.zero);
+    }
+
+    private IEnumerator SwitchToSceneRoutine(string targetSceneName, string entryPointId, bool hasDestinationPlayerPosition, Vector3 destinationPlayerPosition)
     {
         string previousContentSceneName = currentContentSceneName;
         if (string.IsNullOrEmpty(previousContentSceneName))
@@ -173,7 +208,7 @@ public class GameSceneCoordinator : MonoBehaviour
             }
         }
 
-        ApplyEntryPoint(targetScene, entryPointId);
+        ApplyPlayerPlacement(targetScene, entryPointId, hasDestinationPlayerPosition, destinationPlayerPosition);
         NotifyAfterSceneLoad(targetScene, previousContentSceneName);
 
         currentContentSceneName = targetSceneName;
@@ -243,6 +278,30 @@ public class GameSceneCoordinator : MonoBehaviour
         if (entryPoint != null)
         {
             entryPoint.PlacePlayer();
+        }
+    }
+
+    private void ApplyPlayerPlacement(Scene scene, string entryPointId, bool hasDestinationPlayerPosition, Vector3 destinationPlayerPosition)
+    {
+        if (!hasDestinationPlayerPosition)
+        {
+            ApplyEntryPoint(scene, entryPointId);
+            return;
+        }
+
+        GameObject player = SceneEntryPoint.FindTaggedObjectInScene(scene, "Player");
+        if (player == null)
+        {
+            Debug.LogWarning($"GameSceneCoordinator: Player tagged 'Player' was not found in scene '{scene.name}'.");
+            return;
+        }
+
+        player.transform.position = destinationPlayerPosition;
+
+        if (player.TryGetComponent(out Rigidbody playerRigidbody))
+        {
+            playerRigidbody.linearVelocity = Vector3.zero;
+            playerRigidbody.angularVelocity = Vector3.zero;
         }
     }
 

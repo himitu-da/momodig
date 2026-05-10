@@ -72,7 +72,7 @@ public class SceneEntryPoint : MonoBehaviour
         return defaultEntryPoint != null ? defaultEntryPoint : firstEntryPoint;
     }
 
-    private static GameObject FindTaggedObjectInScene(Scene scene, string tagName)
+    public static GameObject FindTaggedObjectInScene(Scene scene, string tagName)
     {
         if (string.IsNullOrEmpty(tagName))
         {

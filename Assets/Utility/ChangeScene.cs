@@ -17,4 +17,14 @@ public class ChangeScene : MonoBehaviour
 
         SceneManager.LoadScene(sceneNameToChange);
     }
+
+    public void OnClickToChangeScene(string sceneNameToChange, string entryPointId, Vector3 destinationPlayerPosition)
+    {
+        if (GameSceneCoordinator.TrySwitchToScene(sceneNameToChange, entryPointId, destinationPlayerPosition))
+        {
+            return;
+        }
+
+        SceneManager.LoadScene(sceneNameToChange);
+    }
 }

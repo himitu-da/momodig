@@ -2863,7 +2863,6 @@ GameObject:
   - component: {fileID: 1700130092}
   - component: {fileID: 1700130091}
   - component: {fileID: 1700130093}
-  - component: {fileID: 1700130094}
   m_Layer: 0
   m_Name: OverWorldPassage
   m_TagString: Untagged
@@ -2959,8 +2958,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   requiredInputThreshold: 0.5
   destinationSceneName: OverWorldScene
+  destinationEntryPointId: 
   changeScene: {fileID: 168293942}
   travelOffset: {x: 0, y: 5, z: 0}
+  useLinkedDestinationPosition: 1
+  destinationPlayerY: -5
+  useLinkedTransitionBoundary: 1
+  transitionBoundaryY: 5
+  continuePassageAfterSceneTransition: 1
   onAreaCollider: {fileID: 1700130102}
   offAreaCollider: {fileID: 1700130112}
   maskPlayerWithPassageRenderer: 1
@@ -2968,27 +2973,6 @@ MonoBehaviour:
   stencilMaskWriterMaterial: {fileID: 2100000, guid: 53f4b85f645840c49b0e26fa06eb9d6e, type: 2}
   maskedPlayerMaterial: {fileID: 2100000, guid: 2bddb99b62ee4d50b1aa2d55e55d4578, type: 2}
   minecartManager: {fileID: 0}
---- !u!65 &1700130094
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1700130087}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 1
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 5, y: 5, z: 7.5}
-  m_Center: {x: 0, y: 0, z: 0.5}
 --- !u!1 &1700130100
 GameObject:
   m_ObjectHideFlags: 0
