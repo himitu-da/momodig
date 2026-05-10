@@ -4,8 +4,6 @@ using System.Collections.Generic;
 
 public sealed class PassageStencilMaskSession
 {
-    private const string MaskWriterMaterialPath = "Materials/PassageStencilMaskWriter";
-    private const string MaskedPlayerMaterialPath = "Materials/PassageMaskedPlayer";
     private const int PassageStencilReference = 11;
 
     private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
@@ -45,27 +43,15 @@ public sealed class PassageStencilMaskSession
     {
         End();
 
-        if (sourcePassageRenderer == null || playerRoot == null)
+        if (sourcePassageRenderer == null || playerRoot == null || maskWriterMaterial == null || maskedPlayerMaterial == null)
         {
+            Debug.LogError("PassageStencilMaskSession: Required references are not configured.");
             return;
         }
 
         MeshFilter passageMeshFilter = sourcePassageRenderer.GetComponent<MeshFilter>();
         if (passageMeshFilter == null || passageMeshFilter.sharedMesh == null)
         {
-            return;
-        }
-
-        Material resolvedMaskWriterMaterial = maskWriterMaterial != null
-            ? maskWriterMaterial
-            : Resources.Load<Material>(MaskWriterMaterialPath);
-        Material resolvedMaskedPlayerMaterial = maskedPlayerMaterial != null
-            ? maskedPlayerMaterial
-            : Resources.Load<Material>(MaskedPlayerMaterialPath);
-
-        if (resolvedMaskWriterMaterial == null || resolvedMaskedPlayerMaterial == null)
-        {
-            Debug.LogWarning("PassageStencilMaskSession: Mask materials were not found.");
             return;
         }
 
@@ -76,8 +62,8 @@ public sealed class PassageStencilMaskSession
         }
 
         passageRenderer = sourcePassageRenderer;
-        CreateMaskObject(sourcePassageRenderer, passageMeshFilter.sharedMesh, resolvedMaskWriterMaterial);
-        ApplyMaskedMaterials(renderers, resolvedMaskedPlayerMaterial);
+        CreateMaskObject(sourcePassageRenderer, passageMeshFilter.sharedMesh, maskWriterMaterial);
+        ApplyMaskedMaterials(renderers, maskedPlayerMaterial);
 
         isActive = true;
         Render();

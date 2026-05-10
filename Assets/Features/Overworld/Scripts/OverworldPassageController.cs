@@ -41,17 +41,12 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
 
     private void Awake()
     {
-        if (changeScene == null)
+        if (!ValidateRequiredReferences())
         {
-            changeScene = FindFirstObjectByType<ChangeScene>();
+            enabled = false;
+            return;
         }
 
-        if (passageMaskRenderer == null)
-        {
-            passageMaskRenderer = GetComponent<MeshRenderer>();
-        }
-
-        ResolveAreaColliders();
         ConfigureAreaTriggers();
     }
 
@@ -160,7 +155,7 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
 
     private void StartPassage(bool ignoreCurrentGateOverlap = false)
     {
-        if (playerTransform == null || !HasRequiredAreaColliders())
+        if (playerTransform == null)
         {
             return;
         }
@@ -209,13 +204,6 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
 
     private void CapturePassageBounds()
     {
-        if (movementAreaCollider == null)
-        {
-            passageMinX = 0f;
-            passageMaxX = 0f;
-            return;
-        }
-
         Bounds bounds = movementAreaCollider.bounds;
 
         passageMinX = bounds.min.x;
@@ -341,21 +329,13 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
 
     private void CompletePassage()
     {
-        if (changeScene != null && !string.IsNullOrEmpty(destinationSceneName))
+        if (!TryBeginPassageTransition())
         {
-            if (!TryBeginPassageTransition())
-            {
-                return;
-            }
-
-            PrepareForSceneTransition();
-            changeScene.OnClickToChangeScene(destinationSceneName, destinationEntryPointId);
-        }
-        else
-        {
-            Debug.LogWarning("OverworldPassageController: ChangeScene or destination scene is not configured.");
+            return;
         }
 
+        PrepareForSceneTransition();
+        changeScene.OnClickToChangeScene(destinationSceneName, destinationEntryPointId);
         enabled = false;
     }
 
@@ -439,11 +419,6 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
 
     private float GetTransitionDirection()
     {
-        if (Mathf.Approximately(travelOffset.y, 0f))
-        {
-            return -1f;
-        }
-
         return Mathf.Sign(travelOffset.y);
     }
 
@@ -608,75 +583,54 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
         return true;
     }
 
-    private void ResolveAreaColliders()
-    {
-        if (onAreaCollider == null)
-        {
-            onAreaCollider = FindChildBoxCollider("PassageOnArea", "OnArea", "ONArea");
-        }
-
-        if (offAreaCollider == null)
-        {
-            offAreaCollider = FindChildBoxCollider("PassageOffArea", "OffArea", "OFFArea");
-        }
-
-        if (movementAreaCollider == null)
-        {
-            movementAreaCollider = FindChildBoxCollider("PassageMovementArea", "MovementArea", "MoveArea");
-        }
-
-        if (transitionAreaCollider == null)
-        {
-            transitionAreaCollider = FindChildBoxCollider("PassageTransitionArea", "TransitionArea", "TransferArea");
-        }
-
-        if (transitionGateCollider == null)
-        {
-            transitionGateCollider = FindChildBoxCollider("PassageTransitionGate", "TransitionGate", "GateArea");
-        }
-
-        WarnIfRequiredAreaIsMissing(onAreaCollider, "PassageOnArea");
-        WarnIfRequiredAreaIsMissing(offAreaCollider, "PassageOffArea");
-        WarnIfRequiredAreaIsMissing(movementAreaCollider, "PassageMovementArea");
-        WarnIfRequiredAreaIsMissing(transitionAreaCollider, "PassageTransitionArea");
-        WarnIfRequiredAreaIsMissing(transitionGateCollider, "PassageTransitionGate");
-    }
-
     private void ConfigureAreaTriggers()
     {
         PassageAreaTrigger.Attach(onAreaCollider, this, PassageAreaKind.On);
         PassageAreaTrigger.Attach(offAreaCollider, this, PassageAreaKind.Off);
     }
 
-    private bool HasRequiredAreaColliders()
+    private bool ValidateRequiredReferences()
     {
-        return onAreaCollider != null
-            && offAreaCollider != null
-            && movementAreaCollider != null
-            && transitionAreaCollider != null
-            && transitionGateCollider != null;
-    }
+        bool isValid = true;
 
-    private void WarnIfRequiredAreaIsMissing(BoxCollider areaCollider, string areaName)
-    {
-        if (areaCollider == null)
+        if (string.IsNullOrEmpty(destinationSceneName))
         {
-            Debug.LogWarning($"OverworldPassageController: Required area collider '{areaName}' was not found.");
-        }
-    }
-
-    private BoxCollider FindChildBoxCollider(params string[] names)
-    {
-        for (int i = 0; i < names.Length; i++)
-        {
-            Transform child = transform.Find(names[i]);
-            if (child != null && child.TryGetComponent(out BoxCollider boxCollider))
-            {
-                return boxCollider;
-            }
+            Debug.LogError("OverworldPassageController: destinationSceneName is not configured.", this);
+            isValid = false;
         }
 
-        return null;
+        if (Mathf.Approximately(travelOffset.y, 0f))
+        {
+            Debug.LogError("OverworldPassageController: travelOffset.y must be non-zero.", this);
+            isValid = false;
+        }
+
+        isValid &= ValidateReference(changeScene, nameof(changeScene));
+        isValid &= ValidateReference(onAreaCollider, nameof(onAreaCollider));
+        isValid &= ValidateReference(offAreaCollider, nameof(offAreaCollider));
+        isValid &= ValidateReference(movementAreaCollider, nameof(movementAreaCollider));
+        isValid &= ValidateReference(transitionAreaCollider, nameof(transitionAreaCollider));
+        isValid &= ValidateReference(transitionGateCollider, nameof(transitionGateCollider));
+
+        if (maskPlayerWithPassageRenderer)
+        {
+            isValid &= ValidateReference(passageMaskRenderer, nameof(passageMaskRenderer));
+            isValid &= ValidateReference(stencilMaskWriterMaterial, nameof(stencilMaskWriterMaterial));
+            isValid &= ValidateReference(maskedPlayerMaterial, nameof(maskedPlayerMaterial));
+        }
+
+        return isValid;
+    }
+
+    private bool ValidateReference(UnityEngine.Object reference, string fieldName)
+    {
+        if (reference != null)
+        {
+            return true;
+        }
+
+        Debug.LogError($"OverworldPassageController: {fieldName} is not configured.", this);
+        return false;
     }
 
     private void DeactivatePassage()

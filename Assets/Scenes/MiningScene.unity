@@ -2974,7 +2974,7 @@ MonoBehaviour:
   passageMaskRenderer: {fileID: 1700130091}
   stencilMaskWriterMaterial: {fileID: 2100000, guid: 53f4b85f645840c49b0e26fa06eb9d6e, type: 2}
   maskedPlayerMaterial: {fileID: 2100000, guid: 2bddb99b62ee4d50b1aa2d55e55d4578, type: 2}
-  minecartManager: {fileID: 0}
+  minecartManager: {fileID: 1324682791}
 --- !u!1 &1700130100
 GameObject:
   m_ObjectHideFlags: 0
