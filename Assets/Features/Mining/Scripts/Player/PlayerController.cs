@@ -87,7 +87,7 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
-    public Vector2 MoveInput => moveInput; // PassageControllerから入力を取得するため
+    public Vector2 MoveInput => moveInput; // MiningPassageControllerから入力を取得するため
     private Vector2 mousePosition; // マウスのスクリーン座標
     private float currentFallSpeed = 0f; // 現在の落下速度
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
@@ -95,7 +95,7 @@ public class PlayerController : MonoBehaviour
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
     private PlayerVisualsController playerVisualsController; // ビジュアル担当
     
-    // PassageControllerからの制御用
+    // MiningPassageControllerからの制御用
     public bool IsInPassage { get; set; } = false;
     
     // 接触中のアイテム管理用
@@ -337,7 +337,7 @@ public class PlayerController : MonoBehaviour
         }
 
         // SmoothDampを使用して速度を滑らかに変化させる
-        // Passage中も通常移動は維持し、採掘だけPassageController側で止める
+        // Passage中も通常移動は維持し、採掘だけMiningPassageController側で止める
         Vector3 nextVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
         if (fluidResistance > 0f)
         {

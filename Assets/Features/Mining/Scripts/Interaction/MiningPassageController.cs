@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class PassageController : MonoBehaviour, IGameSceneTransitionHandler, IPassageAreaTriggerReceiver
+public class MiningPassageController : MonoBehaviour, IGameSceneTransitionHandler, IPassageAreaTriggerReceiver
 {
     [Header("Transition")]
     [SerializeField] private float requiredInputThreshold = 0.5f;
@@ -366,14 +366,14 @@ public class PassageController : MonoBehaviour, IGameSceneTransitionHandler, IPa
         GameObject player = SceneEntryPoint.FindTaggedObjectInScene(gameObject.scene, "Player");
         if (player == null)
         {
-            Debug.LogWarning($"PassageController: Player tagged 'Player' was not found in scene '{gameObject.scene.name}'.");
+            Debug.LogWarning($"MiningPassageController: Player tagged 'Player' was not found in scene '{gameObject.scene.name}'.");
             return;
         }
 
         playerController = player.GetComponentInParent<PlayerController>();
         if (playerController == null)
         {
-            Debug.LogWarning("PassageController: PlayerController was not found on the linked player.");
+            Debug.LogWarning("MiningPassageController: PlayerController was not found on the linked player.");
             return;
         }
 
@@ -399,7 +399,7 @@ public class PassageController : MonoBehaviour, IGameSceneTransitionHandler, IPa
     {
         if (playerTransform == null || transitionAreaCollider == null)
         {
-            Debug.LogError("PassageController: Cannot transition because the player or TransitionArea is missing.");
+            Debug.LogError("MiningPassageController: Cannot transition because the player or TransitionArea is missing.");
             return false;
         }
 
@@ -613,13 +613,13 @@ public class PassageController : MonoBehaviour, IGameSceneTransitionHandler, IPa
 
         if (string.IsNullOrEmpty(destinationSceneName))
         {
-            Debug.LogError("PassageController: destinationSceneName is not configured.", this);
+            Debug.LogError("MiningPassageController: destinationSceneName is not configured.", this);
             isValid = false;
         }
 
         if (Mathf.Approximately(travelOffset.y, 0f))
         {
-            Debug.LogError("PassageController: travelOffset.y must be non-zero.", this);
+            Debug.LogError("MiningPassageController: travelOffset.y must be non-zero.", this);
             isValid = false;
         }
 
@@ -649,7 +649,7 @@ public class PassageController : MonoBehaviour, IGameSceneTransitionHandler, IPa
             return true;
         }
 
-        Debug.LogError($"PassageController: {fieldName} is not configured.", this);
+        Debug.LogError($"MiningPassageController: {fieldName} is not configured.", this);
         return false;
     }
 
@@ -718,14 +718,14 @@ public class PassageController : MonoBehaviour, IGameSceneTransitionHandler, IPa
     {
         if (playerController == null)
         {
-            Debug.LogWarning("PassageController: PlayerController is null. Item transfer was skipped.");
+            Debug.LogWarning("MiningPassageController: PlayerController is null. Item transfer was skipped.");
             return;
         }
 
         StorageManager storageManager = StorageManager.Instance;
         if (storageManager == null)
         {
-            Debug.LogError("PassageController: StorageManager was not found.");
+            Debug.LogError("MiningPassageController: StorageManager was not found.");
             return;
         }
 
