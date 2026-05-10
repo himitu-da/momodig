@@ -13,7 +13,8 @@ public class GameSceneCoordinator : MonoBehaviour
     [SerializeField] private List<string> managedContentSceneNames = new List<string>
     {
         "OverWorldScene",
-        "MiningScene"
+        "MiningScene",
+        "ShopScene"
     };
 
     [Header("Startup")]
