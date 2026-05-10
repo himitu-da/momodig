@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: WorkshopFacility
   m_EditorClassIdentifier: 
   facilityId: workshop
-  displayName: Workshop
+  displayName: "\u5DE5\u623F\u3000Workshop"
   promptLabel: Workshop
   panelPrefab: {fileID: 900000101, guid: 77d48aa3e75e0ca4b868df93cecaed81, type: 3}

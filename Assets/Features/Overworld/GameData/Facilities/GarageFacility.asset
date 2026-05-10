@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: GarageFacility
   m_EditorClassIdentifier: 
   facilityId: garage
-  displayName: Garage
+  displayName: "\u8ECA\u5EAB\u3000Garage"
   promptLabel: Garage
   panelPrefab: {fileID: 900000102, guid: 4919a6e945351594985e459743f375d7, type: 3}
