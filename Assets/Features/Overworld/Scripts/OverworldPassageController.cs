@@ -8,8 +8,6 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
     [SerializeField] private string destinationEntryPointId;
     [SerializeField] private ChangeScene changeScene;
     [SerializeField] private Vector3 travelOffset = new Vector3(0f, -3f, 0f);
-    [SerializeField] private bool useLinkedDestinationPosition = true;
-    [SerializeField] private float destinationPlayerY = 5f;
     [SerializeField] private bool continuePassageAfterSceneTransition = true;
 
     [Header("Passage Areas")]
@@ -17,6 +15,7 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
     [SerializeField] private BoxCollider offAreaCollider;
     [SerializeField] private BoxCollider movementAreaCollider;
     [SerializeField] private BoxCollider transitionAreaCollider;
+    [SerializeField] private BoxCollider transitionGateCollider;
 
     [Header("Passage Stencil Mask")]
     [SerializeField] private bool maskPlayerWithPassageRenderer = true;
@@ -35,7 +34,9 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
     private float passageMinX;
     private float passageMaxX;
     private bool isSceneTransitioning;
-    private bool isContinuingFromSceneTransition;
+    private bool isIgnoringArrivalGateOverlap;
+    private bool hasPreviousPassagePosition;
+    private Vector3 previousPassagePosition;
     private readonly PassageStencilMaskSession passageMaskSession = new PassageStencilMaskSession();
 
     private void Awake()
@@ -157,7 +158,7 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
         UpdatePassage();
     }
 
-    private void StartPassage()
+    private void StartPassage(bool ignoreCurrentGateOverlap = false)
     {
         if (playerTransform == null || !HasRequiredAreaColliders())
         {
@@ -165,6 +166,8 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
         }
 
         isPassageActive = true;
+        isIgnoringArrivalGateOverlap = ignoreCurrentGateOverlap && IsInTransitionGateArea();
+        StorePreviousPassagePosition();
         CapturePassageBounds();
         DisablePlayerCollision();
 
@@ -201,6 +204,7 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
             return;
         }
 
+        StorePreviousPassagePosition();
     }
 
     private void CapturePassageBounds()
@@ -339,15 +343,13 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
     {
         if (changeScene != null && !string.IsNullOrEmpty(destinationSceneName))
         {
+            if (!TryBeginPassageTransition())
+            {
+                return;
+            }
+
             PrepareForSceneTransition();
-            if (useLinkedDestinationPosition)
-            {
-                changeScene.OnClickToChangeScene(destinationSceneName, destinationEntryPointId, GetDestinationPlayerPosition());
-            }
-            else
-            {
-                changeScene.OnClickToChangeScene(destinationSceneName, destinationEntryPointId);
-            }
+            changeScene.OnClickToChangeScene(destinationSceneName, destinationEntryPointId);
         }
         else
         {
@@ -355,12 +357,6 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
         }
 
         enabled = false;
-    }
-
-    private Vector3 GetDestinationPlayerPosition()
-    {
-        Vector3 sourcePosition = playerTransform != null ? playerTransform.position : transform.position;
-        return new Vector3(sourcePosition.x, destinationPlayerY, sourcePosition.z);
     }
 
     public void OnBeforeContentSceneUnload(string nextSceneName)
@@ -374,10 +370,10 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
             return;
         }
 
-        StartPassageFromSceneTransition();
+        StartPassageFromSceneTransition(previousSceneName);
     }
 
-    private void StartPassageFromSceneTransition()
+    private void StartPassageFromSceneTransition(string previousSceneName)
     {
         GameObject player = SceneEntryPoint.FindTaggedObjectInScene(gameObject.scene, "Player");
         if (player == null)
@@ -393,13 +389,52 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
             return;
         }
 
+        if (!TryPlacePlayerFromPassageTransition(previousSceneName, player.transform))
+        {
+            return;
+        }
+
         isPlayerInside = true;
         playerTransform = playerController.transform;
         playerRigidbody = playerController.GetComponent<Rigidbody>();
-        isContinuingFromSceneTransition = true;
         isSceneTransitioning = false;
 
-        StartPassage();
+        StartPassage(true);
+    }
+
+    private bool TryBeginPassageTransition()
+    {
+        if (playerTransform == null || transitionAreaCollider == null)
+        {
+            Debug.LogError("OverworldPassageController: Cannot transition because the player or TransitionArea is missing.");
+            return false;
+        }
+
+        PassageTransitionContext.Begin(gameObject.scene.name, destinationSceneName, transitionAreaCollider, playerTransform.position);
+        return true;
+    }
+
+    private bool TryPlacePlayerFromPassageTransition(string previousSceneName, Transform player)
+    {
+        if (player == null || transitionAreaCollider == null)
+        {
+            return false;
+        }
+
+        if (!PassageTransitionContext.TryConsume(previousSceneName, gameObject.scene.name, transitionAreaCollider, out Vector3 targetPosition))
+        {
+            return false;
+        }
+
+        player.position = targetPosition;
+
+        if (player.TryGetComponent(out Rigidbody targetRigidbody))
+        {
+            targetRigidbody.linearVelocity = Vector3.zero;
+            targetRigidbody.angularVelocity = Vector3.zero;
+        }
+
+        return true;
     }
 
     private float GetTransitionDirection()
@@ -414,18 +449,77 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
 
     private bool ShouldCompletePassage()
     {
-        return !isContinuingFromSceneTransition
-            && IsInTransitionArea();
+        if (isIgnoringArrivalGateOverlap)
+        {
+            if (ShouldCompleteFromArrivalGateOverlap())
+            {
+                isIgnoringArrivalGateOverlap = false;
+                return true;
+            }
+
+            if (!IsInTransitionGateArea())
+            {
+                isIgnoringArrivalGateOverlap = false;
+                StorePreviousPassagePosition();
+            }
+
+            return false;
+        }
+
+        return IsInTransitionGateArea() || DidCrossTransitionGateArea();
     }
 
-    private bool IsInTransitionArea()
+    private bool ShouldCompleteFromArrivalGateOverlap()
     {
-        if (playerTransform == null || transitionAreaCollider == null)
+        if (playerTransform == null || playerController == null)
         {
             return false;
         }
 
-        return ContainsPoint2D(transitionAreaCollider.bounds, playerTransform.position);
+        float requiredDirection = GetTransitionDirection();
+        if (playerController.MoveInput.y * requiredDirection >= requiredInputThreshold)
+        {
+            return true;
+        }
+
+        return IsPastTransitionSideOfGate(playerTransform.position);
+    }
+
+    private bool IsInTransitionGateArea()
+    {
+        if (playerTransform == null || transitionGateCollider == null)
+        {
+            return false;
+        }
+
+        return ContainsPoint2D(transitionGateCollider.bounds, playerTransform.position);
+    }
+
+    private bool DidCrossTransitionGateArea()
+    {
+        if (!hasPreviousPassagePosition || playerTransform == null || transitionGateCollider == null)
+        {
+            return false;
+        }
+
+        return SegmentIntersectsBounds2D(transitionGateCollider.bounds, previousPassagePosition, playerTransform.position);
+    }
+
+    private bool IsPastTransitionSideOfGate(Vector3 position)
+    {
+        if (transitionGateCollider == null)
+        {
+            return false;
+        }
+
+        Bounds bounds = transitionGateCollider.bounds;
+        float requiredDirection = GetTransitionDirection();
+        if (requiredDirection > 0f)
+        {
+            return position.y > bounds.max.y;
+        }
+
+        return position.y < bounds.min.y;
     }
 
     private bool IsInOffArea()
@@ -453,6 +547,67 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
             && point.y <= bounds.max.y;
     }
 
+    private void StorePreviousPassagePosition()
+    {
+        if (playerTransform == null)
+        {
+            hasPreviousPassagePosition = false;
+            previousPassagePosition = Vector3.zero;
+            return;
+        }
+
+        previousPassagePosition = playerTransform.position;
+        hasPreviousPassagePosition = true;
+    }
+
+    private static bool SegmentIntersectsBounds2D(Bounds bounds, Vector3 start, Vector3 end)
+    {
+        float tMin = 0f;
+        float tMax = 1f;
+        Vector3 delta = end - start;
+
+        return ClipSegmentAxis(-delta.x, start.x - bounds.min.x, ref tMin, ref tMax)
+            && ClipSegmentAxis(delta.x, bounds.max.x - start.x, ref tMin, ref tMax)
+            && ClipSegmentAxis(-delta.y, start.y - bounds.min.y, ref tMin, ref tMax)
+            && ClipSegmentAxis(delta.y, bounds.max.y - start.y, ref tMin, ref tMax);
+    }
+
+    private static bool ClipSegmentAxis(float direction, float distance, ref float tMin, ref float tMax)
+    {
+        if (Mathf.Approximately(direction, 0f))
+        {
+            return distance >= 0f;
+        }
+
+        float t = distance / direction;
+        if (direction < 0f)
+        {
+            if (t > tMax)
+            {
+                return false;
+            }
+
+            if (t > tMin)
+            {
+                tMin = t;
+            }
+        }
+        else
+        {
+            if (t < tMin)
+            {
+                return false;
+            }
+
+            if (t < tMax)
+            {
+                tMax = t;
+            }
+        }
+
+        return true;
+    }
+
     private void ResolveAreaColliders()
     {
         if (onAreaCollider == null)
@@ -475,10 +630,16 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
             transitionAreaCollider = FindChildBoxCollider("PassageTransitionArea", "TransitionArea", "TransferArea");
         }
 
+        if (transitionGateCollider == null)
+        {
+            transitionGateCollider = FindChildBoxCollider("PassageTransitionGate", "TransitionGate", "GateArea");
+        }
+
         WarnIfRequiredAreaIsMissing(onAreaCollider, "PassageOnArea");
         WarnIfRequiredAreaIsMissing(offAreaCollider, "PassageOffArea");
         WarnIfRequiredAreaIsMissing(movementAreaCollider, "PassageMovementArea");
         WarnIfRequiredAreaIsMissing(transitionAreaCollider, "PassageTransitionArea");
+        WarnIfRequiredAreaIsMissing(transitionGateCollider, "PassageTransitionGate");
     }
 
     private void ConfigureAreaTriggers()
@@ -492,7 +653,8 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
         return onAreaCollider != null
             && offAreaCollider != null
             && movementAreaCollider != null
-            && transitionAreaCollider != null;
+            && transitionAreaCollider != null
+            && transitionGateCollider != null;
     }
 
     private void WarnIfRequiredAreaIsMissing(BoxCollider areaCollider, string areaName)
@@ -530,7 +692,9 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
         }
 
         isPassageActive = false;
-        isContinuingFromSceneTransition = false;
+        isIgnoringArrivalGateOverlap = false;
+        hasPreviousPassagePosition = false;
+        previousPassagePosition = Vector3.zero;
         RestorePlayerCollision();
         passageMaskSession.End();
     }
@@ -542,7 +706,9 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
         playerTransform = null;
         playerRigidbody = null;
         isPlayerInside = false;
-        isContinuingFromSceneTransition = false;
+        isIgnoringArrivalGateOverlap = false;
+        hasPreviousPassagePosition = false;
+        previousPassagePosition = Vector3.zero;
         passageMinX = 0f;
         passageMaxX = 0f;
     }

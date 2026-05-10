@@ -2887,6 +2887,7 @@ Transform:
   - {fileID: 1700130111}
   - {fileID: 1700130121}
   - {fileID: 1700130131}
+  - {fileID: 1700130141}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 90, y: 180, z: 0}
 --- !u!23 &1700130091
@@ -2963,13 +2964,12 @@ MonoBehaviour:
   destinationEntryPointId: 
   changeScene: {fileID: 168293942}
   travelOffset: {x: 0, y: 5, z: 0}
-  useLinkedDestinationPosition: 1
-  destinationPlayerY: -5
   continuePassageAfterSceneTransition: 1
   onAreaCollider: {fileID: 1700130102}
   offAreaCollider: {fileID: 1700130112}
   movementAreaCollider: {fileID: 1700130122}
   transitionAreaCollider: {fileID: 1700130132}
+  transitionGateCollider: {fileID: 1700130142}
   maskPlayerWithPassageRenderer: 1
   passageMaskRenderer: {fileID: 1700130091}
   stencilMaskWriterMaterial: {fileID: 2100000, guid: 53f4b85f645840c49b0e26fa06eb9d6e, type: 2}
@@ -3185,8 +3185,61 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 5, y: 5, z: 1}
-  m_Center: {x: 0, y: 0, z: -6.5}
+  m_Size: {x: 5, y: 5, z: 2}
+  m_Center: {x: 0, y: 0, z: -6}
+--- !u!1 &1700130140
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1700130141}
+  - component: {fileID: 1700130142}
+  m_Layer: 0
+  m_Name: PassageTransitionGate
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1700130141
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1700130140}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1700130090}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &1700130142
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1700130140}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 5, y: 5, z: 0.5}
+  m_Center: {x: 0, y: 0, z: -6.75}
 --- !u!1 &1700943655
 GameObject:
   m_ObjectHideFlags: 0
