@@ -5,6 +5,7 @@ public class PassageController : MonoBehaviour
     [Header("Transition")]
     [SerializeField] private float requiredInputThreshold = 0.5f;
     [SerializeField] private string destinationSceneName;
+    [SerializeField] private string destinationEntryPointId;
     [SerializeField] private ChangeScene changeScene;
     [SerializeField] private Vector3 travelOffset = new Vector3(0f, 3f, 0f);
 
@@ -293,7 +294,7 @@ public class PassageController : MonoBehaviour
         if (changeScene != null && !string.IsNullOrEmpty(destinationSceneName))
         {
             PrepareForSceneTransition();
-            changeScene.OnClickToChangeScene(destinationSceneName);
+            changeScene.OnClickToChangeScene(destinationSceneName, destinationEntryPointId);
         }
         else
         {

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -64,6 +65,11 @@ public class GameSceneCoordinator : MonoBehaviour
 
     public void SwitchToScene(string sceneName)
     {
+        SwitchToScene(sceneName, string.Empty);
+    }
+
+    public void SwitchToScene(string sceneName, string entryPointId)
+    {
         if (!CanSwitchToScene(sceneName))
         {
             Debug.LogWarning($"GameSceneCoordinator: Scene '{sceneName}' is not a managed content scene.");
@@ -76,22 +82,33 @@ public class GameSceneCoordinator : MonoBehaviour
             return;
         }
 
-        transitionCoroutine = StartCoroutine(SwitchToSceneRoutine(sceneName));
+        transitionCoroutine = StartCoroutine(SwitchToSceneRoutine(sceneName, entryPointId));
     }
 
     public static bool TrySwitchToScene(string sceneName)
+    {
+        return TrySwitchToScene(sceneName, string.Empty);
+    }
+
+    public static bool TrySwitchToScene(string sceneName, string entryPointId)
     {
         if (Instance == null || !Instance.CanSwitchToScene(sceneName))
         {
             return false;
         }
 
-        Instance.SwitchToScene(sceneName);
+        Instance.SwitchToScene(sceneName, entryPointId);
         return true;
     }
 
-    private IEnumerator SwitchToSceneRoutine(string targetSceneName)
+    private IEnumerator SwitchToSceneRoutine(string targetSceneName, string entryPointId)
     {
+        string previousContentSceneName = currentContentSceneName;
+        if (string.IsNullOrEmpty(previousContentSceneName))
+        {
+            previousContentSceneName = FindLoadedManagedContentSceneName();
+        }
+
         Scene targetScene = SceneManager.GetSceneByName(targetSceneName);
         if (!targetScene.IsValid() || !targetScene.isLoaded)
         {
@@ -126,6 +143,8 @@ public class GameSceneCoordinator : MonoBehaviour
         List<Scene> scenesToUnload = GetLoadedManagedContentScenesExcept(targetSceneName);
         for (int i = 0; i < scenesToUnload.Count; i++)
         {
+            NotifyBeforeSceneUnload(scenesToUnload[i], targetSceneName);
+
             AsyncOperation unloadOperation = SceneManager.UnloadSceneAsync(scenesToUnload[i]);
             if (unloadOperation == null)
             {
@@ -137,6 +156,9 @@ public class GameSceneCoordinator : MonoBehaviour
                 yield return null;
             }
         }
+
+        ApplyEntryPoint(targetScene, entryPointId);
+        NotifyAfterSceneLoad(targetScene, previousContentSceneName);
 
         currentContentSceneName = targetSceneName;
         transitionCoroutine = null;
@@ -197,5 +219,70 @@ public class GameSceneCoordinator : MonoBehaviour
         }
 
         return scenes;
+    }
+
+    private void ApplyEntryPoint(Scene scene, string entryPointId)
+    {
+        SceneEntryPoint entryPoint = SceneEntryPoint.FindInScene(scene, entryPointId);
+        if (entryPoint != null)
+        {
+            entryPoint.PlacePlayer();
+        }
+    }
+
+    private void NotifyBeforeSceneUnload(Scene scene, string nextSceneName)
+    {
+        List<IGameSceneTransitionHandler> handlers = GetTransitionHandlers(scene);
+        for (int i = 0; i < handlers.Count; i++)
+        {
+            try
+            {
+                handlers[i].OnBeforeContentSceneUnload(nextSceneName);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+        }
+    }
+
+    private void NotifyAfterSceneLoad(Scene scene, string previousSceneName)
+    {
+        List<IGameSceneTransitionHandler> handlers = GetTransitionHandlers(scene);
+        for (int i = 0; i < handlers.Count; i++)
+        {
+            try
+            {
+                handlers[i].OnAfterContentSceneLoad(previousSceneName);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+        }
+    }
+
+    private static List<IGameSceneTransitionHandler> GetTransitionHandlers(Scene scene)
+    {
+        List<IGameSceneTransitionHandler> handlers = new List<IGameSceneTransitionHandler>();
+        if (!scene.IsValid() || !scene.isLoaded)
+        {
+            return handlers;
+        }
+
+        GameObject[] rootObjects = scene.GetRootGameObjects();
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            MonoBehaviour[] behaviours = rootObjects[i].GetComponentsInChildren<MonoBehaviour>(true);
+            for (int j = 0; j < behaviours.Length; j++)
+            {
+                if (behaviours[j] is IGameSceneTransitionHandler handler)
+                {
+                    handlers.Add(handler);
+                }
+            }
+        }
+
+        return handlers;
     }
 }

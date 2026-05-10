@@ -5,7 +5,12 @@ public class ChangeScene : MonoBehaviour
 {
     public void OnClickToChangeScene(string sceneNameToChange)
     {
-        if (GameSceneCoordinator.TrySwitchToScene(sceneNameToChange))
+        OnClickToChangeScene(sceneNameToChange, string.Empty);
+    }
+
+    public void OnClickToChangeScene(string sceneNameToChange, string entryPointId)
+    {
+        if (GameSceneCoordinator.TrySwitchToScene(sceneNameToChange, entryPointId))
         {
             return;
         }
