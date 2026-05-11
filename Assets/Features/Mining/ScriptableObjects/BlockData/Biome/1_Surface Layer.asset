@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   biomeName: Surface Layer
   biomeType: 0
-  maxHeight: -1
+  maxHeight: 4
   minHeight: -10
   availableBlocks:
   - blockData: {fileID: 11400000, guid: f64b64dfc9ba274488a6f2e4e48f60ab, type: 2}

@@ -16,6 +16,8 @@ MonoBehaviour:
   defaultBackgroundTexture: {fileID: 2800000, guid: 1cb62d51066097941863131bee039362, type: 3}
   biomeDataMappings:
   - biomeType: 0
+    biomeData: {fileID: 11400000, guid: adbbd4a8f3270264ab57f9f6f4314c8c, type: 2}
+  - biomeType: 0
     biomeData: {fileID: 11400000, guid: 92942545c70d39142aa5dc220a0882cc, type: 2}
   - biomeType: 0
     biomeData: {fileID: 11400000, guid: bb293338bc90e5640a8ab82187582fb2, type: 2}
