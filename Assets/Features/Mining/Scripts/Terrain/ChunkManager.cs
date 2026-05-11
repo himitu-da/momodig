@@ -70,7 +70,7 @@ public class ChunkManager : MonoBehaviour
             for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
             {
                 Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
-                if (chunkPos.y > 0) continue;
+                if (ShouldSkipChunkGeneration(chunkPos)) continue;
                 sortedChunks.Add(chunkPos);
             }
         }
@@ -124,7 +124,7 @@ public class ChunkManager : MonoBehaviour
             for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
             {
                 Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
-                if (chunkPos.y > 0) continue;
+                if (ShouldSkipChunkGeneration(chunkPos)) continue;
                 if (activeChunks.ContainsKey(chunkPos)) continue;
                 chunksToGenerate.Add(chunkPos);
             }
@@ -312,6 +312,11 @@ public class ChunkManager : MonoBehaviour
     private int WorldToBlockCoordinate(float worldAxis, float blockSize)
     {
         return Mathf.FloorToInt(worldAxis / blockSize + 0.5f);
+    }
+
+    private bool ShouldSkipChunkGeneration(Vector3Int chunkPos)
+    {
+        return chunkPos == Vector3Int.zero;
     }
 
     private Vector3 GetChunkCenterWorldPosition(Vector3Int chunkPos)
