@@ -841,18 +841,16 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             Debug.LogError("TerrainManager not found. Cannot prepare item loading.");
             return;
         }
+        if (terrainManager.ChunkManager == null)
+        {
+            Debug.LogError("ChunkManager not found. Cannot prepare item loading.");
+            return;
+        }
 
         itemsByChunk.Clear();
-        var settings = terrainManager.Settings;
-
         foreach (var itemData in persistenceManager.droppedItems)
         {
-            int blockX = Mathf.RoundToInt(itemData.position.x / settings.blockSize);
-            int blockY = Mathf.RoundToInt(itemData.position.y / settings.blockSize);
-            
-            int chunkX = Mathf.FloorToInt((float)blockX / settings.blocksPerChunk.x);
-            int chunkY = Mathf.FloorToInt((float)blockY / settings.blocksPerChunk.y);
-            Vector3Int chunkPos = new Vector3Int(chunkX, chunkY, 0);
+            Vector3Int chunkPos = terrainManager.ChunkManager.GetChunkPositionFromWorld(itemData.position);
 
             if (!itemsByChunk.ContainsKey(chunkPos))
             {
