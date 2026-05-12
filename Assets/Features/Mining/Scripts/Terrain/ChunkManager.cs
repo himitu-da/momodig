@@ -87,12 +87,7 @@ public class ChunkManager : MonoBehaviour
         {
             if (!activeChunks.ContainsKey(chunkPos))
             {
-                if (ShouldSkipBlockGeneration(chunkPos))
-                {
-                    GetOrCreateChunkFromPosition(chunkPos);
-                    continue;
-                }
-
+                GetOrCreateChunkFromPosition(chunkPos);
                 List<Vector3Int> chunkBlocks = GetBlockPositionsInChunk(chunkPos);
                 
                 chunkBlocks.Sort((a, b) => 
@@ -145,12 +140,7 @@ public class ChunkManager : MonoBehaviour
         
         foreach (var chunkPos in chunksToGenerate)
         {
-            if (ShouldSkipBlockGeneration(chunkPos))
-            {
-                GetOrCreateChunkFromPosition(chunkPos);
-                continue;
-            }
-
+            GetOrCreateChunkFromPosition(chunkPos);
             List<Vector3Int> blocksInChunk = GetBlockPositionsInChunk(chunkPos);
             
             blocksInChunk.Sort((a, b) => 
@@ -293,7 +283,8 @@ public class ChunkManager : MonoBehaviour
 
     public bool IsBlockGenerationSkipped(Vector3Int blockPosition)
     {
-        return ShouldSkipBlockGeneration(GetChunkPositionFromBlock(blockPosition));
+        return terrainManager.TerrainDataManager != null &&
+               terrainManager.TerrainDataManager.IsBlockGenerationExcluded(blockPosition);
     }
 
     private List<Vector3Int> GetBlockPositionsInChunk(Vector3Int chunkPos)
@@ -306,7 +297,11 @@ public class ChunkManager : MonoBehaviour
         {
             for (int by = 0; by < settings.blocksPerChunk.y; by++)
             {
-                blockPositions.Add(new Vector3Int(startBlock.x + bx, startBlock.y + by, chunkPos.z));
+                Vector3Int blockPosition = new Vector3Int(startBlock.x + bx, startBlock.y + by, chunkPos.z);
+                if (!IsBlockGenerationSkipped(blockPosition))
+                {
+                    blockPositions.Add(blockPosition);
+                }
             }
         }
 
@@ -331,11 +326,6 @@ public class ChunkManager : MonoBehaviour
     private int WorldToBlockCoordinate(float worldAxis, float blockSize)
     {
         return Mathf.FloorToInt(worldAxis / blockSize + 0.5f);
-    }
-
-    private bool ShouldSkipBlockGeneration(Vector3Int chunkPos)
-    {
-        return chunkPos == Vector3Int.zero;
     }
 
     private Vector3 GetChunkCenterWorldPosition(Vector3Int chunkPos)

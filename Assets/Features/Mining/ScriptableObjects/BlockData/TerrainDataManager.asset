@@ -14,6 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   defaultBlockData: {fileID: 11400000, guid: b72d8998d07556445be5daed7dd44989, type: 2}
   defaultBackgroundTexture: {fileID: 2800000, guid: 1cb62d51066097941863131bee039362, type: 3}
+  terrainExclusionRegions:
+  - {fileID: 11400000, guid: 8411c837771b4da2beb35084dedb7524, type: 2}
   biomeDataMappings:
   - biomeType: 0
     biomeData: {fileID: 11400000, guid: adbbd4a8f3270264ab57f9f6f4314c8c, type: 2}

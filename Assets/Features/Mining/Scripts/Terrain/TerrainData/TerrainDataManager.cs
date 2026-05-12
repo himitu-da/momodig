@@ -11,6 +11,10 @@ public class TerrainDataManager : ScriptableObject
     public BlockData defaultBlockData;
     public Texture2D defaultBackgroundTexture;
 
+    [Header("Generation Exclusions")]
+    [SerializeField]
+    private List<TerrainExclusionRegionData> terrainExclusionRegions;
+
     [System.Serializable]
     public class BiomeDataMapping
     {
@@ -56,6 +60,24 @@ public class TerrainDataManager : ScriptableObject
             }
         }
         return null; // No suitable biome found
+    }
+
+    public bool IsBlockGenerationExcluded(Vector3Int blockPosition)
+    {
+        if (terrainExclusionRegions == null)
+        {
+            return false;
+        }
+
+        foreach (var region in terrainExclusionRegions)
+        {
+            if (region != null && region.ContainsBlock(blockPosition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public BlockData GetBlockDataByName(string name)
