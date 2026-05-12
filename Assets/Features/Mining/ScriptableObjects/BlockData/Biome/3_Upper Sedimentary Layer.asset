@@ -75,7 +75,7 @@ MonoBehaviour:
   - ruleName: Base Blocks
     entries:
     - resultType: 0
-      blockData: {fileID: 11400000, guid: 2e930e450e87964429b7b735fead9ddb, type: 2}
+      blockData: {fileID: 11400000, guid: 009d270926028a447a7db1d3b2ebc930, type: 2}
       baseWeight: 1
       depthCurve:
         serializedVersion: 2
