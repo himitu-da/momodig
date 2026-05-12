@@ -14,6 +14,8 @@ public class DroppedItem : MonoBehaviour
     };
 
     public Rigidbody rb { get; private set; }
+    public Collider ItemCollider => obstacleCollider;
+    public Bounds ItemBounds => obstacleCollider != null ? obstacleCollider.bounds : new Bounds(transform.position, transform.localScale);
     public ResourceType resourceType = ResourceType.Stone;
     private static Mesh droppedItemMeshTemplate;
 
@@ -50,6 +52,7 @@ public class DroppedItem : MonoBehaviour
     private Vector3 lastFluidNotifyPosition;
     private bool hasFluidNotifyPosition;
     private float nextFluidNotifyTime;
+    private bool anchoredPhysicsMode;
 
     // --- For Persistence ---
     public Vector3 scale;
@@ -81,6 +84,7 @@ public class DroppedItem : MonoBehaviour
 
     void OnEnable()
     {
+        anchoredPhysicsMode = false;
         if (rb != null)
         {
             rb.isKinematic = false;
@@ -108,8 +112,29 @@ public class DroppedItem : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (anchoredPhysicsMode)
+        {
+            return;
+        }
+
         ApplyFluidResistance();
         RefreshFluidObstacleTracking(false);
+    }
+
+    public void SetAnchoredPhysicsMode(bool anchored)
+    {
+        anchoredPhysicsMode = anchored;
+        if (anchored)
+        {
+            RefreshFluidObstacleTracking(true);
+        }
+        else
+        {
+            lastFluidNotifyPosition = GetFluidObstacleCenter();
+            hasFluidNotifyPosition = true;
+            nextFluidNotifyTime = 0f;
+            RefreshFluidObstacleTracking(true);
+        }
     }
 
     void OnDestroy()

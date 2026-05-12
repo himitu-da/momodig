@@ -43,7 +43,7 @@ public class BlockDiggingSystem
         }
     }
 
-    public async UniTask<int> DigVoxels(BoxCollider diggingArea, int damagePerHit)
+    public async UniTask<int> DigVoxels(BoxCollider diggingArea, int damagePerHit, TerrainChangeReason changeReason = TerrainChangeReason.Digging)
     {
         int destroyedVoxelCount = 0;
         AudioClip destructionSound = null;
@@ -73,22 +73,30 @@ public class BlockDiggingSystem
             bool layerModified = false;
             List<System.Action> dropActions = new List<System.Action>();
 
-            for (int x = startX; x <= endX; x++)
+            voxelManager.BeginTerrainChange(changeReason);
+            try
             {
-                for (int y = startY; y <= endY; y++)
+                for (int x = startX; x <= endX; x++)
                 {
-                    if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, ref destructionSound, ref destructionSoundVolume))
+                    for (int y = startY; y <= endY; y++)
                     {
-                        layerModified = true;
-                        destroyedVoxelCount++;
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, ref destructionSound, ref destructionSoundVolume))
+                        {
+                            layerModified = true;
+                            destroyedVoxelCount++;
+                        }
                     }
                 }
-            }
 
-            if (layerModified)
+                if (layerModified)
+                {
+                    foreach (var action in dropActions) action.Invoke();
+                    targetBlock.GenerateMesh();
+                }
+            }
+            finally
             {
-                foreach (var action in dropActions) action.Invoke();
-                targetBlock.GenerateMesh();
+                voxelManager.EndTerrainChangeAndDispatch();
             }
 
             await DelayFrames();

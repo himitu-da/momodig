@@ -1,7 +1,5 @@
 using UnityEngine;
-using System;
 using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
 
 public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransitionHandler
 {
@@ -15,6 +13,27 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     [SerializeField] private int maxSolidificationsPerCheck = 4;
     [SerializeField] private int candidateLookupCount = 8;
     [SerializeField] private int candidateMaxBlockRadius = 8;
+
+    [Header("Anchored Drop Physics")]
+    [SerializeField] private float angularSleepThreshold = 0.25f;
+    [SerializeField] private float minSettlingSeconds = 0.4f;
+    [SerializeField] private float anchoredCandidateLinearSpeed = 0.35f;
+    [SerializeField] private float anchoredCandidateAngularSpeed = 1.0f;
+    [SerializeField] private float settlingAbortLinearSpeed = 1.25f;
+    [SerializeField] private float settlingAbortAngularSpeed = 4.0f;
+    [SerializeField] private float supportProbeRatio = 0.15f;
+    [SerializeField] private float supportMaxGapRatio = 0.20f;
+    [SerializeField] private float supportMaxPenetrationRatio = 0.05f;
+    [SerializeField] private int maxSupportCells = 8;
+    [SerializeField] private float spawnSleepCooldownSeconds = 0.75f;
+    [SerializeField] private float miningPreWakeCooldownSeconds = 0.75f;
+    [SerializeField] private float forceWakeCooldownSeconds = 1.5f;
+    [SerializeField] private float supportLostWakeCooldownSeconds = 0.75f;
+    [SerializeField] private float pickupWakeCooldownSeconds = 0.25f;
+    [SerializeField] private string dynamicDropLayerName = "DroppedItem";
+    [SerializeField] private string anchoredDropLayerName = "AnchoredDrop";
+    [SerializeField] private bool showAnchoredDebugInfo = false;
+    [SerializeField] private float debugStateLogInterval = 2f;
 
     public float WakeUpRadiusMultiplier => _wakeUpRadiusMultiplier;
     
@@ -39,37 +58,27 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     // アクティブなアイテムの管理リスト
     private List<DroppedItem> activeItems = new List<DroppedItem>();
 
-    // 各アイテムの状態を管理
-    private struct VoxelCellKey : IEquatable<VoxelCellKey>
+    private enum DropState
     {
-        public Vector3Int blockPosition;
-        public Vector3Int localVoxelPosition;
-
-        public VoxelCellKey(Vector3Int blockPosition, Vector3Int localVoxelPosition)
-        {
-            this.blockPosition = blockPosition;
-            this.localVoxelPosition = localVoxelPosition;
-        }
-
-        public bool Equals(VoxelCellKey other)
-        {
-            return blockPosition == other.blockPosition && localVoxelPosition == other.localVoxelPosition;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is VoxelCellKey other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return (blockPosition.GetHashCode() * 397) ^ localVoxelPosition.GetHashCode();
-            }
-        }
+        Dynamic,
+        Settling,
+        Anchored,
+        Invalidated,
+        Solidified
     }
 
+    private enum WakeReason
+    {
+        Manual,
+        MiningPreWake,
+        Force,
+        SupportLost,
+        Pickup,
+        Pool,
+        Load
+    }
+
+    // 各アイテムの状態を管理
     private struct SolidificationCandidate
     {
         public VoxelCellKey key;
@@ -85,35 +94,39 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
     private class ItemState
     {
-        public bool isSleeping = false;
+        public DropState state = DropState.Dynamic;
         public Queue<float> velocityHistory = new Queue<float>();
         public float sleepCooldownTimer = 0f;
-        public float sleepingSince = -1f;
+        public float settlingSince = -1f;
         public float solidificationStartedAt = -1f;
         public bool hasSolidificationReservation = false;
         public VoxelCellKey reservedCell;
+        public readonly List<VoxelCellKey> supportCells = new List<VoxelCellKey>();
+        public int lastInvalidationVersion = -1;
     }
     private Dictionary<DroppedItem, ItemState> itemStates = new Dictionary<DroppedItem, ItemState>();
     private Dictionary<VoxelCellKey, SolidificationReservation> solidificationReservations =
         new Dictionary<VoxelCellKey, SolidificationReservation>();
+    private readonly Dictionary<VoxelCellKey, HashSet<DroppedItem>> anchoredBySupportCell =
+        new Dictionary<VoxelCellKey, HashSet<DroppedItem>>();
+    private readonly Queue<DroppedItem> invalidatedQueue = new Queue<DroppedItem>();
+    private readonly HashSet<DroppedItem> invalidatedItems = new HashSet<DroppedItem>();
+    private readonly HashSet<DroppedItem> reusableWakeSet = new HashSet<DroppedItem>();
+    private readonly List<VoxelCellKey> reusableSupportCells = new List<VoxelCellKey>(8);
+    private readonly Vector3[] supportSampleBuffer = new Vector3[5];
+    private readonly Collider[] overlapBuffer = new Collider[2048];
     private TerrainManager cachedTerrainManager;
+    private int dynamicDropLayer = -1;
+    private int anchoredDropLayer = -1;
 
     // 静止・起床ロジックの定数
-    public int maxWakeUpsPerUpdate = 10; // 1フレームあたりに起床させる最大数
-    private Queue<DroppedItem> wakeUpRequestQueue = new Queue<DroppedItem>();
-    private HashSet<DroppedItem> itemsInWakeUpQueue = new HashSet<DroppedItem>();
-
     private const float SleepCheckInterval = 0.2f; // 0.1秒ごとにチェック
     private const float SleepVelocityThreshold = 0.1f;
-    public int MaxWakeUpPerStep = 12; // 1ステップで起床させる最大数
-    public float WakeUpStepDelay = 0.1f; // 次のステップまでの待機時間
-    public int MaxDownwardChain = 7; // 下方向への連鎖回数の上限
-    private const int VelocityHistorySize = 1;
-    private const int WakeUpCheckCount = 1;
-    private const float SleepCooldownDuration = 5.0f; // 5秒のクールダウン
+    private const int VelocityHistorySize = 3;
 
     private float sleepCheckTimer = 0f;
     private float solidificationCheckTimer = 0f;
+    private float nextAnchoredDebugLogTime = 0f;
 
     void Awake()
     {
@@ -124,6 +137,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         else
         {
             Instance = this;
+            ResolveDropLayers();
         }
     }
 
@@ -131,12 +145,15 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
     void Start()
     {
+        ResolveDropLayers();
+        SubscribeTerrainEvents();
         // 永続化データからアイテムをロード
         PrepareItemLoading();
     }
 
     void OnDestroy()
     {
+        UnsubscribeTerrainEvents();
         // シーン終了時にアイテムをセーブ
         SaveItems();
     }
@@ -144,15 +161,79 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     public void OnBeforeContentSceneUnload(string nextSceneName)
     {
         SaveItems();
+        UnsubscribeTerrainEvents();
     }
 
     public void OnAfterContentSceneLoad(string previousSceneName)
     {
+        UnsubscribeTerrainEvents();
+        cachedTerrainManager = null;
+        SubscribeTerrainEvents();
+    }
+
+    private void ResolveDropLayers()
+    {
+        dynamicDropLayer = LayerMask.NameToLayer(dynamicDropLayerName);
+        anchoredDropLayer = LayerMask.NameToLayer(anchoredDropLayerName);
+
+        if (dynamicDropLayer < 0)
+        {
+            dynamicDropLayer = LayerMask.NameToLayer("DroppedItem");
+        }
+
+        if (anchoredDropLayer < 0)
+        {
+            anchoredDropLayer = dynamicDropLayer;
+            if (showAnchoredDebugInfo)
+            {
+                Debug.LogWarning("DroppedItemManager: AnchoredDrop layer was not found. Anchored drops will stay on DroppedItem layer.");
+            }
+        }
+
+        ConfigureAnchoredLayerCollisions();
+    }
+
+    private void ConfigureAnchoredLayerCollisions()
+    {
+        if (anchoredDropLayer < 0 || anchoredDropLayer == dynamicDropLayer)
+        {
+            return;
+        }
+
+        int playerLayer = LayerMask.NameToLayer("Player");
+        for (int layer = 0; layer < 32; layer++)
+        {
+            bool shouldCollide = layer == playerLayer ||
+                layer == dynamicDropLayer ||
+                layer == anchoredDropLayer;
+            Physics.IgnoreLayerCollision(anchoredDropLayer, layer, !shouldCollide);
+        }
+    }
+
+    private void SubscribeTerrainEvents()
+    {
+        TerrainManager terrainManager = ResolveTerrainManager();
+        if (terrainManager == null || terrainManager.VoxelManager == null)
+        {
+            return;
+        }
+
+        terrainManager.VoxelManager.TerrainCellsChanged -= OnTerrainCellsChanged;
+        terrainManager.VoxelManager.TerrainCellsChanged += OnTerrainCellsChanged;
+    }
+
+    private void UnsubscribeTerrainEvents()
+    {
+        TerrainManager terrainManager = cachedTerrainManager;
+        if (terrainManager != null && terrainManager.VoxelManager != null)
+        {
+            terrainManager.VoxelManager.TerrainCellsChanged -= OnTerrainCellsChanged;
+        }
     }
 
     void Update()
     {
-        ProcessWakeUpRequests();
+        ProcessInvalidatedQueue(32);
         solidificationCheckTimer += Time.deltaTime;
         if (solidificationCheckTimer >= SleepCheckInterval)
         {
@@ -174,8 +255,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             {
                 if (item != null)
                 {
-                    ReleaseSolidificationReservation(item);
-                    itemStates.Remove(item);
+                    if (itemStates.TryGetValue(item, out ItemState removedState))
+                    {
+                        RemoveFromAnchoredIndexes(item, removedState);
+                        ReleaseSolidificationReservation(item);
+                        itemStates.Remove(item);
+                    }
                 }
                 activeItems.RemoveAt(i);
                 continue;
@@ -197,100 +282,416 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                 state.sleepCooldownTimer -= SleepCheckInterval;
             }
 
-            state.velocityHistory.Enqueue(item.rb.linearVelocity.magnitude);
-            if (state.velocityHistory.Count > VelocityHistorySize)
-            {
-                state.velocityHistory.Dequeue();
-            }
+            UpdateItemMotionState(item, state);
+        }
 
-            float averageVelocity = 0f;
-            if (state.velocityHistory.Count > 0)
-            {
-                foreach (float v in state.velocityHistory) averageVelocity += v;
-                averageVelocity /= state.velocityHistory.Count;
-            }
+        LogDropStateCountsIfNeeded();
+    }
 
-            bool atRest = state.velocityHistory.Count == VelocityHistorySize && averageVelocity < SleepVelocityThreshold;
+    private void UpdateItemMotionState(DroppedItem item, ItemState state)
+    {
+        if (state.state == DropState.Anchored || state.state == DropState.Invalidated || state.state == DropState.Solidified)
+        {
+            return;
+        }
 
-            if (atRest && state.sleepCooldownTimer <= 0)
+        state.velocityHistory.Enqueue(item.rb.linearVelocity.magnitude);
+        if (state.velocityHistory.Count > VelocityHistorySize)
+        {
+            state.velocityHistory.Dequeue();
+        }
+
+        float averageVelocity = 0f;
+        if (state.velocityHistory.Count > 0)
+        {
+            foreach (float v in state.velocityHistory) averageVelocity += v;
+            averageVelocity /= state.velocityHistory.Count;
+        }
+
+        float angularSpeed = item.rb.angularVelocity.magnitude;
+        bool cooldownReady = state.sleepCooldownTimer <= 0;
+        bool linearAtRest = state.velocityHistory.Count == VelocityHistorySize && averageVelocity < SleepVelocityThreshold;
+        bool angularAtRest = angularSpeed < angularSleepThreshold;
+        bool atRest = linearAtRest && angularAtRest && cooldownReady;
+        bool slowEnoughToAnchor = state.velocityHistory.Count == VelocityHistorySize &&
+            averageVelocity < Mathf.Max(SleepVelocityThreshold, anchoredCandidateLinearSpeed) &&
+            angularSpeed < Mathf.Max(angularSleepThreshold, anchoredCandidateAngularSpeed) &&
+            cooldownReady;
+
+        if (state.state == DropState.Dynamic)
+        {
+            if (atRest || (slowEnoughToAnchor && TryFindTerrainSupport(item, reusableSupportCells)))
             {
-                if (!state.isSleeping)
-                {
-                    state.isSleeping = true;
-                    state.sleepingSince = Time.time;
-                    state.solidificationStartedAt = -1f;
-                }
+                SetSettling(item, state);
             }
-            else if (state.isSleeping)
-            {
-                state.isSleeping = false;
-                state.sleepingSince = -1f;
-                state.solidificationStartedAt = -1f;
-                ReleaseSolidificationReservation(item);
-            }
+            return;
+        }
+
+        bool movedTooMuchForSettling =
+            averageVelocity > Mathf.Max(anchoredCandidateLinearSpeed, settlingAbortLinearSpeed) ||
+            angularSpeed > Mathf.Max(anchoredCandidateAngularSpeed, settlingAbortAngularSpeed);
+        if (movedTooMuchForSettling)
+        {
+            SetDynamic(item, state, WakeReason.Manual);
+            return;
+        }
+
+        if (state.state == DropState.Settling &&
+            state.settlingSince >= 0f &&
+            Time.time - state.settlingSince >= minSettlingSeconds &&
+            (atRest || slowEnoughToAnchor) &&
+            TryFindTerrainSupport(item, reusableSupportCells))
+        {
+            SetAnchored(item, state, reusableSupportCells);
         }
     }
 
-    void ProcessWakeUpRequests()
+    private void SetSettling(DroppedItem item, ItemState state)
     {
-        int processedCount = 0;
-        while (processedCount < maxWakeUpsPerUpdate && wakeUpRequestQueue.Count > 0)
-        {
-            DroppedItem itemToWakeUp = wakeUpRequestQueue.Dequeue();
-            itemsInWakeUpQueue.Remove(itemToWakeUp);
+        state.state = DropState.Settling;
+        state.settlingSince = Time.time;
+        state.solidificationStartedAt = -1f;
+        item.SetAnchoredPhysicsMode(false);
+    }
 
-            if (itemToWakeUp != null && itemToWakeUp.gameObject.activeInHierarchy && itemStates.ContainsKey(itemToWakeUp))
+    private void SetAnchored(DroppedItem item, ItemState state, List<VoxelCellKey> supportCells)
+    {
+        RemoveFromAnchoredIndexes(item, state);
+        ReleaseSolidificationReservation(item);
+
+        state.state = DropState.Anchored;
+        state.supportCells.Clear();
+        for (int i = 0; i < supportCells.Count && i < maxSupportCells; i++)
+        {
+            state.supportCells.Add(supportCells[i]);
+        }
+
+        if (item.rb != null)
+        {
+            item.rb.linearVelocity = Vector3.zero;
+            item.rb.angularVelocity = Vector3.zero;
+            item.rb.isKinematic = true;
+        }
+
+        item.SetAnchoredPhysicsMode(true);
+        SetItemLayer(item.gameObject, anchoredDropLayer);
+        AddToAnchoredIndexes(item, state);
+    }
+
+    private void SetDynamic(DroppedItem item, ItemState state, WakeReason reason)
+    {
+        RemoveFromAnchoredIndexes(item, state);
+        ReleaseSolidificationReservation(item);
+
+        state.state = DropState.Dynamic;
+        state.settlingSince = -1f;
+        state.solidificationStartedAt = -1f;
+        state.lastInvalidationVersion = -1;
+        state.velocityHistory.Clear();
+
+        if (item.rb != null)
+        {
+            item.rb.isKinematic = false;
+            item.rb.WakeUp();
+        }
+
+        item.SetAnchoredPhysicsMode(false);
+        SetItemLayer(item.gameObject, dynamicDropLayer);
+    }
+
+    private void SetInvalidated(DroppedItem item, ItemState state, int terrainVersion)
+    {
+        if (state.state != DropState.Anchored || state.lastInvalidationVersion == terrainVersion)
+        {
+            return;
+        }
+
+        state.state = DropState.Invalidated;
+        state.lastInvalidationVersion = terrainVersion;
+        if (invalidatedItems.Add(item))
+        {
+            invalidatedQueue.Enqueue(item);
+        }
+    }
+
+    private void SetSolidified(DroppedItem item, ItemState state)
+    {
+        state.state = DropState.Solidified;
+        state.settlingSince = -1f;
+        RemoveFromAnchoredIndexes(item, state);
+        ReleaseSolidificationReservation(item);
+        item.SetAnchoredPhysicsMode(false);
+        SetItemLayer(item.gameObject, dynamicDropLayer);
+    }
+
+    private void WakeItem(DroppedItem item, WakeReason reason)
+    {
+        if (item == null || !itemStates.TryGetValue(item, out ItemState state) || state.state == DropState.Solidified)
+        {
+            return;
+        }
+
+        SetDynamic(item, state, reason);
+        state.sleepCooldownTimer = Mathf.Max(state.sleepCooldownTimer, GetWakeCooldownSeconds(reason));
+    }
+
+    private float GetWakeCooldownSeconds(WakeReason reason)
+    {
+        switch (reason)
+        {
+            case WakeReason.MiningPreWake:
+                return Mathf.Max(0f, miningPreWakeCooldownSeconds);
+            case WakeReason.Force:
+                return Mathf.Max(0f, forceWakeCooldownSeconds);
+            case WakeReason.SupportLost:
+                return Mathf.Max(0f, supportLostWakeCooldownSeconds);
+            case WakeReason.Pickup:
+                return Mathf.Max(0f, pickupWakeCooldownSeconds);
+            case WakeReason.Pool:
+            case WakeReason.Load:
+                return 0f;
+            default:
+                return Mathf.Max(0f, miningPreWakeCooldownSeconds);
+        }
+    }
+
+    private void LogDropStateCountsIfNeeded()
+    {
+        if (!showAnchoredDebugInfo || Time.time < nextAnchoredDebugLogTime)
+        {
+            return;
+        }
+
+        nextAnchoredDebugLogTime = Time.time + Mathf.Max(0.25f, debugStateLogInterval);
+        int dynamicCount = 0;
+        int settlingCount = 0;
+        int anchoredCount = 0;
+        int invalidatedCount = 0;
+        int solidifiedCount = 0;
+
+        foreach (DroppedItem item in activeItems)
+        {
+            if (item == null || !itemStates.TryGetValue(item, out ItemState state))
             {
-                ItemState state = itemStates[itemToWakeUp];
-                if (state.isSleeping)
+                continue;
+            }
+
+            switch (state.state)
+            {
+                case DropState.Dynamic:
+                    dynamicCount++;
+                    break;
+                case DropState.Settling:
+                    settlingCount++;
+                    break;
+                case DropState.Anchored:
+                    anchoredCount++;
+                    break;
+                case DropState.Invalidated:
+                    invalidatedCount++;
+                    break;
+                case DropState.Solidified:
+                    solidifiedCount++;
+                    break;
+            }
+        }
+
+        Debug.Log(
+            $"DroppedItemManager states: Dynamic={dynamicCount}, Settling={settlingCount}, Anchored={anchoredCount}, Invalidated={invalidatedCount}, Solidified={solidifiedCount}, SupportKeys={anchoredBySupportCell.Count}, InvalidatedQueue={invalidatedQueue.Count}");
+    }
+
+    private void AddToAnchoredIndexes(DroppedItem item, ItemState state)
+    {
+        foreach (VoxelCellKey key in state.supportCells)
+        {
+            if (!anchoredBySupportCell.TryGetValue(key, out HashSet<DroppedItem> items))
+            {
+                items = new HashSet<DroppedItem>();
+                anchoredBySupportCell[key] = items;
+            }
+            items.Add(item);
+        }
+    }
+
+    private void RemoveFromAnchoredIndexes(DroppedItem item, ItemState state)
+    {
+        if (state.supportCells.Count == 0)
+        {
+            return;
+        }
+
+        foreach (VoxelCellKey key in state.supportCells)
+        {
+            if (anchoredBySupportCell.TryGetValue(key, out HashSet<DroppedItem> items))
+            {
+                items.Remove(item);
+                if (items.Count == 0)
                 {
-                    state.isSleeping = false;
-                    state.sleepingSince = -1f;
-                    state.solidificationStartedAt = -1f;
-                    ReleaseSolidificationReservation(itemToWakeUp);
-                    state.sleepCooldownTimer = SleepCooldownDuration;
-                    state.velocityHistory.Clear();
-                    processedCount++;
+                    anchoredBySupportCell.Remove(key);
                 }
+            }
+        }
+
+        state.supportCells.Clear();
+    }
+
+    private void SetItemLayer(GameObject itemObject, int layer)
+    {
+        if (itemObject != null && layer >= 0)
+        {
+            itemObject.layer = layer;
+        }
+    }
+
+    private void WarnIfOverlapBufferFull(int hitCount, string context)
+    {
+        if (showAnchoredDebugInfo && hitCount >= overlapBuffer.Length)
+        {
+            Debug.LogWarning($"DroppedItemManager: overlap buffer filled in {context}; some drops may be skipped this frame.");
+        }
+    }
+
+    private bool TryFindTerrainSupport(DroppedItem item, List<VoxelCellKey> supportCells)
+    {
+        supportCells.Clear();
+        TerrainManager terrainManager = ResolveTerrainManager();
+        if (item == null || terrainManager == null || terrainManager.VoxelManager == null)
+        {
+            return false;
+        }
+
+        Bounds bounds = item.ItemBounds;
+        float voxelWorldSize = terrainManager.Settings.blockSize / Mathf.Max(1, terrainManager.Settings.voxelsPerBlock);
+        float maxGap = voxelWorldSize * Mathf.Max(0f, supportMaxGapRatio);
+        float maxPenetration = voxelWorldSize * Mathf.Max(0f, supportMaxPenetrationRatio);
+        float probeDistance = voxelWorldSize * Mathf.Max(0.01f, supportMaxGapRatio + supportProbeRatio);
+        float inset = voxelWorldSize * 0.05f;
+
+        float minX = Mathf.Min(bounds.min.x + inset, bounds.center.x);
+        float maxX = Mathf.Max(bounds.max.x - inset, bounds.center.x);
+        float minZ = Mathf.Min(bounds.min.z + inset, bounds.center.z);
+        float maxZ = Mathf.Max(bounds.max.z - inset, bounds.center.z);
+        float bottomY = bounds.min.y;
+        float sampleY = bottomY - probeDistance;
+
+        supportSampleBuffer[0] = new Vector3(bounds.center.x, sampleY, bounds.center.z);
+        supportSampleBuffer[1] = new Vector3(minX, sampleY, minZ);
+        supportSampleBuffer[2] = new Vector3(minX, sampleY, maxZ);
+        supportSampleBuffer[3] = new Vector3(maxX, sampleY, minZ);
+        supportSampleBuffer[4] = new Vector3(maxX, sampleY, maxZ);
+
+        for (int i = 0; i < supportSampleBuffer.Length && supportCells.Count < maxSupportCells; i++)
+        {
+            if (!terrainManager.VoxelManager.TryGetVoxelCellAtWorldPosition(supportSampleBuffer[i], out VoxelCellKey key) ||
+                !terrainManager.VoxelManager.IsVoxelCellSolid(key) ||
+                supportCells.Contains(key))
+            {
+                continue;
+            }
+
+            Bounds cellBounds = terrainManager.VoxelManager.GetVoxelCellWorldBounds(key);
+            float gap = bottomY - cellBounds.max.y;
+            if (gap >= -maxPenetration && gap <= maxGap)
+            {
+                supportCells.Add(key);
+            }
+        }
+
+        return supportCells.Count > 0;
+    }
+
+    private void OnTerrainCellsChanged(TerrainChangeBatch change)
+    {
+        if (change == null || change.removedSolidCells.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < change.removedSolidCells.Count; i++)
+        {
+            VoxelCellKey removedCell = change.removedSolidCells[i];
+            if (!anchoredBySupportCell.TryGetValue(removedCell, out HashSet<DroppedItem> anchoredItems))
+            {
+                continue;
+            }
+
+            foreach (DroppedItem item in anchoredItems)
+            {
+                if (item != null && itemStates.TryGetValue(item, out ItemState state))
+                {
+                    SetInvalidated(item, state, change.version);
+                }
+            }
+        }
+
+        ProcessInvalidatedQueue(int.MaxValue);
+    }
+
+    private void ProcessInvalidatedQueue(int maxCount)
+    {
+        int processed = 0;
+        while (invalidatedQueue.Count > 0 && processed < maxCount)
+        {
+            DroppedItem item = invalidatedQueue.Dequeue();
+            invalidatedItems.Remove(item);
+            processed++;
+
+            if (item == null || !item.gameObject.activeInHierarchy || !itemStates.TryGetValue(item, out ItemState state))
+            {
+                continue;
+            }
+
+            if (state.state != DropState.Invalidated)
+            {
+                continue;
+            }
+
+            if (TryFindTerrainSupport(item, reusableSupportCells))
+            {
+                SetAnchored(item, state, reusableSupportCells);
+            }
+            else
+            {
+                WakeItem(item, WakeReason.SupportLost);
             }
         }
     }
 
     public void WakeUpItemsInRadius(Vector3 center, Vector3 size, Quaternion rotation)
     {
-        Collider[] hitColliders = Physics.OverlapBox(center, size / 2, rotation);
-        HashSet<DroppedItem> itemsToWakeUp = new HashSet<DroppedItem>();
+        int hitCount = Physics.OverlapBoxNonAlloc(center, size / 2, overlapBuffer, rotation);
+        WarnIfOverlapBufferFull(hitCount, nameof(WakeUpItemsInRadius));
+        reusableWakeSet.Clear();
 
-        foreach (var hitCollider in hitColliders)
+        for (int i = 0; i < hitCount; i++)
         {
+            Collider hitCollider = overlapBuffer[i];
             DroppedItem item = hitCollider.GetComponent<DroppedItem>();
-            if (item != null && itemStates.ContainsKey(item) && itemStates[item].isSleeping)
+            if (item != null && itemStates.TryGetValue(item, out ItemState state) && state.state != DropState.Dynamic)
             {
-                itemsToWakeUp.Add(item);
+                reusableWakeSet.Add(item);
             }
         }
-        ProcessWakeUpQueueAsync(itemsToWakeUp).Forget();
+        WakeItemsNow(reusableWakeSet, WakeReason.MiningPreWake);
+        reusableWakeSet.Clear();
     }
 
     public void ApplyForceToItemsInRadius(Vector3 center, Vector3 size, Quaternion rotation, MiningInfo info)
     {
         if (info.Force <= 0) return;
 
-        Collider[] hitColliders = Physics.OverlapBox(center, size / 2, rotation);
-        foreach (var hitCollider in hitColliders)
+        int hitCount = Physics.OverlapBoxNonAlloc(center, size / 2, overlapBuffer, rotation);
+        WarnIfOverlapBufferFull(hitCount, nameof(ApplyForceToItemsInRadius));
+        for (int i = 0; i < hitCount; i++)
         {
+            Collider hitCollider = overlapBuffer[i];
             DroppedItem item = hitCollider.GetComponent<DroppedItem>();
             if (item != null && item.rb != null)
             {
                 // アイテムがスリープ状態なら起床させる
-                if (itemStates.TryGetValue(item, out ItemState state) && state.isSleeping)
+                if (itemStates.TryGetValue(item, out ItemState state) && state.state != DropState.Dynamic)
                 {
-                    state.isSleeping = false;
-                    state.sleepingSince = -1f;
-                    state.solidificationStartedAt = -1f;
-                    ReleaseSolidificationReservation(item);
-                    state.sleepCooldownTimer = SleepCooldownDuration;
-                    state.velocityHistory.Clear();
+                    WakeItem(item, WakeReason.Force);
                 }
 
                 // 力を加える
@@ -327,95 +728,33 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
     public void WakeUpItemsNearPosition(Vector3 position, float radius)
     {
-        Collider[] hitColliders = Physics.OverlapSphere(position, radius);
-        HashSet<DroppedItem> itemsToWakeUp = new HashSet<DroppedItem>();
+        int hitCount = Physics.OverlapSphereNonAlloc(position, radius, overlapBuffer);
+        WarnIfOverlapBufferFull(hitCount, nameof(WakeUpItemsNearPosition));
+        reusableWakeSet.Clear();
 
-        foreach (var hitCollider in hitColliders)
+        for (int i = 0; i < hitCount; i++)
         {
+            Collider hitCollider = overlapBuffer[i];
             DroppedItem item = hitCollider.GetComponent<DroppedItem>();
-            if (item != null && itemStates.ContainsKey(item) && itemStates[item].isSleeping)
+            if (item != null && itemStates.TryGetValue(item, out ItemState state) && state.state != DropState.Dynamic)
             {
-                itemsToWakeUp.Add(item);
+                reusableWakeSet.Add(item);
             }
         }
-        ProcessWakeUpQueueAsync(itemsToWakeUp).Forget();
+        WakeItemsNow(reusableWakeSet, WakeReason.Pickup);
+        reusableWakeSet.Clear();
     }
 
-    private async UniTask ProcessWakeUpQueueAsync(HashSet<DroppedItem> initialItems)
+    private void WakeItemsNow(HashSet<DroppedItem> items, WakeReason reason)
     {
-        if (initialItems != null && initialItems.Count > 0)
+        if (items == null || items.Count == 0)
         {
-            // キューにはタプル(アイテム, 下方向への連鎖回数)を格納
-            Queue<Tuple<DroppedItem, int>> processingQueue = new Queue<Tuple<DroppedItem, int>>();
-            HashSet<DroppedItem> processedItems = new HashSet<DroppedItem>();
-            
-            // 初期アイテムをキューに追加
-            foreach (var item in initialItems)
-            {
-                if (item != null && itemStates.ContainsKey(item) && itemStates[item].isSleeping && !itemsInWakeUpQueue.Contains(item))
-                {
-                    processingQueue.Enqueue(new Tuple<DroppedItem, int>(item, 0));
-                    processedItems.Add(item); // Coroutine内で重複して処理しないように
-                }
-            }
+            return;
+        }
 
-            int processedCountInStep = 0;
-
-            while (processingQueue.Count > 0)
-            {
-                var queueElement = processingQueue.Dequeue();
-                DroppedItem currentItem = queueElement.Item1;
-                int downwardChainCount = queueElement.Item2;
-
-                // 起床リクエストのキューに追加
-                if (!itemsInWakeUpQueue.Contains(currentItem))
-                {
-                    wakeUpRequestQueue.Enqueue(currentItem);
-                    itemsInWakeUpQueue.Add(currentItem);
-                }
-
-                processedCountInStep++;
-
-                // 周囲のアイテムをチェックしてキューに追加
-                var currentItemCollider = currentItem.GetComponent<Collider>();
-                if (currentItemCollider != null)
-                {
-                    float radius = currentItemCollider.bounds.extents.magnitude;
-                    Collider[] surroundingColliders = Physics.OverlapSphere(currentItem.transform.position, radius * WakeUpRadiusMultiplier);
-                    foreach (var surroundingCollider in surroundingColliders)
-                    {
-                        DroppedItem nearbyItem = surroundingCollider.GetComponent<DroppedItem>();
-                        if (nearbyItem != null && itemStates.ContainsKey(nearbyItem) && itemStates[nearbyItem].isSleeping && !processedItems.Contains(nearbyItem) && !itemsInWakeUpQueue.Contains(nearbyItem))
-                        {
-                            // 上方向か同じ高さの場合
-                            if (nearbyItem.transform.position.y >= currentItem.transform.position.y)
-                            {
-                                // 下方向連鎖カウントをリセットしてキューに追加
-                                processingQueue.Enqueue(new Tuple<DroppedItem, int>(nearbyItem, 0));
-                                processedItems.Add(nearbyItem);
-                            }
-                            // 下方向の場合
-                            else
-                            {
-                                // 下方向連鎖の上限に達していない場合のみ
-                                if (downwardChainCount < MaxDownwardChain)
-                                {
-                                    // カウントを増やしてキューに追加
-                                    processingQueue.Enqueue(new Tuple<DroppedItem, int>(nearbyItem, downwardChainCount + 1));
-                                    processedItems.Add(nearbyItem);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ステップの上限に達したら待機
-                if (processedCountInStep >= MaxWakeUpPerStep)
-                {
-                    processedCountInStep = 0;
-                    await UniTask.Delay(TimeSpan.FromSeconds(WakeUpStepDelay));
-                }
-            }
+        foreach (DroppedItem item in items)
+        {
+            WakeItem(item, reason);
         }
     }
 
@@ -446,6 +785,13 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         var droppedItemComponent = itemInstance.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
+            SetItemLayer(itemInstance, dynamicDropLayer);
+            droppedItemComponent.SetAnchoredPhysicsMode(false);
+            if (droppedItemComponent.rb != null)
+            {
+                droppedItemComponent.rb.isKinematic = false;
+            }
+
             // 管理リストに追加
             if (!activeItems.Contains(droppedItemComponent))
             {
@@ -456,11 +802,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             {
                 itemStates.Add(droppedItemComponent, new ItemState());
             }
-            itemStates[droppedItemComponent].sleepCooldownTimer = SleepCooldownDuration; // 初出現時にクールダウンを設定
-            itemStates[droppedItemComponent].isSleeping = false;
-            itemStates[droppedItemComponent].sleepingSince = -1f;
+            itemStates[droppedItemComponent].state = DropState.Dynamic;
+            itemStates[droppedItemComponent].sleepCooldownTimer = Mathf.Max(0f, spawnSleepCooldownSeconds);
+            itemStates[droppedItemComponent].settlingSince = -1f;
             itemStates[droppedItemComponent].solidificationStartedAt = -1f;
             itemStates[droppedItemComponent].hasSolidificationReservation = false;
+            itemStates[droppedItemComponent].supportCells.Clear();
             itemStates[droppedItemComponent].velocityHistory.Clear();
         }
 
@@ -480,7 +827,10 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         if (droppedItemComponent != null)
         {
             // 状態とリストから削除
-            ReleaseSolidificationReservation(droppedItemComponent);
+            if (itemStates.TryGetValue(droppedItemComponent, out ItemState state))
+            {
+                SetDynamic(droppedItemComponent, state, WakeReason.Pool);
+            }
             itemStates.Remove(droppedItemComponent);
             activeItems.Remove(droppedItemComponent);
         }
@@ -531,8 +881,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                 continue;
             }
 
-            if (!state.isSleeping || state.sleepingSince < 0f ||
-                Time.time - state.sleepingSince < solidifyAfterSleepingSeconds)
+            if (!IsStableForSolidification(state))
+            {
+                continue;
+            }
+
+            if (Time.time - state.settlingSince < solidifyAfterSleepingSeconds)
             {
                 continue;
             }
@@ -560,6 +914,13 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
 
         return cachedTerrainManager;
+    }
+
+    private bool IsStableForSolidification(ItemState state)
+    {
+        return state != null &&
+               state.settlingSince >= 0f &&
+               (state.state == DropState.Settling || state.state == DropState.Anchored);
     }
 
     private bool TrySolidifyItem(DroppedItem item, TerrainManager terrainManager, ItemState state)
@@ -628,7 +989,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             solidifiedTime = Time.time
         });
 
-        ReleaseSolidificationReservation(item);
+        SetSolidified(item, state);
         ReturnItem(item.gameObject);
         return true;
     }
@@ -781,7 +1142,6 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         {
             if (item == null) continue;
 
-            float sleepElapsedSeconds = 0f;
             float solidificationElapsedSeconds = 0f;
             bool hasSolidificationTarget = item.hasSolidificationTarget;
             Vector3Int solidifiedBlockPosition = item.solidifiedBlockPosition;
@@ -789,11 +1149,6 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
             if (itemStates.TryGetValue(item, out ItemState state))
             {
-                if (state.isSleeping && state.sleepingSince >= 0f)
-                {
-                    sleepElapsedSeconds = Mathf.Max(0f, Time.time - state.sleepingSince);
-                }
-
                 if (state.solidificationStartedAt >= 0f)
                 {
                     solidificationElapsedSeconds = Mathf.Max(0f, Time.time - state.solidificationStartedAt);
@@ -817,13 +1172,11 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                 uvBase = item.uvBase,
                 uvSize = item.uvSize,
                 useTexture1 = item.useTexture1,
-                isKinematic = false,
                 hasSolidificationData = true,
                 canSolidify = item.canSolidify,
                 hasSolidificationTarget = hasSolidificationTarget,
                 solidifiedBlockPosition = solidifiedBlockPosition,
                 solidifiedLocalVoxelPosition = solidifiedLocalVoxelPosition,
-                sleepElapsedSeconds = sleepElapsedSeconds,
                 solidificationElapsedSeconds = solidificationElapsedSeconds
             };
             persistenceManager.droppedItems.Add(data);
@@ -888,6 +1241,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             item.transform.position = data.position;
             item.transform.rotation = data.rotation;
             item.transform.localScale = data.scale;
+            SetItemLayer(item, dynamicDropLayer);
 
             Rigidbody itemRigidbody = item.GetComponent<Rigidbody>();
             if (itemRigidbody == null)
@@ -935,15 +1289,13 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                 }
                 if (itemStates.TryGetValue(droppedItem, out var state))
                 {
-                    bool wasSleeping = data.sleepElapsedSeconds > 0f;
-                    state.isSleeping = wasSleeping;
-                    state.sleepingSince = wasSleeping
-                        ? Time.time - Mathf.Max(0f, data.sleepElapsedSeconds)
-                        : -1f;
+                    state.state = DropState.Dynamic;
+                    state.settlingSince = -1f;
                     state.solidificationStartedAt = data.solidificationElapsedSeconds > 0f
                         ? Time.time - data.solidificationElapsedSeconds
                         : -1f;
                     state.hasSolidificationReservation = false;
+                    state.supportCells.Clear();
                 }
             }
 
