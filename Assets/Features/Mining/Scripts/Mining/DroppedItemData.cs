@@ -11,12 +11,10 @@ public struct DroppedItemData
     public Vector2 uvBase;
     public Vector2 uvSize;
     public bool useTexture1;
-    public bool isKinematic;
     public bool hasSolidificationData;
     public bool canSolidify;
     public bool hasSolidificationTarget;
     public Vector3Int solidifiedBlockPosition;
     public Vector3Int solidifiedLocalVoxelPosition;
-    public float sleepElapsedSeconds;
     public float solidificationElapsedSeconds;
 }

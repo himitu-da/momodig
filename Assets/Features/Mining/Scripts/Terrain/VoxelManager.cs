@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 using System.Collections.Generic;
 
 public class VoxelManager : MonoBehaviour
@@ -11,8 +12,24 @@ public class VoxelManager : MonoBehaviour
 
     private TerrainManager terrainManager;
     private readonly SolidificationCandidateIndex candidateIndex = new SolidificationCandidateIndex();
+    private TerrainChangeBuilder currentTerrainChange;
+    private int terrainChangeDepth;
+    private int terrainChangeVersion;
 
     public SolidificationCandidateIndex CandidateIndex => candidateIndex;
+    public event Action<TerrainChangeBatch> TerrainCellsChanged;
+
+    private sealed class TerrainChangeBuilder
+    {
+        public readonly TerrainChangeBatch batch;
+        public readonly HashSet<VoxelCellKey> removedKeys = new HashSet<VoxelCellKey>();
+        public readonly HashSet<VoxelCellKey> addedKeys = new HashSet<VoxelCellKey>();
+
+        public TerrainChangeBuilder(int version, TerrainChangeReason reason)
+        {
+            batch = new TerrainChangeBatch(version, reason);
+        }
+    }
 
     public void Initialize(TerrainManager manager)
     {
@@ -23,6 +40,90 @@ public class VoxelManager : MonoBehaviour
         {
             Debug.Log("VoxelManager: Initialized with TerrainManager");
         }
+    }
+
+    public void BeginTerrainChange(TerrainChangeReason reason)
+    {
+        if (terrainChangeDepth == 0)
+        {
+            currentTerrainChange = new TerrainChangeBuilder(++terrainChangeVersion, reason);
+        }
+
+        terrainChangeDepth++;
+    }
+
+    public void EndTerrainChangeAndDispatch()
+    {
+        if (terrainChangeDepth <= 0)
+        {
+            return;
+        }
+
+        terrainChangeDepth--;
+        if (terrainChangeDepth > 0)
+        {
+            return;
+        }
+
+        TerrainChangeBuilder completed = currentTerrainChange;
+        currentTerrainChange = null;
+        DispatchTerrainChange(completed);
+    }
+
+    public bool TryGetVoxelCellAtWorldPosition(Vector3 worldPosition, out VoxelCellKey key)
+    {
+        key = default;
+        if (terrainManager == null)
+        {
+            return false;
+        }
+
+        TerrainSettings settings = terrainManager.Settings;
+        int voxelsPerBlock = Mathf.Max(1, settings.voxelsPerBlock);
+        float blockSize = Mathf.Max(0.001f, settings.blockSize);
+        float voxelWorldSize = blockSize / voxelsPerBlock;
+
+        Vector3Int blockPos = new Vector3Int(
+            Mathf.RoundToInt(worldPosition.x / blockSize),
+            Mathf.RoundToInt(worldPosition.y / blockSize),
+            0
+        );
+
+        Vector3 blockWorldPosition = new Vector3(
+            blockPos.x * blockSize,
+            blockPos.y * blockSize,
+            settings.center.z
+        );
+
+        Vector3Int localPos = new Vector3Int(
+            Mathf.RoundToInt((worldPosition.x - blockWorldPosition.x) / voxelWorldSize + voxelsPerBlock / 2f - 0.5f),
+            Mathf.RoundToInt((worldPosition.y - blockWorldPosition.y) / voxelWorldSize + voxelsPerBlock / 2f - 0.5f),
+            Mathf.RoundToInt((worldPosition.z - blockWorldPosition.z) / voxelWorldSize + voxelsPerBlock / 2f - 0.5f)
+        );
+
+        if (!NormalizeVoxelPosition(ref blockPos, ref localPos))
+        {
+            return false;
+        }
+
+        key = new VoxelCellKey(blockPos, localPos);
+        return true;
+    }
+
+    public bool IsVoxelCellSolid(VoxelCellKey key)
+    {
+        return GetVoxelAt(key.blockPosition, key.localVoxelPosition) != null;
+    }
+
+    public Bounds GetVoxelCellWorldBounds(VoxelCellKey key)
+    {
+        if (terrainManager == null)
+        {
+            return new Bounds(Vector3.zero, Vector3.zero);
+        }
+
+        float voxelWorldSize = terrainManager.Settings.blockSize / Mathf.Max(1, terrainManager.Settings.voxelsPerBlock);
+        return new Bounds(CalculateWorldPosition(key.blockPosition, key.localVoxelPosition), Vector3.one * voxelWorldSize);
     }
 
     public void RegisterVoxelsFromPattern(bool[,,] pattern, Vector3Int blockPos, Vector3 blockWorldPos, BlockData data, float blockSize, int voxelsPerBlock)
@@ -214,6 +315,52 @@ public class VoxelManager : MonoBehaviour
         return count;
     }
 
+    private void RecordSolidCellChange(Vector3Int blockPos, Vector3Int localPos, bool wasSolid, bool isSolid, TerrainChangeReason reason)
+    {
+        if (wasSolid == isSolid)
+        {
+            return;
+        }
+
+        bool createdImplicitBatch = false;
+        if (currentTerrainChange == null)
+        {
+            BeginTerrainChange(reason);
+            createdImplicitBatch = true;
+        }
+
+        VoxelCellKey key = new VoxelCellKey(blockPos, localPos);
+        if (wasSolid && !isSolid)
+        {
+            if (currentTerrainChange.removedKeys.Add(key))
+            {
+                currentTerrainChange.batch.removedSolidCells.Add(key);
+            }
+        }
+        else if (!wasSolid && isSolid)
+        {
+            if (currentTerrainChange.addedKeys.Add(key))
+            {
+                currentTerrainChange.batch.addedSolidCells.Add(key);
+            }
+        }
+
+        if (createdImplicitBatch)
+        {
+            EndTerrainChangeAndDispatch();
+        }
+    }
+
+    private void DispatchTerrainChange(TerrainChangeBuilder builder)
+    {
+        if (builder == null || !builder.batch.HasChanges)
+        {
+            return;
+        }
+
+        TerrainCellsChanged?.Invoke(builder.batch);
+    }
+
     public bool DamageVoxel(Vector3Int blockPos, Vector3Int localPos, int damage = 1)
     {
         Voxel voxel = GetVoxelAt(blockPos, localPos);
@@ -246,6 +393,7 @@ public class VoxelManager : MonoBehaviour
         PersistOverrideIfNeeded(voxel);
         terrainManager?.FluidManager?.NotifySolidVoxelRemoved(voxel.worldPosition);
         candidateIndex.RefreshCellAndNeighbors(blockPos, localPos);
+        RecordSolidCellChange(blockPos, localPos, true, false, TerrainChangeReason.Digging);
 
         if (showVoxelDebugInfo)
         {
@@ -272,6 +420,7 @@ public class VoxelManager : MonoBehaviour
         PersistOverrideIfNeeded(voxel);
         SyncPersistenceForBlock(blockPos);
         candidateIndex.RefreshCellAndNeighbors(blockPos, localPos);
+        RecordSolidCellChange(blockPos, localPos, false, true, TerrainChangeReason.Restore);
 
         if (showVoxelDebugInfo)
         {
@@ -292,6 +441,7 @@ public class VoxelManager : MonoBehaviour
         }
 
         Voxel voxel = GetVoxelIncludingInactive(blockPos, localPos);
+        bool wasSolid = voxel != null && voxel.isActive;
         if (voxel == null)
         {
             voxel = new Voxel(
@@ -316,6 +466,7 @@ public class VoxelManager : MonoBehaviour
         PersistVoxelOverride(voxel);
         SyncPersistenceForBlock(blockPos);
         candidateIndex.RefreshCellAndNeighbors(blockPos, localPos);
+        RecordSolidCellChange(blockPos, localPos, wasSolid, active, TerrainChangeReason.Solidification);
         return true;
     }
 

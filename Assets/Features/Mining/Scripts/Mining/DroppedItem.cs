@@ -14,8 +14,12 @@ public class DroppedItem : MonoBehaviour
     };
 
     public Rigidbody rb { get; private set; }
+    public Collider ItemCollider => obstacleCollider;
+    public Bounds ItemBounds => obstacleCollider != null ? obstacleCollider.bounds : new Bounds(transform.position, transform.localScale);
     public ResourceType resourceType = ResourceType.Stone;
     private static Mesh droppedItemMeshTemplate;
+    private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    private static readonly int ColorId = Shader.PropertyToID("_Color");
 
     [Header("Solidification")]
     public bool canSolidify = true;
@@ -47,9 +51,11 @@ public class DroppedItem : MonoBehaviour
     private Mesh instanceMesh;
     private FluidManager fluidManager;
     private Collider obstacleCollider;
+    private MaterialPropertyBlock debugPropertyBlock;
     private Vector3 lastFluidNotifyPosition;
     private bool hasFluidNotifyPosition;
     private float nextFluidNotifyTime;
+    private bool anchoredPhysicsMode;
 
     // --- For Persistence ---
     public Vector3 scale;
@@ -71,6 +77,7 @@ public class DroppedItem : MonoBehaviour
     {
         meshFilter = GetComponent<MeshFilter>();
         meshRenderer = GetComponent<MeshRenderer>();
+        debugPropertyBlock = new MaterialPropertyBlock();
         EnsureDroppedItemMesh();
         rb = GetComponent<Rigidbody>();
         obstacleCollider = GetComponent<Collider>();
@@ -81,6 +88,8 @@ public class DroppedItem : MonoBehaviour
 
     void OnEnable()
     {
+        anchoredPhysicsMode = false;
+        SetTemporaryAnchoredDebugTint(false);
         if (rb != null)
         {
             rb.isKinematic = false;
@@ -108,8 +117,48 @@ public class DroppedItem : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (anchoredPhysicsMode)
+        {
+            return;
+        }
+
         ApplyFluidResistance();
         RefreshFluidObstacleTracking(false);
+    }
+
+    public void SetAnchoredPhysicsMode(bool anchored)
+    {
+        anchoredPhysicsMode = anchored;
+        if (anchored)
+        {
+            RefreshFluidObstacleTracking(true);
+        }
+        else
+        {
+            lastFluidNotifyPosition = GetFluidObstacleCenter();
+            hasFluidNotifyPosition = true;
+            nextFluidNotifyTime = 0f;
+            RefreshFluidObstacleTracking(true);
+        }
+    }
+
+    public void SetTemporaryAnchoredDebugTint(bool anchored)
+    {
+        if (meshRenderer == null)
+        {
+            return;
+        }
+
+        if (debugPropertyBlock == null)
+        {
+            debugPropertyBlock = new MaterialPropertyBlock();
+        }
+
+        Color tint = anchored ? new Color(0.25f, 1f, 1f, 1f) : Color.white;
+        meshRenderer.GetPropertyBlock(debugPropertyBlock);
+        debugPropertyBlock.SetColor(BaseColorId, tint);
+        debugPropertyBlock.SetColor(ColorId, tint);
+        meshRenderer.SetPropertyBlock(debugPropertyBlock);
     }
 
     void OnDestroy()

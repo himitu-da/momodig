@@ -64,6 +64,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         // プレイヤーの中忁E��置から発封E��EpawnDistanceを使わなぁE��E
         Vector3 spawnPos = owner.transform.position;
         var go = Object.Instantiate(projectilePrefab, spawnPos, Quaternion.identity);
+        SetProjectileCollisionLayer(go);
 
         var proj = go.GetComponent<DynamiteProjectile>();
         if (proj == null) proj = go.AddComponent<DynamiteProjectile>();
@@ -94,6 +95,21 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
 
         // プロジェクト�E Rigidbody 拡張: linearVelocity を使用
         rb.linearVelocity = velocity;
+    }
+
+    private static void SetProjectileCollisionLayer(GameObject projectile)
+    {
+        int toolLayer = LayerMask.NameToLayer("Tool");
+        if (projectile == null || toolLayer < 0)
+        {
+            return;
+        }
+
+        projectile.layer = toolLayer;
+        for (int i = 0; i < projectile.transform.childCount; i++)
+        {
+            projectile.transform.GetChild(i).gameObject.layer = toolLayer;
+        }
     }
 
     protected override void RenderForDirection(Vector3 direction)

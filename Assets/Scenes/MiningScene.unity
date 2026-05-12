@@ -1636,7 +1636,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 995654917}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e5643ba753e1042418dc1c9421d0e1ce, type: 3}
   m_Name: 
@@ -2379,10 +2379,34 @@ MonoBehaviour:
   maxSolidificationsPerCheck: 16
   candidateLookupCount: 16
   candidateMaxBlockRadius: 16
-  maxWakeUpsPerUpdate: 8
-  MaxWakeUpPerStep: 10
-  WakeUpStepDelay: 0.1
-  MaxDownwardChain: 5
+  angularSleepThreshold: 0.25
+  minSettlingSeconds: 1.5
+  anchoredCandidateLinearSpeed: 0.35
+  anchoredCandidateAngularSpeed: 1
+  settlingAbortLinearSpeed: 1.25
+  settlingAbortAngularSpeed: 4
+  itemSupportMinOverlapRatio: 0.08
+  itemSupportProbeDepthRatio: 0.75
+  itemSupportMaxPenetrationRatio: 0.65
+  itemSupportHorizontalPaddingRatio: 0.25
+  upwardWakeHeightRatio: 3
+  upwardWakePaddingRatio: 0.5
+  maxUpwardWakePerEvent: 64
+  supportProbeRatio: 0.15
+  supportMaxGapRatio: 0.2
+  supportMaxPenetrationRatio: 0.05
+  maxSupportCells: 8
+  spawnSleepCooldownSeconds: 0.75
+  miningPreWakeCooldownSeconds: 0.75
+  forceWakeCooldownSeconds: 1.5
+  supportLostWakeCooldownSeconds: 0.75
+  pickupWakeCooldownSeconds: 0.25
+  dynamicDropLayerName: DroppedItem
+  anchoredDropLayerName: AnchoredDrop
+  toolLayerName: Tool
+  debugTintAnchoredItems: 0
+  showAnchoredDebugInfo: 0
+  debugStateLogInterval: 2
 --- !u!4 &1375720078
 Transform:
   m_ObjectHideFlags: 0
