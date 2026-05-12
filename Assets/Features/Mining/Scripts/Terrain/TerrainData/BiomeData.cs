@@ -5,31 +5,47 @@ using System.Collections.Generic;
 public class BiomeData : ScriptableObject
 {
     [Header("Biome Settings")]
-    public string biomeName;      // バイオームの名前（例：「地表」「ジャングル」）
-    public BiomeType biomeType;   // バイオームのタイプ
+    public string biomeName;
+    public BiomeType biomeType;
 
     [Header("Generation Rules")]
-    // 主にAltitudeBasedタイプで使用
-    public int maxHeight;         // このバイオームが適用される最大高度
-    public int minHeight;         // このバイオームが適用される最小高度
+    public int maxHeight;
+    public int minHeight;
 
-
-    [Header("Block Composition")]
-    // このバイオームで生成されるブロックのリスト
-    public List<BlockDistribution> availableBlocks;
+    [Header("Generation Rule Stack")]
+    public List<TerrainGenerationRule> generationRules;
 
     [Header("Visuals")]
-    public Texture2D backgroundTexture; // 背景テクスチャ
+    public Texture2D backgroundTexture;
 }
 
-/// <summary>
-/// 特定のバイオーム内でのブロックの分布設定
-/// </summary>
-[System.Serializable]
-public class BlockDistribution
+public enum TerrainGenerationResultType
 {
+    Block,
+    Clear,
+    NoOp
+}
+
+[System.Serializable]
+public class TerrainGenerationRule
+{
+    public string ruleName;
+    public List<TerrainGenerationEntry> entries;
+}
+
+[System.Serializable]
+public class TerrainGenerationEntry
+{
+    public TerrainGenerationResultType resultType;
     public BlockData blockData;
-    
-    [Tooltip("バイオーム内の相対的な深さ（0=maxHeight, 1=minHeight）に応じた生成の重みを定義します。")]
-    public AnimationCurve distributionCurve = AnimationCurve.Linear(0, 1, 1, 1); // デフォルトは常に重み1
+    public float baseWeight = 1f;
+    public AnimationCurve depthCurve = AnimationCurve.Linear(0, 1, 1, 1);
+    public AnimationCurve horizontalCurve = AnimationCurve.Linear(0, 1, 1, 1);
+
+    public float EvaluateWeight(Vector3Int blockPosition)
+    {
+        float depthWeight = depthCurve != null ? depthCurve.Evaluate(blockPosition.y) : 1f;
+        float horizontalWeight = horizontalCurve != null ? horizontalCurve.Evaluate(blockPosition.x) : 1f;
+        return Mathf.Max(0f, baseWeight * depthWeight * horizontalWeight);
+    }
 }

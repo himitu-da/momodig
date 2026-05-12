@@ -99,13 +99,26 @@ public class TerrainDataManager : ScriptableObject
 
         foreach (var mapping in biomeDataMappings)
         {
-            if (mapping.biomeData != null)
+            if (mapping.biomeData == null || mapping.biomeData.generationRules == null)
             {
-                foreach (var blockDist in mapping.biomeData.availableBlocks)
+                continue;
+            }
+
+            foreach (var rule in mapping.biomeData.generationRules)
+            {
+                if (rule == null || rule.entries == null)
                 {
-                    if (blockDist.blockData != null && blockDist.blockData.name == name)
+                    continue;
+                }
+
+                foreach (var entry in rule.entries)
+                {
+                    if (entry != null &&
+                        entry.resultType == TerrainGenerationResultType.Block &&
+                        entry.blockData != null &&
+                        entry.blockData.name == name)
                     {
-                        return blockDist.blockData;
+                        return entry.blockData;
                     }
                 }
             }

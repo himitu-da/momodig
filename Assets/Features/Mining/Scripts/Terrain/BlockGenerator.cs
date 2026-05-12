@@ -2,7 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// ブロチE��生�Eクラス
+/// ブロチE�E��E�生�Eクラス
 /// ボクセルパターンの生�Eを担彁E
 /// </summary>
 public class BlockGenerator : MonoBehaviour
@@ -11,7 +11,7 @@ public class BlockGenerator : MonoBehaviour
     [SerializeField] private bool showBlockDebugInfo = false;
     
     /// <summary>
-    /// ブロチE��生�EチE�Eタ
+    /// ブロチE�E��E�生�EチE�E�Eタ
     /// </summary>
     [System.Serializable]
     public class BlockGenerationData
@@ -36,7 +36,7 @@ public class BlockGenerator : MonoBehaviour
     /// TerrainManagerからの参�E
     /// </summary>
     private TerrainManager terrainManager;
-    private System.Random random;
+    private int terrainSeed;
     
     /// <summary>
     /// 初期匁E
@@ -44,7 +44,7 @@ public class BlockGenerator : MonoBehaviour
     public void Initialize(TerrainManager manager, int seed)
     {
         terrainManager = manager;
-        random = new System.Random(seed);
+        terrainSeed = seed;
         
         if (showBlockDebugInfo)
         {
@@ -54,11 +54,11 @@ public class BlockGenerator : MonoBehaviour
 
     public void ResetRandom(int seed)
     {
-        random = new System.Random(seed);
+        terrainSeed = seed;
     }
     
     /// <summary>
-    /// 持E��されたチャンクのブロチE��パターンを生戁E
+    /// 持E�E��E�されたチャンクのブロチE�E��E�パターンを生戁E
     /// </summary>
     public bool[,,] GenerateBlockPattern(BlockGenerationData data)
     {
@@ -108,7 +108,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// カスタムパターン生�E�E�拡張用�E�E
+    /// カスタムパターン生�E�E�E�E�拡張用�E�E�E�E
     /// </summary>
     private bool[,,] GenerateCustomPattern(BlockGenerationData data, bool[,,] pattern)
     {
@@ -117,7 +117,7 @@ public class BlockGenerator : MonoBehaviour
             Debug.Log($"BlockGenerator: Generating Custom pattern - using full cube");
         }
         
-        // チE��ォルト�E全ブロチE��を生戁E
+        // チE�E��E�ォルト�E全ブロチE�E��E�を生戁E
         for (int x = 0; x < data.voxelsPerBlock; x++)
         {
             for (int y = 0; y < data.voxelsPerBlock; y++)
@@ -133,7 +133,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// パターン冁E�EアクチE��ブ�Eクセル数を取征E
+    /// パターン冁E�E�EアクチE�E��E�ブ�Eクセル数を取征E
     /// </summary>
     public bool IsVoxelSolid(TerrainGenerationType generationType, int voxelsPerBlock, float blockSize, Vector3Int blockPosition, Vector3Int localPosition)
     {
@@ -177,7 +177,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// パターンの寁E��を計算！E.0�E�E.0�E�E
+    /// パターンの寁E�E��E�を計算！E.0�E�E�E�E.0�E�E�E�E
     /// </summary>
     public float CalculatePatternDensity(bool[,,] pattern)
     {
@@ -195,7 +195,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// パターンを可視化�E�デバッグ用�E�E
+    /// パターンを可視化�E�E�E�チE��チE��用�E�E�E�E
     /// </summary>
     public string VisualizePattern(bool[,,] pattern, int layer = 0)
     {
@@ -217,7 +217,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// パターンを褁E��
+    /// パターンを褁E�E��E�
     /// </summary>
     public bool[,,] ClonePattern(bool[,,] source)
     {
@@ -242,7 +242,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// チE��チE��惁E��を取征E
+    /// チE�E��E�チE�E��E�惁E�E��E�を取征E
     /// </summary>
     public string GetDebugInfo()
     {
@@ -250,7 +250,7 @@ public class BlockGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// 持E��された論理座標に対応するBlockDataを取征E
+    /// 持E�E��E�された論理座標に対応するBlockDataを取征E
     /// </summary>
     public BlockData GetBlockDataForPosition(Vector3Int blockPosition)
     {
@@ -259,45 +259,90 @@ public class BlockGenerator : MonoBehaviour
             return null;
         }
 
-        // 論理Y座標に基づぁE��バイオームを取征E
-        var biome = terrainManager.TerrainDataManager.GetBiomeForHeight(blockPosition.y);
-        if (biome == null || biome.availableBlocks == null || biome.availableBlocks.Count == 0)
+        BiomeData biome = terrainManager.TerrainDataManager.GetBiomeForHeight(blockPosition.y);
+        if (biome == null || biome.generationRules == null || biome.generationRules.Count == 0)
         {
             return null;
         }
 
-        // 吁E��ロチE��の重みを計箁E
-        List<float> weights = new List<float>();
-        float totalWeight = 0f;
-        foreach (var blockDist in biome.availableBlocks)
+        BlockData currentBlockData = null;
+        for (int ruleIndex = 0; ruleIndex < biome.generationRules.Count; ruleIndex++)
         {
-            // AnimationCurveを論理Y座標で直接評価
-            float weight = blockDist.distributionCurve.Evaluate(blockPosition.y);
+            TerrainGenerationEntry selectedEntry = SelectEntryForRule(biome.generationRules[ruleIndex], blockPosition, ruleIndex);
+            if (selectedEntry == null || selectedEntry.resultType == TerrainGenerationResultType.NoOp)
+            {
+                continue;
+            }
+
+            if (selectedEntry.resultType == TerrainGenerationResultType.Clear)
+            {
+                currentBlockData = null;
+                continue;
+            }
+
+            if (selectedEntry.resultType == TerrainGenerationResultType.Block)
+            {
+                currentBlockData = selectedEntry.blockData;
+            }
+        }
+
+        return currentBlockData;
+    }
+
+    private TerrainGenerationEntry SelectEntryForRule(TerrainGenerationRule rule, Vector3Int blockPosition, int ruleIndex)
+    {
+        if (rule == null || rule.entries == null || rule.entries.Count == 0)
+        {
+            return null;
+        }
+
+        List<float> weights = new List<float>(rule.entries.Count);
+        float totalWeight = 0f;
+        foreach (TerrainGenerationEntry entry in rule.entries)
+        {
+            float weight = 0f;
+            if (entry != null && (entry.resultType != TerrainGenerationResultType.Block || entry.blockData != null))
+            {
+                weight = entry.EvaluateWeight(blockPosition);
+            }
+
             weights.Add(weight);
             totalWeight += weight;
         }
 
-        // 合計�E重みぁE以下なら、何も生�EしなぁE
-        if (totalWeight <= 0)
+        if (totalWeight <= 0f)
         {
             return null;
         }
 
-        // 加重ランダム選抁E
-        float randomValue = (float)(random.NextDouble() * totalWeight);
-        for (int i = 0; i < biome.availableBlocks.Count; i++)
+        float randomValue = GetDeterministicRandom01(blockPosition, ruleIndex) * totalWeight;
+        for (int i = 0; i < rule.entries.Count; i++)
         {
             if (randomValue < weights[i])
             {
-                return biome.availableBlocks[i].blockData;
+                return rule.entries[i];
             }
             randomValue -= weights[i];
         }
 
-        // フォールバック�E�計算誤差などでここまで来た場合！E
-        return biome.availableBlocks[biome.availableBlocks.Count - 1].blockData;
+        return rule.entries[rule.entries.Count - 1];
+    }
+
+    private float GetDeterministicRandom01(Vector3Int blockPosition, int ruleIndex)
+    {
+        unchecked
+        {
+            uint hash = (uint)terrainSeed;
+            hash = (hash * 16777619u) ^ (uint)blockPosition.x;
+            hash = (hash * 16777619u) ^ (uint)blockPosition.y;
+            hash = (hash * 16777619u) ^ (uint)blockPosition.z;
+            hash = (hash * 16777619u) ^ (uint)ruleIndex;
+            hash ^= hash >> 16;
+            hash *= 2246822519u;
+            hash ^= hash >> 13;
+            hash *= 3266489917u;
+            hash ^= hash >> 16;
+            return (hash & 0x00FFFFFFu) / 16777216f;
+        }
     }
 }
-
-
-

@@ -1027,6 +1027,11 @@ public class FluidManager : MonoBehaviour
             return false;
         }
 
+        if (terrainManager.BlockGenerator.GetBlockDataForPosition(blockPos) == null)
+        {
+            return false;
+        }
+
         return terrainManager.BlockGenerator.IsVoxelSolid(
             settings.generationType,
             settings.voxelsPerBlock,
