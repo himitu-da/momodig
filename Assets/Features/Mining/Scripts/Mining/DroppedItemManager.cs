@@ -21,6 +21,13 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     [SerializeField] private float anchoredCandidateAngularSpeed = 1.0f;
     [SerializeField] private float settlingAbortLinearSpeed = 1.25f;
     [SerializeField] private float settlingAbortAngularSpeed = 4.0f;
+    [SerializeField] private float itemSupportMinOverlapRatio = 0.08f;
+    [SerializeField] private float itemSupportProbeDepthRatio = 0.75f;
+    [SerializeField] private float itemSupportMaxPenetrationRatio = 0.65f;
+    [SerializeField] private float itemSupportHorizontalPaddingRatio = 0.25f;
+    [SerializeField] private float upwardWakeHeightRatio = 3f;
+    [SerializeField] private float upwardWakePaddingRatio = 0.5f;
+    [SerializeField] private int maxUpwardWakePerEvent = 64;
     [SerializeField] private float supportProbeRatio = 0.15f;
     [SerializeField] private float supportMaxGapRatio = 0.20f;
     [SerializeField] private float supportMaxPenetrationRatio = 0.05f;
@@ -32,6 +39,8 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     [SerializeField] private float pickupWakeCooldownSeconds = 0.25f;
     [SerializeField] private string dynamicDropLayerName = "DroppedItem";
     [SerializeField] private string anchoredDropLayerName = "AnchoredDrop";
+    [SerializeField] private string toolLayerName = "Tool";
+    [SerializeField] private bool debugTintAnchoredItems = true;
     [SerializeField] private bool showAnchoredDebugInfo = false;
     [SerializeField] private float debugStateLogInterval = 2f;
 
@@ -113,11 +122,14 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     private readonly HashSet<DroppedItem> invalidatedItems = new HashSet<DroppedItem>();
     private readonly HashSet<DroppedItem> reusableWakeSet = new HashSet<DroppedItem>();
     private readonly List<VoxelCellKey> reusableSupportCells = new List<VoxelCellKey>(8);
+    private readonly List<DroppedItem> upwardWakeList = new List<DroppedItem>(64);
+    private readonly HashSet<DroppedItem> upwardWakeVisited = new HashSet<DroppedItem>();
     private readonly Vector3[] supportSampleBuffer = new Vector3[5];
     private readonly Collider[] overlapBuffer = new Collider[2048];
     private TerrainManager cachedTerrainManager;
     private int dynamicDropLayer = -1;
     private int anchoredDropLayer = -1;
+    private int toolLayer = -1;
 
     // 静止・起床ロジックの定数
     private const float SleepCheckInterval = 0.2f; // 0.1秒ごとにチェック
@@ -175,6 +187,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     {
         dynamicDropLayer = LayerMask.NameToLayer(dynamicDropLayerName);
         anchoredDropLayer = LayerMask.NameToLayer(anchoredDropLayerName);
+        toolLayer = LayerMask.NameToLayer(toolLayerName);
 
         if (dynamicDropLayer < 0)
         {
@@ -205,7 +218,8 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         {
             bool shouldCollide = layer == playerLayer ||
                 layer == dynamicDropLayer ||
-                layer == anchoredDropLayer;
+                layer == anchoredDropLayer ||
+                layer == toolLayer;
             Physics.IgnoreLayerCollision(anchoredDropLayer, layer, !shouldCollide);
         }
     }
@@ -320,7 +334,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
         if (state.state == DropState.Dynamic)
         {
-            if (atRest || (slowEnoughToAnchor && TryFindTerrainSupport(item, reusableSupportCells)))
+            if (atRest || (slowEnoughToAnchor && TryFindSupport(item, reusableSupportCells)))
             {
                 SetSettling(item, state);
             }
@@ -340,7 +354,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             state.settlingSince >= 0f &&
             Time.time - state.settlingSince >= minSettlingSeconds &&
             (atRest || slowEnoughToAnchor) &&
-            TryFindTerrainSupport(item, reusableSupportCells))
+            TryFindSupport(item, reusableSupportCells))
         {
             SetAnchored(item, state, reusableSupportCells);
         }
@@ -374,6 +388,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
 
         item.SetAnchoredPhysicsMode(true);
+        SetAnchoredDebugTint(item, true);
         SetItemLayer(item.gameObject, anchoredDropLayer);
         AddToAnchoredIndexes(item, state);
     }
@@ -396,6 +411,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
 
         item.SetAnchoredPhysicsMode(false);
+        SetAnchoredDebugTint(item, false);
         SetItemLayer(item.gameObject, dynamicDropLayer);
     }
 
@@ -421,6 +437,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         RemoveFromAnchoredIndexes(item, state);
         ReleaseSolidificationReservation(item);
         item.SetAnchoredPhysicsMode(false);
+        SetAnchoredDebugTint(item, false);
         SetItemLayer(item.gameObject, dynamicDropLayer);
     }
 
@@ -431,8 +448,13 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             return;
         }
 
+        bool shouldWakeAbove = state.state == DropState.Anchored || state.state == DropState.Invalidated;
         SetDynamic(item, state, reason);
         state.sleepCooldownTimer = Mathf.Max(state.sleepCooldownTimer, GetWakeCooldownSeconds(reason));
+        if (shouldWakeAbove)
+        {
+            WakeAnchoredItemsAbove(item, WakeReason.SupportLost);
+        }
     }
 
     private float GetWakeCooldownSeconds(WakeReason reason)
@@ -543,12 +565,33 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
     }
 
+    private void SetAnchoredDebugTint(DroppedItem item, bool anchored)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        item.SetTemporaryAnchoredDebugTint(debugTintAnchoredItems && anchored);
+    }
+
     private void WarnIfOverlapBufferFull(int hitCount, string context)
     {
         if (showAnchoredDebugInfo && hitCount >= overlapBuffer.Length)
         {
             Debug.LogWarning($"DroppedItemManager: overlap buffer filled in {context}; some drops may be skipped this frame.");
         }
+    }
+
+    private bool TryFindSupport(DroppedItem item, List<VoxelCellKey> terrainSupportCells)
+    {
+        if (TryFindTerrainSupport(item, terrainSupportCells))
+        {
+            return true;
+        }
+
+        terrainSupportCells.Clear();
+        return TryFindAnchoredItemSupport(item);
     }
 
     private bool TryFindTerrainSupport(DroppedItem item, List<VoxelCellKey> supportCells)
@@ -600,6 +643,95 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         return supportCells.Count > 0;
     }
 
+    private bool TryFindAnchoredItemSupport(DroppedItem item)
+    {
+        if (item == null)
+        {
+            return false;
+        }
+
+        Bounds bounds = item.ItemBounds;
+        float voxelWorldSize = GetVoxelWorldSize();
+        float maxGap = voxelWorldSize * Mathf.Max(supportMaxGapRatio, itemSupportProbeDepthRatio);
+        float maxPenetration = voxelWorldSize * Mathf.Max(supportMaxPenetrationRatio, itemSupportMaxPenetrationRatio);
+        float horizontalPadding = voxelWorldSize * Mathf.Max(0f, itemSupportHorizontalPaddingRatio);
+        float probeMinY = bounds.min.y - maxGap;
+        float probeMaxY = bounds.min.y + maxPenetration;
+        float probeHeight = Mathf.Max(0.01f, probeMaxY - probeMinY);
+        Vector3 probeCenter = new Vector3(bounds.center.x, (probeMinY + probeMaxY) * 0.5f, bounds.center.z);
+        Vector3 probeHalfExtents = new Vector3(
+            Mathf.Max(0.01f, bounds.extents.x + horizontalPadding),
+            probeHeight * 0.5f,
+            Mathf.Max(0.01f, bounds.extents.z + horizontalPadding));
+
+        int hitCount = Physics.OverlapBoxNonAlloc(probeCenter, probeHalfExtents, overlapBuffer, Quaternion.identity);
+        WarnIfOverlapBufferFull(hitCount, nameof(TryFindAnchoredItemSupport));
+
+        float requiredOverlapArea = Mathf.Max(0.0001f, bounds.size.x * bounds.size.z) * Mathf.Clamp01(itemSupportMinOverlapRatio);
+        float accumulatedOverlapArea = 0f;
+        for (int i = 0; i < hitCount; i++)
+        {
+            DroppedItem supportItem = overlapBuffer[i].GetComponent<DroppedItem>();
+            if (supportItem == null || supportItem == item ||
+                !itemStates.TryGetValue(supportItem, out ItemState supportState) ||
+                supportState.state != DropState.Anchored)
+            {
+                continue;
+            }
+
+            Bounds supportBounds = supportItem.ItemBounds;
+            if (supportBounds.center.y > bounds.center.y)
+            {
+                continue;
+            }
+
+            float gap = bounds.min.y - supportBounds.max.y;
+            if (gap < -maxPenetration || gap > maxGap)
+            {
+                continue;
+            }
+
+            Bounds paddedSupportBounds = supportBounds;
+            paddedSupportBounds.Expand(new Vector3(horizontalPadding * 2f, 0f, horizontalPadding * 2f));
+            accumulatedOverlapArea += GetHorizontalOverlapArea(bounds, paddedSupportBounds);
+            if (accumulatedOverlapArea >= requiredOverlapArea)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasEnoughHorizontalOverlap(Bounds itemBounds, Bounds supportBounds, float minOverlapRatio)
+    {
+        float itemArea = Mathf.Max(0.0001f, itemBounds.size.x * itemBounds.size.z);
+        return GetHorizontalOverlapArea(itemBounds, supportBounds) >= itemArea * Mathf.Clamp01(minOverlapRatio);
+    }
+
+    private float GetHorizontalOverlapArea(Bounds itemBounds, Bounds supportBounds)
+    {
+        float overlapX = Mathf.Min(itemBounds.max.x, supportBounds.max.x) - Mathf.Max(itemBounds.min.x, supportBounds.min.x);
+        float overlapZ = Mathf.Min(itemBounds.max.z, supportBounds.max.z) - Mathf.Max(itemBounds.min.z, supportBounds.min.z);
+        if (overlapX <= 0f || overlapZ <= 0f)
+        {
+            return 0f;
+        }
+
+        return overlapX * overlapZ;
+    }
+
+    private float GetVoxelWorldSize()
+    {
+        TerrainManager terrainManager = ResolveTerrainManager();
+        if (terrainManager == null)
+        {
+            return 0.25f;
+        }
+
+        return terrainManager.Settings.blockSize / Mathf.Max(1, terrainManager.Settings.voxelsPerBlock);
+    }
+
     private void OnTerrainCellsChanged(TerrainChangeBatch change)
     {
         if (change == null || change.removedSolidCells.Count == 0)
@@ -646,7 +778,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                 continue;
             }
 
-            if (TryFindTerrainSupport(item, reusableSupportCells))
+            if (TryFindSupport(item, reusableSupportCells))
             {
                 SetAnchored(item, state, reusableSupportCells);
             }
@@ -758,6 +890,78 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
     }
 
+    private void WakeAnchoredItemsAbove(DroppedItem root, WakeReason reason)
+    {
+        if (root == null || maxUpwardWakePerEvent <= 0)
+        {
+            return;
+        }
+
+        upwardWakeList.Clear();
+        upwardWakeVisited.Clear();
+        upwardWakeVisited.Add(root);
+        AddAnchoredItemsAbove(root, upwardWakeList, upwardWakeVisited);
+
+        int processed = 0;
+        for (int i = 0; i < upwardWakeList.Count && processed < maxUpwardWakePerEvent; i++)
+        {
+            DroppedItem item = upwardWakeList[i];
+            if (item == null || !itemStates.TryGetValue(item, out ItemState state) ||
+                (state.state != DropState.Anchored && state.state != DropState.Invalidated))
+            {
+                continue;
+            }
+
+            SetDynamic(item, state, reason);
+            state.sleepCooldownTimer = Mathf.Max(state.sleepCooldownTimer, GetWakeCooldownSeconds(reason));
+            processed++;
+            AddAnchoredItemsAbove(item, upwardWakeList, upwardWakeVisited);
+        }
+
+        upwardWakeList.Clear();
+        upwardWakeVisited.Clear();
+    }
+
+    private void AddAnchoredItemsAbove(DroppedItem source, List<DroppedItem> results, HashSet<DroppedItem> visited)
+    {
+        Bounds sourceBounds = source.ItemBounds;
+        float voxelWorldSize = GetVoxelWorldSize();
+        float verticalRange = Mathf.Max(sourceBounds.size.y, voxelWorldSize * Mathf.Max(1f, upwardWakeHeightRatio));
+        float padding = voxelWorldSize * Mathf.Max(0f, upwardWakePaddingRatio);
+        Vector3 center = new Vector3(
+            sourceBounds.center.x,
+            sourceBounds.max.y + verticalRange * 0.5f,
+            sourceBounds.center.z);
+        Vector3 halfExtents = new Vector3(
+            sourceBounds.extents.x + padding,
+            verticalRange * 0.5f,
+            sourceBounds.extents.z + padding);
+
+        int hitCount = Physics.OverlapBoxNonAlloc(center, halfExtents, overlapBuffer, Quaternion.identity);
+        WarnIfOverlapBufferFull(hitCount, nameof(AddAnchoredItemsAbove));
+
+        for (int i = 0; i < hitCount && results.Count < maxUpwardWakePerEvent; i++)
+        {
+            DroppedItem candidate = overlapBuffer[i].GetComponent<DroppedItem>();
+            if (candidate == null || visited.Contains(candidate) ||
+                !itemStates.TryGetValue(candidate, out ItemState candidateState) ||
+                candidateState.state != DropState.Anchored)
+            {
+                continue;
+            }
+
+            Bounds candidateBounds = candidate.ItemBounds;
+            if (candidateBounds.center.y < sourceBounds.center.y ||
+                !HasEnoughHorizontalOverlap(candidateBounds, sourceBounds, itemSupportMinOverlapRatio))
+            {
+                continue;
+            }
+
+            visited.Add(candidate);
+            results.Add(candidate);
+        }
+    }
+
     public GameObject GetItem(GameObject prefab)
     {
         if (prefab == null) return null;
@@ -787,6 +991,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         {
             SetItemLayer(itemInstance, dynamicDropLayer);
             droppedItemComponent.SetAnchoredPhysicsMode(false);
+            SetAnchoredDebugTint(droppedItemComponent, false);
             if (droppedItemComponent.rb != null)
             {
                 droppedItemComponent.rb.isKinematic = false;
