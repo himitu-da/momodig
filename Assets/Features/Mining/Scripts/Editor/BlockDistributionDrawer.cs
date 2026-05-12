@@ -23,11 +23,17 @@ public class TerrainGenerationEntryDrawer : PropertyDrawer
         line.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
         EditorGUI.PropertyField(line, property.FindPropertyRelative("horizontalCurve"));
 
+        line.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+        EditorGUI.PropertyField(line, property.FindPropertyRelative("specialWeightFunction"));
+
+        line.y += EditorGUIUtility.singleLineHeight + EditorGUIUtility.standardVerticalSpacing;
+        EditorGUI.PropertyField(line, property.FindPropertyRelative("specialFunctionK"));
+
         EditorGUI.EndProperty();
     }
 
     public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
     {
-        return EditorGUIUtility.singleLineHeight * 5 + EditorGUIUtility.standardVerticalSpacing * 4;
+        return EditorGUIUtility.singleLineHeight * 7 + EditorGUIUtility.standardVerticalSpacing * 6;
     }
 }
