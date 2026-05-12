@@ -70,7 +70,6 @@ public class ChunkManager : MonoBehaviour
             for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
             {
                 Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
-                if (chunkPos.y > 0) continue;
                 sortedChunks.Add(chunkPos);
             }
         }
@@ -88,6 +87,7 @@ public class ChunkManager : MonoBehaviour
         {
             if (!activeChunks.ContainsKey(chunkPos))
             {
+                GetOrCreateChunkFromPosition(chunkPos);
                 List<Vector3Int> chunkBlocks = GetBlockPositionsInChunk(chunkPos);
                 
                 chunkBlocks.Sort((a, b) => 
@@ -124,7 +124,6 @@ public class ChunkManager : MonoBehaviour
             for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
             {
                 Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
-                if (chunkPos.y > 0) continue;
                 if (activeChunks.ContainsKey(chunkPos)) continue;
                 chunksToGenerate.Add(chunkPos);
             }
@@ -141,6 +140,7 @@ public class ChunkManager : MonoBehaviour
         
         foreach (var chunkPos in chunksToGenerate)
         {
+            GetOrCreateChunkFromPosition(chunkPos);
             List<Vector3Int> blocksInChunk = GetBlockPositionsInChunk(chunkPos);
             
             blocksInChunk.Sort((a, b) => 
@@ -221,7 +221,11 @@ public class ChunkManager : MonoBehaviour
     private Chunk GetOrCreateChunk(Vector3Int blockPos)
     {
         Vector3Int chunkPos = GetChunkPositionFromBlock(blockPos);
+        return GetOrCreateChunkFromPosition(chunkPos);
+    }
 
+    private Chunk GetOrCreateChunkFromPosition(Vector3Int chunkPos)
+    {
         if (activeChunks.TryGetValue(chunkPos, out Chunk chunk))
         {
             return chunk;
@@ -277,6 +281,12 @@ public class ChunkManager : MonoBehaviour
         return new Vector3Int(chunkX, chunkY, blockPosition.z);
     }
 
+    public bool IsBlockGenerationSkipped(Vector3Int blockPosition)
+    {
+        return terrainManager.TerrainDataManager != null &&
+               terrainManager.TerrainDataManager.IsBlockGenerationExcluded(blockPosition);
+    }
+
     private List<Vector3Int> GetBlockPositionsInChunk(Vector3Int chunkPos)
     {
         var settings = terrainManager.Settings;
@@ -287,7 +297,11 @@ public class ChunkManager : MonoBehaviour
         {
             for (int by = 0; by < settings.blocksPerChunk.y; by++)
             {
-                blockPositions.Add(new Vector3Int(startBlock.x + bx, startBlock.y + by, chunkPos.z));
+                Vector3Int blockPosition = new Vector3Int(startBlock.x + bx, startBlock.y + by, chunkPos.z);
+                if (!IsBlockGenerationSkipped(blockPosition))
+                {
+                    blockPositions.Add(blockPosition);
+                }
             }
         }
 

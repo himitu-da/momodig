@@ -1000,6 +1000,11 @@ public class FluidManager : MonoBehaviour
         Vector3Int blockPos = new Vector3Int(blockX, blockY, blockZ);
         Vector3Int localVoxelPos = new Vector3Int(localX, localY, localZ);
 
+        if (terrainManager.ChunkManager != null && terrainManager.ChunkManager.IsBlockGenerationSkipped(blockPos))
+        {
+            return false;
+        }
+
         GameDataPersistenceManager persistenceManager = GameDataPersistenceManager.Instance;
         if (persistenceManager.destroyedBlockPositions.Contains(blockPos))
         {
@@ -1018,6 +1023,11 @@ public class FluidManager : MonoBehaviour
         }
 
         if (terrainManager.BlockGenerator == null)
+        {
+            return false;
+        }
+
+        if (terrainManager.BlockGenerator.GetBlockDataForPosition(blockPos) == null)
         {
             return false;
         }
