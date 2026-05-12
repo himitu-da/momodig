@@ -2380,7 +2380,7 @@ MonoBehaviour:
   candidateLookupCount: 16
   candidateMaxBlockRadius: 16
   angularSleepThreshold: 0.25
-  minSettlingSeconds: 0.4
+  minSettlingSeconds: 1.5
   anchoredCandidateLinearSpeed: 0.35
   anchoredCandidateAngularSpeed: 1
   settlingAbortLinearSpeed: 1.25
@@ -2404,7 +2404,7 @@ MonoBehaviour:
   dynamicDropLayerName: DroppedItem
   anchoredDropLayerName: AnchoredDrop
   toolLayerName: Tool
-  debugTintAnchoredItems: 1
+  debugTintAnchoredItems: 0
   showAnchoredDebugInfo: 0
   debugStateLogInterval: 2
 --- !u!4 &1375720078

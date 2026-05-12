@@ -213,14 +213,15 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             return;
         }
 
-        int playerLayer = LayerMask.NameToLayer("Player");
-        for (int layer = 0; layer < 32; layer++)
+        if (!showAnchoredDebugInfo)
         {
-            bool shouldCollide = layer == playerLayer ||
-                layer == dynamicDropLayer ||
-                layer == anchoredDropLayer ||
-                layer == toolLayer;
-            Physics.IgnoreLayerCollision(anchoredDropLayer, layer, !shouldCollide);
+            return;
+        }
+
+        int playerLayer = LayerMask.NameToLayer("Player");
+        if (playerLayer < 0 || dynamicDropLayer < 0 || toolLayer < 0)
+        {
+            Debug.LogWarning("DroppedItemManager: AnchoredDrop collision layers are not fully configured in TagManager.");
         }
     }
 
