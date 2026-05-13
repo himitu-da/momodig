@@ -1,0 +1,2035 @@
+@startuml
+' Branch 130 - Level 3 All Classes With Methods
+' All discovered class/interface/struct/enum names, methods, and inferred relationships.
+' Generated from Assets/**/*.cs on 2026-05-13 for branch 130.
+' Root ClassDiagram.puml is intentionally left untouched.
+!theme plain
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam classFontStyle Bold
+skinparam classFontSize 13
+skinparam classHeaderBackgroundColor #F3F4F6
+skinparam classBorderColor #374151
+skinparam classArrowColor #374151
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+hide empty members
+title Branch 130 - Level 3 All Classes With Methods
+
+package "Generated" {
+  class "InputSystem_Actions" as InputSystem_Actions <<generated>> {
+    + InputSystem_Actions()
+    - ~InputSystem_Actions()
+    + Dispose(): void
+    + Contains(action: InputAction): bool
+    + GetEnumerator(): IEnumerator<InputAction>
+    - IEnumerable.GetEnumerator(): IEnumerator
+    + Enable(): void
+    + Disable(): void
+    + FindAction(actionNameOrId: string, throwIfNotFound: bool): InputAction
+    + FindBinding(bindingMask: InputBinding, action: out InputAction): int
+  }
+  interface "InputSystem_Actions.IPlayerActions" as InputSystem_Actions_IPlayerActions <<nested, generated>> {
+    + OnMove(context: InputAction.CallbackContext): void
+    + OnLook(context: InputAction.CallbackContext): void
+    + OnAttack(context: InputAction.CallbackContext): void
+    + OnInteract(context: InputAction.CallbackContext): void
+    + OnCrouch(context: InputAction.CallbackContext): void
+    + OnJump(context: InputAction.CallbackContext): void
+    + OnPrevious(context: InputAction.CallbackContext): void
+    + OnNext(context: InputAction.CallbackContext): void
+    + OnSprint(context: InputAction.CallbackContext): void
+    + OnMainMine(context: InputAction.CallbackContext): void
+    + OnSubMine(context: InputAction.CallbackContext): void
+    + OnMousePosition(context: InputAction.CallbackContext): void
+  }
+  interface "InputSystem_Actions.IUIActions" as InputSystem_Actions_IUIActions <<nested, generated>> {
+    + OnNavigate(context: InputAction.CallbackContext): void
+    + OnSubmit(context: InputAction.CallbackContext): void
+    + OnCancel(context: InputAction.CallbackContext): void
+    + OnPoint(context: InputAction.CallbackContext): void
+    + OnClick(context: InputAction.CallbackContext): void
+    + OnRightClick(context: InputAction.CallbackContext): void
+    + OnMiddleClick(context: InputAction.CallbackContext): void
+    + OnScrollWheel(context: InputAction.CallbackContext): void
+    + OnTrackedDevicePosition(context: InputAction.CallbackContext): void
+    + OnTrackedDeviceOrientation(context: InputAction.CallbackContext): void
+  }
+  class "InputSystem_Actions.PlayerActions" as InputSystem_Actions_PlayerActions <<struct, nested, generated>> {
+    + PlayerActions(wrapper: @InputSystem_Actions)
+    + Get(): InputActionMap
+    + Enable(): void
+    + Disable(): void
+    + {static} InputActionMap(set: PlayerActions): implicit operator
+    + AddCallbacks(instance: IPlayerActions): void
+    - UnregisterCallbacks(instance: IPlayerActions): void
+    + RemoveCallbacks(instance: IPlayerActions): void
+    + SetCallbacks(instance: IPlayerActions): void
+  }
+  class "InputSystem_Actions.UIActions" as InputSystem_Actions_UIActions <<struct, nested, generated>> {
+    + UIActions(wrapper: @InputSystem_Actions)
+    + Get(): InputActionMap
+    + Enable(): void
+    + Disable(): void
+    + {static} InputActionMap(set: UIActions): implicit operator
+    + AddCallbacks(instance: IUIActions): void
+    - UnregisterCallbacks(instance: IUIActions): void
+    + RemoveCallbacks(instance: IUIActions): void
+    + SetCallbacks(instance: IUIActions): void
+  }
+}
+
+package "Mining.Background" {
+  class "BackgroundController" as BackgroundController <<MonoBehaviour>> {
+    - Awake(): void
+    - Start(): void
+    - Update(): void
+    - UpdateTiles(): void
+    - CreateTile(gridPos: Vector2Int): void
+  }
+}
+
+package "Mining.Camera" {
+  class "CameraFollowController" as CameraFollowController <<MonoBehaviour>> {
+    - Awake(): void
+    - Start(): void
+    + OnBeforeContentSceneUnload(nextSceneName: string): void
+    + OnAfterContentSceneLoad(previousSceneName: string): void
+    + SnapToFollowTarget(): bool
+    + SnapToFollowTargetAndEnable(): bool
+    - FixedUpdate(): void
+    - ValidateRequiredReferences(): bool
+    - ValidateReference(reference: UnityEngine.Object, fieldName: string): bool
+    - UpdateCameraPositionLegacy(): void
+    - UpdatePlayPlaneDirectionalCamera(): void
+    - CalculateTargetCameraPose(targetPosition: out Vector3, targetRotation: out Quaternion): void
+    - CalculateLegacyCameraPose(targetPosition: out Vector3, targetRotation: out Quaternion): void
+    - CalculateDirectionalCameraPose(targetPosition: out Vector3, targetRotation: out Quaternion): void
+    - GetPlayPlaneVelocity(): Vector2
+    - GetHeldPlayPlaneVelocity(rawPlanarVelocity: Vector2): Vector2
+    - CalculateLogSpeedInfluence(speed: float): float
+    - CalculateTargetPlayerViewportOffset(moveDirection: Vector2, speedInfluence: float): Vector2
+    - BuildHorizonLeveledRotation(pitch: float, yaw: float): Quaternion
+    - ResolveCameraDistance(): float
+    - BuildLocalPlayerOffset(viewportOffset: Vector2, distance: float): Vector3
+    - ApplyPosition(targetPosition: Vector3): void
+    - ApplyRotation(targetRotation: Quaternion): void
+    - GetCurrentOffset(): Vector3
+    - ResetCameraSmoothingState(): void
+    - HideScenePresentationUntilInitialSnap(): void
+    - RestoreScenePresentation(): void
+    - CaptureScenePresentationState(): void
+    - SetScenePresentationEnabled(enabled: bool): void
+    - RestoreScenePresentationState(): void
+    - {static} ShouldWaitForManagedSceneTransitionSnap(): bool
+    - {static} ShouldHideScenePresentationUntilSnap(): bool
+    - UpdateCameraSettings(): void
+    + SetFollowEnabled(enabled: bool): void
+    + SetFollowSpeed(speed: float): void
+    + SetOffset(offset: Vector3): void
+  }
+}
+
+package "Mining.Common" {
+  class "AudioManager" as AudioManager <<MonoBehaviour>> {
+    - Awake(): void
+    + PlaySE(clip: AudioClip): void
+    + PlaySE(clip: AudioClip, volumeScale: float): void
+    + PlayDiggingSE(clip: AudioClip, hitBlockCount: int, toolVolume: float): void
+    + PlayVoxelDestroyedSE(clip: AudioClip, destroyedVoxelCount: int, blockVolume: float): void
+  }
+  class "FacilityUpgradeProgressRecord" as FacilityUpgradeProgressRecord
+  class "GameDataPersistenceManager" as GameDataPersistenceManager <<MonoBehaviour>> {
+    + NotifyPurchasedItemsChanged(): void
+    + GetFacilityUpgradeLevel(upgradeId: string, defaultLevel: int): int
+    + SetFacilityUpgradeLevel(upgradeId: string, level: int): bool
+    + CanSetFacilityUpgradeLevel(upgradeId: string, level: int): bool
+    + NotifyFacilityUpgradesChanged(): void
+    - Awake(): void
+    - CopyRuntimeStateFrom(source: GameDataPersistenceManager): void
+    - CopyPartiallyDestroyedBlocks(source: Dictionary<Vector3Int, HashSet<Vector3Int>>): Dictionary<Vector3Int, HashSet<Vector3Int>>
+    - CopyVoxelCellOverrides(source: Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>): Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>
+    - CopyFacilityUpgradeProgress(source: List<FacilityUpgradeProgressRecord>): List<FacilityUpgradeProgressRecord>
+    - CopyToolSlots(source: List<ToolSlotPersistenceData>): List<ToolSlotPersistenceData>
+  }
+  class "MiningLogItemAnimationEvents" as MiningLogItemAnimationEvents <<MonoBehaviour>> {
+    + Initialize(rootObject: GameObject, defaultLifetime: float, slideOutTriggerName: string): void
+    + introAnimationStarted(): void
+    + introAnimationCompleted(): void
+    + outroAnimationStarted(): void
+    + outroAnimationCompleted(): void
+    - BeginOutroAfterDelay(): IEnumerator
+    - TriggerOutro(): void
+  }
+  class "MiningLogSystem" as MiningLogSystem <<MonoBehaviour>> {
+    + ShowLog(message: string): void
+    + ShowLog(message: string, iconSprite: Sprite): void
+    + ClearLogs(): void
+    - ValidateReferences(): bool
+    - ApplyText(logItemTransform: Transform, message: string): void
+    - ApplyIcon(logItemTransform: Transform, iconSprite: Sprite): void
+    - TrimOverflowLogs(): void
+    - ConfigureLogLifecycle(logItemInstance: GameObject): void
+    - FindChildRecursive(parent: Transform, targetName: string): Transform
+    - FindAnimationEvents(logItemInstance: GameObject): MiningLogItemAnimationEvents
+  }
+  enum "ResourceType" as ResourceType {
+    Soil
+    Stone
+    Iron
+    Gold
+    Diamond
+    Copper
+    Tin
+    Nickel
+    Silicon
+    Cobalt
+    Titanium
+    DragonGem
+  }
+  class "ResourceTypeUtility" as ResourceTypeUtility <<static>> {
+    + {static} GetResourceColor(resourceType: ResourceType): Color
+    + {static} GetDisplayName(resourceType: ResourceType): string
+    + {static} GetBaseValue(resourceType: ResourceType): int
+  }
+  class "ToolSlotPersistenceData" as ToolSlotPersistenceData
+  class "VoxelItemData" as VoxelItemData {
+    + VoxelItemData(resourceType: ResourceType, blockDataName: string, scale: Vector3, faceTextureData: DroppedItemFaceTextureData[], uvBase: Vector2, uvSize: Vector2, useTexture1: bool)
+    + Clone(): VoxelItemData
+    + GetFaceTextureDataCopy(): DroppedItemFaceTextureData[]
+    + IsValid(context: string): bool
+    + {static} TryCreateFromDroppedItem(droppedItem: DroppedItem, itemData: out VoxelItemData): bool
+    + {static} TryAggregateResourceCounts(items: IList<VoxelItemData>, resourceCounts: out Dictionary<ResourceType, int>, context: string): bool
+    - {static} CloneFaceTextureData(source: DroppedItemFaceTextureData[]): DroppedItemFaceTextureData[]
+  }
+  class "VoxelItemVisualUtility" as VoxelItemVisualUtility <<static>> {
+    + {static} TryCreateAnimationItem(position: Vector3, parent: Transform, itemData: VoxelItemData, terrainDataManager: TerrainDataManager, context: string, itemObject: out GameObject): bool
+    + {static} TryApplyAppearance(target: GameObject, itemData: VoxelItemData, terrainDataManager: TerrainDataManager, context: string): bool
+    + {static} ResolveTerrainDataManager(): TerrainDataManager
+    - {static} SetWorldScale(target: Transform, worldScale: Vector3): void
+    - {static} ValidateReferencedTextures(itemData: VoxelItemData, texture1: Texture2D, texture2: Texture2D, context: string): bool
+  }
+}
+
+package "Mining.Editor" {
+  class "BiomeDataCustomEditor" as BiomeDataCustomEditor <<Editor>> {
+    + OnInspectorGUI(): void
+  }
+  class "TerrainGenerationEntryDrawer" as TerrainGenerationEntryDrawer <<PropertyDrawer>> {
+    + OnGUI(position: Rect, property: SerializedProperty, label: GUIContent): void
+    + GetPropertyHeight(property: SerializedProperty, label: GUIContent): float
+  }
+}
+
+package "Mining.Enhancement" {
+  class "Enhancement" as Enhancement <<ScriptableObject>>
+  enum "EnhancementType" as EnhancementType {
+    Additive
+    Multiplicative
+  }
+  class "Stat" as Stat {
+    + AddAdditiveModifier(value: float): void
+    + RemoveAdditiveModifier(value: float): bool
+    + AddMultiplicativeModifier(value: float): void
+    + RemoveMultiplicativeModifier(value: float): bool
+    + RemoveAllModifiers(): void
+  }
+  class "StatVector3" as StatVector3 {
+    + SetBaseValue(baseValue: Vector3): void
+    + RemoveAllModifiers(): void
+  }
+}
+
+package "Mining.Fluid" {
+  class "FluidCellSnapshot" as FluidCellSnapshot <<struct>> {
+    + FluidCellSnapshot(cellPosition: Vector3Int, liters: float, definition: FluidDefinition)
+  }
+  class "FluidDefinition" as FluidDefinition <<ScriptableObject>>
+  enum "FluidGravityAxis" as FluidGravityAxis {
+    NegativeX
+    NegativeY
+    NegativeZ
+  }
+  class "FluidManager" as FluidManager <<MonoBehaviour>> {
+    + Initialize(manager: TerrainManager): void
+    - OnValidate(): void
+    - GetBlockSize(): float
+    - GetTerrainCenter(): Vector3
+    - GetAlignedSimulationOrigin(): Vector3
+    - Update(): void
+    + ClearFluid(): void
+    + GetFluidCellSnapshots(output: List<FluidCellSnapshot>): void
+    + AddFluidAtWorldPosition(worldPosition: Vector3, liters: float, fluidDefinition: FluidDefinition): float
+    + ExtractFluidAtWorldPosition(worldPosition: Vector3, liters: float, preferredDefinition: FluidDefinition, searchRadius: int): float
+    + GetFluidAmountAtWorldPosition(worldPosition: Vector3, preferredDefinition: FluidDefinition): float
+    + GetFluidDefinitionAtWorldPosition(worldPosition: Vector3): FluidDefinition
+    + GetFluidFillRatioAtWorldPosition(worldPosition: Vector3, preferredDefinition: FluidDefinition): float
+    + NotifySolidVoxelRemoved(worldPosition: Vector3): void
+    + MarkDirtyAroundWorldPosition(worldPosition: Vector3, radius: int): void
+    + QueueExplosion(center: Vector3, size: Vector3, force: float): void
+    + IsTerrainSolidAtWorldPosition(worldPosition: Vector3): bool
+    + IsRenderNeighborSolid(renderCellPosition: Vector3Int, direction: Vector3Int, fillRatio: float): bool
+    + WorldToInternalCell(worldPosition: Vector3): Vector3Int
+    + InternalCellToWorldCenter(cellPosition: Vector3Int): Vector3
+    + InternalToRenderCell(internalCellPosition: Vector3Int): Vector3Int
+    + GetRenderCellWorldMin(renderCellPosition: Vector3Int): Vector3
+    - StepSimulation(deltaTime: float): void
+    - ApplyPendingImpulses(): bool
+    - SimulateCell(cellPosition: Vector3Int, deltaTime: float): bool
+    - ApplyVelocityTransfer(sourcePos: Vector3Int, source: FluidCellState, deltaTime: float): bool
+    - ApplyGravityTransfer(sourcePos: Vector3Int, source: FluidCellState, deltaTime: float): bool
+    - ApplyLateralTransfer(sourcePos: Vector3Int, source: FluidCellState, deltaTime: float): bool
+    - TryTransfer(sourcePos: Vector3Int, targetPos: Vector3Int, source: FluidCellState, maxTransferLiters: float, blendVelocity: bool): bool
+    - TransferLiters(sourcePos: Vector3Int, targetPos: Vector3Int, source: FluidCellState, remainingTransfer: ref float, blendVelocity: bool, target: out FluidCellState, moved: out float): bool
+    - HasDownwardCapacity(sourcePos: Vector3Int, definition: FluidDefinition): bool
+    - GetOrCreateCompatibleTarget(position: Vector3Int, definition: FluidDefinition): FluidCellState
+    - AddFluidBreadthFirst(startCell: Vector3Int, liters: float, definition: FluidDefinition): float
+    - EnqueueFillNeighbors(current: Vector3Int, queue: Queue<Vector3Int>, visited: HashSet<Vector3Int>): void
+    - GetPreferredFillDirections(): Vector3Int[]
+    - GetAllNeighborDirections(): Vector3Int[]
+    - CanFluidMoveIntoCell(cellPosition: Vector3Int, definition: FluidDefinition): bool
+    - IsDynamicObstacleAtCell(cellPosition: Vector3Int): bool
+    - IsTerrainSolidAtCell(cellPosition: Vector3Int): bool
+    - IsOutsideGenerationSlice(worldPosition: Vector3, settings: TerrainSettings): bool
+    - FindLowestReachableCell(startCell: Vector3Int, maxDepth: int, definition: FluidDefinition): Vector3Int
+    - GetDownDirection(): Vector3Int
+    - GetGravityDirectionVector(): Vector3
+    - GetLateralDirections(): Vector3Int[]
+    - QueueCellNeighborhood(center: Vector3Int, radius: int): void
+    - CompareCellsByGravity(a: Vector3Int, b: Vector3Int): int
+    - GetGravityAxisIndex(): int
+    - MarkSimulationChanged(): void
+    - {static} IsPointInsideBox(point: Vector3, center: Vector3, halfExtents: Vector3): bool
+    - {static} GetAxis(value: Vector3, axisIndex: int): float
+    - {static} SetAxis(value: ref Vector3, axisIndex: int, axisValue: float): void
+  }
+  class "FluidManager.FluidCellState" as FluidManager_FluidCellState <<sealed, nested>>
+  class "FluidManager.FluidImpulse" as FluidManager_FluidImpulse <<struct, nested>> {
+    + FluidImpulse(center: Vector3, halfExtents: Vector3, force: float)
+  }
+  class "FluidManager.LateralCandidate" as FluidManager_LateralCandidate <<struct, nested>> {
+    + LateralCandidate(position: Vector3Int, targetFill: float)
+  }
+  class "FluidMeshRenderer" as FluidMeshRenderer <<MonoBehaviour>> {
+    - OnValidate(): void
+    - Awake(): void
+    - LateUpdate(): void
+    + RebuildMesh(): void
+    - BuildAggregates(): void
+    - AppendRenderCell(renderCell: Vector3Int, fillRatio: float, tint: Color, vertices: List<Vector3>, triangles: List<int>, colors: List<Color>): void
+    - GetNeighborFill(renderCell: Vector3Int): float
+    - GetDisplayFillRatio(liters: float): float
+    - EnsureMaterial(): void
+    - ConfigureRenderer(): void
+    - GetVerticalAxisIndex(): int
+    - GetDownDirection(): Vector3Int
+    - GetLateralDirections(): Vector3Int[]
+    - {static} GetFace(min: Vector3, max: Vector3, direction: Vector3Int): Vector3[]
+    - ToLocalCorners(worldCorners: Vector3[]): Vector3[]
+    - {static} AddFace(corners: Vector3[], color: Color, vertices: List<Vector3>, triangles: List<int>, colors: List<Color>): void
+    - {static} GetAxis(value: Vector3, axis: int): float
+    - {static} SetAxis(value: ref Vector3, axis: int, axisValue: float): void
+  }
+  class "FluidMeshRenderer.RenderCellAggregate" as FluidMeshRenderer_RenderCellAggregate <<struct, nested>>
+  class "FluidSource" as FluidSource <<MonoBehaviour>> {
+    - Update(): void
+    + InjectBurst(): void
+  }
+  class "FluidSplash" as FluidSplash <<MonoBehaviour>> {
+    - Awake(): void
+    + Initialize(manager: FluidManager, definition: FluidDefinition, liters: float, initialVelocity: Vector3): void
+    - OnDestroy(): void
+    - FixedUpdate(): void
+    - SettleFluid(): void
+  }
+}
+
+package "Mining.Interaction" {
+  class "MinecartPlayerInteractionSystem" as MinecartPlayerInteractionSystem <<MonoBehaviour>> {
+    - Awake(): void
+    - Update(): void
+    + CheckMinecartProximity(): void
+    + GetDetectionRange(): float
+    + SetDetectionRange(range: float): void
+    + IsTransferringItems(): bool
+    - ValidateReferences(): void
+    - GetNearestMinecart(): GameObject
+    - TransferItemsToMinecart(targetMinecart: GameObject): UniTask
+    - IsMinecartManagerAvailable(): bool
+    - AnimateItemTransfer(animItem: GameObject, startPos: Vector3, endPos: Vector3): UniTask
+    - CalculateTargetPosition(basePosition: Vector3): Vector3
+    - MoveItemAsync(item: GameObject, startPos: Vector3, endPos: Vector3): UniTask
+  }
+  class "MiningPassageController" as MiningPassageController <<MonoBehaviour>> {
+    - Awake(): void
+    + OnPassageAreaTrigger(areaKind: PassageAreaKind, other: Collider, entered: bool): void
+    - EnterOnArea(other: Collider): void
+    - ExitOnArea(other: Collider): void
+    - EnterOffArea(other: Collider): void
+    - IsCurrentPlayer(other: Collider): bool
+    - Update(): void
+    - StartPassage(ignoreCurrentGateOverlap: bool): void
+    - UpdatePassage(): void
+    - CapturePassageBounds(): void
+    - DisablePlayerCollision(): void
+    - RestorePlayerCollision(): void
+    - ConstrainPassageMovement(): bool
+    - StopBlockedVelocity(stopX: bool, stopY: bool): void
+    - CompletePassage(): void
+    + OnBeforeContentSceneUnload(nextSceneName: string): void
+    + OnAfterContentSceneLoad(previousSceneName: string): void
+    - StartPassageFromSceneTransition(previousSceneName: string): void
+    - TryBeginPassageTransition(): bool
+    - TryPlacePlayerFromPassageTransition(previousSceneName: string, player: Transform): bool
+    - GetTransitionDirection(): float
+    - ShouldCompletePassage(): bool
+    - ShouldCompleteFromArrivalGateOverlap(): bool
+    - IsInTransitionGateArea(): bool
+    - DidCrossTransitionGateArea(): bool
+    - IsPastTransitionSideOfGate(position: Vector3): bool
+    - IsInOffArea(): bool
+    - IsInOnArea(): bool
+    - {static} ContainsPoint2D(bounds: Bounds, point: Vector3): bool
+    - StorePreviousPassagePosition(): void
+    - {static} SegmentIntersectsBounds2D(bounds: Bounds, start: Vector3, end: Vector3): bool
+    - {static} ClipSegmentAxis(direction: float, distance: float, tMin: ref float, tMax: ref float): bool
+    - ConfigureAreaTriggers(): void
+    - ValidateRequiredReferences(): bool
+    - ValidateReference(reference: UnityEngine.Object, fieldName: string): bool
+    - DeactivatePassage(): void
+    - ClearState(): void
+    - OnDisable(): void
+    - PrepareForSceneTransition(): void
+    - TransferAllItemsToStorage(): void
+  }
+  class "SurfaceInteractionSystem" as SurfaceInteractionSystem <<MonoBehaviour>> {
+    - Awake(): void
+    - Update(): void
+    - OnDestroy(): void
+    - CheckSurfaceProximity(): void
+    + TransferAllInventoryToStorage(): void
+    - TransferItemsToStorage(): UniTask
+    - AnimateItemTransfer(animItem: GameObject, startPos: Vector3, endPos: Vector3): UniTask
+    - MoveItemAsync(item: GameObject, startPos: Vector3, endPos: Vector3): UniTask
+  }
+}
+
+package "Mining.Interfaces" {
+  interface "IInventory" as IInventory {
+    + CanAddItem(itemData: VoxelItemData): bool
+    + AddItem(itemData: VoxelItemData): bool
+    + TryPeekNextItem(itemData: out VoxelItemData): bool
+    + TryRemoveNextItem(itemData: out VoxelItemData): bool
+    + TryDrainAllItems(itemData: out List<VoxelItemData>): bool
+    + GetTotalItemCount(): int
+    + GetResourceCount(type: ResourceType): int
+    + IsEmpty(): bool
+    + GetAllResources(): Dictionary<ResourceType, int>
+  }
+  interface "IItemManager" as IItemManager {
+    + ReturnItem(itemObject: GameObject): void
+    + WakeUpItemsNearPosition(position: Vector3, radius: float): void
+  }
+}
+
+package "Mining.Minecart" {
+  class "Minecart" as Minecart {
+    + Minecart(obj: GameObject)
+    + HasCapacity(capacity: int): bool
+    + AddItem(itemData: VoxelItemData, capacity: int): bool
+    + TryDrainItems(drainedItems: out List<VoxelItemData>): bool
+    + GetAllResources(): Dictionary<ResourceType, int>
+    + GetResourceCount(type: ResourceType): int
+    + ClearItems(): void
+  }
+  class "MinecartManager" as MinecartManager <<MonoBehaviour>> {
+    - OnEnable(): void
+    - OnDisable(): void
+    - Start(): void
+    + addnewcart(): void
+    + AddItemToFrontCart(itemData: VoxelItemData): bool
+    - SendCartToHome(minecartnum: int): void
+    + UpdateMinecartPositions(): void
+    + UpdateMinecartPositions(playerPosition: Vector3, playerLastMoveDirection: Vector3, offset: float): void
+    - Update(): void
+    + ApplyEnhancements(): void
+    - ValidateFacilityUpgradeCatalog(): bool
+    - GetStatByName(statName: string): Stat
+    - ApplyModifier(stat: Stat, enhancement: Enhancement, level: int): void
+    - UpdateCartCount(): void
+  }
+  class "MinecartMovement" as MinecartMovement <<MonoBehaviour>> {
+    - Start(): void
+    - Update(): void
+  }
+  enum "MinecartState" as MinecartState {
+    Following
+    GoingToGround
+    Unloading
+  }
+}
+
+package "Mining.Mining" {
+  class "Digger" as Digger <<MonoBehaviour>> {
+    - Awake(): void
+    + SetPendingMining(module: MiningModule, info: MiningInfo): void
+    + ExecuteDigFromAnimation(): UniTask<(HashSet<Block> hitBlocks, int destroyedVoxelCount)>
+    + SetDiggingArea(area: BoxCollider): void
+    + UpdateDiggingAreaTransform(position: Vector3, rotation: Quaternion): void
+    + SetDiggingAreaParameters(center: Vector3, size: Vector3): void
+    - Update(): void
+    + Dig(damagePerHit: int, info: MiningInfo): UniTask<(HashSet<Block> hitBlocks, int destroyedVoxelCount)>
+    - GetHitBlocks(): HashSet<Block>
+    - DigAsyncTask(damagePerHit: int, info: MiningInfo, hitBlocks: HashSet<Block>): UniTask<int>
+  }
+  class "DroppedItem" as DroppedItem <<MonoBehaviour>> {
+    + ResetSolidificationState(): void
+    - Awake(): void
+    - OnEnable(): void
+    - OnValidate(): void
+    - OnDisable(): void
+    - FixedUpdate(): void
+    + SetAnchoredPhysicsMode(anchored: bool): void
+    + SetTemporaryAnchoredDebugTint(anchored: bool): void
+    - OnDestroy(): void
+    - ResolveFluidManager(): void
+    - ApplyFluidResistance(): void
+    - RefreshFluidObstacleTracking(force: bool): void
+    - GetFluidSubmersionRatio(): float
+    - {static} GetFluidSampleLerp(index: int, sampleCount: int): float
+    - GetFluidObstacleCenter(): Vector3
+    - GetFluidDirtyRadius(): int
+    + ApplyFaceTextureInfos(faceInfos: List<VoxelFaceTextureInfo>, texture1: Texture2D, texture2: Texture2D): void
+    + ApplyFaceTextureData(newFaceData: DroppedItemFaceTextureData[], texture1: Texture2D, texture2: Texture2D): void
+    + {static} CreateLegacyFaceTextureData(legacyUvBase: Vector2, legacyUvSize: Vector2, legacyUseTexture1: bool): DroppedItemFaceTextureData[]
+    - EnsureDroppedItemMesh(): void
+    - ApplyMaterial(sourceTexture: Texture2D): void
+    - ResolveSourceTexture(texture1: Texture2D, texture2: Texture2D): Texture2D
+    - UpdateLegacyFaceFields(): void
+    - UpdateMeshUvs(): void
+    - BuildFaceUvs(normal: Vector3, data: DroppedItemFaceTextureData): Vector2[]
+    - {static} CreateDroppedItemMeshTemplate(): Mesh
+    - {static} AddFace(vertices: List<Vector3>, triangles: List<int>, uvs: List<Vector2>, v0: Vector3, v1: Vector3, v2: Vector3, v3: Vector3, reverseTriangles: bool): void
+  }
+  class "DroppedItemData" as DroppedItemData <<struct>>
+  class "DroppedItemFaceTextureData" as DroppedItemFaceTextureData <<struct>> {
+    + DroppedItemFaceTextureData(uvBase: Vector2, uvSize: Vector2, useTexture1: bool, hasTexture: bool)
+  }
+  class "DroppedItemManager" as DroppedItemManager <<MonoBehaviour>> {
+    - Awake(): void
+    - Start(): void
+    - OnDestroy(): void
+    + OnBeforeContentSceneUnload(nextSceneName: string): void
+    + OnAfterContentSceneLoad(previousSceneName: string): void
+    - ResolveDropLayers(): void
+    - ConfigureAnchoredLayerCollisions(): void
+    - SubscribeTerrainEvents(): void
+    - UnsubscribeTerrainEvents(): void
+    - Update(): void
+    - UpdateItemMotionState(item: DroppedItem, state: ItemState): void
+    - SetSettling(item: DroppedItem, state: ItemState): void
+    - SetAnchored(item: DroppedItem, state: ItemState, supportCells: List<VoxelCellKey>): void
+    - SetDynamic(item: DroppedItem, state: ItemState, reason: WakeReason): void
+    - SetInvalidated(item: DroppedItem, state: ItemState, terrainVersion: int): void
+    - SetSolidified(item: DroppedItem, state: ItemState): void
+    - WakeItem(item: DroppedItem, reason: WakeReason): void
+    - GetWakeCooldownSeconds(reason: WakeReason): float
+    - LogDropStateCountsIfNeeded(): void
+    - AddToAnchoredIndexes(item: DroppedItem, state: ItemState): void
+    - RemoveFromAnchoredIndexes(item: DroppedItem, state: ItemState): void
+    - SetItemLayer(itemObject: GameObject, layer: int): void
+    - SetAnchoredDebugTint(item: DroppedItem, anchored: bool): void
+    - WarnIfOverlapBufferFull(hitCount: int, context: string): void
+    - TryFindSupport(item: DroppedItem, terrainSupportCells: List<VoxelCellKey>): bool
+    - TryFindTerrainSupport(item: DroppedItem, supportCells: List<VoxelCellKey>): bool
+    - TryFindAnchoredItemSupport(item: DroppedItem): bool
+    - HasEnoughHorizontalOverlap(itemBounds: Bounds, supportBounds: Bounds, minOverlapRatio: float): bool
+    - GetHorizontalOverlapArea(itemBounds: Bounds, supportBounds: Bounds): float
+    - GetVoxelWorldSize(): float
+    - OnTerrainCellsChanged(change: TerrainChangeBatch): void
+    - ProcessInvalidatedQueue(maxCount: int): void
+    + WakeUpItemsInRadius(center: Vector3, size: Vector3, rotation: Quaternion): void
+    + ApplyForceToItemsInRadius(center: Vector3, size: Vector3, rotation: Quaternion, info: MiningInfo): void
+    + WakeUpItemsNearPosition(position: Vector3, radius: float): void
+    - WakeItemsNow(items: HashSet<DroppedItem>, reason: WakeReason): void
+    - WakeAnchoredItemsAbove(root: DroppedItem, reason: WakeReason): void
+    - AddAnchoredItemsAbove(source: DroppedItem, results: List<DroppedItem>, visited: HashSet<DroppedItem>): void
+    + GetItem(prefab: GameObject): GameObject
+    + GetActiveItems(): List<DroppedItem>
+    + ReturnItem(itemInstance: GameObject): void
+    - ProcessSolidificationCandidates(): void
+    - ComputeItemLocalZ(item: DroppedItem, terrainManager: TerrainManager): int
+    - ResolveTerrainManager(): TerrainManager
+    - IsStableForSolidification(state: ItemState): bool
+    - TrySolidifyItem(item: DroppedItem, terrainManager: TerrainManager, state: ItemState): bool
+    - TryFindSolidificationTarget(item: DroppedItem, terrainManager: TerrainManager, state: ItemState, target: out SolidificationCandidate): bool
+    - TryReserveSolidificationCell(item: DroppedItem, state: ItemState, key: VoxelCellKey): bool
+    - IsReservationActive(reservation: SolidificationReservation): bool
+    - ReleaseSolidificationReservation(item: DroppedItem): void
+    - ClearReservationOnState(item: DroppedItem, key: VoxelCellKey): void
+    - SaveItems(): void
+    - PrepareItemLoading(): void
+    + LoadItemsInChunk(chunkPosition: Vector3Int): void
+    - SetDroppedItemConstraints(itemRigidbody: Rigidbody): void
+  }
+  enum "DroppedItemManager.DropState" as DroppedItemManager_DropState <<nested>> {
+    Dynamic
+    Settling
+    Anchored
+    Invalidated
+    Solidified
+  }
+  class "DroppedItemManager.ItemState" as DroppedItemManager_ItemState <<nested>>
+  class "DroppedItemManager.SolidificationCandidate" as DroppedItemManager_SolidificationCandidate <<struct, nested>>
+  class "DroppedItemManager.SolidificationReservation" as DroppedItemManager_SolidificationReservation <<nested>>
+  enum "DroppedItemManager.WakeReason" as DroppedItemManager_WakeReason <<nested>> {
+    Manual
+    MiningPreWake
+    Force
+    SupportLost
+    Pickup
+    Pool
+    Load
+  }
+  class "DroppedItemOutline" as DroppedItemOutline <<MonoBehaviour>> {
+    - Awake(): void
+    - OnEnable(): void
+    - OnValidate(): void
+    - Update(): void
+    - MoveIntensityToward(current: float, target: float, dt: float): float
+    - EnsureOutlineRenderer(): void
+    - SyncOutlineMesh(): void
+    - {static} GetSharedOutlineMaterial(): Material
+    - IsVoxelMovingTooFast(): bool
+    - ComputePlayerInputMultiplier(): float
+    - {static} ResolvePlayerController(): PlayerController
+    - ApplyToMaterial(): void
+  }
+  class "MiningInfo" as MiningInfo <<struct>> {
+    + {static} Directional(sourcePoint: Vector3, direction: Vector3, force: float): MiningInfo
+    + {static} Explosive(sourcePoint: Vector3, force: float): MiningInfo
+    + {static} ArcSwing(sourcePoint: Vector3, isFacingRight: bool, force: float): MiningInfo
+  }
+  enum "MiningType" as MiningType {
+    Directional
+    ArcSwing
+    Explosive
+  }
+}
+
+package "Mining.Mining.Tools" {
+  class "MaterialSound" as MaterialSound
+  abstract class "MiningModule" as MiningModule <<ScriptableObject, abstract>> {
+    + {abstract} Execute(user: GameObject): void
+  }
+  abstract class "MiningTool" as MiningTool <<ScriptableObject, abstract>> {
+    + GetMiningSound(materialType: MaterialType): AudioClip
+    + InstantiateBehaviour(parent: Transform): MiningToolBehaviour
+    - OnValidate(): void
+  }
+  abstract class "MiningToolBehaviour" as MiningToolBehaviour <<MonoBehaviour, abstract>> {
+    + BindTool(tool: MiningTool): void
+    + OnEquip(user: GameObject): void
+    + OnUnequip(): void
+    + SetRole(role: ToolActionRole): void
+    + SetDigger(digger: Digger): void
+    + SetToolAnimator(animator: Animator): void
+    + {abstract} Use(direction: Vector3, playerController: PlayerController): void
+    + UpdateAim(direction: Vector3): void
+    # {abstract} RenderForDirection(direction: Vector3): void
+    # BeginUseDisplay(): void
+    # EndUseDisplay(): void
+    - ApplyVisibilityForCurrentRole(): void
+    - SetRenderersVisible(visible: bool): void
+    # PlayMiningSound(): void
+  }
+}
+
+package "Mining.Mining.Tools.Dynamite" {
+  class "Dynamite" as Dynamite
+  class "DynamiteMiningModule" as DynamiteMiningModule {
+    + Execute(user: GameObject): void
+  }
+  class "DynamiteProjectile" as DynamiteProjectile <<MonoBehaviour>> {
+    - Start(): void
+    + SetBehaviour(b: DynamiteToolBehaviour): void
+    - Explode(): void
+    - PerformMining(): void
+    - PlayExplosionSound(hitBlocks: HashSet<Block>, destroyedVoxelCount: int): void
+    - OnDestroy(): void
+    - OnDrawGizmos(): void
+  }
+  class "DynamiteToolBehaviour" as DynamiteToolBehaviour {
+    + OnEquip(user: GameObject): void
+    + Use(direction: Vector3, playerController: PlayerController): void
+    - {static} SetProjectileCollisionLayer(projectile: GameObject): void
+    # RenderForDirection(direction: Vector3): void
+    - EndSubUseDisplay(): void
+    - ComputeBallisticDirection(user: GameObject, pc: PlayerController): Vector3
+    - CalculateBallisticVelocity(horizontalDistance: float, verticalDistance: float, gravityValue: float): Vector3
+    + PerformExplosionMining(explosionPosition: Vector3, center: Vector3, size: Vector3, damage: int, force: float): Cysharp.Threading.Tasks.UniTask<(System.Collections.Generic.HashSet<Block> hitBlocks, int destroyedVoxelCount)>
+  }
+}
+
+package "Mining.Mining.Tools.Pickaxe" {
+  class "Pickaxe" as Pickaxe
+  class "PickaxeMiningModule" as PickaxeMiningModule {
+    + Execute(user: GameObject): void
+  }
+  class "PickaxeToolBehaviour" as PickaxeToolBehaviour {
+    + OnEquip(user: GameObject): void
+    + Use(direction: Vector3, playerController: PlayerController): void
+    + UpdateAim(direction: Vector3): void
+    # RenderForDirection(direction: Vector3): void
+    + ExecuteDigFromAnimation(): void
+    + OnMineAnimationEnd(): void
+    + OpenBufferWindow(): void
+    - UpdateToolRotation(direction: Vector3): void
+    - OnDrawGizmos(): void
+  }
+}
+
+package "Mining.Player" {
+  class "MiningToolsController" as MiningToolsController <<MonoBehaviour>> {
+    - OnEnable(): void
+    - OnDisable(): void
+    - ResolveToolInventory(): void
+    - InitializeToolInventoryFromLegacySettings(): void
+    - BuildFallbackToolList(): List<MiningTool>
+    - {static} AddToolIfMissing(tools: List<MiningTool>, tool: MiningTool): void
+    - SubscribeToToolInventory(): void
+    - UnsubscribeFromToolInventory(): void
+    - HandleToolInventoryChanged(): void
+    - SyncEquippedToolsFromInventory(): void
+    - Awake(): void
+    + UseMainMineTool(user: GameObject, direction: Vector3): void
+    + UseSubMineTool(user: GameObject, direction: Vector3): void
+    + UpdateRotation(direction: Vector3): void
+    - UpdateToolRotation(direction: Vector3): void
+    + GetCurrentToolTriggerName(): string
+    + GetCurrentToolStateName(): string
+    + SetMainTool(tool: MiningTool): void
+    + SetSubTool(tool: MiningTool): void
+    + BindMainSlot(slotId: string): bool
+    + BindSubSlot(slotId: string): bool
+    + MoveToolSlot(fromSlotId: string, toSlotId: string, swapIfOccupied: bool): bool
+    + SwapToolSlots(firstSlotId: string, secondSlotId: string): bool
+    + AddToolSlot(tool: MiningTool): ToolSlot
+    + RemoveToolSlot(slotId: string): bool
+    + ClearToolSlot(slotId: string): bool
+    - GetOrCreateBehaviour(tool: MiningTool, cache: Dictionary<MiningTool, MiningToolBehaviour>): MiningToolBehaviour
+    + EquipMain(tool: MiningTool, user: GameObject): void
+    + EquipSub(tool: MiningTool, user: GameObject): void
+    - GetEnhancementTargetTools(): List<MiningTool>
+    + ApplyEnhancements(): void
+    - ValidateFacilityUpgradeCatalog(): bool
+    - ResetMiningModuleStats(module: MiningModule): void
+    - ApplyEnhancementToModule(module: MiningModule, enhancement: Enhancement, level: int): void
+    - ApplyModifier(stat: Stat, enhancement: Enhancement, level: int): void
+  }
+  class "PlayerController" as PlayerController <<MonoBehaviour>> {
+    + ScreenToWorldPoint(screenPosition: Vector2, distance: float): Vector3
+    + GetMouseWorldPosition(distance: float): Vector3
+    - Awake(): void
+    - OnValidate(): void
+    - OnEnable(): void
+    - OnDisable(): void
+    - OnDestroy(): void
+    - Update(): void
+    - FixedUpdate(): void
+    - OnMainMine(context: InputAction.CallbackContext): void
+    - OnSubMine(context: InputAction.CallbackContext): void
+    - IsPointerOverNonMineableUI(): bool
+    - OnCollisionEnter(collision: Collision): void
+    - OnCollisionExit(collision: Collision): void
+    - PickupRetryAsync(cancellationToken: CancellationToken): UniTask
+    - TryPickupItem(itemObject: GameObject): void
+    - UpdateScoreText(): void
+    - UpdateDepthText(): void
+    - UpdateInventoryUI(): void
+    - UpdateInventoryCapacityUI(): void
+    - GetFluidSubmersionRatio(): float
+    - GetFluidResistanceFactor(fluidSubmersion: float): float
+    - ResolveFluidResistanceCollider(): Collider
+    - {static} GetFluidSampleLerp(index: int, sampleCount: int): float
+    - UpdateConstraints(): void
+    - OnInventoryTotalCountChanged(newTotal: int): void
+    - OnInventoryFullStateChanged(isFull: bool): void
+    + SetToolAnimationType(toolId: int): void
+    + TriggerMineAnimation(direction: Vector3): void
+  }
+  class "PlayerInventory" as PlayerInventory {
+    + CanAddItem(itemData: VoxelItemData): bool
+    + AddItem(itemData: VoxelItemData): bool
+    + TryPeekNextItem(itemData: out VoxelItemData): bool
+    + TryRemoveNextItem(itemData: out VoxelItemData): bool
+    + TryDrainAllItems(itemData: out List<VoxelItemData>): bool
+    + GetTotalItemCount(): int
+    + GetResourceCount(type: ResourceType): int
+    + GetAllResources(): Dictionary<ResourceType, int>
+    + IsEmpty(): bool
+    + IsFull(): bool
+    + Clear(): void
+    - NotifyInventoryFullStateChanged(isFull: bool): void
+    + ToString(): string
+  }
+  class "PlayerVisualsController" as PlayerVisualsController <<MonoBehaviour>> {
+    - Awake(): void
+    + SetToolAnimationType(toolId: int): void
+    + TriggerMineAnimation(toolStateName: string, direction: Vector3): void
+    + OnMineAnimationEnd(): void
+    - GetAnimationDirection(direction: Vector3): Vector2
+    + UpdateMovementAnimation(moveDirection: Vector3): void
+  }
+  enum "ToolActionRole" as ToolActionRole {
+    Main
+    Sub
+  }
+  class "ToolInventory" as ToolInventory <<MonoBehaviour>> {
+    + AddSlot(tool: MiningTool, requestedSlotId: string): ToolSlot
+    + RemoveSlot(slotId: string): bool
+    + ClearSlot(slotId: string): bool
+    + EnsureInitializedFromTools(tools: IList<MiningTool>, preferredMainTool: MiningTool, preferredSubTool: MiningTool): void
+    + GetToolInSlot(slotId: string): MiningTool
+    + SetSlotTool(slotId: string, tool: MiningTool): bool
+    + MoveTool(fromSlotId: string, toSlotId: string, swapIfOccupied: bool): bool
+    + SwapSlots(firstSlotId: string, secondSlotId: string): bool
+    + BindSlotToRole(slotId: string, role: ToolActionRole): bool
+    + GetAllTools(): List<MiningTool>
+    - TryLoadFromGameData(): bool
+    - SaveToGameData(): void
+    - AppendMissingTools(tools: IList<MiningTool>): bool
+    - EnsureRoleBindings(preferredMainTool: MiningTool, preferredSubTool: MiningTool): bool
+    - EnsureSlotIds(): bool
+    - FindSlot(slotId: string): ToolSlot
+    - HasSlot(slotId: string): bool
+    - FindSlotIdForTool(tool: MiningTool): string
+    - FindFirstSlotIdExcept(excludedSlotId: string): string
+    - EnsureSlotList(): void
+    - BuildNextAvailableSlotId(): string
+    - {static} BuildDefaultSlotId(index: int): string
+  }
+  class "ToolInventoryUI" as ToolInventoryUI <<MonoBehaviour>> {
+    - Awake(): void
+    - OnEnable(): void
+    - OnDisable(): void
+    + HandleSlotClicked(slotId: string): void
+    + BindSlotToMain(slotId: string): void
+    + BindSlotToSub(slotId: string): void
+    + AddEmptySlot(): void
+    + ClearSlot(slotId: string): void
+    + RemoveSlot(slotId: string): void
+    + Rebuild(): void
+    + Refresh(): void
+    - ResolveReferences(): void
+    - SubscribeToInventory(): void
+    - UnsubscribeFromInventory(): void
+    - ClearViews(): void
+  }
+  class "ToolSlot" as ToolSlot {
+    + ToolSlot(slotId: string, tool: MiningTool)
+    + SetSlotId(newSlotId: string): void
+    + SetTool(newTool: MiningTool): void
+  }
+  class "ToolSlotUI" as ToolSlotUI <<MonoBehaviour>> {
+    + Initialize(onSlotClicked: Action<string>, onBindMainClicked: Action<string>, onBindSubClicked: Action<string>, onClearClicked: Action<string>, onRemoveClicked: Action<string>): void
+    + Render(slot: ToolSlot, selected: bool, isMainSlot: bool, isSubSlot: bool): void
+    - HandleSlotClicked(): void
+    - HandleBindMainClicked(): void
+    - HandleBindSubClicked(): void
+    - HandleClearClicked(): void
+    - HandleRemoveClicked(): void
+    - {static} BuildRoleText(isMainSlot: bool, isSubSlot: bool): string
+  }
+}
+
+package "Mining.ShopScene" {
+  class "BackToOverWorld" as BackToOverWorld <<MonoBehaviour>> {
+    + ChangeOverWorld(): void
+  }
+  class "BuyManager" as BuyManager <<MonoBehaviour>> {
+    + setmaterials(materialrequest: List<RequestMaterial>): void
+    - Start(): void
+    + ChangeRequest(): void
+    + BuyClick(): void
+    - SetRequest(typecheck: bool, request: GameObject, amount: int, type: ResourceType): void
+  }
+  class "ContentManager" as ContentManager <<MonoBehaviour>> {
+    - Start(): void
+  }
+  class "FacillityToggle" as FacillityToggle <<MonoBehaviour>> {
+    - Start(): void
+  }
+  class "ItemData" as ItemData <<ScriptableObject>>
+  class "ItemDataLoader" as ItemDataLoader <<MonoBehaviour>> {
+    - Awake(): void
+  }
+  class "ItemUI" as ItemUI <<MonoBehaviour>> {
+    + SetItem(item: ItemData, product: TMPro.TMP_Text, content: TMPro.TMP_Text, buymanager: BuyManager): void
+    + ChangeInfo(): void
+  }
+  enum "ItemUpdateType" as ItemUpdateType {
+    factorial
+    nochange
+    multiply
+    fibonacci
+  }
+  class "RequestMaterial" as RequestMaterial {
+    + correctamount(type: ItemUpdateType, level: int): int
+    - updatetypenum(type: ItemUpdateType, level: int): int
+    - fibonacci(level: int): int
+    - factorialnum(level: int): int
+  }
+  class "RequestTextManager" as RequestTextManager <<MonoBehaviour>> {
+    + TextSet(amount: int, type: ResourceType): void
+  }
+}
+
+package "Mining.ShopScene.Popup" {
+  class "MaterialCheck" as MaterialCheck <<MonoBehaviour>> {
+    + requestchange(materialrequest: List<RequestMaterial>, candidateitem: ItemData): void
+    - Awake(): void
+    - SetRequest(typecheck: bool, request: GameObject, amount: int, textlist: List<PopMaterialTextManager>): void
+  }
+  class "PopBuyManager" as PopBuyManager <<MonoBehaviour>> {
+    + setitem(candidate: ItemData): void
+    + buyitem(): void
+    + boolbuyable(buyable: bool): void
+    + buyable(item: ItemData, count: int): bool
+    + SetMaterialrequest(item: ItemData): void
+  }
+  class "PopMaterialTextManager" as PopMaterialTextManager <<MonoBehaviour>> {
+    + GetParAmount(paramount: int): void
+    + UpdateText(count: int): void
+  }
+  class "PopupCounter" as PopupCounter <<MonoBehaviour>> {
+    + getcount(): int
+    + countchange(number: int): void
+    - OnEnable(): void
+    - Update(): void
+  }
+}
+
+package "Mining.Storage" {
+  class "StorageManager" as StorageManager <<MonoBehaviour>> {
+    - Awake(): void
+    + AddResources(resourcesToAdd: Dictionary<ResourceType, int>): void
+    + AddResource(type: ResourceType, amount: int): void
+    + CanSpendResources(resourcesToSpend: Dictionary<ResourceType, int>): bool
+    + TrySpendResources(resourcesToSpend: Dictionary<ResourceType, int>): bool
+    + GetResourceAmount(type: ResourceType): int
+    + GetAllStoredResources(): Dictionary<ResourceType, int>
+    - ValidateSpendRequest(resourcesToSpend: Dictionary<ResourceType, int>): bool
+  }
+}
+
+package "Mining.Terrain" {
+  class "BlockGenerator" as BlockGenerator <<MonoBehaviour>> {
+    + Initialize(manager: TerrainManager, seed: int): void
+    + ResetRandom(seed: int): void
+    + GenerateBlockPattern(data: BlockGenerationData): bool[, , ]
+    - GeneratePlayPlanePattern(data: BlockGenerationData, pattern: bool[, , ]): bool[, , ]
+    - GenerateCustomPattern(data: BlockGenerationData, pattern: bool[, , ]): bool[, , ]
+    + IsVoxelSolid(generationType: TerrainGenerationType, voxelsPerBlock: int, blockSize: float, blockPosition: Vector3Int, localPosition: Vector3Int): bool
+    + CountActiveVoxels(pattern: bool[, , ]): int
+    + CalculatePatternDensity(pattern: bool[, , ]): float
+    + VisualizePattern(pattern: bool[, , ], layer: int): string
+    + ClonePattern(source: bool[, , ]): bool[, , ]
+    + GetDebugInfo(): string
+    + GetBlockDataForPosition(blockPosition: Vector3Int): BlockData
+    - SelectEntryForRule(rule: TerrainGenerationRule, blockPosition: Vector3Int, ruleIndex: int): TerrainGenerationEntry
+    - GetDeterministicRandom01(blockPosition: Vector3Int, ruleIndex: int): float
+  }
+  class "BlockGenerator.BlockGenerationData" as BlockGenerator_BlockGenerationData <<nested>> {
+    + BlockGenerationData(type: TerrainGenerationType, vPerBlock: int, bSize: float, bPos: Vector3Int)
+  }
+  class "BlockManager" as BlockManager <<MonoBehaviour>> {
+    + Initialize(manager: TerrainManager): void
+    + CreateBlock(blockPos: Vector3Int, worldPos: Vector3, blockSize: float, voxelsPerBlock: int, parent: Transform): BlockInstanceData
+    + EnsureBlockExists(position: Vector3Int, parent: Transform): BlockInstanceData
+    + GetBlockAt(position: Vector3Int): BlockInstanceData
+    + GetAllBlocks(): List<BlockInstanceData>
+    + GetActiveBlockCount(): int
+    + DestroyBlock(position: Vector3Int): void
+    + SetBlockActive(position: Vector3Int, active: bool): void
+    + ActivateAndRefreshBlock(position: Vector3Int): bool
+    + ClearAllBlocks(): void
+    + GetDebugInfo(): string
+    - OnDestroy(): void
+  }
+  class "BlockManager.BlockInstanceData" as BlockManager_BlockInstanceData <<nested>> {
+    + BlockInstanceData(pos: Vector3Int, worldPos: Vector3)
+  }
+  class "Chunk" as Chunk <<MonoBehaviour>> {
+    + Initialize(position: Vector3Int): void
+  }
+  class "ChunkManager" as ChunkManager <<MonoBehaviour>> {
+    + Initialize(manager: TerrainManager): void
+    - Start(): void
+    - OnDestroy(): void
+    - Update(): void
+    + GenerateTerrain(): void
+    - UpdateChunks(): void
+    - ProcessBlockGenerationQueue(cancellationToken: CancellationToken): UniTask
+    - GenerateSingleBlock(blockPos: Vector3Int): void
+    + GetOrCreateChunkTransform(blockPos: Vector3Int): Transform
+    - GetOrCreateChunk(blockPos: Vector3Int): Chunk
+    - GetOrCreateChunkFromPosition(chunkPos: Vector3Int): Chunk
+    + ClearChunks(): void
+    + GetChunkPositionFromWorld(worldPosition: Vector3): Vector3Int
+    + GetChunkPositionFromBlock(blockPosition: Vector3Int): Vector3Int
+    + IsBlockGenerationSkipped(blockPosition: Vector3Int): bool
+    - GetBlockPositionsInChunk(chunkPos: Vector3Int): List<Vector3Int>
+    - GetChunkStartBlockPosition(chunkPos: Vector3Int): Vector3Int
+    - GetHorizontalChunkOriginOffset(): int
+    - WorldToBlockCoordinate(worldAxis: float, blockSize: float): int
+    - GetChunkCenterWorldPosition(chunkPos: Vector3Int): Vector3
+    - GetBlockWorldPosition(blockPos: Vector3Int): Vector3
+    - LoadItemsWithDelay(chunkPos: Vector3Int): UniTask
+  }
+  class "SolidificationCandidateIndex" as SolidificationCandidateIndex {
+    + Initialize(voxelManager: VoxelManager, settings: TerrainSettings): void
+    + Clear(): void
+    + RemoveBlock(blockPosition: Vector3Int): void
+    + RebuildBlock(blockPosition: Vector3Int): void
+    + RefreshCellAndNeighbors(blockPosition: Vector3Int, localPosition: Vector3Int): void
+    + FindNearestCandidates(worldPosition: Vector3, maxResults: int, maxBlockRadius: int, requiredLocalZ: int?): List<CandidateHit>
+    + GetCandidateCount(): int
+    - EvaluateCell(blockPosition: Vector3Int, localPosition: Vector3Int): void
+    - ReEvaluateNeighborBoundary(blockPosition: Vector3Int): void
+    - ReEvaluateBoundaryFace(blockPosition: Vector3Int, fixedX: int, fixedY: int, fixedZ: int, voxelsPerBlock: int): void
+  }
+  class "SolidificationCandidateIndex.CandidateHit" as SolidificationCandidateIndex_CandidateHit <<struct, nested>>
+  class "SolidifiedVoxelRecord" as SolidifiedVoxelRecord <<struct>>
+  class "TerrainChangeBatch" as TerrainChangeBatch <<sealed>> {
+    + TerrainChangeBatch(version: int, reason: TerrainChangeReason)
+  }
+  enum "TerrainChangeReason" as TerrainChangeReason {
+    Unknown
+    Digging
+    Explosion
+    Solidification
+    Restore
+  }
+  enum "TerrainGenerationType" as TerrainGenerationType {
+    PlayPlane
+    Custom
+  }
+  class "TerrainManager" as TerrainManager <<MonoBehaviour>> {
+    - Awake(): void
+    - Update(): void
+    - InitializeHierarchicalSystem(): void
+    + ClearTerrain(): void
+    + RegenerateTerrain(): void
+    + ShowDebugInfo(): void
+    - OnValidate(): #if UNITY_EDITOR void
+  }
+  class "TerrainSettings" as TerrainSettings
+  class "Voxel" as Voxel {
+    + Voxel(blockPos: Vector3Int, localPos: Vector3Int, worldPos: Vector3, hp: int, type: VoxelType, data: BlockData, useTexture1: bool)
+    + SetBlockData(data: BlockData): void
+    + ApplyCellData(data: VoxelCellData, resolvedBlockData: BlockData): void
+  }
+  class "VoxelCellData" as VoxelCellData <<struct>> {
+    + VoxelCellData(voxel: Voxel)
+  }
+  class "VoxelCellKey" as VoxelCellKey <<struct>> {
+    + VoxelCellKey(blockPosition: Vector3Int, localVoxelPosition: Vector3Int)
+    + Equals(other: VoxelCellKey): bool
+    + Equals(obj: object): bool
+    + GetHashCode(): int
+  }
+  class "VoxelManager" as VoxelManager <<MonoBehaviour>> {
+    + Initialize(manager: TerrainManager): void
+    + BeginTerrainChange(reason: TerrainChangeReason): void
+    + EndTerrainChangeAndDispatch(): void
+    + TryGetVoxelCellAtWorldPosition(worldPosition: Vector3, key: out VoxelCellKey): bool
+    + IsVoxelCellSolid(key: VoxelCellKey): bool
+    + GetVoxelCellWorldBounds(key: VoxelCellKey): Bounds
+    + RegisterVoxelsFromPattern(pattern: bool[, , ], blockPos: Vector3Int, blockWorldPos: Vector3, data: BlockData, blockSize: float, voxelsPerBlock: int): void
+    + CalculateWorldPosition(blockWorldPos: Vector3, localPos: Vector3Int, blockSize: float, voxelsPerBlock: int): Vector3
+    + CalculateWorldPosition(blockPos: Vector3Int, localPos: Vector3Int): Vector3
+    - GetBlockWorldPosition(blockPos: Vector3Int): Vector3
+    - ApplyPersistedVoxelOverrides(blockPos: Vector3Int, blockWorldPos: Vector3, defaultData: BlockData, blockSize: float, voxelsPerBlock: int): void
+    - ApplyPersistedDestroyedState(blockPos: Vector3Int): void
+    - IsLocalPositionInBounds(localPos: Vector3Int, voxelsPerBlock: int): bool
+    - DetermineVoxelType(blockPos: Vector3Int, localPos: Vector3Int): VoxelType
+    + GetVoxelAt(blockPos: Vector3Int, localPos: Vector3Int): Voxel
+    + GetVoxelIncludingInactive(blockPos: Vector3Int, localPos: Vector3Int): Voxel
+    + CountVoxelsInBlock(blockPos: Vector3Int): int
+    - RecordSolidCellChange(blockPos: Vector3Int, localPos: Vector3Int, wasSolid: bool, isSolid: bool, reason: TerrainChangeReason): void
+    - DispatchTerrainChange(builder: TerrainChangeBuilder): void
+    + DamageVoxel(blockPos: Vector3Int, localPos: Vector3Int, damage: int): bool
+    + DestroyVoxel(blockPos: Vector3Int, localPos: Vector3Int): bool
+    + RestoreVoxel(blockPos: Vector3Int, localPos: Vector3Int): bool
+    + SetVoxelCell(blockPos: Vector3Int, localPos: Vector3Int, data: BlockData, active: bool, healthOverride: int, useTexture1: bool): bool
+    + IsVoxelCellEmpty(blockPos: Vector3Int, localPos: Vector3Int): bool
+    + HasActiveAdjacentVoxel(blockPos: Vector3Int, localPos: Vector3Int): bool
+    + NormalizeVoxelPosition(blockPos: ref Vector3Int, localPos: ref Vector3Int): bool
+    - NormalizeAxis(blockValue: ref int, localValue: ref int, voxelsPerBlock: int): void
+    + GetVoxelsInBlock(blockPos: Vector3Int): List<Voxel>
+    + GetActiveVoxelCount(): int
+    + GetVoxelTypeStatistics(): Dictionary<VoxelType, int>
+    + ClearVoxelsInBlock(blockPos: Vector3Int): void
+    + ClearAllVoxels(): void
+    + GetDebugInfo(): string
+    + SyncPersistenceForBlock(blockPos: Vector3Int): void
+    - PersistVoxelOverride(voxel: Voxel): void
+    - PersistOverrideIfNeeded(voxel: Voxel): void
+    - ResolveBlockData(blockDataName: string, fallback: BlockData): BlockData
+    - OnDestroy(): void
+  }
+  class "VoxelManager.TerrainChangeBuilder" as VoxelManager_TerrainChangeBuilder <<sealed, nested>> {
+    + TerrainChangeBuilder(version: int, reason: TerrainChangeReason)
+  }
+  enum "VoxelType" as VoxelType {
+    Standard
+    Reinforced
+    Fragile
+    Unbreakable
+    Special
+  }
+}
+
+package "Mining.Terrain.Block" {
+  class "Block" as Block <<MonoBehaviour>> {
+    - Awake(): void
+    + Initialize(manager: VoxelManager, position: Vector3Int, voxelsPerBlock: int, worldBlockSize: float): void
+    + GetRepresentativeBlockData(): BlockData
+    + TakeDamage(localPos: Vector3, damage: int): void
+    + DigVoxels(diggingArea: BoxCollider, damagePerHit: int, changeReason: TerrainChangeReason): UniTask<int>
+    + GenerateMesh(): void
+    - UpdateMaterials(submeshBlockData: List<BlockData>): void
+    - {static} GetOrCreateMaterial(data: BlockData): Material
+  }
+  class "BlockDiggingSystem" as BlockDiggingSystem {
+    + Initialize(manager: VoxelManager, block: Block, threshold: float, frameDelay: int, vPerBlock: int, position: Vector3Int, voxelWorldSize: float, textureExtractor: VoxelTextureExtractor): void
+    + TakeDamage(localPos: Vector3, damage: int): void
+    + DigVoxels(diggingArea: BoxCollider, damagePerHit: int, changeReason: TerrainChangeReason): UniTask<int>
+    - DelayFrames(): UniTask
+    - ProcessVoxel(x: int, y: int, z: int, diggingArea: BoxCollider, sampleResolution: int, totalSamples: int, worldToLocalMatrix: Matrix4x4, diggingAreaWorldToLocal: Matrix4x4, halfSize: Vector3, center: Vector3, dropActions: List<System.Action>, damagePerHit: int, destructionSound: ref AudioClip, destructionSoundVolume: ref float): bool
+  }
+  class "BlockItemDropper" as BlockItemDropper <<static>> {
+    + {static} DropItem(position: Vector3, voxelBlockData: BlockData, useTexture1: bool, voxelX: int, voxelY: int, voxelZ: int, voxelsPerBlock: int, voxelWorldSize: float, textureExtractor: VoxelTextureExtractor): void
+    - {static} SetupDroppedItem(item: GameObject, data: BlockData, useTexture1: bool, voxelX: int, voxelY: int, voxelZ: int, voxelsPerBlock: int, voxelWorldSize: float, textureExtractor: VoxelTextureExtractor): void
+    - {static} ApplyVoxelTextureToDroppedItem(item: GameObject, data: BlockData, useTexture1: bool, voxelX: int, voxelY: int, voxelZ: int, voxelsPerBlock: int, textureExtractor: VoxelTextureExtractor): void
+    - {static} ApplyDefaultMaterial(item: GameObject, data: BlockData): void
+    - {static} SetDroppedItemConstraints(itemRigidbody: Rigidbody): void
+  }
+  class "BlockMeshGenerator" as BlockMeshGenerator {
+    + GenerateMesh(block: Block, voxelManager: VoxelManager, blockPosition: Vector3Int, voxelsPerBlock: int, initialColor: Color, mesh: Mesh, collider: MeshCollider): GenerationResult
+    - IsVoxelFaceExposed(voxelManager: VoxelManager, blockPosition: Vector3Int, x: int, y: int, z: int, voxelsPerBlock: int): bool
+    - AddFace(pos: Vector3, normal: Vector3, verts: List<Vector3>, tris: List<int>, uvs: List<Vector2>, colors: List<Color>, faceColor: Color, reverse: bool, voxelX: int, voxelY: int, voxelZ: int, voxelsPerBlock: int): void
+    - GetVertexOffset(normal: Vector3, index: int): Vector3
+  }
+  class "BlockMeshGenerator.GenerationResult" as BlockMeshGenerator_GenerationResult <<struct, nested>>
+  class "VoxelFaceTextureInfo" as VoxelFaceTextureInfo <<struct>> {
+    + VoxelFaceTextureInfo(normal: Vector3, uvBase: Vector2, uvSize: Vector2, texture: Texture2D, exposed: bool)
+  }
+  class "VoxelTextureExtractor" as VoxelTextureExtractor {
+    + ApplyVoxelTextureToDroppedItem(item: GameObject, voxelX: int, voxelY: int, voxelZ: int, texture1: Texture2D, texture2: Texture2D, useTexture1: bool, voxelsPerBlock: int): void
+    + GetVoxelFaceTextureInfo(voxelX: int, voxelY: int, voxelZ: int, normal: Vector3, texture1: Texture2D, texture2: Texture2D, useTexture1: bool, voxelsPerBlock: int): VoxelFaceTextureInfo
+    - GetAllVoxelFaceTextureInfo(voxelX: int, voxelY: int, voxelZ: int, texture1: Texture2D, texture2: Texture2D, useTexture1: bool, voxelsPerBlock: int): List<VoxelFaceTextureInfo>
+    - ApplyDefaultMaterial(renderer: Renderer): void
+  }
+}
+
+package "Mining.Terrain.TerrainData" {
+  class "BiomeData" as BiomeData <<ScriptableObject>>
+  enum "BiomeType" as BiomeType {
+    AltitudeBased
+    Overwrite
+  }
+  class "BlockData" as BlockData <<ScriptableObject>>
+  class "BlockDataManager" as BlockDataManager <<ScriptableObject>> {
+    + Initialize(): void
+    + GetBlockData(resourceType: ResourceType): BlockData
+  }
+  class "BlockDataManager.BlockDataMapping" as BlockDataManager_BlockDataMapping <<nested>>
+  enum "MaterialType" as MaterialType {
+    Stone
+    Soil
+  }
+  class "TerrainDataManager" as TerrainDataManager <<ScriptableObject>> {
+    + Initialize(): void
+    + GetBiomeData(biomeType: BiomeType): BiomeData
+    + GetBiomeForHeight(height: int): BiomeData
+    + IsBlockGenerationExcluded(blockPosition: Vector3Int): bool
+    + GetBlockDataByName(name: string): BlockData
+  }
+  class "TerrainDataManager.BiomeDataMapping" as TerrainDataManager_BiomeDataMapping <<nested>>
+  class "TerrainExclusionRegionData" as TerrainExclusionRegionData <<ScriptableObject>> {
+    + ContainsBlock(blockPosition: Vector3Int): bool
+  }
+  class "TerrainGenerationEntry" as TerrainGenerationEntry {
+    + EvaluateWeight(blockPosition: Vector3Int): float
+  }
+  enum "TerrainGenerationResultType" as TerrainGenerationResultType {
+    Block
+    Clear
+    NoOp
+  }
+  class "TerrainGenerationRule" as TerrainGenerationRule
+  enum "TerrainSpecialWeightFunction" as TerrainSpecialWeightFunction {
+    None
+    CurvedBoundarySigmoid
+    CurvedBoundaryInverseSigmoid
+  }
+  class "TerrainSpecialWeightFunctions" as TerrainSpecialWeightFunctions <<static>> {
+    + {static} Evaluate(function: TerrainSpecialWeightFunction, blockPosition: Vector3Int, k: float): float
+    - {static} EvaluateCurvedBoundarySigmoid(x: float, y: float, k: float): float
+    - {static} EvaluateCurvedBoundaryInverseSigmoid(x: float, y: float, k: float): float
+    - {static} EvaluateCurvedBoundarySigmoidRaw(x: float, y: float, k: float): float
+    - {static} ApplyThreshold(value: float): float
+  }
+}
+
+package "Overworld" {
+  class "OverWorldChangeScene" as OverWorldChangeScene <<MonoBehaviour>> {
+    - Awake(): void
+    + SelectMineplace(): void
+    + SelectWorkshop(): void
+    + SelectGarage(): void
+    + SelectWorkshopLegacyShopScene(): void
+    + SelectGarageLegacyShopScene(): void
+    - OpenFacility(facility: FacilityDefinition, fieldName: string): void
+    - OpenLegacyShopScene(mode: ShopStateManager.ShopMode): void
+    - EnsureConfigured(): bool
+    - ValidateRequiredReferences(): bool
+    - ValidateSceneName(sceneName: string, fieldName: string): bool
+    - ValidateFacility(facility: FacilityDefinition, fieldName: string): bool
+  }
+  class "OverworldPassageController" as OverworldPassageController <<MonoBehaviour>> {
+    - Awake(): void
+    + OnPassageAreaTrigger(areaKind: PassageAreaKind, other: Collider, entered: bool): void
+    - EnterOnArea(other: Collider): void
+    - ExitOnArea(other: Collider): void
+    - EnterOffArea(other: Collider): void
+    - IsCurrentPlayer(other: Collider): bool
+    - Update(): void
+    - StartPassage(ignoreCurrentGateOverlap: bool): void
+    - UpdatePassage(): void
+    - CapturePassageBounds(): void
+    - DisablePlayerCollision(): void
+    - RestorePlayerCollision(): void
+    - ConstrainPassageMovement(): bool
+    - StopBlockedVelocity(stopX: bool, stopY: bool): void
+    - CompletePassage(): void
+    + OnBeforeContentSceneUnload(nextSceneName: string): void
+    + OnAfterContentSceneLoad(previousSceneName: string): void
+    - StartPassageFromSceneTransition(previousSceneName: string): void
+    - TryBeginPassageTransition(): bool
+    - TryPlacePlayerFromPassageTransition(previousSceneName: string, player: Transform): bool
+    - GetTransitionDirection(): float
+    - ShouldCompletePassage(): bool
+    - ShouldCompleteFromArrivalGateOverlap(): bool
+    - IsInTransitionGateArea(): bool
+    - DidCrossTransitionGateArea(): bool
+    - IsPastTransitionSideOfGate(position: Vector3): bool
+    - IsInOffArea(): bool
+    - IsInOnArea(): bool
+    - {static} ContainsPoint2D(bounds: Bounds, point: Vector3): bool
+    - StorePreviousPassagePosition(): void
+    - {static} SegmentIntersectsBounds2D(bounds: Bounds, start: Vector3, end: Vector3): bool
+    - {static} ClipSegmentAxis(direction: float, distance: float, tMin: ref float, tMax: ref float): bool
+    - ConfigureAreaTriggers(): void
+    - ValidateRequiredReferences(): bool
+    - ValidateReference(reference: UnityEngine.Object, fieldName: string): bool
+    - DeactivatePassage(): void
+    - ClearState(): void
+    - OnDisable(): void
+    - PrepareForSceneTransition(): void
+  }
+  class "OverworldPlayerController" as OverworldPlayerController <<MonoBehaviour>> {
+    - Awake(): void
+    - OnEnable(): void
+    - OnDisable(): void
+    - OnDestroy(): void
+    - FixedUpdate(): void
+    - CalculateTargetVelocity(moveDirection: Vector3): Vector3
+    - UpdateFacing(moveDirection: Vector3): void
+    - UpdateVisuals(moveDirection: Vector3): void
+    - UpdateConstraints(): void
+    - OnMovePerformed(context: InputAction.CallbackContext): void
+    - OnMoveCanceled(context: InputAction.CallbackContext): void
+  }
+  class "OverworldStaticBlockField" as OverworldStaticBlockField <<MonoBehaviour>> {
+    - Awake(): void
+    - OnDestroy(): void
+    - BuildField(): void
+    - ClearGeneratedBlocks(): void
+    - UpdateCollider(): void
+    - CreateSprite(texture: Texture2D): Sprite
+    - ValidateRequiredReferences(): bool
+  }
+  class "ShopStateManager" as ShopStateManager <<MonoBehaviour>> {
+    - Awake(): void
+  }
+  enum "ShopStateManager.ShopMode" as ShopStateManager_ShopMode <<nested>> {
+    Garage
+    Workshop
+  }
+}
+
+package "Overworld.Facilities" {
+  class "FacilityDefinition" as FacilityDefinition <<ScriptableObject>> {
+    + ValidateConfiguration(context: Object): bool
+  }
+  class "FacilityOpenButton" as FacilityOpenButton <<MonoBehaviour>> {
+    - Awake(): void
+    - OnDestroy(): void
+    + OpenConfiguredFacility(): void
+    - ValidateRequiredReferences(): bool
+  }
+  class "FacilityPanel" as FacilityPanel <<MonoBehaviour>> {
+    - Awake(): void
+    - OnDestroy(): void
+    + Initialize(owner: FacilityUIHost, facility: FacilityDefinition): bool
+    + RequestClose(): void
+    + NotifyClosing(): void
+    - HandleCloseClicked(): void
+    # ValidatePanelConfiguration(): bool
+    # OnInitialized(): void
+    # OnClosing(): void
+    - ValidateRequiredReferences(): bool
+  }
+  class "FacilityPromptView" as FacilityPromptView <<MonoBehaviour>> {
+    - Awake(): void
+    - OnDestroy(): void
+    + Bind(facility: FacilityDefinition, openRequestedCallback: Action): bool
+    + Show(): void
+    + Hide(): void
+    - HandleOpenClicked(): void
+    - InitializeRequiredReferences(): bool
+    - SetVisibility(visible: bool): void
+    - ValidateRequiredReferences(): bool
+    - DisableView(): void
+  }
+  class "FacilityTrigger" as FacilityTrigger <<MonoBehaviour>> {
+    - Awake(): void
+    - OnDisable(): void
+    - OnDestroy(): void
+    - OnTriggerEnter(other: Collider): void
+    - OnTriggerExit(other: Collider): void
+    - HandlePromptOpenRequested(): void
+    - HandlePanelOpened(openedFacility: FacilityDefinition): void
+    - HandlePanelClosed(): void
+    - ShowPromptIfAvailable(): void
+    - IsPlayerCollider(candidate: Collider): bool
+    - ValidateRequiredReferences(): bool
+  }
+  class "FacilityUIHost" as FacilityUIHost <<MonoBehaviour>> {
+    - Awake(): void
+    - OnDestroy(): void
+    + Open(facility: FacilityDefinition): bool
+    + CloseCurrentPanel(): void
+    - HandlePanelCloseRequested(panel: FacilityPanel): void
+    - BindRuntimeServices(panel: FacilityPanel, facility: FacilityDefinition): bool
+    - StoreMovementLockState(): void
+    - RestoreMovementLockState(): void
+    - SetBaseUiVisible(visible: bool): void
+    - ValidateRequiredReferences(): bool
+  }
+}
+
+package "Overworld.Facilities.Upgrades" {
+  class "FacilityResourceCost" as FacilityResourceCost {
+    + ValidateConfiguration(context: UnityEngine.Object): bool
+    + CalculateAmount(scaling: FacilityUpgradeCostScaling, currentLevel: int): int
+    - {static} CalculateMultiplier(scaling: FacilityUpgradeCostScaling, currentLevel: int): int
+    - {static} Factorial(value: int): int
+    - {static} Fibonacci(value: int): int
+  }
+  enum "FacilityType" as FacilityType {
+    Workshop
+    Garage
+  }
+  class "FacilityUpgradeCatalog" as FacilityUpgradeCatalog <<ScriptableObject>> {
+    + ValidateConfiguration(context: Object): bool
+    + GetUpgrades(facilityType: FacilityType): List<FacilityUpgradeDefinition>
+  }
+  class "FacilityUpgradeCategoryTab" as FacilityUpgradeCategoryTab <<MonoBehaviour>> {
+    - OnDestroy(): void
+    + Initialize(id: string, label: string, callback: Action<string>): bool
+    + SetSelected(selected: bool): void
+    - HandleClicked(): void
+    - ValidateRequiredReferences(): bool
+  }
+  class "FacilityUpgradeCostPreview" as FacilityUpgradeCostPreview {
+    + FacilityUpgradeCostPreview(resourceType: ResourceType, requiredAmount: int, ownedAmount: int)
+  }
+  class "FacilityUpgradeCostRow" as FacilityUpgradeCostRow <<MonoBehaviour>> {
+    + SetCost(cost: FacilityUpgradeCostPreview): bool
+    - ValidateRequiredReferences(): bool
+  }
+  enum "FacilityUpgradeCostScaling" as FacilityUpgradeCostScaling {
+    NoChange
+    MultiplyByNextLevel
+    FactorialByCurrentLevel
+    FibonacciByCurrentLevel
+  }
+  class "FacilityUpgradeDefinition" as FacilityUpgradeDefinition <<ScriptableObject>> {
+    + IsMaxLevel(currentLevel: int): bool
+    + ValidateConfiguration(context: Object): bool
+  }
+  class "FacilityUpgradePanel" as FacilityUpgradePanel {
+    + BindRuntime(service: FacilityUpgradeService): bool
+    # ValidatePanelConfiguration(): bool
+    # OnInitialized(): void
+    # OnClosing(): void
+    - SubscribeToService(): void
+    - UnsubscribeFromService(): void
+    - Rebuild(): void
+    - BuildCategoryTabs(): void
+    - SelectCategory(categoryId: string): void
+    - RefreshCategorySelection(): void
+    - RefreshUpgradeList(): void
+    - SelectUpgrade(upgrade: FacilityUpgradeDefinition): void
+    - RefreshSelection(): void
+    - RefreshUpgradeRows(): void
+    - RefreshCostRows(): void
+    - RefreshPurchaseState(): void
+    - HandlePurchaseClicked(): void
+    - HandleUpgradesChanged(): void
+    - SetNoSelection(): void
+    - SetPurchaseStatus(message: string): void
+    - ClearCreatedViews(): void
+    - ClearCategoryTabs(): void
+    - ClearUpgradeRows(): void
+    - ClearCostRows(): void
+    - ClearRootChildren(root: Transform): void
+    - ResetShopScrollPosition(): void
+    - ValidateReference(reference: Object, fieldName: string): bool
+  }
+  class "FacilityUpgradeRow" as FacilityUpgradeRow <<MonoBehaviour>> {
+    - OnDestroy(): void
+    + Initialize(upgradeDefinition: FacilityUpgradeDefinition, upgradeService: FacilityUpgradeService, toggleGroup: ToggleGroup, callback: Action<FacilityUpgradeDefinition>): bool
+    + Refresh(): void
+    + SetSelected(selected: bool): void
+    - HandleToggleChanged(isOn: bool): void
+    - ValidateRequiredReferences(): bool
+  }
+  class "FacilityUpgradeService" as FacilityUpgradeService <<MonoBehaviour>> {
+    - Awake(): void
+    - OnEnable(): void
+    - OnDisable(): void
+    + ValidateConfiguration(context: UnityEngine.Object): bool
+    + GetUpgrades(facilityType: FacilityType): List<FacilityUpgradeDefinition>
+    + GetLevel(upgrade: FacilityUpgradeDefinition): int
+    + GetCostPreview(upgrade: FacilityUpgradeDefinition, purchaseCount: int): List<FacilityUpgradeCostPreview>
+    + CanPurchase(upgrade: FacilityUpgradeDefinition, purchaseCount: int): bool
+    + TryPurchase(upgrade: FacilityUpgradeDefinition, purchaseCount: int): bool
+    + CalculateTotalCost(upgrade: FacilityUpgradeDefinition, purchaseCount: int): Dictionary<ResourceType, int>
+    - HandleFacilityUpgradesChanged(): void
+    - EnsureReady(): bool
+    - ValidateUpgrade(upgrade: FacilityUpgradeDefinition): bool
+    - ValidatePurchaseRequest(upgrade: FacilityUpgradeDefinition, purchaseCount: int, logMaxLevelErrors: bool): bool
+  }
+  interface "IFacilityPanelRuntimeBinding" as IFacilityPanelRuntimeBinding {
+    + BindRuntime(upgradeService: FacilityUpgradeService): bool
+  }
+}
+
+package "Title" {
+  class "Title_Button_System" as Title_Button_System <<MonoBehaviour>> {
+    + SelectStartKey(): void
+    + SelectWebsiteKey(): void
+    + SelectFinishKey(): void
+  }
+  class "TitleBackgroundController" as TitleBackgroundController <<MonoBehaviour>> {
+    - Start(): void
+    - Update(): void
+    - GenerateTiles(): void
+    - CreateTile(x: int, y: int): void
+    - AnimateTiles(): void
+  }
+  class "TitleBackgroundController.TileInfo" as TitleBackgroundController_TileInfo <<nested>>
+}
+
+package "Utility" {
+  class "ChangeScene" as ChangeScene <<MonoBehaviour>> {
+    + OnClickToChangeScene(sceneNameToChange: string): void
+    + OnClickToChangeScene(sceneNameToChange: string, entryPointId: string): void
+    + OnClickToChangeScene(sceneNameToChange: string, entryPointId: string, destinationPlayerPosition: Vector3): void
+  }
+  class "GameSceneCoordinator" as GameSceneCoordinator <<MonoBehaviour>> {
+    - {static} BootstrapForDirectContentScenePlay(): void
+    - Awake(): void
+    - Start(): void
+    + CanSwitchToScene(sceneName: string): bool
+    + SwitchToScene(sceneName: string): void
+    + SwitchToScene(sceneName: string, entryPointId: string): void
+    + SwitchToScene(sceneName: string, entryPointId: string, destinationPlayerPosition: Vector3): void
+    + {static} TrySwitchToScene(sceneName: string): bool
+    + {static} TrySwitchToScene(sceneName: string, entryPointId: string): bool
+    + {static} TrySwitchToScene(sceneName: string, entryPointId: string, destinationPlayerPosition: Vector3): bool
+    - SwitchToSceneRoutine(targetSceneName: string, entryPointId: string): IEnumerator
+    - SwitchToSceneRoutine(targetSceneName: string, entryPointId: string, hasDestinationPlayerPosition: bool, destinationPlayerPosition: Vector3): IEnumerator
+    - FindLoadedManagedContentSceneName(): string
+    - IsManagedContentScene(scene: Scene): bool
+    - ActivateSceneIfLoaded(sceneName: string): void
+    - GetLoadedManagedContentScenesExcept(sceneName: string): List<Scene>
+    - ApplyEntryPoint(scene: Scene, entryPointId: string): void
+    - ApplyPlayerPlacement(scene: Scene, entryPointId: string, hasDestinationPlayerPosition: bool, destinationPlayerPosition: Vector3): void
+    - NotifyBeforeSceneUnload(scene: Scene, nextSceneName: string): void
+    - NotifyAfterSceneLoad(scene: Scene, previousSceneName: string): void
+    - {static} DisableSceneRendering(scene: Scene): void
+    - {static} HasEnabledCamera(scene: Scene): bool
+    - {static} GetTransitionHandlers(scene: Scene): List<IGameSceneTransitionHandler>
+    - {static} TryCreateDirectPlayCoordinatorForActiveContentScene(): void
+    - {static} IsDefaultManagedContentSceneName(sceneName: string): bool
+  }
+  interface "IGameSceneTransitionHandler" as IGameSceneTransitionHandler {
+    + OnBeforeContentSceneUnload(nextSceneName: string): void
+    + OnAfterContentSceneLoad(previousSceneName: string): void
+  }
+  interface "IPassageAreaTriggerReceiver" as IPassageAreaTriggerReceiver {
+    + OnPassageAreaTrigger(areaKind: PassageAreaKind, other: Collider, entered: bool): void
+  }
+  enum "PassageAreaKind" as PassageAreaKind {
+    On
+    Off
+  }
+  class "PassageAreaTrigger" as PassageAreaTrigger <<MonoBehaviour>> {
+    + {static} Attach(areaCollider: Collider, receiver: IPassageAreaTriggerReceiver, areaKind: PassageAreaKind): void
+    - Initialize(receiver: IPassageAreaTriggerReceiver, areaKind: PassageAreaKind): void
+    - OnTriggerEnter(other: Collider): void
+    - OnTriggerExit(other: Collider): void
+  }
+  class "PassageStencilMaskSession" as PassageStencilMaskSession <<sealed>> {
+    + Begin(sourcePassageRenderer: MeshRenderer, playerRoot: Transform, maskWriterMaterial: Material, maskedPlayerMaterial: Material): void
+    + Render(): void
+    + End(): void
+    - CreateMaskObject(sourcePassageRenderer: MeshRenderer, mesh: Mesh, sourceMaskWriterMaterial: Material): void
+    - ApplyMaskedMaterials(renderers: Renderer[], sourceMaskedPlayerMaterial: Material): void
+    - UpdateMaskedMaterialProperties(): void
+    - RestoreMaskedMaterials(): void
+    - {static} CopyPassageMaterialProperties(source: Material, target: Material): void
+    - {static} CopyMaskedRendererMaterialProperties(source: Material, target: Material, renderer: Renderer): void
+    - {static} CopyTextureProperties(source: Material, sourceTextureId: int, target: Material, targetTextureId: int): void
+    - {static} SetStencilReference(material: Material): void
+    - {static} SetUseVertexColor(material: Material, useVertexColor: bool): void
+  }
+  class "PassageStencilMaskSession.RendererMaterialState" as PassageStencilMaskSession_RendererMaterialState <<struct, nested>> {
+    + RendererMaterialState(renderer: Renderer, originalMaterials: Material[], maskedMaterials: Material[])
+  }
+  class "PassageTransitionContext" as PassageTransitionContext <<static>> {
+    + {static} Begin(sourceScene: string, targetScene: string, sourceTransitionArea: BoxCollider, sourceWorldPosition: Vector3): void
+    + {static} TryConsume(expectedSourceSceneName: string, expectedTargetSceneName: string, targetTransitionArea: BoxCollider, targetWorldPosition: out Vector3): bool
+    + {static} Clear(): void
+    - {static} WorldToNormalizedBoxPoint(boxCollider: BoxCollider, worldPosition: Vector3): Vector3
+    - {static} NormalizedBoxPointToWorld(boxCollider: BoxCollider, normalized: Vector3): Vector3
+    - {static} NormalizeAxis(value: float, center: float, size: float): float
+    - {static} DenormalizeAxis(normalized: float, center: float, size: float): float
+    - {static} ApproximatelySameSize(first: Vector3, second: Vector3): bool
+  }
+  class "RenderQueue" as RenderQueue <<static>> {
+    + {static} Resolve(layer: RenderQueueLayer): int
+  }
+  class "RenderQueueApplier" as RenderQueueApplier <<MonoBehaviour>> {
+    - Awake(): void
+    - OnDestroy(): void
+    - ApplyBindings(): void
+    - RestoreOriginalMaterials(): void
+    - ValidateBindings(): bool
+  }
+  class "RenderQueueApplier.RenderQueueBinding" as RenderQueueApplier_RenderQueueBinding <<struct, nested>>
+  enum "RenderQueueLayer" as RenderQueueLayer {
+    Background
+    Scenery
+    Geometry
+    Minecart
+    Player
+    PlayerTool
+    Foreground
+    WorldSpaceUI
+    ScreenSpaceUI
+  }
+  class "SceneEntryPoint" as SceneEntryPoint <<MonoBehaviour>> {
+    + PlacePlayer(): void
+    + {static} FindInScene(scene: Scene, requestedEntryPointId: string): SceneEntryPoint
+    + {static} FindTaggedObjectInScene(scene: Scene, tagName: string): GameObject
+  }
+}
+
+' Relationships
+BackgroundController --> TerrainDataManager
+BackgroundController ..> BiomeData
+BackToOverWorld --> ChangeScene
+BiomeData --> BiomeType
+BiomeData --> TerrainGenerationRule
+Block --> BlockData
+Block --> BlockDiggingSystem
+Block --> BlockMeshGenerator
+Block --> TerrainChangeReason
+Block --> VoxelManager
+Block --> VoxelTextureExtractor
+Block ..> RenderQueue
+BlockData --> MaterialType
+BlockData --> ResourceType
+BlockDataManager --> BlockData
+BlockDataManager --> ResourceType
+BlockDataManager +-- BlockDataManager_BlockDataMapping
+BlockDataManager_BlockDataMapping --> BlockData
+BlockDataManager_BlockDataMapping --> ResourceType
+BlockDiggingSystem --> Block
+BlockDiggingSystem --> TerrainChangeReason
+BlockDiggingSystem --> VoxelManager
+BlockDiggingSystem --> VoxelTextureExtractor
+BlockDiggingSystem ..> AudioManager
+BlockDiggingSystem ..> BlockData
+BlockDiggingSystem ..> BlockItemDropper
+BlockDiggingSystem ..> Voxel
+BlockGenerator --> TerrainManager
+BlockGenerator ..> BiomeData
+BlockGenerator ..> Block
+BlockGenerator ..> BlockData
+BlockGenerator ..> TerrainDataManager
+BlockGenerator ..> TerrainGenerationEntry
+BlockGenerator ..> TerrainGenerationResultType
+BlockGenerator ..> TerrainGenerationRule
+BlockGenerator ..> TerrainGenerationType
+BlockGenerator +-- BlockGenerator_BlockGenerationData
+BlockGenerator_BlockGenerationData --> TerrainGenerationType
+BlockItemDropper ..> BlockData
+BlockItemDropper ..> DroppedItem
+BlockItemDropper ..> DroppedItemManager
+BlockItemDropper ..> RenderQueue
+BlockItemDropper ..> ResourceTypeUtility
+BlockItemDropper ..> VoxelTextureExtractor
+BlockManager --> TerrainManager
+BlockManager ..> Block
+BlockManager ..> GameDataPersistenceManager
+BlockManager ..> VoxelManager
+BlockManager +-- BlockManager_BlockInstanceData
+BlockManager_BlockInstanceData --> Block
+BlockMeshGenerator ..> Block
+BlockMeshGenerator ..> BlockData
+BlockMeshGenerator ..> Voxel
+BlockMeshGenerator ..> VoxelManager
+BlockMeshGenerator +-- BlockMeshGenerator_GenerationResult
+BlockMeshGenerator_GenerationResult --> BlockData
+BuyManager --> ItemData
+BuyManager --> MaterialCheck
+BuyManager --> PopBuyManager
+BuyManager --> RequestMaterial
+BuyManager --> StorageManager
+BuyManager ..> RequestTextManager
+BuyManager ..> ResourceType
+CameraFollowController ..> GameSceneCoordinator
+CameraFollowController ..> PassageTransitionContext
+ChangeScene ..> GameSceneCoordinator
+ChunkManager --> Chunk
+ChunkManager --> TerrainManager
+ChunkManager ..> BlockData
+ChunkManager ..> BlockGenerator
+ChunkManager ..> BlockGenerator_BlockGenerationData
+ChunkManager ..> BlockManager
+ChunkManager ..> DroppedItemManager
+ChunkManager ..> TerrainDataManager
+ChunkManager ..> VoxelManager
+ContentManager --> BuyManager
+ContentManager --> ItemData
+ContentManager ..> ItemUI
+Digger --> MiningInfo
+Digger --> MiningModule
+Digger ..> Block
+Digger ..> DroppedItemManager
+Digger ..> MiningType
+Digger ..> TerrainChangeReason
+DroppedItem --> DroppedItemFaceTextureData
+DroppedItem --> FluidManager
+DroppedItem --> ResourceType
+DroppedItem ..> FluidDefinition
+DroppedItem ..> RenderQueue
+DroppedItem ..> TerrainManager
+DroppedItem ..> VoxelFaceTextureInfo
+DroppedItemData --> DroppedItemFaceTextureData
+DroppedItemManager --> DroppedItem
+DroppedItemManager --> DroppedItemData
+DroppedItemManager --> TerrainManager
+DroppedItemManager --> VoxelCellKey
+DroppedItemManager ..> BlockData
+DroppedItemManager ..> BlockManager
+DroppedItemManager ..> ChunkManager
+DroppedItemManager ..> DroppedItemFaceTextureData
+DroppedItemManager ..> FluidManager
+DroppedItemManager ..> GameDataPersistenceManager
+DroppedItemManager ..> MiningInfo
+DroppedItemManager ..> MiningType
+DroppedItemManager ..> SolidifiedVoxelRecord
+DroppedItemManager ..> TerrainChangeBatch
+DroppedItemManager ..> TerrainDataManager
+DroppedItemManager ..> VoxelManager
+DroppedItemManager +-- DroppedItemManager_DropState
+DroppedItemManager +-- DroppedItemManager_ItemState
+DroppedItemManager +-- DroppedItemManager_SolidificationCandidate
+DroppedItemManager +-- DroppedItemManager_SolidificationReservation
+DroppedItemManager +-- DroppedItemManager_WakeReason
+DroppedItemManager_ItemState --> DroppedItemManager_DropState
+DroppedItemManager_ItemState --> VoxelCellKey
+DroppedItemManager_SolidificationCandidate --> VoxelCellKey
+DroppedItemManager_SolidificationReservation --> DroppedItem
+DroppedItemOutline --> PlayerController
+DroppedItemOutline ..> RenderQueue
+DynamiteMiningModule --> Stat
+DynamiteMiningModule --> StatVector3
+DynamiteProjectile --> DynamiteToolBehaviour
+DynamiteProjectile ..> AudioManager
+DynamiteProjectile ..> Block
+DynamiteProjectile ..> DynamiteMiningModule
+DynamiteProjectile ..> MiningModule
+DynamiteToolBehaviour --> PlayerController
+DynamiteToolBehaviour ..> Block
+DynamiteToolBehaviour ..> DynamiteMiningModule
+DynamiteToolBehaviour ..> DynamiteProjectile
+DynamiteToolBehaviour ..> FluidManager
+DynamiteToolBehaviour ..> MiningInfo
+DynamiteToolBehaviour ..> TerrainManager
+Enhancement --> EnhancementType
+FacilityDefinition --> FacilityPanel
+FacilityOpenButton --> FacilityDefinition
+FacilityOpenButton --> FacilityUIHost
+FacilityPanel --> FacilityDefinition
+FacilityPanel --> FacilityUIHost
+FacilityPanel <|-- FacilityUpgradePanel
+FacilityPromptView --> FacilityDefinition
+FacilityResourceCost --> ResourceType
+FacilityResourceCost ..> FacilityUpgradeCostScaling
+FacilityTrigger --> FacilityDefinition
+FacilityTrigger --> FacilityPromptView
+FacilityTrigger --> FacilityUIHost
+FacilityUIHost --> FacilityDefinition
+FacilityUIHost --> FacilityPanel
+FacilityUIHost --> FacilityUpgradeService
+FacilityUIHost --> OverworldPlayerController
+FacilityUIHost ..> IFacilityPanelRuntimeBinding
+FacilityUpgradeCatalog --> FacilityUpgradeDefinition
+FacilityUpgradeCatalog ..> FacilityType
+FacilityUpgradeCostPreview --> ResourceType
+FacilityUpgradeCostRow ..> FacilityUpgradeCostPreview
+FacilityUpgradeCostRow ..> ResourceType
+FacilityUpgradeCostRow ..> ResourceTypeUtility
+FacilityUpgradeDefinition --> Enhancement
+FacilityUpgradeDefinition --> FacilityResourceCost
+FacilityUpgradeDefinition --> FacilityType
+FacilityUpgradeDefinition --> FacilityUpgradeCostScaling
+FacilityUpgradePanel --> FacilityType
+FacilityUpgradePanel --> FacilityUpgradeCategoryTab
+FacilityUpgradePanel --> FacilityUpgradeCostRow
+FacilityUpgradePanel --> FacilityUpgradeDefinition
+FacilityUpgradePanel --> FacilityUpgradeRow
+FacilityUpgradePanel --> FacilityUpgradeService
+FacilityUpgradePanel ..> FacilityUpgradeCostPreview
+FacilityUpgradeRow --> FacilityUpgradeDefinition
+FacilityUpgradeRow --> FacilityUpgradeService
+FacilityUpgradeService --> FacilityUpgradeCatalog
+FacilityUpgradeService --> GameDataPersistenceManager
+FacilityUpgradeService --> StorageManager
+FacilityUpgradeService ..> FacilityResourceCost
+FacilityUpgradeService ..> FacilityType
+FacilityUpgradeService ..> FacilityUpgradeCostPreview
+FacilityUpgradeService ..> FacilityUpgradeDefinition
+FacilityUpgradeService ..> ResourceType
+FacillityToggle ..> ShopStateManager
+FacillityToggle ..> ShopStateManager_ShopMode
+FluidCellSnapshot --> FluidDefinition
+FluidManager --> FluidDefinition
+FluidManager --> FluidGravityAxis
+FluidManager --> TerrainManager
+FluidManager ..> BlockGenerator
+FluidManager ..> ChunkManager
+FluidManager ..> FluidCellSnapshot
+FluidManager ..> FluidSplash
+FluidManager ..> GameDataPersistenceManager
+FluidManager ..> TerrainDataManager
+FluidManager ..> TerrainSettings
+FluidManager +-- FluidManager_FluidCellState
+FluidManager +-- FluidManager_FluidImpulse
+FluidManager +-- FluidManager_LateralCandidate
+FluidManager_FluidCellState --> FluidDefinition
+FluidMeshRenderer --> FluidCellSnapshot
+FluidMeshRenderer --> FluidManager
+FluidMeshRenderer ..> FluidGravityAxis
+FluidMeshRenderer ..> RenderQueue
+FluidMeshRenderer +-- FluidMeshRenderer_RenderCellAggregate
+FluidMeshRenderer_RenderCellAggregate --> FluidDefinition
+FluidSource --> FluidDefinition
+FluidSource --> FluidManager
+FluidSplash --> FluidDefinition
+FluidSplash --> FluidManager
+GameDataPersistenceManager --> DroppedItemData
+GameDataPersistenceManager --> FacilityUpgradeProgressRecord
+GameDataPersistenceManager --> ItemData
+GameDataPersistenceManager --> ResourceType
+GameDataPersistenceManager --> SolidifiedVoxelRecord
+GameDataPersistenceManager --> ToolSlotPersistenceData
+GameDataPersistenceManager --> VoxelCellData
+GameSceneCoordinator ..> IGameSceneTransitionHandler
+GameSceneCoordinator ..> SceneEntryPoint
+IFacilityPanelRuntimeBinding ..> FacilityUpgradeService
+IFacilityPanelRuntimeBinding <|.. FacilityUpgradePanel
+IGameSceneTransitionHandler <|.. CameraFollowController
+IGameSceneTransitionHandler <|.. DroppedItemManager
+IGameSceneTransitionHandler <|.. MiningPassageController
+IGameSceneTransitionHandler <|.. OverworldPassageController
+IInventory --> ResourceType
+IInventory ..> VoxelItemData
+IInventory <|.. PlayerInventory
+IItemManager <|.. DroppedItemManager
+InputSystem_Actions +-- InputSystem_Actions_IPlayerActions
+InputSystem_Actions +-- InputSystem_Actions_IUIActions
+InputSystem_Actions +-- InputSystem_Actions_PlayerActions
+InputSystem_Actions +-- InputSystem_Actions_UIActions
+InputSystem_Actions_PlayerActions --> InputSystem_Actions
+InputSystem_Actions_PlayerActions ..> InputSystem_Actions_IPlayerActions
+InputSystem_Actions_UIActions --> InputSystem_Actions
+InputSystem_Actions_UIActions ..> InputSystem_Actions_IUIActions
+IPassageAreaTriggerReceiver ..> PassageAreaKind
+IPassageAreaTriggerReceiver <|.. MiningPassageController
+IPassageAreaTriggerReceiver <|.. OverworldPassageController
+ItemData --> Enhancement
+ItemData --> ItemUpdateType
+ItemData --> RequestMaterial
+ItemDataLoader ..> GameDataPersistenceManager
+ItemDataLoader ..> ItemData
+ItemUI --> BuyManager
+ItemUI --> ItemData
+MaterialCheck --> PopBuyManager
+MaterialCheck --> PopupCounter
+MaterialCheck --> RequestMaterial
+MaterialCheck --> StorageManager
+MaterialCheck ..> ItemData
+MaterialCheck ..> PopMaterialTextManager
+MaterialCheck ..> ResourceType
+MaterialSound --> MaterialType
+Minecart --> MinecartMovement
+Minecart --> MinecartState
+Minecart --> VoxelItemData
+Minecart ..> ResourceType
+MinecartManager --> FacilityUpgradeCatalog
+MinecartManager --> Minecart
+MinecartManager --> Stat
+MinecartManager ..> Enhancement
+MinecartManager ..> EnhancementType
+MinecartManager ..> FacilityUpgradeDefinition
+MinecartManager ..> GameDataPersistenceManager
+MinecartManager ..> MinecartMovement
+MinecartManager ..> MinecartState
+MinecartManager ..> ResourceType
+MinecartManager ..> StorageManager
+MinecartManager ..> VoxelItemData
+MinecartPlayerInteractionSystem --> MinecartManager
+MinecartPlayerInteractionSystem --> PlayerController
+MinecartPlayerInteractionSystem --> TerrainDataManager
+MinecartPlayerInteractionSystem ..> Minecart
+MinecartPlayerInteractionSystem ..> VoxelItemData
+MinecartPlayerInteractionSystem ..> VoxelItemVisualUtility
+MiningInfo --> MiningType
+MiningLogSystem ..> MiningLogItemAnimationEvents
+MiningModule --> Stat
+MiningModule --> StatVector3
+MiningModule <|-- DynamiteMiningModule
+MiningModule <|-- PickaxeMiningModule
+MiningPassageController --> CameraFollowController
+MiningPassageController --> ChangeScene
+MiningPassageController --> MinecartManager
+MiningPassageController --> PassageStencilMaskSession
+MiningPassageController --> PlayerController
+MiningPassageController ..> PassageAreaKind
+MiningPassageController ..> PassageAreaTrigger
+MiningPassageController ..> PassageTransitionContext
+MiningPassageController ..> ResourceType
+MiningPassageController ..> SceneEntryPoint
+MiningPassageController ..> StorageManager
+MiningPassageController ..> VoxelItemData
+MiningTool --> MaterialSound
+MiningTool --> MiningModule
+MiningTool ..> MaterialType
+MiningTool ..> MiningToolBehaviour
+MiningTool <|-- Dynamite
+MiningTool <|-- Pickaxe
+MiningToolBehaviour --> Digger
+MiningToolBehaviour --> MiningTool
+MiningToolBehaviour --> ToolActionRole
+MiningToolBehaviour ..> AudioManager
+MiningToolBehaviour ..> Block
+MiningToolBehaviour ..> PlayerController
+MiningToolBehaviour <|-- DynamiteToolBehaviour
+MiningToolBehaviour <|-- PickaxeToolBehaviour
+MiningToolsController --> Digger
+MiningToolsController --> FacilityUpgradeCatalog
+MiningToolsController --> MiningTool
+MiningToolsController --> MiningToolBehaviour
+MiningToolsController --> PlayerController
+MiningToolsController --> ToolInventory
+MiningToolsController --> ToolSlot
+MiningToolsController ..> DynamiteMiningModule
+MiningToolsController ..> Enhancement
+MiningToolsController ..> EnhancementType
+MiningToolsController ..> FacilityUpgradeDefinition
+MiningToolsController ..> GameDataPersistenceManager
+MiningToolsController ..> MiningModule
+MiningToolsController ..> PickaxeMiningModule
+MiningToolsController ..> Stat
+MiningToolsController ..> ToolActionRole
+OverWorldChangeScene --> ChangeScene
+OverWorldChangeScene --> FacilityDefinition
+OverWorldChangeScene --> FacilityUIHost
+OverWorldChangeScene --> ShopStateManager
+OverWorldChangeScene ..> ShopStateManager_ShopMode
+OverworldPassageController --> CameraFollowController
+OverworldPassageController --> ChangeScene
+OverworldPassageController --> OverworldPlayerController
+OverworldPassageController --> PassageStencilMaskSession
+OverworldPassageController ..> PassageAreaKind
+OverworldPassageController ..> PassageAreaTrigger
+OverworldPassageController ..> PassageTransitionContext
+OverworldPassageController ..> SceneEntryPoint
+OverworldPlayerController --> InputSystem_Actions
+OverworldPlayerController --> PlayerVisualsController
+OverworldStaticBlockField ..> RenderQueue
+PassageAreaTrigger --> IPassageAreaTriggerReceiver
+PassageAreaTrigger --> PassageAreaKind
+PassageStencilMaskSession +-- PassageStencilMaskSession_RendererMaterialState
+PickaxeMiningModule --> Stat
+PickaxeMiningModule --> StatVector3
+PickaxeToolBehaviour --> PlayerController
+PickaxeToolBehaviour ..> MiningInfo
+PickaxeToolBehaviour ..> PickaxeMiningModule
+PlayerController --> FluidManager
+PlayerController --> IInventory
+PlayerController --> IItemManager
+PlayerController --> InputSystem_Actions
+PlayerController --> MinecartPlayerInteractionSystem
+PlayerController --> MiningLogSystem
+PlayerController --> MiningToolsController
+PlayerController --> PlayerInventory
+PlayerController --> PlayerVisualsController
+PlayerController ..> DroppedItem
+PlayerController ..> DroppedItemManager
+PlayerController ..> FluidDefinition
+PlayerController ..> ResourceType
+PlayerController ..> TerrainManager
+PlayerController ..> VoxelItemData
+PlayerInventory --> ResourceType
+PlayerInventory --> VoxelItemData
+PopBuyManager --> BuyManager
+PopBuyManager --> ItemData
+PopBuyManager --> RequestMaterial
+PopBuyManager --> StorageManager
+PopBuyManager ..> GameDataPersistenceManager
+PopMaterialTextManager --> PopBuyManager
+PopMaterialTextManager --> PopupCounter
+PopMaterialTextManager --> ResourceType
+PopMaterialTextManager --> StorageManager
+PopupCounter --> PopBuyManager
+PopupCounter --> PopMaterialTextManager
+RenderQueue --> Minecart
+RenderQueue ..> RenderQueueLayer
+RenderQueueApplier ..> RenderQueue
+RenderQueueApplier ..> RenderQueueLayer
+RenderQueueApplier +-- RenderQueueApplier_RenderQueueBinding
+RenderQueueApplier_RenderQueueBinding --> RenderQueueLayer
+RenderQueueLayer ..> Minecart
+RenderQueueLayer ..> RenderQueue
+RequestMaterial --> ResourceType
+RequestMaterial ..> ItemUpdateType
+RequestTextManager --> ResourceType
+RequestTextManager --> StorageManager
+ResourceTypeUtility ..> ResourceType
+ShopStateManager +-- ShopStateManager_ShopMode
+SolidificationCandidateIndex --> TerrainSettings
+SolidificationCandidateIndex --> VoxelManager
+SolidificationCandidateIndex +-- SolidificationCandidateIndex_CandidateHit
+StatVector3 --> Stat
+StorageManager --> ResourceType
+StorageManager ..> GameDataPersistenceManager
+SurfaceInteractionSystem --> PlayerController
+SurfaceInteractionSystem --> StorageManager
+SurfaceInteractionSystem --> TerrainDataManager
+SurfaceInteractionSystem ..> ResourceType
+SurfaceInteractionSystem ..> VoxelItemData
+SurfaceInteractionSystem ..> VoxelItemVisualUtility
+TerrainChangeBatch --> TerrainChangeReason
+TerrainChangeBatch --> VoxelCellKey
+TerrainDataManager --> BiomeData
+TerrainDataManager --> BiomeType
+TerrainDataManager --> BlockData
+TerrainDataManager --> TerrainExclusionRegionData
+TerrainDataManager ..> Block
+TerrainDataManager ..> TerrainGenerationResultType
+TerrainDataManager +-- TerrainDataManager_BiomeDataMapping
+TerrainDataManager_BiomeDataMapping --> BiomeData
+TerrainDataManager_BiomeDataMapping --> BiomeType
+TerrainGenerationEntry --> BlockData
+TerrainGenerationEntry --> TerrainGenerationResultType
+TerrainGenerationEntry --> TerrainSpecialWeightFunction
+TerrainGenerationEntry ..> TerrainSpecialWeightFunctions
+TerrainGenerationResultType ..> Block
+TerrainGenerationRule --> TerrainGenerationEntry
+TerrainManager --> BlockGenerator
+TerrainManager --> BlockManager
+TerrainManager --> ChunkManager
+TerrainManager --> FluidManager
+TerrainManager --> TerrainDataManager
+TerrainManager --> TerrainSettings
+TerrainManager --> VoxelManager
+TerrainManager ..> GameDataPersistenceManager
+TerrainSettings --> TerrainGenerationType
+TerrainSpecialWeightFunctions ..> TerrainSpecialWeightFunction
+Title_Button_System --> ChangeScene
+TitleBackgroundController --> BlockData
+TitleBackgroundController +-- TitleBackgroundController_TileInfo
+ToolInventory --> MiningTool
+ToolInventory --> ToolSlot
+ToolInventory ..> GameDataPersistenceManager
+ToolInventory ..> ToolActionRole
+ToolInventory ..> ToolSlotPersistenceData
+ToolInventoryUI --> MiningToolsController
+ToolInventoryUI --> ToolInventory
+ToolInventoryUI --> ToolSlotUI
+ToolInventoryUI ..> ToolSlot
+ToolSlot --> MiningTool
+ToolSlotPersistenceData --> MiningTool
+ToolSlotUI ..> MiningTool
+ToolSlotUI ..> ToolSlot
+Voxel --> BlockData
+Voxel --> ResourceType
+Voxel --> VoxelType
+Voxel ..> VoxelCellData
+VoxelCellData --> ResourceType
+VoxelCellData ..> Voxel
+VoxelItemData --> DroppedItemFaceTextureData
+VoxelItemData --> ResourceType
+VoxelItemData ..> DroppedItem
+VoxelItemVisualUtility ..> BlockData
+VoxelItemVisualUtility ..> DroppedItem
+VoxelItemVisualUtility ..> DroppedItemFaceTextureData
+VoxelItemVisualUtility ..> TerrainDataManager
+VoxelItemVisualUtility ..> TerrainManager
+VoxelItemVisualUtility ..> VoxelItemData
+VoxelManager --> BlockData
+VoxelManager --> SolidificationCandidateIndex
+VoxelManager --> TerrainChangeBatch
+VoxelManager --> TerrainManager
+VoxelManager --> Voxel
+VoxelManager ..> BlockManager
+VoxelManager ..> FluidManager
+VoxelManager ..> GameDataPersistenceManager
+VoxelManager ..> TerrainChangeReason
+VoxelManager ..> TerrainDataManager
+VoxelManager ..> TerrainSettings
+VoxelManager ..> VoxelCellData
+VoxelManager ..> VoxelCellKey
+VoxelManager ..> VoxelType
+VoxelManager +-- VoxelManager_TerrainChangeBuilder
+VoxelManager_TerrainChangeBuilder --> TerrainChangeBatch
+VoxelManager_TerrainChangeBuilder --> VoxelCellKey
+VoxelManager_TerrainChangeBuilder ..> TerrainChangeReason
+VoxelTextureExtractor ..> DroppedItem
+VoxelTextureExtractor ..> RenderQueue
+VoxelTextureExtractor ..> VoxelFaceTextureInfo
+
+@enduml

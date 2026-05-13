@@ -1,0 +1,853 @@
+@startuml
+' Branch 130 - Level 2 All Classes
+' All discovered class/interface/struct/enum names and inferred relationships.
+' Generated from Assets/**/*.cs on 2026-05-13 for branch 130.
+' Root ClassDiagram.puml is intentionally left untouched.
+!theme plain
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam classFontStyle Bold
+skinparam classFontSize 13
+skinparam classHeaderBackgroundColor #F3F4F6
+skinparam classBorderColor #374151
+skinparam classArrowColor #374151
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+hide empty members
+title Branch 130 - Level 2 All Classes
+
+package "Generated" {
+  class "InputSystem_Actions" as InputSystem_Actions <<generated>>
+  interface "InputSystem_Actions.IPlayerActions" as InputSystem_Actions_IPlayerActions <<nested, generated>>
+  interface "InputSystem_Actions.IUIActions" as InputSystem_Actions_IUIActions <<nested, generated>>
+  class "InputSystem_Actions.PlayerActions" as InputSystem_Actions_PlayerActions <<struct, nested, generated>>
+  class "InputSystem_Actions.UIActions" as InputSystem_Actions_UIActions <<struct, nested, generated>>
+}
+
+package "Mining.Background" {
+  class "BackgroundController" as BackgroundController <<MonoBehaviour>>
+}
+
+package "Mining.Camera" {
+  class "CameraFollowController" as CameraFollowController <<MonoBehaviour>>
+}
+
+package "Mining.Common" {
+  class "AudioManager" as AudioManager <<MonoBehaviour>>
+  class "FacilityUpgradeProgressRecord" as FacilityUpgradeProgressRecord
+  class "GameDataPersistenceManager" as GameDataPersistenceManager <<MonoBehaviour>>
+  class "MiningLogItemAnimationEvents" as MiningLogItemAnimationEvents <<MonoBehaviour>>
+  class "MiningLogSystem" as MiningLogSystem <<MonoBehaviour>>
+  enum "ResourceType" as ResourceType {
+    Soil
+    Stone
+    Iron
+    Gold
+    Diamond
+    Copper
+    Tin
+    Nickel
+    Silicon
+    Cobalt
+    Titanium
+    DragonGem
+  }
+  class "ResourceTypeUtility" as ResourceTypeUtility <<static>>
+  class "ToolSlotPersistenceData" as ToolSlotPersistenceData
+  class "VoxelItemData" as VoxelItemData
+  class "VoxelItemVisualUtility" as VoxelItemVisualUtility <<static>>
+}
+
+package "Mining.Editor" {
+  class "BiomeDataCustomEditor" as BiomeDataCustomEditor <<Editor>>
+  class "TerrainGenerationEntryDrawer" as TerrainGenerationEntryDrawer <<PropertyDrawer>>
+}
+
+package "Mining.Enhancement" {
+  class "Enhancement" as Enhancement <<ScriptableObject>>
+  enum "EnhancementType" as EnhancementType {
+    Additive
+    Multiplicative
+  }
+  class "Stat" as Stat
+  class "StatVector3" as StatVector3
+}
+
+package "Mining.Fluid" {
+  class "FluidCellSnapshot" as FluidCellSnapshot <<struct>>
+  class "FluidDefinition" as FluidDefinition <<ScriptableObject>>
+  enum "FluidGravityAxis" as FluidGravityAxis {
+    NegativeX
+    NegativeY
+    NegativeZ
+  }
+  class "FluidManager" as FluidManager <<MonoBehaviour>>
+  class "FluidManager.FluidCellState" as FluidManager_FluidCellState <<sealed, nested>>
+  class "FluidManager.FluidImpulse" as FluidManager_FluidImpulse <<struct, nested>>
+  class "FluidManager.LateralCandidate" as FluidManager_LateralCandidate <<struct, nested>>
+  class "FluidMeshRenderer" as FluidMeshRenderer <<MonoBehaviour>>
+  class "FluidMeshRenderer.RenderCellAggregate" as FluidMeshRenderer_RenderCellAggregate <<struct, nested>>
+  class "FluidSource" as FluidSource <<MonoBehaviour>>
+  class "FluidSplash" as FluidSplash <<MonoBehaviour>>
+}
+
+package "Mining.Interaction" {
+  class "MinecartPlayerInteractionSystem" as MinecartPlayerInteractionSystem <<MonoBehaviour>>
+  class "MiningPassageController" as MiningPassageController <<MonoBehaviour>>
+  class "SurfaceInteractionSystem" as SurfaceInteractionSystem <<MonoBehaviour>>
+}
+
+package "Mining.Interfaces" {
+  interface "IInventory" as IInventory
+  interface "IItemManager" as IItemManager
+}
+
+package "Mining.Minecart" {
+  class "Minecart" as Minecart
+  class "MinecartManager" as MinecartManager <<MonoBehaviour>>
+  class "MinecartMovement" as MinecartMovement <<MonoBehaviour>>
+  enum "MinecartState" as MinecartState {
+    Following
+    GoingToGround
+    Unloading
+  }
+}
+
+package "Mining.Mining" {
+  class "Digger" as Digger <<MonoBehaviour>>
+  class "DroppedItem" as DroppedItem <<MonoBehaviour>>
+  class "DroppedItemData" as DroppedItemData <<struct>>
+  class "DroppedItemFaceTextureData" as DroppedItemFaceTextureData <<struct>>
+  class "DroppedItemManager" as DroppedItemManager <<MonoBehaviour>>
+  enum "DroppedItemManager.DropState" as DroppedItemManager_DropState <<nested>> {
+    Dynamic
+    Settling
+    Anchored
+    Invalidated
+    Solidified
+  }
+  class "DroppedItemManager.ItemState" as DroppedItemManager_ItemState <<nested>>
+  class "DroppedItemManager.SolidificationCandidate" as DroppedItemManager_SolidificationCandidate <<struct, nested>>
+  class "DroppedItemManager.SolidificationReservation" as DroppedItemManager_SolidificationReservation <<nested>>
+  enum "DroppedItemManager.WakeReason" as DroppedItemManager_WakeReason <<nested>> {
+    Manual
+    MiningPreWake
+    Force
+    SupportLost
+    Pickup
+    Pool
+    Load
+  }
+  class "DroppedItemOutline" as DroppedItemOutline <<MonoBehaviour>>
+  class "MiningInfo" as MiningInfo <<struct>>
+  enum "MiningType" as MiningType {
+    Directional
+    ArcSwing
+    Explosive
+  }
+}
+
+package "Mining.Mining.Tools" {
+  class "MaterialSound" as MaterialSound
+  abstract class "MiningModule" as MiningModule <<ScriptableObject, abstract>>
+  abstract class "MiningTool" as MiningTool <<ScriptableObject, abstract>>
+  abstract class "MiningToolBehaviour" as MiningToolBehaviour <<MonoBehaviour, abstract>>
+}
+
+package "Mining.Mining.Tools.Dynamite" {
+  class "Dynamite" as Dynamite
+  class "DynamiteMiningModule" as DynamiteMiningModule
+  class "DynamiteProjectile" as DynamiteProjectile <<MonoBehaviour>>
+  class "DynamiteToolBehaviour" as DynamiteToolBehaviour
+}
+
+package "Mining.Mining.Tools.Pickaxe" {
+  class "Pickaxe" as Pickaxe
+  class "PickaxeMiningModule" as PickaxeMiningModule
+  class "PickaxeToolBehaviour" as PickaxeToolBehaviour
+}
+
+package "Mining.Player" {
+  class "MiningToolsController" as MiningToolsController <<MonoBehaviour>>
+  class "PlayerController" as PlayerController <<MonoBehaviour>>
+  class "PlayerInventory" as PlayerInventory
+  class "PlayerVisualsController" as PlayerVisualsController <<MonoBehaviour>>
+  enum "ToolActionRole" as ToolActionRole {
+    Main
+    Sub
+  }
+  class "ToolInventory" as ToolInventory <<MonoBehaviour>>
+  class "ToolInventoryUI" as ToolInventoryUI <<MonoBehaviour>>
+  class "ToolSlot" as ToolSlot
+  class "ToolSlotUI" as ToolSlotUI <<MonoBehaviour>>
+}
+
+package "Mining.ShopScene" {
+  class "BackToOverWorld" as BackToOverWorld <<MonoBehaviour>>
+  class "BuyManager" as BuyManager <<MonoBehaviour>>
+  class "ContentManager" as ContentManager <<MonoBehaviour>>
+  class "FacillityToggle" as FacillityToggle <<MonoBehaviour>>
+  class "ItemData" as ItemData <<ScriptableObject>>
+  class "ItemDataLoader" as ItemDataLoader <<MonoBehaviour>>
+  class "ItemUI" as ItemUI <<MonoBehaviour>>
+  enum "ItemUpdateType" as ItemUpdateType {
+    factorial
+    nochange
+    multiply
+    fibonacci
+  }
+  class "RequestMaterial" as RequestMaterial
+  class "RequestTextManager" as RequestTextManager <<MonoBehaviour>>
+}
+
+package "Mining.ShopScene.Popup" {
+  class "MaterialCheck" as MaterialCheck <<MonoBehaviour>>
+  class "PopBuyManager" as PopBuyManager <<MonoBehaviour>>
+  class "PopMaterialTextManager" as PopMaterialTextManager <<MonoBehaviour>>
+  class "PopupCounter" as PopupCounter <<MonoBehaviour>>
+}
+
+package "Mining.Storage" {
+  class "StorageManager" as StorageManager <<MonoBehaviour>>
+}
+
+package "Mining.Terrain" {
+  class "BlockGenerator" as BlockGenerator <<MonoBehaviour>>
+  class "BlockGenerator.BlockGenerationData" as BlockGenerator_BlockGenerationData <<nested>>
+  class "BlockManager" as BlockManager <<MonoBehaviour>>
+  class "BlockManager.BlockInstanceData" as BlockManager_BlockInstanceData <<nested>>
+  class "Chunk" as Chunk <<MonoBehaviour>>
+  class "ChunkManager" as ChunkManager <<MonoBehaviour>>
+  class "SolidificationCandidateIndex" as SolidificationCandidateIndex
+  class "SolidificationCandidateIndex.CandidateHit" as SolidificationCandidateIndex_CandidateHit <<struct, nested>>
+  class "SolidifiedVoxelRecord" as SolidifiedVoxelRecord <<struct>>
+  class "TerrainChangeBatch" as TerrainChangeBatch <<sealed>>
+  enum "TerrainChangeReason" as TerrainChangeReason {
+    Unknown
+    Digging
+    Explosion
+    Solidification
+    Restore
+  }
+  enum "TerrainGenerationType" as TerrainGenerationType {
+    PlayPlane
+    Custom
+  }
+  class "TerrainManager" as TerrainManager <<MonoBehaviour>>
+  class "TerrainSettings" as TerrainSettings
+  class "Voxel" as Voxel
+  class "VoxelCellData" as VoxelCellData <<struct>>
+  class "VoxelCellKey" as VoxelCellKey <<struct>>
+  class "VoxelManager" as VoxelManager <<MonoBehaviour>>
+  class "VoxelManager.TerrainChangeBuilder" as VoxelManager_TerrainChangeBuilder <<sealed, nested>>
+  enum "VoxelType" as VoxelType {
+    Standard
+    Reinforced
+    Fragile
+    Unbreakable
+    Special
+  }
+}
+
+package "Mining.Terrain.Block" {
+  class "Block" as Block <<MonoBehaviour>>
+  class "BlockDiggingSystem" as BlockDiggingSystem
+  class "BlockItemDropper" as BlockItemDropper <<static>>
+  class "BlockMeshGenerator" as BlockMeshGenerator
+  class "BlockMeshGenerator.GenerationResult" as BlockMeshGenerator_GenerationResult <<struct, nested>>
+  class "VoxelFaceTextureInfo" as VoxelFaceTextureInfo <<struct>>
+  class "VoxelTextureExtractor" as VoxelTextureExtractor
+}
+
+package "Mining.Terrain.TerrainData" {
+  class "BiomeData" as BiomeData <<ScriptableObject>>
+  enum "BiomeType" as BiomeType {
+    AltitudeBased
+    Overwrite
+  }
+  class "BlockData" as BlockData <<ScriptableObject>>
+  class "BlockDataManager" as BlockDataManager <<ScriptableObject>>
+  class "BlockDataManager.BlockDataMapping" as BlockDataManager_BlockDataMapping <<nested>>
+  enum "MaterialType" as MaterialType {
+    Stone
+    Soil
+  }
+  class "TerrainDataManager" as TerrainDataManager <<ScriptableObject>>
+  class "TerrainDataManager.BiomeDataMapping" as TerrainDataManager_BiomeDataMapping <<nested>>
+  class "TerrainExclusionRegionData" as TerrainExclusionRegionData <<ScriptableObject>>
+  class "TerrainGenerationEntry" as TerrainGenerationEntry
+  enum "TerrainGenerationResultType" as TerrainGenerationResultType {
+    Block
+    Clear
+    NoOp
+  }
+  class "TerrainGenerationRule" as TerrainGenerationRule
+  enum "TerrainSpecialWeightFunction" as TerrainSpecialWeightFunction {
+    None
+    CurvedBoundarySigmoid
+    CurvedBoundaryInverseSigmoid
+  }
+  class "TerrainSpecialWeightFunctions" as TerrainSpecialWeightFunctions <<static>>
+}
+
+package "Overworld" {
+  class "OverWorldChangeScene" as OverWorldChangeScene <<MonoBehaviour>>
+  class "OverworldPassageController" as OverworldPassageController <<MonoBehaviour>>
+  class "OverworldPlayerController" as OverworldPlayerController <<MonoBehaviour>>
+  class "OverworldStaticBlockField" as OverworldStaticBlockField <<MonoBehaviour>>
+  class "ShopStateManager" as ShopStateManager <<MonoBehaviour>>
+  enum "ShopStateManager.ShopMode" as ShopStateManager_ShopMode <<nested>> {
+    Garage
+    Workshop
+  }
+}
+
+package "Overworld.Facilities" {
+  class "FacilityDefinition" as FacilityDefinition <<ScriptableObject>>
+  class "FacilityOpenButton" as FacilityOpenButton <<MonoBehaviour>>
+  class "FacilityPanel" as FacilityPanel <<MonoBehaviour>>
+  class "FacilityPromptView" as FacilityPromptView <<MonoBehaviour>>
+  class "FacilityTrigger" as FacilityTrigger <<MonoBehaviour>>
+  class "FacilityUIHost" as FacilityUIHost <<MonoBehaviour>>
+}
+
+package "Overworld.Facilities.Upgrades" {
+  class "FacilityResourceCost" as FacilityResourceCost
+  enum "FacilityType" as FacilityType {
+    Workshop
+    Garage
+  }
+  class "FacilityUpgradeCatalog" as FacilityUpgradeCatalog <<ScriptableObject>>
+  class "FacilityUpgradeCategoryTab" as FacilityUpgradeCategoryTab <<MonoBehaviour>>
+  class "FacilityUpgradeCostPreview" as FacilityUpgradeCostPreview
+  class "FacilityUpgradeCostRow" as FacilityUpgradeCostRow <<MonoBehaviour>>
+  enum "FacilityUpgradeCostScaling" as FacilityUpgradeCostScaling {
+    NoChange
+    MultiplyByNextLevel
+    FactorialByCurrentLevel
+    FibonacciByCurrentLevel
+  }
+  class "FacilityUpgradeDefinition" as FacilityUpgradeDefinition <<ScriptableObject>>
+  class "FacilityUpgradePanel" as FacilityUpgradePanel
+  class "FacilityUpgradeRow" as FacilityUpgradeRow <<MonoBehaviour>>
+  class "FacilityUpgradeService" as FacilityUpgradeService <<MonoBehaviour>>
+  interface "IFacilityPanelRuntimeBinding" as IFacilityPanelRuntimeBinding
+}
+
+package "Title" {
+  class "Title_Button_System" as Title_Button_System <<MonoBehaviour>>
+  class "TitleBackgroundController" as TitleBackgroundController <<MonoBehaviour>>
+  class "TitleBackgroundController.TileInfo" as TitleBackgroundController_TileInfo <<nested>>
+}
+
+package "Utility" {
+  class "ChangeScene" as ChangeScene <<MonoBehaviour>>
+  class "GameSceneCoordinator" as GameSceneCoordinator <<MonoBehaviour>>
+  interface "IGameSceneTransitionHandler" as IGameSceneTransitionHandler
+  interface "IPassageAreaTriggerReceiver" as IPassageAreaTriggerReceiver
+  enum "PassageAreaKind" as PassageAreaKind {
+    On
+    Off
+  }
+  class "PassageAreaTrigger" as PassageAreaTrigger <<MonoBehaviour>>
+  class "PassageStencilMaskSession" as PassageStencilMaskSession <<sealed>>
+  class "PassageStencilMaskSession.RendererMaterialState" as PassageStencilMaskSession_RendererMaterialState <<struct, nested>>
+  class "PassageTransitionContext" as PassageTransitionContext <<static>>
+  class "RenderQueue" as RenderQueue <<static>>
+  class "RenderQueueApplier" as RenderQueueApplier <<MonoBehaviour>>
+  class "RenderQueueApplier.RenderQueueBinding" as RenderQueueApplier_RenderQueueBinding <<struct, nested>>
+  enum "RenderQueueLayer" as RenderQueueLayer {
+    Background
+    Scenery
+    Geometry
+    Minecart
+    Player
+    PlayerTool
+    Foreground
+    WorldSpaceUI
+    ScreenSpaceUI
+  }
+  class "SceneEntryPoint" as SceneEntryPoint <<MonoBehaviour>>
+}
+
+' Relationships
+BackgroundController --> TerrainDataManager
+BackgroundController ..> BiomeData
+BackToOverWorld --> ChangeScene
+BiomeData --> BiomeType
+BiomeData --> TerrainGenerationRule
+Block --> BlockData
+Block --> BlockDiggingSystem
+Block --> BlockMeshGenerator
+Block --> TerrainChangeReason
+Block --> VoxelManager
+Block --> VoxelTextureExtractor
+Block ..> RenderQueue
+BlockData --> MaterialType
+BlockData --> ResourceType
+BlockDataManager --> BlockData
+BlockDataManager --> ResourceType
+BlockDataManager +-- BlockDataManager_BlockDataMapping
+BlockDataManager_BlockDataMapping --> BlockData
+BlockDataManager_BlockDataMapping --> ResourceType
+BlockDiggingSystem --> Block
+BlockDiggingSystem --> TerrainChangeReason
+BlockDiggingSystem --> VoxelManager
+BlockDiggingSystem --> VoxelTextureExtractor
+BlockDiggingSystem ..> AudioManager
+BlockDiggingSystem ..> BlockData
+BlockDiggingSystem ..> BlockItemDropper
+BlockDiggingSystem ..> Voxel
+BlockGenerator --> TerrainManager
+BlockGenerator ..> BiomeData
+BlockGenerator ..> Block
+BlockGenerator ..> BlockData
+BlockGenerator ..> TerrainDataManager
+BlockGenerator ..> TerrainGenerationEntry
+BlockGenerator ..> TerrainGenerationResultType
+BlockGenerator ..> TerrainGenerationRule
+BlockGenerator ..> TerrainGenerationType
+BlockGenerator +-- BlockGenerator_BlockGenerationData
+BlockGenerator_BlockGenerationData --> TerrainGenerationType
+BlockItemDropper ..> BlockData
+BlockItemDropper ..> DroppedItem
+BlockItemDropper ..> DroppedItemManager
+BlockItemDropper ..> RenderQueue
+BlockItemDropper ..> ResourceTypeUtility
+BlockItemDropper ..> VoxelTextureExtractor
+BlockManager --> TerrainManager
+BlockManager ..> Block
+BlockManager ..> GameDataPersistenceManager
+BlockManager ..> VoxelManager
+BlockManager +-- BlockManager_BlockInstanceData
+BlockManager_BlockInstanceData --> Block
+BlockMeshGenerator ..> Block
+BlockMeshGenerator ..> BlockData
+BlockMeshGenerator ..> Voxel
+BlockMeshGenerator ..> VoxelManager
+BlockMeshGenerator +-- BlockMeshGenerator_GenerationResult
+BlockMeshGenerator_GenerationResult --> BlockData
+BuyManager --> ItemData
+BuyManager --> MaterialCheck
+BuyManager --> PopBuyManager
+BuyManager --> RequestMaterial
+BuyManager --> StorageManager
+BuyManager ..> RequestTextManager
+BuyManager ..> ResourceType
+CameraFollowController ..> GameSceneCoordinator
+CameraFollowController ..> PassageTransitionContext
+ChangeScene ..> GameSceneCoordinator
+ChunkManager --> Chunk
+ChunkManager --> TerrainManager
+ChunkManager ..> BlockData
+ChunkManager ..> BlockGenerator
+ChunkManager ..> BlockGenerator_BlockGenerationData
+ChunkManager ..> BlockManager
+ChunkManager ..> DroppedItemManager
+ChunkManager ..> TerrainDataManager
+ChunkManager ..> VoxelManager
+ContentManager --> BuyManager
+ContentManager --> ItemData
+ContentManager ..> ItemUI
+Digger --> MiningInfo
+Digger --> MiningModule
+Digger ..> Block
+Digger ..> DroppedItemManager
+Digger ..> MiningType
+Digger ..> TerrainChangeReason
+DroppedItem --> DroppedItemFaceTextureData
+DroppedItem --> FluidManager
+DroppedItem --> ResourceType
+DroppedItem ..> FluidDefinition
+DroppedItem ..> RenderQueue
+DroppedItem ..> TerrainManager
+DroppedItem ..> VoxelFaceTextureInfo
+DroppedItemData --> DroppedItemFaceTextureData
+DroppedItemManager --> DroppedItem
+DroppedItemManager --> DroppedItemData
+DroppedItemManager --> TerrainManager
+DroppedItemManager --> VoxelCellKey
+DroppedItemManager ..> BlockData
+DroppedItemManager ..> BlockManager
+DroppedItemManager ..> ChunkManager
+DroppedItemManager ..> DroppedItemFaceTextureData
+DroppedItemManager ..> FluidManager
+DroppedItemManager ..> GameDataPersistenceManager
+DroppedItemManager ..> MiningInfo
+DroppedItemManager ..> MiningType
+DroppedItemManager ..> SolidifiedVoxelRecord
+DroppedItemManager ..> TerrainChangeBatch
+DroppedItemManager ..> TerrainDataManager
+DroppedItemManager ..> VoxelManager
+DroppedItemManager +-- DroppedItemManager_DropState
+DroppedItemManager +-- DroppedItemManager_ItemState
+DroppedItemManager +-- DroppedItemManager_SolidificationCandidate
+DroppedItemManager +-- DroppedItemManager_SolidificationReservation
+DroppedItemManager +-- DroppedItemManager_WakeReason
+DroppedItemManager_ItemState --> DroppedItemManager_DropState
+DroppedItemManager_ItemState --> VoxelCellKey
+DroppedItemManager_SolidificationCandidate --> VoxelCellKey
+DroppedItemManager_SolidificationReservation --> DroppedItem
+DroppedItemOutline --> PlayerController
+DroppedItemOutline ..> RenderQueue
+DynamiteMiningModule --> Stat
+DynamiteMiningModule --> StatVector3
+DynamiteProjectile --> DynamiteToolBehaviour
+DynamiteProjectile ..> AudioManager
+DynamiteProjectile ..> Block
+DynamiteProjectile ..> DynamiteMiningModule
+DynamiteProjectile ..> MiningModule
+DynamiteToolBehaviour --> PlayerController
+DynamiteToolBehaviour ..> Block
+DynamiteToolBehaviour ..> DynamiteMiningModule
+DynamiteToolBehaviour ..> DynamiteProjectile
+DynamiteToolBehaviour ..> FluidManager
+DynamiteToolBehaviour ..> MiningInfo
+DynamiteToolBehaviour ..> TerrainManager
+Enhancement --> EnhancementType
+FacilityDefinition --> FacilityPanel
+FacilityOpenButton --> FacilityDefinition
+FacilityOpenButton --> FacilityUIHost
+FacilityPanel --> FacilityDefinition
+FacilityPanel --> FacilityUIHost
+FacilityPanel <|-- FacilityUpgradePanel
+FacilityPromptView --> FacilityDefinition
+FacilityResourceCost --> ResourceType
+FacilityResourceCost ..> FacilityUpgradeCostScaling
+FacilityTrigger --> FacilityDefinition
+FacilityTrigger --> FacilityPromptView
+FacilityTrigger --> FacilityUIHost
+FacilityUIHost --> FacilityDefinition
+FacilityUIHost --> FacilityPanel
+FacilityUIHost --> FacilityUpgradeService
+FacilityUIHost --> OverworldPlayerController
+FacilityUIHost ..> IFacilityPanelRuntimeBinding
+FacilityUpgradeCatalog --> FacilityUpgradeDefinition
+FacilityUpgradeCatalog ..> FacilityType
+FacilityUpgradeCostPreview --> ResourceType
+FacilityUpgradeCostRow ..> FacilityUpgradeCostPreview
+FacilityUpgradeCostRow ..> ResourceType
+FacilityUpgradeCostRow ..> ResourceTypeUtility
+FacilityUpgradeDefinition --> Enhancement
+FacilityUpgradeDefinition --> FacilityResourceCost
+FacilityUpgradeDefinition --> FacilityType
+FacilityUpgradeDefinition --> FacilityUpgradeCostScaling
+FacilityUpgradePanel --> FacilityType
+FacilityUpgradePanel --> FacilityUpgradeCategoryTab
+FacilityUpgradePanel --> FacilityUpgradeCostRow
+FacilityUpgradePanel --> FacilityUpgradeDefinition
+FacilityUpgradePanel --> FacilityUpgradeRow
+FacilityUpgradePanel --> FacilityUpgradeService
+FacilityUpgradePanel ..> FacilityUpgradeCostPreview
+FacilityUpgradeRow --> FacilityUpgradeDefinition
+FacilityUpgradeRow --> FacilityUpgradeService
+FacilityUpgradeService --> FacilityUpgradeCatalog
+FacilityUpgradeService --> GameDataPersistenceManager
+FacilityUpgradeService --> StorageManager
+FacilityUpgradeService ..> FacilityResourceCost
+FacilityUpgradeService ..> FacilityType
+FacilityUpgradeService ..> FacilityUpgradeCostPreview
+FacilityUpgradeService ..> FacilityUpgradeDefinition
+FacilityUpgradeService ..> ResourceType
+FacillityToggle ..> ShopStateManager
+FacillityToggle ..> ShopStateManager_ShopMode
+FluidCellSnapshot --> FluidDefinition
+FluidManager --> FluidDefinition
+FluidManager --> FluidGravityAxis
+FluidManager --> TerrainManager
+FluidManager ..> BlockGenerator
+FluidManager ..> ChunkManager
+FluidManager ..> FluidCellSnapshot
+FluidManager ..> FluidSplash
+FluidManager ..> GameDataPersistenceManager
+FluidManager ..> TerrainDataManager
+FluidManager ..> TerrainSettings
+FluidManager +-- FluidManager_FluidCellState
+FluidManager +-- FluidManager_FluidImpulse
+FluidManager +-- FluidManager_LateralCandidate
+FluidManager_FluidCellState --> FluidDefinition
+FluidMeshRenderer --> FluidCellSnapshot
+FluidMeshRenderer --> FluidManager
+FluidMeshRenderer ..> FluidGravityAxis
+FluidMeshRenderer ..> RenderQueue
+FluidMeshRenderer +-- FluidMeshRenderer_RenderCellAggregate
+FluidMeshRenderer_RenderCellAggregate --> FluidDefinition
+FluidSource --> FluidDefinition
+FluidSource --> FluidManager
+FluidSplash --> FluidDefinition
+FluidSplash --> FluidManager
+GameDataPersistenceManager --> DroppedItemData
+GameDataPersistenceManager --> FacilityUpgradeProgressRecord
+GameDataPersistenceManager --> ItemData
+GameDataPersistenceManager --> ResourceType
+GameDataPersistenceManager --> SolidifiedVoxelRecord
+GameDataPersistenceManager --> ToolSlotPersistenceData
+GameDataPersistenceManager --> VoxelCellData
+GameSceneCoordinator ..> IGameSceneTransitionHandler
+GameSceneCoordinator ..> SceneEntryPoint
+IFacilityPanelRuntimeBinding ..> FacilityUpgradeService
+IFacilityPanelRuntimeBinding <|.. FacilityUpgradePanel
+IGameSceneTransitionHandler <|.. CameraFollowController
+IGameSceneTransitionHandler <|.. DroppedItemManager
+IGameSceneTransitionHandler <|.. MiningPassageController
+IGameSceneTransitionHandler <|.. OverworldPassageController
+IInventory --> ResourceType
+IInventory ..> VoxelItemData
+IInventory <|.. PlayerInventory
+IItemManager <|.. DroppedItemManager
+InputSystem_Actions +-- InputSystem_Actions_IPlayerActions
+InputSystem_Actions +-- InputSystem_Actions_IUIActions
+InputSystem_Actions +-- InputSystem_Actions_PlayerActions
+InputSystem_Actions +-- InputSystem_Actions_UIActions
+InputSystem_Actions_PlayerActions --> InputSystem_Actions
+InputSystem_Actions_PlayerActions ..> InputSystem_Actions_IPlayerActions
+InputSystem_Actions_UIActions --> InputSystem_Actions
+InputSystem_Actions_UIActions ..> InputSystem_Actions_IUIActions
+IPassageAreaTriggerReceiver ..> PassageAreaKind
+IPassageAreaTriggerReceiver <|.. MiningPassageController
+IPassageAreaTriggerReceiver <|.. OverworldPassageController
+ItemData --> Enhancement
+ItemData --> ItemUpdateType
+ItemData --> RequestMaterial
+ItemDataLoader ..> GameDataPersistenceManager
+ItemDataLoader ..> ItemData
+ItemUI --> BuyManager
+ItemUI --> ItemData
+MaterialCheck --> PopBuyManager
+MaterialCheck --> PopupCounter
+MaterialCheck --> RequestMaterial
+MaterialCheck --> StorageManager
+MaterialCheck ..> ItemData
+MaterialCheck ..> PopMaterialTextManager
+MaterialCheck ..> ResourceType
+MaterialSound --> MaterialType
+Minecart --> MinecartMovement
+Minecart --> MinecartState
+Minecart --> VoxelItemData
+Minecart ..> ResourceType
+MinecartManager --> FacilityUpgradeCatalog
+MinecartManager --> Minecart
+MinecartManager --> Stat
+MinecartManager ..> Enhancement
+MinecartManager ..> EnhancementType
+MinecartManager ..> FacilityUpgradeDefinition
+MinecartManager ..> GameDataPersistenceManager
+MinecartManager ..> MinecartMovement
+MinecartManager ..> MinecartState
+MinecartManager ..> ResourceType
+MinecartManager ..> StorageManager
+MinecartManager ..> VoxelItemData
+MinecartPlayerInteractionSystem --> MinecartManager
+MinecartPlayerInteractionSystem --> PlayerController
+MinecartPlayerInteractionSystem --> TerrainDataManager
+MinecartPlayerInteractionSystem ..> Minecart
+MinecartPlayerInteractionSystem ..> VoxelItemData
+MinecartPlayerInteractionSystem ..> VoxelItemVisualUtility
+MiningInfo --> MiningType
+MiningLogSystem ..> MiningLogItemAnimationEvents
+MiningModule --> Stat
+MiningModule --> StatVector3
+MiningModule <|-- DynamiteMiningModule
+MiningModule <|-- PickaxeMiningModule
+MiningPassageController --> CameraFollowController
+MiningPassageController --> ChangeScene
+MiningPassageController --> MinecartManager
+MiningPassageController --> PassageStencilMaskSession
+MiningPassageController --> PlayerController
+MiningPassageController ..> PassageAreaKind
+MiningPassageController ..> PassageAreaTrigger
+MiningPassageController ..> PassageTransitionContext
+MiningPassageController ..> ResourceType
+MiningPassageController ..> SceneEntryPoint
+MiningPassageController ..> StorageManager
+MiningPassageController ..> VoxelItemData
+MiningTool --> MaterialSound
+MiningTool --> MiningModule
+MiningTool ..> MaterialType
+MiningTool ..> MiningToolBehaviour
+MiningTool <|-- Dynamite
+MiningTool <|-- Pickaxe
+MiningToolBehaviour --> Digger
+MiningToolBehaviour --> MiningTool
+MiningToolBehaviour --> ToolActionRole
+MiningToolBehaviour ..> AudioManager
+MiningToolBehaviour ..> Block
+MiningToolBehaviour ..> PlayerController
+MiningToolBehaviour <|-- DynamiteToolBehaviour
+MiningToolBehaviour <|-- PickaxeToolBehaviour
+MiningToolsController --> Digger
+MiningToolsController --> FacilityUpgradeCatalog
+MiningToolsController --> MiningTool
+MiningToolsController --> MiningToolBehaviour
+MiningToolsController --> PlayerController
+MiningToolsController --> ToolInventory
+MiningToolsController --> ToolSlot
+MiningToolsController ..> DynamiteMiningModule
+MiningToolsController ..> Enhancement
+MiningToolsController ..> EnhancementType
+MiningToolsController ..> FacilityUpgradeDefinition
+MiningToolsController ..> GameDataPersistenceManager
+MiningToolsController ..> MiningModule
+MiningToolsController ..> PickaxeMiningModule
+MiningToolsController ..> Stat
+MiningToolsController ..> ToolActionRole
+OverWorldChangeScene --> ChangeScene
+OverWorldChangeScene --> FacilityDefinition
+OverWorldChangeScene --> FacilityUIHost
+OverWorldChangeScene --> ShopStateManager
+OverWorldChangeScene ..> ShopStateManager_ShopMode
+OverworldPassageController --> CameraFollowController
+OverworldPassageController --> ChangeScene
+OverworldPassageController --> OverworldPlayerController
+OverworldPassageController --> PassageStencilMaskSession
+OverworldPassageController ..> PassageAreaKind
+OverworldPassageController ..> PassageAreaTrigger
+OverworldPassageController ..> PassageTransitionContext
+OverworldPassageController ..> SceneEntryPoint
+OverworldPlayerController --> InputSystem_Actions
+OverworldPlayerController --> PlayerVisualsController
+OverworldStaticBlockField ..> RenderQueue
+PassageAreaTrigger --> IPassageAreaTriggerReceiver
+PassageAreaTrigger --> PassageAreaKind
+PassageStencilMaskSession +-- PassageStencilMaskSession_RendererMaterialState
+PickaxeMiningModule --> Stat
+PickaxeMiningModule --> StatVector3
+PickaxeToolBehaviour --> PlayerController
+PickaxeToolBehaviour ..> MiningInfo
+PickaxeToolBehaviour ..> PickaxeMiningModule
+PlayerController --> FluidManager
+PlayerController --> IInventory
+PlayerController --> IItemManager
+PlayerController --> InputSystem_Actions
+PlayerController --> MinecartPlayerInteractionSystem
+PlayerController --> MiningLogSystem
+PlayerController --> MiningToolsController
+PlayerController --> PlayerInventory
+PlayerController --> PlayerVisualsController
+PlayerController ..> DroppedItem
+PlayerController ..> DroppedItemManager
+PlayerController ..> FluidDefinition
+PlayerController ..> ResourceType
+PlayerController ..> TerrainManager
+PlayerController ..> VoxelItemData
+PlayerInventory --> ResourceType
+PlayerInventory --> VoxelItemData
+PopBuyManager --> BuyManager
+PopBuyManager --> ItemData
+PopBuyManager --> RequestMaterial
+PopBuyManager --> StorageManager
+PopBuyManager ..> GameDataPersistenceManager
+PopMaterialTextManager --> PopBuyManager
+PopMaterialTextManager --> PopupCounter
+PopMaterialTextManager --> ResourceType
+PopMaterialTextManager --> StorageManager
+PopupCounter --> PopBuyManager
+PopupCounter --> PopMaterialTextManager
+RenderQueue --> Minecart
+RenderQueue ..> RenderQueueLayer
+RenderQueueApplier ..> RenderQueue
+RenderQueueApplier ..> RenderQueueLayer
+RenderQueueApplier +-- RenderQueueApplier_RenderQueueBinding
+RenderQueueApplier_RenderQueueBinding --> RenderQueueLayer
+RenderQueueLayer ..> Minecart
+RenderQueueLayer ..> RenderQueue
+RequestMaterial --> ResourceType
+RequestMaterial ..> ItemUpdateType
+RequestTextManager --> ResourceType
+RequestTextManager --> StorageManager
+ResourceTypeUtility ..> ResourceType
+ShopStateManager +-- ShopStateManager_ShopMode
+SolidificationCandidateIndex --> TerrainSettings
+SolidificationCandidateIndex --> VoxelManager
+SolidificationCandidateIndex +-- SolidificationCandidateIndex_CandidateHit
+StatVector3 --> Stat
+StorageManager --> ResourceType
+StorageManager ..> GameDataPersistenceManager
+SurfaceInteractionSystem --> PlayerController
+SurfaceInteractionSystem --> StorageManager
+SurfaceInteractionSystem --> TerrainDataManager
+SurfaceInteractionSystem ..> ResourceType
+SurfaceInteractionSystem ..> VoxelItemData
+SurfaceInteractionSystem ..> VoxelItemVisualUtility
+TerrainChangeBatch --> TerrainChangeReason
+TerrainChangeBatch --> VoxelCellKey
+TerrainDataManager --> BiomeData
+TerrainDataManager --> BiomeType
+TerrainDataManager --> BlockData
+TerrainDataManager --> TerrainExclusionRegionData
+TerrainDataManager ..> Block
+TerrainDataManager ..> TerrainGenerationResultType
+TerrainDataManager +-- TerrainDataManager_BiomeDataMapping
+TerrainDataManager_BiomeDataMapping --> BiomeData
+TerrainDataManager_BiomeDataMapping --> BiomeType
+TerrainGenerationEntry --> BlockData
+TerrainGenerationEntry --> TerrainGenerationResultType
+TerrainGenerationEntry --> TerrainSpecialWeightFunction
+TerrainGenerationEntry ..> TerrainSpecialWeightFunctions
+TerrainGenerationResultType ..> Block
+TerrainGenerationRule --> TerrainGenerationEntry
+TerrainManager --> BlockGenerator
+TerrainManager --> BlockManager
+TerrainManager --> ChunkManager
+TerrainManager --> FluidManager
+TerrainManager --> TerrainDataManager
+TerrainManager --> TerrainSettings
+TerrainManager --> VoxelManager
+TerrainManager ..> GameDataPersistenceManager
+TerrainSettings --> TerrainGenerationType
+TerrainSpecialWeightFunctions ..> TerrainSpecialWeightFunction
+Title_Button_System --> ChangeScene
+TitleBackgroundController --> BlockData
+TitleBackgroundController +-- TitleBackgroundController_TileInfo
+ToolInventory --> MiningTool
+ToolInventory --> ToolSlot
+ToolInventory ..> GameDataPersistenceManager
+ToolInventory ..> ToolActionRole
+ToolInventory ..> ToolSlotPersistenceData
+ToolInventoryUI --> MiningToolsController
+ToolInventoryUI --> ToolInventory
+ToolInventoryUI --> ToolSlotUI
+ToolInventoryUI ..> ToolSlot
+ToolSlot --> MiningTool
+ToolSlotPersistenceData --> MiningTool
+ToolSlotUI ..> MiningTool
+ToolSlotUI ..> ToolSlot
+Voxel --> BlockData
+Voxel --> ResourceType
+Voxel --> VoxelType
+Voxel ..> VoxelCellData
+VoxelCellData --> ResourceType
+VoxelCellData ..> Voxel
+VoxelItemData --> DroppedItemFaceTextureData
+VoxelItemData --> ResourceType
+VoxelItemData ..> DroppedItem
+VoxelItemVisualUtility ..> BlockData
+VoxelItemVisualUtility ..> DroppedItem
+VoxelItemVisualUtility ..> DroppedItemFaceTextureData
+VoxelItemVisualUtility ..> TerrainDataManager
+VoxelItemVisualUtility ..> TerrainManager
+VoxelItemVisualUtility ..> VoxelItemData
+VoxelManager --> BlockData
+VoxelManager --> SolidificationCandidateIndex
+VoxelManager --> TerrainChangeBatch
+VoxelManager --> TerrainManager
+VoxelManager --> Voxel
+VoxelManager ..> BlockManager
+VoxelManager ..> FluidManager
+VoxelManager ..> GameDataPersistenceManager
+VoxelManager ..> TerrainChangeReason
+VoxelManager ..> TerrainDataManager
+VoxelManager ..> TerrainSettings
+VoxelManager ..> VoxelCellData
+VoxelManager ..> VoxelCellKey
+VoxelManager ..> VoxelType
+VoxelManager +-- VoxelManager_TerrainChangeBuilder
+VoxelManager_TerrainChangeBuilder --> TerrainChangeBatch
+VoxelManager_TerrainChangeBuilder --> VoxelCellKey
+VoxelManager_TerrainChangeBuilder ..> TerrainChangeReason
+VoxelTextureExtractor ..> DroppedItem
+VoxelTextureExtractor ..> RenderQueue
+VoxelTextureExtractor ..> VoxelFaceTextureInfo
+
+@enduml
