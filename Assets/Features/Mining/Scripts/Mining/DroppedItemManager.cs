@@ -1167,7 +1167,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             }
         }
 
-        if (!terrainManager.VoxelManager.SetVoxelCell(target.key.blockPosition, target.key.localVoxelPosition, blockData, true, useTexture1: true))
+        if (!terrainManager.VoxelManager.SetVoxelCell(target.key.blockPosition, target.key.localVoxelPosition, blockData, true, useTexture1: item.useTexture1))
         {
             ReleaseSolidificationReservation(item);
             return false;

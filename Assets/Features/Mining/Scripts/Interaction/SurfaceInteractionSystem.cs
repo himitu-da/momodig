@@ -1,32 +1,42 @@
 using UnityEngine;
-using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using System;
+using System.Collections.Generic;
 
-/// <summary>
-/// プレイヤーのインベントリから地上ストレージへアイテムを輸送するシステム
-/// </summary>
 public class SurfaceInteractionSystem : MonoBehaviour
 {
-    [Header("地上インタラクション設定")]
-    [SerializeField] private float surfaceDetectionRange = 5f; // 地上への道を検出する範囲
-    [SerializeField] private Transform surfaceReturnPoint; // 地上への帰還地点（アイテムの送り先）
-    [SerializeField] private float itemTransferSpeed = 50f; // アイテム転送速度（個/秒）
+    [Header("Surface Interaction")]
+    [SerializeField] private float surfaceDetectionRange = 5f;
+    [SerializeField] private Transform surfaceReturnPoint;
+    [SerializeField] private float itemTransferSpeed = 50f;
 
-    [Header("アニメーション設定")]
-    [SerializeField] private float itemMoveSpeed = 5f; // アイテムの移動速度
-    [SerializeField] private AnimationCurve movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f); // 移動カーブ
+    [Header("Animation")]
+    [SerializeField] private float itemMoveSpeed = 5f;
+    [SerializeField] private AnimationCurve movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
-    [Header("参照")]
+    [Header("References")]
     [SerializeField] private PlayerController playerController;
     [SerializeField] private StorageManager storageManager;
+    [SerializeField] private TerrainDataManager terrainDataManager;
 
-    private bool isTransferringItems = false;
+    private bool isTransferringItems;
 
     void Awake()
     {
-        if (playerController == null) playerController = FindFirstObjectByType<PlayerController>();
-        if (storageManager == null) storageManager = StorageManager.Instance;
+        if (playerController == null)
+        {
+            playerController = FindFirstObjectByType<PlayerController>();
+        }
+
+        if (storageManager == null)
+        {
+            storageManager = StorageManager.Instance;
+        }
+
+        if (terrainDataManager == null)
+        {
+            terrainDataManager = VoxelItemVisualUtility.ResolveTerrainDataManager();
+        }
     }
 
     void Update()
@@ -39,7 +49,6 @@ public class SurfaceInteractionSystem : MonoBehaviour
 
     void OnDestroy()
     {
-        // アイテム転送中にシーンが切り替わった場合でも、残りのアイテムを確実に転送する
         if (!isTransferringItems)
         {
             TransferAllInventoryToStorage();
@@ -48,7 +57,10 @@ public class SurfaceInteractionSystem : MonoBehaviour
 
     private void CheckSurfaceProximity()
     {
-        if (isTransferringItems || playerController.Inventory.IsEmpty()) return;
+        if (isTransferringItems || playerController.Inventory.IsEmpty())
+        {
+            return;
+        }
 
         float distance = Vector3.Distance(playerController.transform.position, surfaceReturnPoint.position);
         if (distance <= surfaceDetectionRange)
@@ -57,24 +69,31 @@ public class SurfaceInteractionSystem : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// インベントリ内の全アイテムをストレージに転送する（アニメーションなし）
-    /// </summary>
     public void TransferAllInventoryToStorage()
     {
-        if (playerController == null || storageManager == null) return;
-
-        var allResources = playerController.Inventory.GetAllResources();
-        foreach (var resource in allResources)
+        if (playerController == null || storageManager == null)
         {
-            if (resource.Value > 0)
-            {
-                int amountToRemove = resource.Value;
-                playerController.Inventory.RemoveResource(resource.Key, amountToRemove);
-                storageManager.AddResource(resource.Key, amountToRemove);
-            }
+            return;
         }
-        Debug.Log("All inventory items transferred to storage.");
+
+        if (!playerController.Inventory.TryDrainAllItems(out List<VoxelItemData> itemData))
+        {
+            Debug.LogError("SurfaceInteractionSystem: inventory contains invalid voxel item data. Transfer aborted.");
+            return;
+        }
+
+        if (itemData.Count == 0)
+        {
+            return;
+        }
+
+        if (!VoxelItemData.TryAggregateResourceCounts(itemData, out Dictionary<ResourceType, int> resourceCounts, "SurfaceInteractionSystem.TransferAllInventoryToStorage"))
+        {
+            return;
+        }
+
+        storageManager.AddResources(resourceCounts);
+        Debug.Log("All inventory voxel items transferred to storage.");
     }
 
     private async UniTask TransferItemsToStorage()
@@ -90,75 +109,46 @@ public class SurfaceInteractionSystem : MonoBehaviour
                 break;
             }
 
-            ResourceType typeToTransfer = GetNextResourceType();
-            if (typeToTransfer == ResourceType.Stone && playerController.Inventory.GetResourceCount(ResourceType.Stone) == 0)
+            if (!playerController.Inventory.TryPeekNextItem(out VoxelItemData itemData))
             {
-                // A small check to see if there's anything left to transfer at all.
-                if(playerController.Inventory.IsEmpty()) break;
+                Debug.LogError("SurfaceInteractionSystem: failed to read next voxel item from inventory.");
+                break;
             }
 
-            int removedAmount = playerController.Inventory.RemoveResource(typeToTransfer, 1);
-            if (removedAmount > 0)
+            GameObject animItem;
+            if (!VoxelItemVisualUtility.TryCreateAnimationItem(
+                    playerController.transform.position,
+                    transform,
+                    itemData,
+                    terrainDataManager,
+                    "SurfaceInteractionSystem",
+                    out animItem))
             {
-                storageManager.AddResource(typeToTransfer, removedAmount);
-                AnimateItemTransfer(playerController.transform.position, surfaceReturnPoint.position, typeToTransfer).Forget();
-                await UniTask.Delay(TimeSpan.FromSeconds(1f / itemTransferSpeed));
+                break;
             }
-            else
+
+            if (!playerController.Inventory.TryRemoveNextItem(out VoxelItemData removedItem))
             {
-                // This type is empty, try the next one in the next loop iteration.
-                continue;
+                Debug.LogError("SurfaceInteractionSystem: failed to remove voxel item after animation object was created.");
+                Destroy(animItem);
+                break;
             }
+
+            storageManager.AddResource(removedItem.resourceType, 1);
+            AnimateItemTransfer(animItem, playerController.transform.position, surfaceReturnPoint.position).Forget();
+            await UniTask.Delay(TimeSpan.FromSeconds(1f / itemTransferSpeed));
         }
 
         isTransferringItems = false;
     }
 
-    private ResourceType GetNextResourceType()
+    private async UniTask AnimateItemTransfer(GameObject animItem, Vector3 startPos, Vector3 endPos)
     {
-        var allResources = playerController.Inventory.GetAllResources();
-        foreach (var kvp in allResources)
-        {
-            if (kvp.Value > 0)
-            {
-                return kvp.Key;
-            }
-        }
-        return ResourceType.Stone; // Default
-    }
-
-    #region Animation System (from MinecartPlayerInteractionSystem)
-
-    private async UniTask AnimateItemTransfer(Vector3 startPos, Vector3 endPos, ResourceType resourceType)
-    {
-        GameObject animItem = CreateAnimationItem(startPos, resourceType);
         await MoveItemAsync(animItem, startPos, endPos);
         if (animItem != null)
         {
             Destroy(animItem);
         }
-    }
-
-    private GameObject CreateAnimationItem(Vector3 position, ResourceType resourceType)
-    {
-        GameObject animItem = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        animItem.transform.SetParent(transform);
-        animItem.transform.position = position;
-        animItem.transform.localScale = Vector3.one * 0.3f;
-
-        var collider = animItem.GetComponent<Collider>();
-        if (collider != null) collider.enabled = false;
-
-        var renderer = animItem.GetComponent<Renderer>();
-        if (renderer != null)
-        {
-            // Custom Unlitマテリアルを作成
-            Material mat = new Material(Shader.Find("Custom/Default"));
-            mat.renderQueue = RenderQueue.Geometry;
-            mat.color = ResourceTypeUtility.GetResourceColor(resourceType);
-            renderer.material = mat;
-        }
-        return animItem;
     }
 
     private async UniTask MoveItemAsync(GameObject item, Vector3 startPos, Vector3 endPos)
@@ -181,6 +171,4 @@ public class SurfaceInteractionSystem : MonoBehaviour
             item.transform.position = endPos;
         }
     }
-
-    #endregion
 }

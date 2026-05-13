@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class MiningPassageController : MonoBehaviour, IGameSceneTransitionHandler, IPassageAreaTriggerReceiver
 {
@@ -715,41 +716,44 @@ public class MiningPassageController : MonoBehaviour, IGameSceneTransitionHandle
             return;
         }
 
-        var playerResources = playerController.Inventory.GetAllResources();
-        foreach (var resource in playerResources)
+        if (!playerController.Inventory.TryDrainAllItems(out List<VoxelItemData> playerItems))
         {
-            if (resource.Value > 0)
-            {
-                storageManager.AddResource(resource.Key, resource.Value);
-            }
+            Debug.LogError("MiningPassageController: player inventory contains invalid voxel item data. Transfer aborted.");
+            return;
         }
 
-        foreach (var resource in playerResources)
+        if (VoxelItemData.TryAggregateResourceCounts(playerItems, out Dictionary<ResourceType, int> playerResources, "MiningPassageController.PlayerItems"))
         {
-            if (resource.Value > 0)
-            {
-                playerController.Inventory.RemoveResource(resource.Key, resource.Value);
-            }
+            storageManager.AddResources(playerResources);
+        }
+        else
+        {
+            return;
         }
 
         if (minecartManager.minecarts != null)
         {
             foreach (var minecart in minecartManager.minecarts)
             {
-                if (minecart == null || minecart.resources == null)
+                if (minecart == null)
                 {
                     continue;
                 }
 
-                foreach (var resource in minecart.resources)
+                if (!minecart.TryDrainItems(out List<VoxelItemData> minecartItems))
                 {
-                    if (resource.Value > 0)
-                    {
-                        storageManager.AddResource(resource.Key, resource.Value);
-                    }
+                    Debug.LogError("MiningPassageController: minecart contains invalid voxel item data. Transfer aborted.");
+                    return;
                 }
 
-                minecart.ClearResources();
+                if (VoxelItemData.TryAggregateResourceCounts(minecartItems, out Dictionary<ResourceType, int> minecartResources, "MiningPassageController.MinecartItems"))
+                {
+                    storageManager.AddResources(minecartResources);
+                }
+                else
+                {
+                    return;
+                }
             }
         }
     }
