@@ -2,64 +2,49 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 
-/// <summary>
-/// プレイヤーのインベントリ管理クラス
-/// リソースの追加、削除、容量管理を担当
-/// </summary>
 [System.Serializable]
 public class PlayerInventory : IInventory
 {
     private const float InventoryFullNotificationCooldownSeconds = 5f;
 
-    [Header("インベントリ設定")]
-    [SerializeField] private int _maxCapacity = 200; // プレイヤーが持てる最大数
-    
-    [SerializeField] private Dictionary<ResourceType, int> resources = new Dictionary<ResourceType, int>();
-    
-    // イベント通知用
+    [SerializeField] private int _maxCapacity = 200;
+    private readonly Queue<VoxelItemData> items = new Queue<VoxelItemData>();
+
     public event Action<ResourceType, int> OnResourceAdded;
     public event Action<ResourceType, int> OnResourceRemoved;
     public event Action<int> OnTotalCountChanged;
     public event Action<bool> OnInventoryFullStateChanged;
+
     private float lastInventoryFullNotificationTime = float.NegativeInfinity;
-    
-    // インターフェース実装用プロパティ
+
     public int maxCapacity => _maxCapacity;
-    
-    public PlayerInventory()
+
+    public bool CanAddItem(VoxelItemData itemData)
     {
-        // 全リソースタイプを初期化
-        foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
+        return itemData != null && itemData.IsValid("PlayerInventory.CanAddItem") && GetTotalItemCount() < maxCapacity;
+    }
+
+    public bool AddItem(VoxelItemData itemData)
+    {
+        if (itemData == null || !itemData.IsValid("PlayerInventory.AddItem"))
         {
-            resources[type] = 0;
+            return false;
         }
-    }
-    
-    /// <summary>
-    /// リソースを追加できるかチェック
-    /// </summary>
-    public bool CanAddResource(ResourceType type, int amount = 1)
-    {
-        return GetTotalItemCount() + amount <= maxCapacity;
-    }
-    
-    /// <summary>
-    /// リソースを追加
-    /// </summary>
-    public bool AddResource(ResourceType type, int amount = 1)
-    {
-        if (!CanAddResource(type, amount)) return false;
-        
+
+        if (!CanAddItem(itemData))
+        {
+            return false;
+        }
+
         bool wasEmpty = IsEmpty();
         bool wasFull = IsFull();
-        
-        resources[type] += amount;
-        
-        // イベント通知
-        OnResourceAdded?.Invoke(type, amount);
+        VoxelItemData storedItem = itemData.Clone();
+        items.Enqueue(storedItem);
+
+        OnResourceAdded?.Invoke(storedItem.resourceType, 1);
         OnTotalCountChanged?.Invoke(GetTotalItemCount());
-        
-        if (wasEmpty && !IsEmpty())
+
+        if (wasEmpty)
         {
             NotifyInventoryFullStateChanged(false);
         }
@@ -68,103 +53,165 @@ public class PlayerInventory : IInventory
         {
             NotifyInventoryFullStateChanged(true);
         }
-        
+
         return true;
     }
-    
-    /// <summary>
-    /// リソースを削除（戻り値は実際に削除した数）
-    /// </summary>
-    public int RemoveResource(ResourceType type, int amount = 1)
+
+    public bool TryPeekNextItem(out VoxelItemData itemData)
     {
-        int currentAmount = resources[type];
-        int removeAmount = Mathf.Min(currentAmount, amount);
-        
-        if (removeAmount > 0)
+        itemData = null;
+        if (items.Count == 0)
         {
-            bool wasFull = GetTotalItemCount() >= maxCapacity;
-            resources[type] -= removeAmount;
-            
-            // イベント通知
-            OnResourceRemoved?.Invoke(type, removeAmount);
-            OnTotalCountChanged?.Invoke(GetTotalItemCount());
-            
-            if (wasFull && GetTotalItemCount() < maxCapacity)
+            return false;
+        }
+
+        VoxelItemData next = items.Peek();
+        if (next == null || !next.IsValid("PlayerInventory.TryPeekNextItem"))
+        {
+            return false;
+        }
+
+        itemData = next.Clone();
+        return true;
+    }
+
+    public bool TryRemoveNextItem(out VoxelItemData itemData)
+    {
+        itemData = null;
+        if (!TryPeekNextItem(out VoxelItemData next))
+        {
+            return false;
+        }
+
+        bool wasFull = IsFull();
+        items.Dequeue();
+        itemData = next;
+
+        OnResourceRemoved?.Invoke(itemData.resourceType, 1);
+        OnTotalCountChanged?.Invoke(GetTotalItemCount());
+
+        if (wasFull && !IsFull())
+        {
+            NotifyInventoryFullStateChanged(false);
+        }
+
+        return true;
+    }
+
+    public bool TryDrainAllItems(out List<VoxelItemData> itemData)
+    {
+        itemData = new List<VoxelItemData>();
+        foreach (VoxelItemData item in items)
+        {
+            if (item == null || !item.IsValid("PlayerInventory.TryDrainAllItems"))
             {
-                NotifyInventoryFullStateChanged(false);
+                itemData.Clear();
+                return false;
+            }
+
+            itemData.Add(item.Clone());
+        }
+
+        if (items.Count == 0)
+        {
+            return true;
+        }
+
+        Dictionary<ResourceType, int> removedCounts = GetAllResources();
+        bool wasFull = IsFull();
+        items.Clear();
+
+        foreach (KeyValuePair<ResourceType, int> removed in removedCounts)
+        {
+            if (removed.Value > 0)
+            {
+                OnResourceRemoved?.Invoke(removed.Key, removed.Value);
             }
         }
-        
-        return removeAmount;
+
+        OnTotalCountChanged?.Invoke(0);
+        if (wasFull)
+        {
+            NotifyInventoryFullStateChanged(false);
+        }
+
+        return true;
     }
-    
-    /// <summary>
-    /// 総アイテム数を取得
-    /// </summary>
+
     public int GetTotalItemCount()
     {
-        int total = 0;
-        foreach (var kvp in resources)
-        {
-            total += kvp.Value;
-        }
-        return total;
+        return items.Count;
     }
-    
-    /// <summary>
-    /// 特定リソースの数を取得
-    /// </summary>
+
     public int GetResourceCount(ResourceType type)
     {
-        return resources.ContainsKey(type) ? resources[type] : 0;
+        int count = 0;
+        foreach (VoxelItemData item in items)
+        {
+            if (item != null && item.resourceType == type)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
-    
-    /// <summary>
-    /// 全リソース情報を取得
-    /// </summary>
+
     public Dictionary<ResourceType, int> GetAllResources()
     {
-        return new Dictionary<ResourceType, int>(resources);
-    }
-    
-    /// <summary>
-    /// インベントリが空かチェック
-    /// </summary>
-    public bool IsEmpty()
-    {
-        return GetTotalItemCount() == 0;
-    }
-    
-    /// <summary>
-    /// インベントリが満杯かチェック
-    /// </summary>
-    public bool IsFull()
-    {
-        return GetTotalItemCount() >= maxCapacity;
-    }
-    
-    /// <summary>
-    /// インベントリをリセット
-    /// </summary>
-    public void Clear()
-    {
-        bool wasEmpty = IsEmpty();
-        
+        Dictionary<ResourceType, int> resourceCounts = new Dictionary<ResourceType, int>();
         foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
         {
-            resources[type] = 0;
+            resourceCounts[type] = 0;
         }
-        
-        if (!wasEmpty)
+
+        foreach (VoxelItemData item in items)
         {
-            OnTotalCountChanged?.Invoke(0);
+            if (item != null)
+            {
+                resourceCounts[item.resourceType]++;
+            }
+        }
+
+        return resourceCounts;
+    }
+
+    public bool IsEmpty()
+    {
+        return items.Count == 0;
+    }
+
+    public bool IsFull()
+    {
+        return items.Count >= maxCapacity;
+    }
+
+    public void Clear()
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        bool wasFull = IsFull();
+        Dictionary<ResourceType, int> removedCounts = GetAllResources();
+        items.Clear();
+
+        foreach (KeyValuePair<ResourceType, int> removed in removedCounts)
+        {
+            if (removed.Value > 0)
+            {
+                OnResourceRemoved?.Invoke(removed.Key, removed.Value);
+            }
+        }
+
+        OnTotalCountChanged?.Invoke(0);
+        if (wasFull)
+        {
             NotifyInventoryFullStateChanged(false);
         }
     }
-    
-    /// <summary>
-    /// デバッグ用文字列表現
-    /// </summary>
+
     private void NotifyInventoryFullStateChanged(bool isFull)
     {
         if (isFull)
@@ -182,14 +229,16 @@ public class PlayerInventory : IInventory
 
     public override string ToString()
     {
-        var result = $"インベントリ ({GetTotalItemCount()}/{maxCapacity}): ";
-        foreach (var kvp in resources)
+        var result = $"Inventory ({GetTotalItemCount()}/{maxCapacity}): ";
+        Dictionary<ResourceType, int> resourceCounts = GetAllResources();
+        foreach (KeyValuePair<ResourceType, int> kvp in resourceCounts)
         {
             if (kvp.Value > 0)
             {
                 result += $"{kvp.Key}:{kvp.Value} ";
             }
         }
+
         return result;
     }
 }

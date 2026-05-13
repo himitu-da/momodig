@@ -531,12 +531,23 @@ public class PlayerController : MonoBehaviour
 
         // 資源情報を取得
         DroppedItem itemComponent = itemObject.GetComponent<DroppedItem>();
-        ResourceType resourceType = itemComponent != null ? itemComponent.resourceType : ResourceType.Stone;
+        if (itemComponent == null)
+        {
+            Debug.LogError("PlayerController: DroppedItem component is missing on pickup target.");
+            return;
+        }
+
+        if (!VoxelItemData.TryCreateFromDroppedItem(itemComponent, out VoxelItemData voxelItemData))
+        {
+            return;
+        }
+
+        ResourceType resourceType = voxelItemData.resourceType;
 
         // プレイヤーインベントリに追加を試行（インターフェース経由）
-        if (inventory.CanAddResource(resourceType))
+        if (inventory.CanAddItem(voxelItemData))
         {
-            if (inventory.AddResource(resourceType))
+            if (inventory.AddItem(voxelItemData))
             {
                 // アイテムをプールに返却（インターフェース経由）
                 itemManager.ReturnItem(itemObject);

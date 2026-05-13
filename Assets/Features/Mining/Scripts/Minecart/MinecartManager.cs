@@ -55,16 +55,6 @@ public class MinecartManager : MonoBehaviour
         {
             addnewcart();
         }
-        // updatevalue(0, ResourceType.Stone, 10); // デバッグ用の初期リソース追加
-        // 内容を確認
-        foreach (Minecart cart in minecarts)
-        {
-            foreach (KeyValuePair<ResourceType, int> element in cart.resources)
-            {
-                Debug.Log($"Key={element.Key}, Amount={element.Value}");
-            }
-        }
-
         // 軌跡記録の初期化
         if (playerTransform != null)
         {
@@ -106,17 +96,31 @@ public class MinecartManager : MonoBehaviour
         }
     }
 
-    // キューの先頭トロッコの指定資源をvalueだけ追加
-    public void updatevalue(int minecartnum, ResourceType type, int value)
+    public bool AddItemToFrontCart(VoxelItemData itemData)
     {
-        // 常に現在の利用トロッコ（キューの先頭）を対象とする
-        int currentCart = 0; // 先頭のトロッコを使用
-        minecarts[currentCart].resources[type] += value;
-        // 容量チェック
+        if (itemData == null || !itemData.IsValid("MinecartManager.AddItemToFrontCart"))
+        {
+            return false;
+        }
+
+        if (minecarts == null || minecarts.Count == 0)
+        {
+            Debug.LogError("MinecartManager: no minecart is available.");
+            return false;
+        }
+
+        int currentCart = 0;
+        if (!minecarts[currentCart].AddItem(itemData, CartCapacity.IntValue))
+        {
+            return false;
+        }
+
         if (minecarts[currentCart].CurrentLoad >= CartCapacity.IntValue)
         {
             SendCartToHome(currentCart);
         }
+
+        return true;
     }
 
     // トロッコを地上(0,0,0)に送り、キューを進める
@@ -245,12 +249,22 @@ public class MinecartManager : MonoBehaviour
                         cart.state = MinecartState.Unloading; // 状態を荷降ろし中に変更
                         cart.time = unloadTime.Value; // 荷降ろしタイマーを設定
 
-                        // 中身をStorageManagerに移す
                         if (StorageManager.Instance != null)
                         {
-                            StorageManager.Instance.AddResources(cart.resources);
+                            if (!cart.TryDrainItems(out List<VoxelItemData> unloadedItems))
+                            {
+                                Debug.LogError("MinecartManager: failed to unload minecart because it contains invalid voxel item data.");
+                            }
+                            else if (unloadedItems.Count > 0 &&
+                                     VoxelItemData.TryAggregateResourceCounts(unloadedItems, out Dictionary<ResourceType, int> resourceCounts, "MinecartManager.Unload"))
+                            {
+                                StorageManager.Instance.AddResources(resourceCounts);
+                            }
+                            else if (unloadedItems.Count > 0)
+                            {
+                                Debug.LogError("MinecartManager: failed to unload minecart because it contains invalid voxel item data.");
+                            }
                         }
-                        cart.ClearResources();
                     }
                     break;
 
