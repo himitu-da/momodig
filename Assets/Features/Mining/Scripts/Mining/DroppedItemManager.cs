@@ -1102,16 +1102,6 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
     }
 
-    private int ComputeItemLocalZ(DroppedItem item, TerrainManager terrainManager)
-    {
-        var settings = terrainManager.Settings;
-        int voxelsPerBlock = Mathf.Max(1, settings.voxelsPerBlock);
-        float voxelUnit = settings.blockSize / voxelsPerBlock;
-        float worldZRel = item.transform.position.z - settings.center.z;
-        int localZ = Mathf.RoundToInt(worldZRel / voxelUnit + (voxelsPerBlock - 1) / 2.0f);
-        return Mathf.Clamp(localZ, 0, voxelsPerBlock - 1);
-    }
-
     private TerrainManager ResolveTerrainManager()
     {
         if (cachedTerrainManager == null)
@@ -1210,8 +1200,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             return false;
         }
 
-        int requiredLocalZ = ComputeItemLocalZ(item, terrainManager);
-        var hits = index.FindNearestCandidates(item.transform.position, candidateLookupCount, candidateMaxBlockRadius, requiredLocalZ);
+        var hits = index.FindNearestCandidates(item.transform.position, candidateLookupCount, candidateMaxBlockRadius);
         if (hits.Count == 0)
         {
             return false;
