@@ -85,7 +85,7 @@ public class SolidificationCandidateIndex
         }
     }
 
-    public List<CandidateHit> FindNearestCandidates(Vector3 worldPosition, int maxResults, int maxBlockRadius = 8, int? requiredLocalZ = null)
+    public List<CandidateHit> FindNearestCandidates(Vector3 worldPosition, int maxResults, int maxBlockRadius = 8)
     {
         var results = new List<CandidateHit>();
         if (settings == null || voxelManager == null || maxResults <= 0) return results;
@@ -113,8 +113,6 @@ public class SolidificationCandidateIndex
 
                     foreach (var lp in bucket)
                     {
-                        if (requiredLocalZ.HasValue && lp.z != requiredLocalZ.Value) continue;
-
                         Vector3 cellWorld = voxelManager.CalculateWorldPosition(bp, lp);
                         float distSqr = (cellWorld - worldPosition).sqrMagnitude;
                         results.Add(new CandidateHit
