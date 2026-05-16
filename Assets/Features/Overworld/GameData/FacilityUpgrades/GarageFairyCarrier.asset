@@ -19,7 +19,7 @@ MonoBehaviour:
   displayName: "\u642C\u9001\u5996\u7CBE"
   description: "\u843D\u3061\u3066\u3044\u308B\u30DC\u30AF\u30BB\u30EB\u30921\u3064\u305A\u3064\u5165\u53E3\u307E\u3067\u904B\u3073\u307E\u3059\u3002"
   initialLevel: 0
-  maxLevel: 10
+  maxLevel: 99
   costScaling: 0
   resourceCosts:
   - resourceType: 1
