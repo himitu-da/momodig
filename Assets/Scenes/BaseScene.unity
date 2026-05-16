@@ -167,6 +167,5 @@ MonoBehaviour:
   managedContentSceneNames:
   - OverWorldScene
   - MiningScene
-  - ShopScene
   loadInitialContentSceneOnStart: 1
   setContentSceneActive: 1

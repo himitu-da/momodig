@@ -56,14 +56,7 @@ public class StorageManager : MonoBehaviour
             storedResources = new Dictionary<ResourceType, int>(GameDataPersistenceManager.Instance.storedResources);
         }
 
-        // 全てのリソースタイプを0で初期化（もし永続化データになければ）
-        foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
-        {
-            if (!storedResources.ContainsKey(type))
-            {
-                storedResources[type] = 0;
-            }
-        }
+        NormalizeStoredResources();
     }
 
     /// <summary>
@@ -76,10 +69,15 @@ public class StorageManager : MonoBehaviour
 
         foreach (var resource in resourcesToAdd)
         {
-            if (storedResources.ContainsKey(resource.Key))
+            if (!CanAddResource(resource.Key, resource.Value))
             {
-                storedResources[resource.Key] += resource.Value;
+                return;
             }
+        }
+
+        foreach (var resource in resourcesToAdd)
+        {
+            storedResources[resource.Key] += resource.Value;
         }
         
         // 永続化データも更新
@@ -104,14 +102,12 @@ public class StorageManager : MonoBehaviour
     /// <param name="amount">追加する量</param>
     public void AddResource(ResourceType type, int amount)
     {
-        if (storedResources.ContainsKey(type))
+        if (!CanAddResource(type, amount))
         {
-            storedResources[type] += amount;
+            return;
         }
-        else
-        {
-            storedResources[type] = amount;
-        }
+
+        storedResources[type] += amount;
         GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
 
         // 現在の貯蔵量を表示
@@ -210,6 +206,49 @@ public class StorageManager : MonoBehaviour
                 Debug.LogError($"StorageManager: spend amount for '{resource.Key}' must be greater than zero.");
                 return false;
             }
+        }
+
+        return true;
+    }
+
+    private void NormalizeStoredResources()
+    {
+        foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
+        {
+            if (!storedResources.ContainsKey(type))
+            {
+                storedResources[type] = 0;
+                continue;
+            }
+
+            if (storedResources[type] < 0)
+            {
+                Debug.LogError($"StorageManager: stored amount for '{type}' was negative and has been clamped to zero.");
+                storedResources[type] = 0;
+            }
+        }
+
+        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+    }
+
+    private bool CanAddResource(ResourceType type, int amount)
+    {
+        if (storedResources == null)
+        {
+            Debug.LogError("StorageManager: storedResources is not initialized.");
+            return false;
+        }
+
+        if (!storedResources.ContainsKey(type))
+        {
+            Debug.LogError($"StorageManager: resource '{type}' is not initialized.");
+            return false;
+        }
+
+        if (amount <= 0)
+        {
+            Debug.LogError($"StorageManager: add amount for '{type}' must be greater than zero. Use TrySpendResources for spending.");
+            return false;
         }
 
         return true;

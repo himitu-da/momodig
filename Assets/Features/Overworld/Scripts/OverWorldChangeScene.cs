@@ -8,14 +8,10 @@ public class OverWorldChangeScene : MonoBehaviour
 
     [Header("Scene Names")]
     [SerializeField] private string miningSceneName;
-    [SerializeField] private string legacyShopSceneName;
 
     [Header("Facilities")]
     [SerializeField] private FacilityDefinition workshopFacility;
     [SerializeField] private FacilityDefinition garageFacility;
-
-    [Header("Legacy ShopScene")]
-    [SerializeField] private ShopStateManager legacyShopStateManager;
 
     private bool isConfigured;
 
@@ -50,16 +46,6 @@ public class OverWorldChangeScene : MonoBehaviour
         OpenFacility(garageFacility, nameof(garageFacility));
     }
 
-    public void SelectWorkshopLegacyShopScene()
-    {
-        OpenLegacyShopScene(ShopStateManager.ShopMode.Workshop);
-    }
-
-    public void SelectGarageLegacyShopScene()
-    {
-        OpenLegacyShopScene(ShopStateManager.ShopMode.Garage);
-    }
-
     private void OpenFacility(FacilityDefinition facility, string fieldName)
     {
         if (!EnsureConfigured())
@@ -79,23 +65,6 @@ public class OverWorldChangeScene : MonoBehaviour
         }
 
         facilityUIHost.Open(facility);
-    }
-
-    private void OpenLegacyShopScene(ShopStateManager.ShopMode mode)
-    {
-        if (!EnsureConfigured())
-        {
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(legacyShopSceneName))
-        {
-            Debug.LogError("OverWorldChangeScene: legacyShopSceneName is not configured.", this);
-            return;
-        }
-
-        legacyShopStateManager.startMode = mode;
-        changescene.OnClickToChangeScene(legacyShopSceneName);
     }
 
     private bool EnsureConfigured()
@@ -126,15 +95,8 @@ public class OverWorldChangeScene : MonoBehaviour
         }
 
         isValid &= ValidateSceneName(miningSceneName, nameof(miningSceneName));
-        isValid &= ValidateSceneName(legacyShopSceneName, nameof(legacyShopSceneName));
         isValid &= ValidateFacility(workshopFacility, nameof(workshopFacility));
         isValid &= ValidateFacility(garageFacility, nameof(garageFacility));
-
-        if (legacyShopStateManager == null)
-        {
-            Debug.LogError("OverWorldChangeScene: legacyShopStateManager is not configured.", this);
-            isValid = false;
-        }
 
         return isValid;
     }
