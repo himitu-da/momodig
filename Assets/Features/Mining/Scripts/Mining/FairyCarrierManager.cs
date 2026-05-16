@@ -14,6 +14,22 @@ public class FairyCarrierManager : MonoBehaviour
         Depositing
     }
 
+    private sealed class FairyCarrier
+    {
+        public GameObject Instance;
+        public GameObject CarriedItemVisual;
+        public DroppedItem TargetItem;
+        public VoxelItemData CarriedItem;
+        public FairyState State = FairyState.IdleAtHome;
+        public float NextSearchTime;
+        public readonly List<Vector3> ActivePath = new List<Vector3>();
+        public readonly List<Vector3> CandidatePath = new List<Vector3>();
+        public int ActivePathIndex;
+        public Vector3 ActivePathDestination;
+        public bool HasActivePath;
+        public bool PathDirty = true;
+    }
+
     [Header("References")]
     [SerializeField] private Transform homePoint;
     [SerializeField] private GameObject fairyPrefab;
@@ -33,20 +49,10 @@ public class FairyCarrierManager : MonoBehaviour
     [SerializeField] private float destinationRepathDistance = 0.25f;
 
     private readonly HashSet<DroppedItem> reservedItems = new HashSet<DroppedItem>();
-    private readonly List<Vector3> activePath = new List<Vector3>();
-    private readonly List<Vector3> candidatePath = new List<Vector3>();
-    private GameObject fairyInstance;
-    private GameObject carriedItemVisual;
-    private DroppedItem targetItem;
-    private VoxelItemData carriedItem;
-    private FairyState state = FairyState.IdleAtHome;
+    private readonly List<FairyCarrier> fairies = new List<FairyCarrier>();
     private bool isUnlocked;
-    private float nextSearchTime;
     private MiningPassagePathfinder pathfinder;
-    private int activePathIndex;
-    private Vector3 activePathDestination;
-    private bool hasActivePath;
-    private bool pathDirty = true;
+    private int targetFairyCount;
 
     private void Awake()
     {
@@ -85,61 +91,53 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
-        EnsureFairyInstance();
-        if (fairyInstance == null)
+        EnsureFairyInstances();
+        for (int i = 0; i < fairies.Count; i++)
         {
-            return;
-        }
+            FairyCarrier fairy = fairies[i];
+            EnsureFairyInstance(fairy, i);
+            if (fairy.Instance == null)
+            {
+                continue;
+            }
 
-        switch (state)
-        {
-            case FairyState.IdleAtHome:
-                UpdateIdleAtHome();
-                break;
-            case FairyState.Searching:
-                SearchFromCurrentPosition();
-                break;
-            case FairyState.MovingToItem:
-                UpdateMovingToItem();
-                break;
-            case FairyState.CarryingToHome:
-                UpdateCarryingToHome();
-                break;
-            case FairyState.Depositing:
-                DepositCarriedItem();
-                break;
+            switch (fairy.State)
+            {
+                case FairyState.IdleAtHome:
+                    UpdateIdleAtHome(fairy);
+                    break;
+                case FairyState.Searching:
+                    SearchFromCurrentPosition(fairy);
+                    break;
+                case FairyState.MovingToItem:
+                    UpdateMovingToItem(fairy);
+                    break;
+                case FairyState.CarryingToHome:
+                    UpdateCarryingToHome(fairy);
+                    break;
+                case FairyState.Depositing:
+                    DepositCarriedItem(fairy);
+                    break;
+            }
         }
     }
 
     private void RefreshUnlockState()
     {
         int level = GameDataPersistenceManager.Instance.GetFacilityUpgradeLevel(CarrierUpgradeId, 0);
-        bool shouldBeUnlocked = level > 0;
-        if (isUnlocked == shouldBeUnlocked)
+        targetFairyCount = Mathf.Max(0, level);
+        bool shouldBeUnlocked = targetFairyCount > 0;
+
+        if (!shouldBeUnlocked)
         {
+            isUnlocked = false;
+            ClearAllFairies();
+            reservedItems.Clear();
             return;
         }
 
-        isUnlocked = shouldBeUnlocked;
-        if (isUnlocked)
-        {
-            EnsureFairyInstance();
-            state = FairyState.Searching;
-            ClearActivePath();
-        }
-        else
-        {
-            ClearTargetReservation();
-            ClearCarriedItem();
-            ClearActivePath();
-            if (fairyInstance != null)
-            {
-                Destroy(fairyInstance);
-                fairyInstance = null;
-            }
-
-            state = FairyState.IdleAtHome;
-        }
+        isUnlocked = true;
+        EnsureFairyInstances();
     }
 
     private bool ValidateConfiguration()
@@ -172,9 +170,34 @@ public class FairyCarrierManager : MonoBehaviour
         return isValid;
     }
 
-    private void EnsureFairyInstance()
+    private void EnsureFairyInstances()
     {
-        if (fairyInstance != null || homePoint == null)
+        if (homePoint == null)
+        {
+            return;
+        }
+
+        while (fairies.Count > targetFairyCount)
+        {
+            int removeIndex = fairies.Count - 1;
+            DestroyFairy(fairies[removeIndex]);
+            fairies.RemoveAt(removeIndex);
+        }
+
+        while (fairies.Count < targetFairyCount)
+        {
+            FairyCarrier fairy = new FairyCarrier
+            {
+                State = FairyState.Searching
+            };
+            fairies.Add(fairy);
+            EnsureFairyInstance(fairy, fairies.Count - 1);
+        }
+    }
+
+    private void EnsureFairyInstance(FairyCarrier fairy, int index)
+    {
+        if (fairy.Instance != null || homePoint == null)
         {
             return;
         }
@@ -184,53 +207,55 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
-        fairyInstance = Instantiate(fairyPrefab, homePoint.position, Quaternion.identity, transform);
-        fairyInstance.name = "FairyCarrier";
-        DisableFairyColliders();
+        fairy.Instance = Instantiate(fairyPrefab, homePoint.position, Quaternion.identity, transform);
+        fairy.Instance.name = $"FairyCarrier_{index + 1}";
+        DisableFairyColliders(fairy);
     }
 
-    private void DisableFairyColliders()
+    private void DisableFairyColliders(FairyCarrier fairy)
     {
-        Collider[] colliders = fairyInstance.GetComponentsInChildren<Collider>();
+        Collider[] colliders = fairy.Instance.GetComponentsInChildren<Collider>();
         for (int i = 0; i < colliders.Length; i++)
         {
             colliders[i].enabled = false;
         }
     }
 
-    private void UpdateIdleAtHome()
+    private void UpdateIdleAtHome(FairyCarrier fairy)
     {
-        if (TryMoveFairyAlongPassage(homePoint.position, homeArrivalDistance, out bool arrived) && arrived && Time.time >= nextSearchTime)
+        if (TryMoveFairyAlongPassage(fairy, homePoint.position, homeArrivalDistance, out bool arrived) &&
+            arrived &&
+            Time.time >= fairy.NextSearchTime)
         {
-            state = FairyState.Searching;
+            fairy.State = FairyState.Searching;
         }
     }
 
-    private void SearchFromCurrentPosition()
+    private void SearchFromCurrentPosition(FairyCarrier fairy)
     {
-        if (TryAssignNearestTarget(fairyInstance.transform.position))
+        if (TryAssignNearestTarget(fairy, fairy.Instance.transform.position))
         {
-            state = FairyState.MovingToItem;
+            fairy.State = FairyState.MovingToItem;
             return;
         }
 
-        nextSearchTime = Time.time + searchInterval;
-        state = FairyState.IdleAtHome;
+        fairy.NextSearchTime = Time.time + searchInterval;
+        fairy.State = FairyState.IdleAtHome;
     }
 
-    private void UpdateMovingToItem()
+    private void UpdateMovingToItem(FairyCarrier fairy)
     {
-        if (!IsTargetStillAvailable(targetItem))
+        if (!IsTargetStillAvailable(fairy.TargetItem))
         {
-            ClearTargetReservation();
-            SearchFromCurrentPosition();
+            ClearTargetReservation(fairy);
+            SearchFromCurrentPosition(fairy);
             return;
         }
 
-        if (!TryMoveFairyAlongPassage(targetItem.transform.position, pickupDistance, out bool arrived))
+        if (!TryMoveFairyAlongPassage(fairy, fairy.TargetItem.transform.position, pickupDistance, out bool arrived))
         {
-            ClearTargetReservation();
-            SearchFromCurrentPosition();
+            ClearTargetReservation(fairy);
+            SearchFromCurrentPosition(fairy);
             return;
         }
 
@@ -239,103 +264,103 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
-        if (!TryPickupTarget())
+        if (!TryPickupTarget(fairy))
         {
-            ClearTargetReservation();
-            SearchFromCurrentPosition();
+            ClearTargetReservation(fairy);
+            SearchFromCurrentPosition(fairy);
             return;
         }
 
-        state = FairyState.CarryingToHome;
+        fairy.State = FairyState.CarryingToHome;
     }
 
-    private void UpdateCarryingToHome()
+    private void UpdateCarryingToHome(FairyCarrier fairy)
     {
-        UpdateCarriedItemVisual();
-        if (TryMoveFairyAlongPassage(homePoint.position, homeArrivalDistance, out bool arrived) && arrived)
+        UpdateCarriedItemVisual(fairy);
+        if (TryMoveFairyAlongPassage(fairy, homePoint.position, homeArrivalDistance, out bool arrived) && arrived)
         {
-            state = FairyState.Depositing;
+            fairy.State = FairyState.Depositing;
         }
     }
 
-    private void DepositCarriedItem()
+    private void DepositCarriedItem(FairyCarrier fairy)
     {
-        if (carriedItem != null && StorageManager.Instance != null)
+        if (fairy.CarriedItem != null && StorageManager.Instance != null)
         {
-            StorageManager.Instance.AddResource(carriedItem.resourceType, 1);
+            StorageManager.Instance.AddResource(fairy.CarriedItem.resourceType, 1);
         }
 
-        ClearCarriedItem();
-        state = FairyState.Searching;
+        ClearCarriedItem(fairy);
+        fairy.State = FairyState.Searching;
     }
 
-    private bool TryMoveFairyAlongPassage(Vector3 destination, float arrivalDistance, out bool arrived)
+    private bool TryMoveFairyAlongPassage(FairyCarrier fairy, Vector3 destination, float arrivalDistance, out bool arrived)
     {
         arrived = false;
-        Vector3 current = fairyInstance.transform.position;
+        Vector3 current = fairy.Instance.transform.position;
         float distance = Vector3.Distance(current, destination);
         if (distance <= arrivalDistance)
         {
-            fairyInstance.transform.position = destination;
-            ClearActivePath();
+            fairy.Instance.transform.position = destination;
+            ClearActivePath(fairy);
             arrived = true;
             return true;
         }
 
-        if (!EnsurePathTo(destination))
+        if (!EnsurePathTo(fairy, destination))
         {
             return false;
         }
 
-        while (activePathIndex < activePath.Count &&
-               Vector3.Distance(fairyInstance.transform.position, activePath[activePathIndex]) <= waypointArrivalDistance)
+        while (fairy.ActivePathIndex < fairy.ActivePath.Count &&
+               Vector3.Distance(fairy.Instance.transform.position, fairy.ActivePath[fairy.ActivePathIndex]) <= waypointArrivalDistance)
         {
-            activePathIndex++;
+            fairy.ActivePathIndex++;
         }
 
-        Vector3 moveTarget = activePathIndex < activePath.Count ? activePath[activePathIndex] : destination;
-        fairyInstance.transform.position = Vector3.MoveTowards(current, moveTarget, moveSpeed * Time.deltaTime);
+        Vector3 moveTarget = fairy.ActivePathIndex < fairy.ActivePath.Count ? fairy.ActivePath[fairy.ActivePathIndex] : destination;
+        fairy.Instance.transform.position = Vector3.MoveTowards(current, moveTarget, moveSpeed * Time.deltaTime);
 
-        if (Vector3.Distance(fairyInstance.transform.position, destination) <= arrivalDistance)
+        if (Vector3.Distance(fairy.Instance.transform.position, destination) <= arrivalDistance)
         {
-            fairyInstance.transform.position = destination;
-            ClearActivePath();
+            fairy.Instance.transform.position = destination;
+            ClearActivePath(fairy);
             arrived = true;
         }
 
         return true;
     }
 
-    private bool EnsurePathTo(Vector3 destination)
+    private bool EnsurePathTo(FairyCarrier fairy, Vector3 destination)
     {
         if (!EnsurePathfinder())
         {
             return false;
         }
 
-        if (hasActivePath &&
-            !pathDirty &&
-            (activePathDestination - destination).sqrMagnitude <= destinationRepathDistance * destinationRepathDistance &&
-            activePathIndex < activePath.Count)
+        if (fairy.HasActivePath &&
+            !fairy.PathDirty &&
+            (fairy.ActivePathDestination - destination).sqrMagnitude <= destinationRepathDistance * destinationRepathDistance &&
+            fairy.ActivePathIndex < fairy.ActivePath.Count)
         {
             return true;
         }
 
-        activePath.Clear();
-        if (!pathfinder.TryFindPath(fairyInstance.transform.position, destination, activePath))
+        fairy.ActivePath.Clear();
+        if (!pathfinder.TryFindPath(fairy.Instance.transform.position, destination, fairy.ActivePath))
         {
-            ClearActivePath();
+            ClearActivePath(fairy);
             return false;
         }
 
-        activePathDestination = destination;
-        activePathIndex = 0;
-        hasActivePath = activePath.Count > 0;
-        pathDirty = false;
-        return hasActivePath;
+        fairy.ActivePathDestination = destination;
+        fairy.ActivePathIndex = 0;
+        fairy.HasActivePath = fairy.ActivePath.Count > 0;
+        fairy.PathDirty = false;
+        return fairy.HasActivePath;
     }
 
-    private bool TryAssignNearestTarget(Vector3 origin)
+    private bool TryAssignNearestTarget(FairyCarrier fairy, Vector3 origin)
     {
         DroppedItemManager itemManager = DroppedItemManager.Instance;
         if (itemManager == null)
@@ -356,7 +381,7 @@ public class FairyCarrierManager : MonoBehaviour
                 continue;
             }
 
-            if (!TryFindPassagePathLength(origin, item.transform.position, out float pathLength))
+            if (!TryFindPassagePathLength(fairy, origin, item.transform.position, out float pathLength))
             {
                 continue;
             }
@@ -373,13 +398,13 @@ public class FairyCarrierManager : MonoBehaviour
             return false;
         }
 
-        targetItem = nearest;
-        reservedItems.Add(targetItem);
-        ClearActivePath();
+        fairy.TargetItem = nearest;
+        reservedItems.Add(fairy.TargetItem);
+        ClearActivePath(fairy);
         return true;
     }
 
-    private bool TryFindPassagePathLength(Vector3 origin, Vector3 destination, out float pathLength)
+    private bool TryFindPassagePathLength(FairyCarrier fairy, Vector3 origin, Vector3 destination, out float pathLength)
     {
         pathLength = 0f;
         if (!EnsurePathfinder())
@@ -387,82 +412,82 @@ public class FairyCarrierManager : MonoBehaviour
             return false;
         }
 
-        return pathfinder.TryFindPath(origin, destination, candidatePath, out pathLength);
+        return pathfinder.TryFindPath(origin, destination, fairy.CandidatePath, out pathLength);
     }
 
-    private bool TryPickupTarget()
+    private bool TryPickupTarget(FairyCarrier fairy)
     {
-        if (!IsTargetStillAvailable(targetItem))
+        if (!IsTargetStillAvailable(fairy.TargetItem))
         {
             return false;
         }
 
-        if (!VoxelItemData.TryCreateFromDroppedItem(targetItem, out VoxelItemData itemData))
+        if (!VoxelItemData.TryCreateFromDroppedItem(fairy.TargetItem, out VoxelItemData itemData))
         {
             return false;
         }
 
-        carriedItem = itemData;
-        DroppedItem pickedItem = targetItem;
-        ClearTargetReservation();
+        fairy.CarriedItem = itemData;
+        DroppedItem pickedItem = fairy.TargetItem;
+        ClearTargetReservation(fairy);
         DroppedItemManager.Instance.ReturnItem(pickedItem.gameObject);
-        CreateCarriedItemVisual();
+        CreateCarriedItemVisual(fairy);
         return true;
     }
 
-    private void CreateCarriedItemVisual()
+    private void CreateCarriedItemVisual(FairyCarrier fairy)
     {
-        ClearCarriedItemVisual();
-        if (carriedItem == null)
+        ClearCarriedItemVisual(fairy);
+        if (fairy.CarriedItem == null)
         {
             return;
         }
 
         if (VoxelItemVisualUtility.TryCreateAnimationItem(
-                fairyInstance.transform.position,
-                fairyInstance.transform,
-                carriedItem,
+                fairy.Instance.transform.position,
+                fairy.Instance.transform,
+                fairy.CarriedItem,
                 terrainDataManager,
                 "FairyCarrierManager",
                 out GameObject visual))
         {
-            carriedItemVisual = visual;
-            UpdateCarriedItemVisual();
+            fairy.CarriedItemVisual = visual;
+            UpdateCarriedItemVisual(fairy);
         }
     }
 
-    private void UpdateCarriedItemVisual()
+    private void UpdateCarriedItemVisual(FairyCarrier fairy)
     {
-        if (carriedItemVisual != null)
+        if (fairy.CarriedItemVisual != null)
         {
-            carriedItemVisual.transform.localPosition = carriedItemLocalOffset;
-            carriedItemVisual.transform.Rotate(0f, 180f * Time.deltaTime, 0f);
+            fairy.CarriedItemVisual.transform.localPosition = carriedItemLocalOffset;
+            fairy.CarriedItemVisual.transform.Rotate(0f, 180f * Time.deltaTime, 0f);
         }
     }
 
-    private void ClearTargetReservation()
+    private void ClearTargetReservation(FairyCarrier fairy)
     {
-        if (targetItem != null)
+        if (fairy.TargetItem != null)
         {
-            reservedItems.Remove(targetItem);
-            targetItem = null;
+            reservedItems.Remove(fairy.TargetItem);
+            fairy.TargetItem = null;
         }
 
-        ClearActivePath();
+        ClearActivePath(fairy);
     }
 
-    private void ClearCarriedItem()
+    private void ClearCarriedItem(FairyCarrier fairy)
     {
-        carriedItem = null;
-        ClearCarriedItemVisual();
+        fairy.CarriedItem = null;
+        ClearCarriedItemVisual(fairy);
     }
 
-    private void ClearCarriedItemVisual()
+    private void ClearCarriedItemVisual(FairyCarrier fairy)
     {
-        if (carriedItemVisual != null)
+        if (fairy.CarriedItemVisual != null)
         {
-            Destroy(carriedItemVisual);
-            carriedItemVisual = null;
+            Destroy(fairy.CarriedItemVisual);
+            fairy.CarriedItemVisual = null;
         }
     }
 
@@ -507,7 +532,7 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         pathfinder = new MiningPassagePathfinder(terrainManager, pathOptions);
-        pathDirty = true;
+        MarkAllPathsDirty();
     }
 
     private void SubscribeTerrainChanges()
@@ -538,14 +563,46 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
-        pathDirty = true;
+        MarkAllPathsDirty();
     }
 
-    private void ClearActivePath()
+    private void MarkAllPathsDirty()
     {
-        activePath.Clear();
-        activePathIndex = 0;
-        hasActivePath = false;
-        pathDirty = true;
+        for (int i = 0; i < fairies.Count; i++)
+        {
+            fairies[i].PathDirty = true;
+        }
+    }
+
+    private void ClearActivePath(FairyCarrier fairy)
+    {
+        fairy.ActivePath.Clear();
+        fairy.ActivePathIndex = 0;
+        fairy.HasActivePath = false;
+        fairy.PathDirty = true;
+    }
+
+    private void DestroyFairy(FairyCarrier fairy)
+    {
+        ClearTargetReservation(fairy);
+        ClearCarriedItem(fairy);
+        ClearActivePath(fairy);
+        if (fairy.Instance != null)
+        {
+            Destroy(fairy.Instance);
+            fairy.Instance = null;
+        }
+
+        fairy.State = FairyState.IdleAtHome;
+    }
+
+    private void ClearAllFairies()
+    {
+        for (int i = 0; i < fairies.Count; i++)
+        {
+            DestroyFairy(fairies[i]);
+        }
+
+        fairies.Clear();
     }
 }
