@@ -124,6 +124,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     private readonly List<VoxelCellKey> reusableSupportCells = new List<VoxelCellKey>(8);
     private readonly List<DroppedItem> upwardWakeList = new List<DroppedItem>(64);
     private readonly HashSet<DroppedItem> upwardWakeVisited = new HashSet<DroppedItem>();
+    private readonly List<float> reusableCandidateDistances = new List<float>(128);
     private readonly Vector3[] supportSampleBuffer = new Vector3[5];
     private readonly Collider[] overlapBuffer = new Collider[2048];
     private TerrainManager cachedTerrainManager;
@@ -1023,6 +1024,79 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     public List<DroppedItem> GetActiveItems()
     {
         return new List<DroppedItem>(activeItems);
+    }
+
+    public void CollectActiveItemsNear(
+        Vector3 origin,
+        float radius,
+        List<DroppedItem> results,
+        int maxCount,
+        ISet<DroppedItem> excludedItems = null)
+    {
+        if (results == null)
+        {
+            Debug.LogError("DroppedItemManager: results list is null.", this);
+            return;
+        }
+
+        results.Clear();
+        reusableCandidateDistances.Clear();
+
+        if (maxCount <= 0)
+        {
+            Debug.LogError($"DroppedItemManager: maxCount must be greater than 0. maxCount={maxCount}", this);
+            return;
+        }
+
+        bool useRadius = radius > 0f;
+        float radiusSqr = radius * radius;
+        for (int i = 0; i < activeItems.Count; i++)
+        {
+            DroppedItem item = activeItems[i];
+            if (item == null || item.gameObject == null || !item.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            if (excludedItems != null && excludedItems.Contains(item))
+            {
+                continue;
+            }
+
+            float distanceSqr = (item.transform.position - origin).sqrMagnitude;
+            if (useRadius && distanceSqr > radiusSqr)
+            {
+                continue;
+            }
+
+            InsertNearestCandidate(item, distanceSqr, results, maxCount);
+        }
+
+        reusableCandidateDistances.Clear();
+    }
+
+    private void InsertNearestCandidate(DroppedItem item, float distanceSqr, List<DroppedItem> results, int maxCount)
+    {
+        if (results.Count >= maxCount && distanceSqr >= reusableCandidateDistances[reusableCandidateDistances.Count - 1])
+        {
+            return;
+        }
+
+        int insertIndex = 0;
+        while (insertIndex < reusableCandidateDistances.Count && reusableCandidateDistances[insertIndex] <= distanceSqr)
+        {
+            insertIndex++;
+        }
+
+        results.Insert(insertIndex, item);
+        reusableCandidateDistances.Insert(insertIndex, distanceSqr);
+
+        if (results.Count > maxCount)
+        {
+            int removeIndex = results.Count - 1;
+            results.RemoveAt(removeIndex);
+            reusableCandidateDistances.RemoveAt(removeIndex);
+        }
     }
 
     public bool ContainsActiveItem(DroppedItem item)

@@ -53,6 +53,8 @@ public class FairyCarrierManager : MonoBehaviour
     [SerializeField] private MiningPassagePathOptions pathOptions = new MiningPassagePathOptions();
     [SerializeField, Min(1)] private int maxConcurrentTargetSearches = 10;
     [SerializeField, Min(1)] private int targetSearchCellsPerFrame = 256;
+    [SerializeField, Min(1)] private int maxSearchTargetCandidates = 128;
+    [SerializeField, Min(0f)] private float targetSearchRadius = 0f;
     [SerializeField] private float waypointArrivalDistance = 0.08f;
     [SerializeField] private float destinationRepathDistance = 0.25f;
 
@@ -507,16 +509,25 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         reservedItems.RemoveWhere(IsReservedItemInvalid);
-        List<DroppedItem> activeItems = itemManager.GetActiveItems();
-        for (int i = 0; i < activeItems.Count; i++)
-        {
-            DroppedItem item = activeItems[i];
-            if (!IsTargetCandidateAvailable(item) || reservedItems.Contains(item))
-            {
-                continue;
-            }
+        itemManager.CollectActiveItemsNear(
+            origin,
+            targetSearchRadius,
+            fairy.SearchTargets,
+            maxSearchTargetCandidates,
+            reservedItems);
 
-            fairy.SearchTargets.Add(item);
+        for (int i = fairy.SearchTargets.Count - 1; i >= 0; i--)
+        {
+            DroppedItem item = fairy.SearchTargets[i];
+            if (!IsTargetCandidateAvailable(item))
+            {
+                fairy.SearchTargets.RemoveAt(i);
+            }
+        }
+
+        for (int i = 0; i < fairy.SearchTargets.Count; i++)
+        {
+            DroppedItem item = fairy.SearchTargets[i];
             fairy.SearchTargetPositions.Add(item.transform.position);
         }
 
