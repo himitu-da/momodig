@@ -35,6 +35,10 @@ public class FairyCarrierManager : MonoBehaviour
         public bool PathDirty = true;
     }
 
+    [Header("Debug Visualization")]
+    [SerializeField] private bool showPassageCircleNodes = false;
+    [SerializeField] private bool showPassageCircleEdges = false;
+
     [Header("References")]
     [SerializeField] private Transform homePoint;
     [SerializeField] private GameObject fairyPrefab;
@@ -731,6 +735,7 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
+        pathfinder?.InvalidatePassageGraph();
         MarkAllPathsDirty();
     }
 
@@ -785,5 +790,17 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         fairies.Clear();
+    }
+
+    private void OnDrawGizmos()
+    {
+        if (!showPassageCircleNodes || pathfinder == null)
+            return;
+
+        PassageCircleGraph graph = pathfinder.PassageGraph;
+        if (graph == null || !graph.IsBuilt)
+            return;
+
+        graph.DrawGizmos(showPassageCircleEdges);
     }
 }
