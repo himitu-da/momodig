@@ -183,12 +183,6 @@ public class MiningPassageController : MonoBehaviour, IGameSceneTransitionHandle
     {
         passageMaskSession.Render();
 
-        if (ShouldCompletePassage())
-        {
-            CompletePassage();
-            return;
-        }
-
         if (!ConstrainPassageMovement())
         {
             return;
@@ -378,19 +372,24 @@ public class MiningPassageController : MonoBehaviour, IGameSceneTransitionHandle
             return;
         }
 
+        playerTransform = playerController.transform;
+        playerRigidbody = playerController.GetComponent<Rigidbody>();
+
         if (!TryPlacePlayerFromPassageTransition(previousSceneName, player.transform))
         {
+            playerTransform = null;
+            playerRigidbody = null;
             return;
         }
 
         if (!cameraFollowController.SnapToFollowTargetAndEnable())
         {
+            playerTransform = null;
+            playerRigidbody = null;
             return;
         }
 
         isPlayerInside = true;
-        playerTransform = playerController.transform;
-        playerRigidbody = playerController.GetComponent<Rigidbody>();
         isSceneTransitioning = false;
 
         StartPassage(true);
@@ -421,6 +420,8 @@ public class MiningPassageController : MonoBehaviour, IGameSceneTransitionHandle
         }
 
         player.position = targetPosition;
+        CapturePassageBounds();
+        ConstrainPassageMovement();
 
         if (player.TryGetComponent(out Rigidbody targetRigidbody))
         {
