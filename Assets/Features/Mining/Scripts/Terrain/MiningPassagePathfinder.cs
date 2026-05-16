@@ -311,7 +311,7 @@ public sealed class MiningPassagePathfinder
             }
 
             bounds = SearchBounds.Create(start, targetCells, pathfinder.voxelsPerBlock, pathfinder.options.searchPaddingCells);
-            openSet.Push(start, 0);
+            openSet.Push(start, 0, GetOpenPriority(start, 0));
             gScore[start] = 0;
         }
 
@@ -394,7 +394,7 @@ public sealed class MiningPassagePathfinder
 
             cameFrom[neighbor] = current;
             gScore[neighbor] = tentativeScore;
-            openSet.Push(neighbor, tentativeScore);
+            openSet.Push(neighbor, tentativeScore, GetOpenPriority(neighbor, tentativeScore));
         }
 
         private bool TryPopLowestScoreOpenCell(out VoxelCellKey cell)
@@ -406,7 +406,7 @@ public sealed class MiningPassagePathfinder
                     continue;
                 }
 
-                if (!gScore.TryGetValue(entry.Cell, out int currentScore) || currentScore != entry.Score)
+                if (!gScore.TryGetValue(entry.Cell, out int currentScore) || currentScore != entry.PathScore)
                 {
                     continue;
                 }
@@ -419,16 +419,33 @@ public sealed class MiningPassagePathfinder
             return false;
         }
 
+        private int GetOpenPriority(VoxelCellKey cell, int pathScore)
+        {
+            int bestHeuristic = int.MaxValue;
+            for (int i = 0; i < targetCells.Count; i++)
+            {
+                int heuristic = pathfinder.GetEstimatedCost(cell, targetCells[i]);
+                if (heuristic < bestHeuristic)
+                {
+                    bestHeuristic = heuristic;
+                }
+            }
+
+            return bestHeuristic == int.MaxValue ? pathScore : pathScore + bestHeuristic;
+        }
+
         private readonly struct OpenCellEntry
         {
             public readonly VoxelCellKey Cell;
-            public readonly int Score;
+            public readonly int PathScore;
+            public readonly int Priority;
             public readonly int Order;
 
-            public OpenCellEntry(VoxelCellKey cell, int score, int order)
+            public OpenCellEntry(VoxelCellKey cell, int pathScore, int priority, int order)
             {
                 Cell = cell;
-                Score = score;
+                PathScore = pathScore;
+                Priority = priority;
                 Order = order;
             }
         }
@@ -438,9 +455,9 @@ public sealed class MiningPassagePathfinder
             private readonly List<OpenCellEntry> entries = new List<OpenCellEntry>();
             private int nextOrder;
 
-            public void Push(VoxelCellKey cell, int score)
+            public void Push(VoxelCellKey cell, int pathScore, int priority)
             {
-                OpenCellEntry entry = new OpenCellEntry(cell, score, nextOrder++);
+                OpenCellEntry entry = new OpenCellEntry(cell, pathScore, priority, nextOrder++);
                 entries.Add(entry);
                 SiftUp(entries.Count - 1);
             }
@@ -510,7 +527,7 @@ public sealed class MiningPassagePathfinder
 
             private static bool HasHigherPriority(OpenCellEntry a, OpenCellEntry b)
             {
-                return a.Score < b.Score || (a.Score == b.Score && a.Order < b.Order);
+                return a.Priority < b.Priority || (a.Priority == b.Priority && a.Order < b.Order);
             }
 
             private void Swap(int a, int b)
