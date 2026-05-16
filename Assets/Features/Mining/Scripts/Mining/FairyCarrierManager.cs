@@ -23,6 +23,7 @@ public class FairyCarrierManager : MonoBehaviour
         public VoxelItemData CarriedItem;
         public FairyState State = FairyState.IdleAtHome;
         public float NextSearchTime;
+        public float SearchWaitStartedAt = -1f;
         public readonly List<Vector3> ActivePath = new List<Vector3>();
         public readonly List<DroppedItem> SearchTargets = new List<DroppedItem>();
         public readonly List<Vector3> SearchTargetPositions = new List<Vector3>();
@@ -45,6 +46,7 @@ public class FairyCarrierManager : MonoBehaviour
     [SerializeField] private float pickupDistance = 0.25f;
     [SerializeField] private float homeArrivalDistance = 0.25f;
     [SerializeField] private float searchInterval = 0.25f;
+    [SerializeField, Min(0f)] private float offHomeSearchWaitReturnSeconds = 5f;
     [SerializeField] private Vector3 carriedItemLocalOffset = new Vector3(0f, 0.45f, 0f);
 
     [Header("Pathfinding")]
@@ -245,6 +247,13 @@ public class FairyCarrierManager : MonoBehaviour
 
     private void UpdateWaitingForSearchSlot(FairyCarrier fairy)
     {
+        EnsureSearchWaitTimerStarted(fairy);
+        if (ShouldReturnHomeAfterSearchWait(fairy))
+        {
+            ReturnHomeAfterSearchWait(fairy);
+            return;
+        }
+
         if (Time.time < fairy.NextSearchTime)
         {
             return;
@@ -260,7 +269,7 @@ public class FairyCarrierManager : MonoBehaviour
     {
         if (fairy.TargetSearch == null)
         {
-            fairy.State = FairyState.WaitingForSearchSlot;
+            QueueSearchFromCurrentPosition(fairy, 0f);
             return;
         }
 
@@ -277,9 +286,7 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
-        ClearTargetSearch(fairy);
-        fairy.NextSearchTime = Time.time + searchInterval;
-        fairy.State = FairyState.WaitingForSearchSlot;
+        QueueSearchFromCurrentPosition(fairy, searchInterval);
     }
 
     private void UpdateMovingToItem(FairyCarrier fairy)
@@ -403,7 +410,50 @@ public class FairyCarrierManager : MonoBehaviour
     {
         ClearTargetSearch(fairy);
         fairy.NextSearchTime = Time.time + Mathf.Max(0f, delaySeconds);
+        if (fairy.State != FairyState.WaitingForSearchSlot || fairy.SearchWaitStartedAt < 0f)
+        {
+            fairy.SearchWaitStartedAt = Time.time;
+        }
+
         fairy.State = FairyState.WaitingForSearchSlot;
+    }
+
+    private void EnsureSearchWaitTimerStarted(FairyCarrier fairy)
+    {
+        if (fairy.SearchWaitStartedAt < 0f)
+        {
+            fairy.SearchWaitStartedAt = Time.time;
+        }
+    }
+
+    private bool ShouldReturnHomeAfterSearchWait(FairyCarrier fairy)
+    {
+        if (homePoint == null || fairy.Instance == null || offHomeSearchWaitReturnSeconds <= 0f)
+        {
+            return false;
+        }
+
+        if (IsFairyAtHome(fairy))
+        {
+            return false;
+        }
+
+        return Time.time - fairy.SearchWaitStartedAt >= offHomeSearchWaitReturnSeconds;
+    }
+
+    private bool IsFairyAtHome(FairyCarrier fairy)
+    {
+        float threshold = Mathf.Max(0f, homeArrivalDistance);
+        return (fairy.Instance.transform.position - homePoint.position).sqrMagnitude <= threshold * threshold;
+    }
+
+    private void ReturnHomeAfterSearchWait(FairyCarrier fairy)
+    {
+        ClearTargetSearch(fairy);
+        ClearActivePath(fairy);
+        fairy.SearchWaitStartedAt = -1f;
+        fairy.NextSearchTime = Time.time + searchInterval;
+        fairy.State = FairyState.IdleAtHome;
     }
 
     private bool TryStartTargetSearch(FairyCarrier fairy, Vector3 origin)
@@ -427,6 +477,7 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         targetSearchSlotsRemaining--;
+        fairy.SearchWaitStartedAt = -1f;
         fairy.State = FairyState.Searching;
         return true;
     }
