@@ -10,6 +10,13 @@ public sealed class MiningPassagePathOptions
     [Min(16)] public int maxVisitedCells = 4096;
 }
 
+public enum MiningPassageNearestTargetSearchStatus
+{
+    Running,
+    Found,
+    NotFound
+}
+
 public sealed class MiningPassagePathfinder
 {
     private static readonly Vector3Int[] NeighborOffsets =
@@ -84,6 +91,11 @@ public sealed class MiningPassagePathfinder
         AppendWaypoint(waypoints, goalWorldPosition);
         pathLength = CalculatePathLength(startWorldPosition, waypoints);
         return waypoints.Count > 0;
+    }
+
+    public NearestTargetSearch BeginNearestTargetSearch(Vector3 startWorldPosition, IReadOnlyList<Vector3> targetWorldPositions)
+    {
+        return new NearestTargetSearch(this, startWorldPosition, targetWorldPositions);
     }
 
     private bool TryResolvePassageCell(VoxelCellKey origin, out VoxelCellKey resolved)
@@ -186,6 +198,163 @@ public sealed class MiningPassagePathfinder
         }
 
         return false;
+    }
+
+    public sealed class NearestTargetSearch
+    {
+        private readonly MiningPassagePathfinder pathfinder;
+        private readonly VoxelCellKey start;
+        private readonly SearchBounds bounds;
+        private readonly Queue<VoxelCellKey> openSet = new Queue<VoxelCellKey>();
+        private readonly HashSet<VoxelCellKey> visited = new HashSet<VoxelCellKey>();
+        private readonly Dictionary<VoxelCellKey, VoxelCellKey> cameFrom = new Dictionary<VoxelCellKey, VoxelCellKey>();
+        private readonly Dictionary<VoxelCellKey, int> targetIndexByCell = new Dictionary<VoxelCellKey, int>();
+        private readonly List<Vector3> targetWorldPositions = new List<Vector3>();
+        private readonly List<VoxelCellKey> targetCells = new List<VoxelCellKey>();
+        private MiningPassageNearestTargetSearchStatus status = MiningPassageNearestTargetSearchStatus.Running;
+        private VoxelCellKey foundTargetCell;
+        private int visitedCellCount;
+
+        public int FoundTargetIndex { get; private set; } = -1;
+        public bool IsComplete => status != MiningPassageNearestTargetSearchStatus.Running;
+
+        public NearestTargetSearch(MiningPassagePathfinder pathfinder, Vector3 startWorldPosition, IReadOnlyList<Vector3> targetWorldPositions)
+        {
+            this.pathfinder = pathfinder;
+            if (pathfinder == null ||
+                pathfinder.voxelManager == null ||
+                targetWorldPositions == null ||
+                targetWorldPositions.Count == 0 ||
+                !pathfinder.voxelManager.TryGetVoxelCellAtWorldPosition(startWorldPosition, out VoxelCellKey rawStart) ||
+                !pathfinder.TryResolvePassageCell(rawStart, out VoxelCellKey resolvedStart))
+            {
+                start = default;
+                status = MiningPassageNearestTargetSearchStatus.NotFound;
+                bounds = SearchBounds.Empty;
+                return;
+            }
+
+            start = resolvedStart;
+
+            for (int i = 0; i < targetWorldPositions.Count; i++)
+            {
+                this.targetWorldPositions.Add(targetWorldPositions[i]);
+            }
+
+            for (int i = 0; i < targetWorldPositions.Count; i++)
+            {
+                Vector3 targetWorldPosition = targetWorldPositions[i];
+                if (!pathfinder.voxelManager.TryGetVoxelCellAtWorldPosition(targetWorldPosition, out VoxelCellKey rawTarget) ||
+                    !pathfinder.TryResolvePassageCell(rawTarget, out VoxelCellKey targetCell))
+                {
+                    continue;
+                }
+
+                if (!targetIndexByCell.ContainsKey(targetCell))
+                {
+                    targetIndexByCell.Add(targetCell, i);
+                    targetCells.Add(targetCell);
+                }
+            }
+
+            if (targetCells.Count == 0)
+            {
+                status = MiningPassageNearestTargetSearchStatus.NotFound;
+                bounds = SearchBounds.Empty;
+                return;
+            }
+
+            bounds = SearchBounds.Create(start, targetCells, pathfinder.voxelsPerBlock, pathfinder.options.searchPaddingCells);
+            openSet.Enqueue(start);
+            visited.Add(start);
+        }
+
+        public MiningPassageNearestTargetSearchStatus Step(int maxCellsToVisit)
+        {
+            if (status != MiningPassageNearestTargetSearchStatus.Running)
+            {
+                return status;
+            }
+
+            int budget = Mathf.Max(1, maxCellsToVisit);
+            int maxVisitedCells = Mathf.Max(16, pathfinder.options.maxVisitedCells);
+            int processedCells = 0;
+
+            while (openSet.Count > 0 && processedCells < budget && visitedCellCount < maxVisitedCells)
+            {
+                VoxelCellKey current = openSet.Dequeue();
+                processedCells++;
+                visitedCellCount++;
+
+                if (targetIndexByCell.TryGetValue(current, out int targetIndex))
+                {
+                    foundTargetCell = current;
+                    FoundTargetIndex = targetIndex;
+                    status = MiningPassageNearestTargetSearchStatus.Found;
+                    return status;
+                }
+
+                for (int i = 0; i < NeighborOffsets.Length; i++)
+                {
+                    if (!pathfinder.TryOffsetCell(current, NeighborOffsets[i], out VoxelCellKey neighbor) ||
+                        visited.Contains(neighbor) ||
+                        !bounds.Contains(neighbor, pathfinder.voxelsPerBlock) ||
+                        !pathfinder.IsPassageCell(neighbor))
+                    {
+                        continue;
+                    }
+
+                    visited.Add(neighbor);
+                    cameFrom[neighbor] = current;
+                    openSet.Enqueue(neighbor);
+                }
+            }
+
+            if (openSet.Count == 0 || visitedCellCount >= maxVisitedCells)
+            {
+                status = MiningPassageNearestTargetSearchStatus.NotFound;
+            }
+
+            return status;
+        }
+
+        public bool TryBuildPath(List<Vector3> waypoints)
+        {
+            if (waypoints == null)
+            {
+                return false;
+            }
+
+            waypoints.Clear();
+            if (status != MiningPassageNearestTargetSearchStatus.Found || FoundTargetIndex < 0)
+            {
+                return false;
+            }
+
+            List<VoxelCellKey> cells = new List<VoxelCellKey>();
+            VoxelCellKey current = foundTargetCell;
+            cells.Add(current);
+
+            while (!current.Equals(start))
+            {
+                if (!cameFrom.TryGetValue(current, out current))
+                {
+                    waypoints.Clear();
+                    return false;
+                }
+
+                cells.Add(current);
+            }
+
+            cells.Reverse();
+            for (int i = 0; i < cells.Count; i++)
+            {
+                AppendWaypoint(waypoints, pathfinder.voxelManager.GetVoxelCellWorldBounds(cells[i]).center);
+            }
+
+            AppendWaypoint(waypoints, targetWorldPositions[FoundTargetIndex]);
+            return waypoints.Count > 0;
+        }
     }
 
     private VoxelCellKey PopBestOpenCell(List<VoxelCellKey> openSet, VoxelCellKey goal, Dictionary<VoxelCellKey, int> gScore)
@@ -321,6 +490,8 @@ public sealed class MiningPassagePathfinder
             this.max = max;
         }
 
+        public static SearchBounds Empty => new SearchBounds(Vector3Int.zero, Vector3Int.zero);
+
         public static SearchBounds Create(VoxelCellKey start, VoxelCellKey goal, int voxelsPerBlock, int padding)
         {
             Vector3Int startGlobal = GetGlobalCellPosition(start, voxelsPerBlock);
@@ -328,6 +499,23 @@ public sealed class MiningPassagePathfinder
             int safePadding = Mathf.Max(0, padding);
             Vector3Int paddingVector = new Vector3Int(safePadding, safePadding, safePadding);
             return new SearchBounds(Vector3Int.Min(startGlobal, goalGlobal) - paddingVector, Vector3Int.Max(startGlobal, goalGlobal) + paddingVector);
+        }
+
+        public static SearchBounds Create(VoxelCellKey start, List<VoxelCellKey> targets, int voxelsPerBlock, int padding)
+        {
+            Vector3Int min = GetGlobalCellPosition(start, voxelsPerBlock);
+            Vector3Int max = min;
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                Vector3Int target = GetGlobalCellPosition(targets[i], voxelsPerBlock);
+                min = Vector3Int.Min(min, target);
+                max = Vector3Int.Max(max, target);
+            }
+
+            int safePadding = Mathf.Max(0, padding);
+            Vector3Int paddingVector = new Vector3Int(safePadding, safePadding, safePadding);
+            return new SearchBounds(min - paddingVector, max + paddingVector);
         }
 
         public bool Contains(VoxelCellKey key, int voxelsPerBlock)

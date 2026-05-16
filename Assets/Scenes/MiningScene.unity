@@ -858,6 +858,7 @@ MonoBehaviour:
     endpointSearchRadiusCells: 3
     searchPaddingCells: 24
     maxVisitedCells: 4096
+  targetSearchCellsPerFrame: 256
   waypointArrivalDistance: 0.08
   destinationRepathDistance: 0.25
 --- !u!1 &410087039
