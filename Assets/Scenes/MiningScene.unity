@@ -3844,6 +3844,7 @@ MonoBehaviour:
     allowDiagonalMovement: 1
     preventDiagonalCornerCutting: 1
     pathVariationCost: 3
+  maxConcurrentTargetSearches: 10
   targetSearchCellsPerFrame: 128
   waypointArrivalDistance: 0.08
   destinationRepathDistance: 0.25

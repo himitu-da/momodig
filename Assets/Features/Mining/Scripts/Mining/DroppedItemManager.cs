@@ -1025,6 +1025,11 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         return new List<DroppedItem>(activeItems);
     }
 
+    public bool ContainsActiveItem(DroppedItem item)
+    {
+        return item != null && activeItems.Contains(item);
+    }
+
     public void ReturnItem(GameObject itemInstance)
     {
         if (itemInstance == null) return;

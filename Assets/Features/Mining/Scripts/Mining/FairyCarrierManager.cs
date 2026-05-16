@@ -8,6 +8,7 @@ public class FairyCarrierManager : MonoBehaviour
     private enum FairyState
     {
         IdleAtHome,
+        WaitingForSearchSlot,
         Searching,
         MovingToItem,
         CarryingToHome,
@@ -48,6 +49,7 @@ public class FairyCarrierManager : MonoBehaviour
 
     [Header("Pathfinding")]
     [SerializeField] private MiningPassagePathOptions pathOptions = new MiningPassagePathOptions();
+    [SerializeField, Min(1)] private int maxConcurrentTargetSearches = 10;
     [SerializeField, Min(1)] private int targetSearchCellsPerFrame = 256;
     [SerializeField] private float waypointArrivalDistance = 0.08f;
     [SerializeField] private float destinationRepathDistance = 0.25f;
@@ -57,6 +59,7 @@ public class FairyCarrierManager : MonoBehaviour
     private bool isUnlocked;
     private MiningPassagePathfinder pathfinder;
     private int targetFairyCount;
+    private int targetSearchSlotsRemaining;
 
     private void Awake()
     {
@@ -96,6 +99,7 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         EnsureFairyInstances();
+        targetSearchSlotsRemaining = Mathf.Max(1, maxConcurrentTargetSearches) - CountActiveTargetSearches();
         for (int i = 0; i < fairies.Count; i++)
         {
             FairyCarrier fairy = fairies[i];
@@ -109,6 +113,9 @@ public class FairyCarrierManager : MonoBehaviour
             {
                 case FairyState.IdleAtHome:
                     UpdateIdleAtHome(fairy);
+                    break;
+                case FairyState.WaitingForSearchSlot:
+                    UpdateWaitingForSearchSlot(fairy);
                     break;
                 case FairyState.Searching:
                     SearchFromCurrentPosition(fairy);
@@ -192,7 +199,7 @@ public class FairyCarrierManager : MonoBehaviour
         {
             FairyCarrier fairy = new FairyCarrier
             {
-                State = FairyState.Searching,
+                State = FairyState.WaitingForSearchSlot,
                 PathVariationSeed = CreatePathVariationSeed(fairies.Count)
             };
             fairies.Add(fairy);
@@ -232,18 +239,38 @@ public class FairyCarrierManager : MonoBehaviour
             arrived &&
             Time.time >= fairy.NextSearchTime)
         {
-            fairy.State = FairyState.Searching;
+            QueueSearchFromCurrentPosition(fairy, 0f);
+        }
+    }
+
+    private void UpdateWaitingForSearchSlot(FairyCarrier fairy)
+    {
+        if (Time.time < fairy.NextSearchTime)
+        {
+            return;
+        }
+
+        if (!TryStartTargetSearch(fairy, fairy.Instance.transform.position))
+        {
+            return;
         }
     }
 
     private void SearchFromCurrentPosition(FairyCarrier fairy)
     {
-        MiningPassageNearestTargetSearchStatus status = StepTargetSearch(fairy, fairy.Instance.transform.position);
+        if (fairy.TargetSearch == null)
+        {
+            fairy.State = FairyState.WaitingForSearchSlot;
+            return;
+        }
+
+        MiningPassageNearestTargetSearchStatus status = fairy.TargetSearch.Step(targetSearchCellsPerFrame);
         if (status == MiningPassageNearestTargetSearchStatus.Running)
         {
             return;
         }
 
+        targetSearchSlotsRemaining++;
         if (status == MiningPassageNearestTargetSearchStatus.Found && TryAssignFoundTarget(fairy))
         {
             fairy.State = FairyState.MovingToItem;
@@ -252,7 +279,7 @@ public class FairyCarrierManager : MonoBehaviour
 
         ClearTargetSearch(fairy);
         fairy.NextSearchTime = Time.time + searchInterval;
-        fairy.State = FairyState.IdleAtHome;
+        fairy.State = FairyState.WaitingForSearchSlot;
     }
 
     private void UpdateMovingToItem(FairyCarrier fairy)
@@ -260,14 +287,14 @@ public class FairyCarrierManager : MonoBehaviour
         if (!IsTargetStillAvailable(fairy.TargetItem))
         {
             ClearTargetReservation(fairy);
-            SearchFromCurrentPosition(fairy);
+            QueueSearchFromCurrentPosition(fairy, 0f);
             return;
         }
 
         if (!TryMoveFairyAlongPassage(fairy, fairy.TargetItem.transform.position, pickupDistance, out bool arrived))
         {
             ClearTargetReservation(fairy);
-            SearchFromCurrentPosition(fairy);
+            QueueSearchFromCurrentPosition(fairy, 0f);
             return;
         }
 
@@ -279,7 +306,7 @@ public class FairyCarrierManager : MonoBehaviour
         if (!TryPickupTarget(fairy))
         {
             ClearTargetReservation(fairy);
-            SearchFromCurrentPosition(fairy);
+            QueueSearchFromCurrentPosition(fairy, 0f);
             return;
         }
 
@@ -303,7 +330,7 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         ClearCarriedItem(fairy);
-        fairy.State = FairyState.Searching;
+        QueueSearchFromCurrentPosition(fairy, 0f);
     }
 
     private bool TryMoveFairyAlongPassage(FairyCarrier fairy, Vector3 destination, float arrivalDistance, out bool arrived)
@@ -372,24 +399,50 @@ public class FairyCarrierManager : MonoBehaviour
         return fairy.HasActivePath;
     }
 
-    private MiningPassageNearestTargetSearchStatus StepTargetSearch(FairyCarrier fairy, Vector3 origin)
+    private void QueueSearchFromCurrentPosition(FairyCarrier fairy, float delaySeconds)
+    {
+        ClearTargetSearch(fairy);
+        fairy.NextSearchTime = Time.time + Mathf.Max(0f, delaySeconds);
+        fairy.State = FairyState.WaitingForSearchSlot;
+    }
+
+    private bool TryStartTargetSearch(FairyCarrier fairy, Vector3 origin)
     {
         if (!EnsurePathfinder())
         {
-            return MiningPassageNearestTargetSearchStatus.NotFound;
+            fairy.NextSearchTime = Time.time + searchInterval;
+            return false;
         }
 
+        if (targetSearchSlotsRemaining <= 0)
+        {
+            return false;
+        }
+
+        BeginTargetSearch(fairy, origin);
         if (fairy.TargetSearch == null)
         {
-            BeginTargetSearch(fairy, origin);
+            fairy.NextSearchTime = Time.time + searchInterval;
+            return false;
         }
 
-        if (fairy.TargetSearch == null)
+        targetSearchSlotsRemaining--;
+        fairy.State = FairyState.Searching;
+        return true;
+    }
+
+    private int CountActiveTargetSearches()
+    {
+        int count = 0;
+        for (int i = 0; i < fairies.Count; i++)
         {
-            return MiningPassageNearestTargetSearchStatus.NotFound;
+            if (fairies[i].State == FairyState.Searching && fairies[i].TargetSearch != null)
+            {
+                count++;
+            }
         }
 
-        return fairy.TargetSearch.Step(targetSearchCellsPerFrame);
+        return count;
     }
 
     private void BeginTargetSearch(FairyCarrier fairy, Vector3 origin)
@@ -546,7 +599,7 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         DroppedItemManager itemManager = DroppedItemManager.Instance;
-        return itemManager != null && itemManager.GetActiveItems().Contains(item);
+        return itemManager != null && itemManager.ContainsActiveItem(item);
     }
 
     private bool IsTargetCandidateAvailable(DroppedItem item)
@@ -636,6 +689,10 @@ public class FairyCarrierManager : MonoBehaviour
         {
             fairies[i].PathDirty = true;
             ClearTargetSearch(fairies[i]);
+            if (fairies[i].State == FairyState.Searching)
+            {
+                fairies[i].State = FairyState.WaitingForSearchSlot;
+            }
         }
     }
 
