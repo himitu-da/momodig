@@ -249,7 +249,7 @@ public sealed class MiningPassagePathfinder
         private readonly VoxelCellKey start;
         private readonly SearchBounds bounds;
         private readonly int variationSeed;
-        private readonly List<VoxelCellKey> openSet = new List<VoxelCellKey>();
+        private readonly OpenCellHeap openSet = new OpenCellHeap();
         private readonly HashSet<VoxelCellKey> closedSet = new HashSet<VoxelCellKey>();
         private readonly Dictionary<VoxelCellKey, VoxelCellKey> cameFrom = new Dictionary<VoxelCellKey, VoxelCellKey>();
         private readonly Dictionary<VoxelCellKey, int> gScore = new Dictionary<VoxelCellKey, int>();
@@ -311,7 +311,7 @@ public sealed class MiningPassagePathfinder
             }
 
             bounds = SearchBounds.Create(start, targetCells, pathfinder.voxelsPerBlock, pathfinder.options.searchPaddingCells);
-            openSet.Add(start);
+            openSet.Push(start, 0);
             gScore[start] = 0;
         }
 
@@ -326,9 +326,14 @@ public sealed class MiningPassagePathfinder
             int maxVisitedCells = Mathf.Max(16, pathfinder.options.maxVisitedCells);
             int processedCells = 0;
 
-            while (openSet.Count > 0 && processedCells < budget && visitedCellCount < maxVisitedCells)
+            while (processedCells < budget && visitedCellCount < maxVisitedCells)
             {
-                VoxelCellKey current = PopLowestScoreOpenCell();
+                if (!TryPopLowestScoreOpenCell(out VoxelCellKey current))
+                {
+                    status = MiningPassageNearestTargetSearchStatus.NotFound;
+                    return status;
+                }
+
                 processedCells++;
                 visitedCellCount++;
                 closedSet.Add(current);
@@ -371,7 +376,7 @@ public sealed class MiningPassagePathfinder
                 }
             }
 
-            if (openSet.Count == 0 || visitedCellCount >= maxVisitedCells)
+            if (visitedCellCount >= maxVisitedCells)
             {
                 status = MiningPassageNearestTargetSearchStatus.NotFound;
             }
@@ -389,30 +394,131 @@ public sealed class MiningPassagePathfinder
 
             cameFrom[neighbor] = current;
             gScore[neighbor] = tentativeScore;
-            if (!openSet.Contains(neighbor))
+            openSet.Push(neighbor, tentativeScore);
+        }
+
+        private bool TryPopLowestScoreOpenCell(out VoxelCellKey cell)
+        {
+            while (openSet.TryPop(out OpenCellEntry entry))
             {
-                openSet.Add(neighbor);
+                if (closedSet.Contains(entry.Cell))
+                {
+                    continue;
+                }
+
+                if (!gScore.TryGetValue(entry.Cell, out int currentScore) || currentScore != entry.Score)
+                {
+                    continue;
+                }
+
+                cell = entry.Cell;
+                return true;
+            }
+
+            cell = default;
+            return false;
+        }
+
+        private readonly struct OpenCellEntry
+        {
+            public readonly VoxelCellKey Cell;
+            public readonly int Score;
+            public readonly int Order;
+
+            public OpenCellEntry(VoxelCellKey cell, int score, int order)
+            {
+                Cell = cell;
+                Score = score;
+                Order = order;
             }
         }
 
-        private VoxelCellKey PopLowestScoreOpenCell()
+        private sealed class OpenCellHeap
         {
-            int bestIndex = 0;
-            int bestScore = int.MaxValue;
-            for (int i = 0; i < openSet.Count; i++)
+            private readonly List<OpenCellEntry> entries = new List<OpenCellEntry>();
+            private int nextOrder;
+
+            public void Push(VoxelCellKey cell, int score)
             {
-                VoxelCellKey key = openSet[i];
-                int score = gScore[key];
-                if (score < bestScore)
+                OpenCellEntry entry = new OpenCellEntry(cell, score, nextOrder++);
+                entries.Add(entry);
+                SiftUp(entries.Count - 1);
+            }
+
+            public bool TryPop(out OpenCellEntry entry)
+            {
+                if (entries.Count == 0)
                 {
-                    bestIndex = i;
-                    bestScore = score;
+                    entry = default;
+                    return false;
+                }
+
+                entry = entries[0];
+                int lastIndex = entries.Count - 1;
+                OpenCellEntry last = entries[lastIndex];
+                entries.RemoveAt(lastIndex);
+                if (entries.Count > 0)
+                {
+                    entries[0] = last;
+                    SiftDown(0);
+                }
+
+                return true;
+            }
+
+            private void SiftUp(int index)
+            {
+                while (index > 0)
+                {
+                    int parent = (index - 1) / 2;
+                    if (HasHigherPriority(entries[parent], entries[index]))
+                    {
+                        return;
+                    }
+
+                    Swap(parent, index);
+                    index = parent;
                 }
             }
 
-            VoxelCellKey best = openSet[bestIndex];
-            openSet.RemoveAt(bestIndex);
-            return best;
+            private void SiftDown(int index)
+            {
+                while (true)
+                {
+                    int left = index * 2 + 1;
+                    if (left >= entries.Count)
+                    {
+                        return;
+                    }
+
+                    int right = left + 1;
+                    int best = left;
+                    if (right < entries.Count && HasHigherPriority(entries[right], entries[left]))
+                    {
+                        best = right;
+                    }
+
+                    if (HasHigherPriority(entries[index], entries[best]))
+                    {
+                        return;
+                    }
+
+                    Swap(index, best);
+                    index = best;
+                }
+            }
+
+            private static bool HasHigherPriority(OpenCellEntry a, OpenCellEntry b)
+            {
+                return a.Score < b.Score || (a.Score == b.Score && a.Order < b.Order);
+            }
+
+            private void Swap(int a, int b)
+            {
+                OpenCellEntry temp = entries[a];
+                entries[a] = entries[b];
+                entries[b] = temp;
+            }
         }
 
         public bool TryBuildPath(List<Vector3> waypoints)
