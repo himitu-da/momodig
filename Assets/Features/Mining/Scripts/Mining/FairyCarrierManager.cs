@@ -1,11 +1,9 @@
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class FairyCarrierManager : MonoBehaviour
 {
     private const string CarrierUpgradeId = "garage.fairy.carrier";
-    private const string FairyPrefabResourcePath = "Prefab/fairy";
 
     private enum FairyState
     {
@@ -28,8 +26,6 @@ public class FairyCarrierManager : MonoBehaviour
     [SerializeField] private float searchInterval = 0.25f;
     [SerializeField] private Vector3 carriedItemLocalOffset = new Vector3(0f, 0.45f, 0f);
 
-    private static bool sceneLoadHookRegistered;
-
     private readonly HashSet<DroppedItem> reservedItems = new HashSet<DroppedItem>();
     private GameObject fairyInstance;
     private GameObject carriedItemVisual;
@@ -39,48 +35,9 @@ public class FairyCarrierManager : MonoBehaviour
     private bool isUnlocked;
     private float nextSearchTime;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void Bootstrap()
-    {
-        EnsureSceneLoadHook();
-        TryCreateManagerForCurrentScene();
-    }
-
-    private static void EnsureSceneLoadHook()
-    {
-        if (sceneLoadHookRegistered)
-        {
-            return;
-        }
-
-        SceneManager.sceneLoaded += HandleSceneLoaded;
-        sceneLoadHookRegistered = true;
-    }
-
-    private static void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
-    {
-        TryCreateManagerForCurrentScene();
-    }
-
-    private static void TryCreateManagerForCurrentScene()
-    {
-        if (Object.FindFirstObjectByType<FairyCarrierManager>() != null)
-        {
-            return;
-        }
-
-        if (Object.FindFirstObjectByType<DroppedItemManager>() == null)
-        {
-            return;
-        }
-
-        GameObject managerObject = new GameObject("FairyCarrierManager");
-        managerObject.AddComponent<FairyCarrierManager>();
-    }
-
     private void Awake()
     {
-        ResolveReferences();
+        ValidateConfiguration();
     }
 
     private void OnEnable()
@@ -105,7 +62,6 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
-        ResolveReferences();
         if (homePoint == null)
         {
             return;
@@ -166,21 +122,28 @@ public class FairyCarrierManager : MonoBehaviour
         }
     }
 
-    private void ResolveReferences()
+    private bool ValidateConfiguration()
     {
+        bool isValid = true;
         if (homePoint == null)
         {
-            SurfaceInteractionSystem surfaceInteraction = Object.FindFirstObjectByType<SurfaceInteractionSystem>();
-            if (surfaceInteraction != null)
-            {
-                homePoint = surfaceInteraction.SurfaceReturnPoint;
-            }
+            Debug.LogError("FairyCarrierManager: homePoint is not configured.", this);
+            isValid = false;
+        }
+
+        if (fairyPrefab == null)
+        {
+            Debug.LogError("FairyCarrierManager: fairyPrefab is not configured.", this);
+            isValid = false;
         }
 
         if (terrainDataManager == null)
         {
-            terrainDataManager = VoxelItemVisualUtility.ResolveTerrainDataManager();
+            Debug.LogError("FairyCarrierManager: terrainDataManager is not configured.", this);
+            isValid = false;
         }
+
+        return isValid;
     }
 
     private void EnsureFairyInstance()
@@ -192,12 +155,6 @@ public class FairyCarrierManager : MonoBehaviour
 
         if (fairyPrefab == null)
         {
-            fairyPrefab = Resources.Load<GameObject>(FairyPrefabResourcePath);
-        }
-
-        if (fairyPrefab == null)
-        {
-            Debug.LogError($"FairyCarrierManager: fairy prefab was not found at Resources/{FairyPrefabResourcePath}.", this);
             return;
         }
 

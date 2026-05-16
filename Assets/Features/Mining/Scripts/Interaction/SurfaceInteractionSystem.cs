@@ -20,7 +20,6 @@ public class SurfaceInteractionSystem : MonoBehaviour
     [SerializeField] private TerrainDataManager terrainDataManager;
 
     private bool isTransferringItems;
-    public Transform SurfaceReturnPoint => surfaceReturnPoint;
 
     void Awake()
     {
