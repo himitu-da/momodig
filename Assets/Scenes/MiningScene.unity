@@ -847,12 +847,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   homePoint: {fileID: 1700130090}
   fairyPrefab: {fileID: 1242165045067032922, guid: 4625ae3647ef23b48abbbc67268aa13c, type: 3}
+  terrainManager: {fileID: 2071865104}
   terrainDataManager: {fileID: 11400000, guid: dac20b2304c3f1043a3cf6f0dbd2e30d, type: 2}
   moveSpeed: 6
   pickupDistance: 0.25
   homeArrivalDistance: 0.25
   searchInterval: 0.25
   carriedItemLocalOffset: {x: 0, y: 0.45, z: 0}
+  pathOptions:
+    endpointSearchRadiusCells: 3
+    searchPaddingCells: 24
+    maxVisitedCells: 4096
+  waypointArrivalDistance: 0.08
+  destinationRepathDistance: 0.25
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0

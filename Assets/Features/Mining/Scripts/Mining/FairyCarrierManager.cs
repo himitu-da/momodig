@@ -17,6 +17,7 @@ public class FairyCarrierManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private Transform homePoint;
     [SerializeField] private GameObject fairyPrefab;
+    [SerializeField] private TerrainManager terrainManager;
     [SerializeField] private TerrainDataManager terrainDataManager;
 
     [Header("Movement")]
@@ -26,7 +27,14 @@ public class FairyCarrierManager : MonoBehaviour
     [SerializeField] private float searchInterval = 0.25f;
     [SerializeField] private Vector3 carriedItemLocalOffset = new Vector3(0f, 0.45f, 0f);
 
+    [Header("Pathfinding")]
+    [SerializeField] private MiningPassagePathOptions pathOptions = new MiningPassagePathOptions();
+    [SerializeField] private float waypointArrivalDistance = 0.08f;
+    [SerializeField] private float destinationRepathDistance = 0.25f;
+
     private readonly HashSet<DroppedItem> reservedItems = new HashSet<DroppedItem>();
+    private readonly List<Vector3> activePath = new List<Vector3>();
+    private readonly List<Vector3> candidatePath = new List<Vector3>();
     private GameObject fairyInstance;
     private GameObject carriedItemVisual;
     private DroppedItem targetItem;
@@ -34,20 +42,28 @@ public class FairyCarrierManager : MonoBehaviour
     private FairyState state = FairyState.IdleAtHome;
     private bool isUnlocked;
     private float nextSearchTime;
+    private MiningPassagePathfinder pathfinder;
+    private int activePathIndex;
+    private Vector3 activePathDestination;
+    private bool hasActivePath;
+    private bool pathDirty = true;
 
     private void Awake()
     {
+        RebuildPathfinder();
         ValidateConfiguration();
     }
 
     private void OnEnable()
     {
         GameDataPersistenceManager.OnFacilityUpgradesChanged += RefreshUnlockState;
+        SubscribeTerrainChanges();
     }
 
     private void OnDisable()
     {
         GameDataPersistenceManager.OnFacilityUpgradesChanged -= RefreshUnlockState;
+        UnsubscribeTerrainChanges();
     }
 
     private void Start()
@@ -61,6 +77,8 @@ public class FairyCarrierManager : MonoBehaviour
         {
             return;
         }
+
+        EnsurePathfinder();
 
         if (homePoint == null)
         {
@@ -107,11 +125,13 @@ public class FairyCarrierManager : MonoBehaviour
         {
             EnsureFairyInstance();
             state = FairyState.Searching;
+            ClearActivePath();
         }
         else
         {
             ClearTargetReservation();
             ClearCarriedItem();
+            ClearActivePath();
             if (fairyInstance != null)
             {
                 Destroy(fairyInstance);
@@ -134,6 +154,12 @@ public class FairyCarrierManager : MonoBehaviour
         if (fairyPrefab == null)
         {
             Debug.LogError("FairyCarrierManager: fairyPrefab is not configured.", this);
+            isValid = false;
+        }
+
+        if (terrainManager == null)
+        {
+            Debug.LogError("FairyCarrierManager: terrainManager is not configured. Assign it in the Inspector.", this);
             isValid = false;
         }
 
@@ -174,7 +200,7 @@ public class FairyCarrierManager : MonoBehaviour
 
     private void UpdateIdleAtHome()
     {
-        if (MoveFairyTowards(homePoint.position, homeArrivalDistance) && Time.time >= nextSearchTime)
+        if (TryMoveFairyAlongPassage(homePoint.position, homeArrivalDistance, out bool arrived) && arrived && Time.time >= nextSearchTime)
         {
             state = FairyState.Searching;
         }
@@ -201,7 +227,14 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
-        if (!MoveFairyTowards(targetItem.transform.position, pickupDistance))
+        if (!TryMoveFairyAlongPassage(targetItem.transform.position, pickupDistance, out bool arrived))
+        {
+            ClearTargetReservation();
+            SearchFromCurrentPosition();
+            return;
+        }
+
+        if (!arrived)
         {
             return;
         }
@@ -219,7 +252,7 @@ public class FairyCarrierManager : MonoBehaviour
     private void UpdateCarryingToHome()
     {
         UpdateCarriedItemVisual();
-        if (MoveFairyTowards(homePoint.position, homeArrivalDistance))
+        if (TryMoveFairyAlongPassage(homePoint.position, homeArrivalDistance, out bool arrived) && arrived)
         {
             state = FairyState.Depositing;
         }
@@ -236,18 +269,70 @@ public class FairyCarrierManager : MonoBehaviour
         state = FairyState.Searching;
     }
 
-    private bool MoveFairyTowards(Vector3 destination, float arrivalDistance)
+    private bool TryMoveFairyAlongPassage(Vector3 destination, float arrivalDistance, out bool arrived)
     {
+        arrived = false;
         Vector3 current = fairyInstance.transform.position;
         float distance = Vector3.Distance(current, destination);
         if (distance <= arrivalDistance)
         {
             fairyInstance.transform.position = destination;
+            ClearActivePath();
+            arrived = true;
             return true;
         }
 
-        fairyInstance.transform.position = Vector3.MoveTowards(current, destination, moveSpeed * Time.deltaTime);
-        return false;
+        if (!EnsurePathTo(destination))
+        {
+            return false;
+        }
+
+        while (activePathIndex < activePath.Count &&
+               Vector3.Distance(fairyInstance.transform.position, activePath[activePathIndex]) <= waypointArrivalDistance)
+        {
+            activePathIndex++;
+        }
+
+        Vector3 moveTarget = activePathIndex < activePath.Count ? activePath[activePathIndex] : destination;
+        fairyInstance.transform.position = Vector3.MoveTowards(current, moveTarget, moveSpeed * Time.deltaTime);
+
+        if (Vector3.Distance(fairyInstance.transform.position, destination) <= arrivalDistance)
+        {
+            fairyInstance.transform.position = destination;
+            ClearActivePath();
+            arrived = true;
+        }
+
+        return true;
+    }
+
+    private bool EnsurePathTo(Vector3 destination)
+    {
+        if (!EnsurePathfinder())
+        {
+            return false;
+        }
+
+        if (hasActivePath &&
+            !pathDirty &&
+            (activePathDestination - destination).sqrMagnitude <= destinationRepathDistance * destinationRepathDistance &&
+            activePathIndex < activePath.Count)
+        {
+            return true;
+        }
+
+        activePath.Clear();
+        if (!pathfinder.TryFindPath(fairyInstance.transform.position, destination, activePath))
+        {
+            ClearActivePath();
+            return false;
+        }
+
+        activePathDestination = destination;
+        activePathIndex = 0;
+        hasActivePath = activePath.Count > 0;
+        pathDirty = false;
+        return hasActivePath;
     }
 
     private bool TryAssignNearestTarget(Vector3 origin)
@@ -261,7 +346,7 @@ public class FairyCarrierManager : MonoBehaviour
         reservedItems.RemoveWhere(IsReservedItemInvalid);
         List<DroppedItem> activeItems = itemManager.GetActiveItems();
         DroppedItem nearest = null;
-        float nearestSqrDistance = float.MaxValue;
+        float nearestPathLength = float.MaxValue;
 
         for (int i = 0; i < activeItems.Count; i++)
         {
@@ -271,10 +356,14 @@ public class FairyCarrierManager : MonoBehaviour
                 continue;
             }
 
-            float sqrDistance = (item.transform.position - origin).sqrMagnitude;
-            if (sqrDistance < nearestSqrDistance)
+            if (!TryFindPassagePathLength(origin, item.transform.position, out float pathLength))
             {
-                nearestSqrDistance = sqrDistance;
+                continue;
+            }
+
+            if (pathLength < nearestPathLength)
+            {
+                nearestPathLength = pathLength;
                 nearest = item;
             }
         }
@@ -286,7 +375,19 @@ public class FairyCarrierManager : MonoBehaviour
 
         targetItem = nearest;
         reservedItems.Add(targetItem);
+        ClearActivePath();
         return true;
+    }
+
+    private bool TryFindPassagePathLength(Vector3 origin, Vector3 destination, out float pathLength)
+    {
+        pathLength = 0f;
+        if (!EnsurePathfinder())
+        {
+            return false;
+        }
+
+        return pathfinder.TryFindPath(origin, destination, candidatePath, out pathLength);
     }
 
     private bool TryPickupTarget()
@@ -346,6 +447,8 @@ public class FairyCarrierManager : MonoBehaviour
             reservedItems.Remove(targetItem);
             targetItem = null;
         }
+
+        ClearActivePath();
     }
 
     private void ClearCarriedItem()
@@ -377,5 +480,72 @@ public class FairyCarrierManager : MonoBehaviour
     private bool IsReservedItemInvalid(DroppedItem item)
     {
         return item == null || item.gameObject == null || !item.gameObject.activeInHierarchy;
+    }
+
+    private bool EnsurePathfinder()
+    {
+        if (pathfinder != null)
+        {
+            return true;
+        }
+
+        RebuildPathfinder();
+        if (pathfinder != null && isActiveAndEnabled)
+        {
+            SubscribeTerrainChanges();
+        }
+
+        return pathfinder != null;
+    }
+
+    private void RebuildPathfinder()
+    {
+        if (terrainManager == null || terrainManager.VoxelManager == null)
+        {
+            pathfinder = null;
+            return;
+        }
+
+        pathfinder = new MiningPassagePathfinder(terrainManager, pathOptions);
+        pathDirty = true;
+    }
+
+    private void SubscribeTerrainChanges()
+    {
+        if (terrainManager == null || terrainManager.VoxelManager == null)
+        {
+            return;
+        }
+
+        terrainManager.VoxelManager.TerrainCellsChanged -= OnTerrainCellsChanged;
+        terrainManager.VoxelManager.TerrainCellsChanged += OnTerrainCellsChanged;
+    }
+
+    private void UnsubscribeTerrainChanges()
+    {
+        if (terrainManager == null || terrainManager.VoxelManager == null)
+        {
+            return;
+        }
+
+        terrainManager.VoxelManager.TerrainCellsChanged -= OnTerrainCellsChanged;
+    }
+
+    private void OnTerrainCellsChanged(TerrainChangeBatch change)
+    {
+        if (change == null || !change.HasChanges)
+        {
+            return;
+        }
+
+        pathDirty = true;
+    }
+
+    private void ClearActivePath()
+    {
+        activePath.Clear();
+        activePathIndex = 0;
+        hasActivePath = false;
+        pathDirty = true;
     }
 }
