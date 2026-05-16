@@ -36,8 +36,8 @@ public class FairyCarrierManager : MonoBehaviour
     }
 
     [Header("Debug Visualization")]
-    [SerializeField] private bool showPassageCircleNodes = false;
-    [SerializeField] private bool showPassageCircleEdges = false;
+    [SerializeField] private bool showPassageBoxNodes = false;
+    [SerializeField] private bool showPassageBoxEdges = false;
 
     [Header("References")]
     [SerializeField] private Transform homePoint;
@@ -794,13 +794,13 @@ public class FairyCarrierManager : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        if (!showPassageCircleNodes || pathfinder == null)
+        if (!showPassageBoxNodes || pathfinder == null)
             return;
 
-        PassageCircleGraph graph = pathfinder.PassageGraph;
+        PassageBoxGraph graph = pathfinder.PassageGraph;
         if (graph == null || !graph.IsBuilt)
             return;
 
-        graph.DrawGizmos(showPassageCircleEdges);
+        graph.DrawGizmos(showPassageBoxEdges);
     }
 }

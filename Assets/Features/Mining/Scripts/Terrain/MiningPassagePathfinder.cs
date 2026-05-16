@@ -45,7 +45,7 @@ public sealed class MiningPassagePathfinder
     private readonly TerrainManager terrainManager;
     private readonly int voxelsPerBlock;
     private readonly MiningPassagePathOptions options;
-    private readonly PassageCircleGraph passageGraph;
+    private readonly PassageBoxGraph passageGraph;
     private bool passageGraphDirty = true;
     private bool passageGraphFallbackLogged;
 
@@ -57,16 +57,10 @@ public sealed class MiningPassagePathfinder
         TerrainSettings settings = terrainManager != null ? terrainManager.Settings : null;
         this.voxelsPerBlock = Mathf.Max(1, settings != null ? settings.voxelsPerBlock : 1);
         this.options = options ?? new MiningPassagePathOptions();
-        this.passageGraph = new PassageCircleGraph(voxelManager, terrainDataManager, voxelsPerBlock);
+        this.passageGraph = new PassageBoxGraph(voxelManager, terrainDataManager, voxelsPerBlock);
     }
 
-    public PassageCircleGraph PassageGraph => passageGraph;
-    public PassageCircleGraph SkeletonGraph => passageGraph;
-
-    public void InvalidateSkeletonGraph()
-    {
-        InvalidatePassageGraph();
-    }
+    public PassageBoxGraph PassageGraph => passageGraph;
 
     public void InvalidatePassageGraph()
     {
@@ -75,7 +69,7 @@ public sealed class MiningPassagePathfinder
         passageGraphFallbackLogged = false;
     }
 
-    private PassageCircleGraph GetOrBuildPassageGraph()
+    private PassageBoxGraph GetOrBuildPassageGraph()
     {
         if (passageGraphDirty && passageGraph != null && terrainManager?.BlockManager != null)
         {
@@ -440,30 +434,30 @@ public sealed class MiningPassagePathfinder
 
         private static SearchPlan BuildSearchPlan(VoxelCellKey start, List<VoxelCellKey> targetCells, MiningPassagePathfinder pathfinder)
         {
-            PassageCircleGraph graph = pathfinder.GetOrBuildPassageGraph();
+            PassageBoxGraph graph = pathfinder.GetOrBuildPassageGraph();
             if (graph == null || !graph.IsBuilt)
             {
-                pathfinder.LogPassageGraphFallback("The passage circle graph is not built.");
+                pathfinder.LogPassageGraphFallback("The passage box graph is not built.");
                 return SearchPlan.Fallback(start, targetCells, pathfinder.voxelsPerBlock, pathfinder.options.searchPaddingCells);
             }
 
             if (!graph.TryGetNodeForCell(start, out int startNodeId))
             {
-                pathfinder.LogPassageGraphFallback("The start cell is not assigned to a passage circle.");
+                pathfinder.LogPassageGraphFallback("The start cell is not assigned to a passage box.");
                 return SearchPlan.Fallback(start, targetCells, pathfinder.voxelsPerBlock, pathfinder.options.searchPaddingCells);
             }
 
             var nodePath = new List<int>();
             if (!graph.TryFindPathToNearestTarget(startNodeId, targetCells, nodePath, out VoxelCellKey selectedTargetCell))
             {
-                pathfinder.LogPassageGraphFallback("No coarse passage circle path was found.");
+                pathfinder.LogPassageGraphFallback("No coarse passage box path was found.");
                 return SearchPlan.Fallback(start, targetCells, pathfinder.voxelsPerBlock, pathfinder.options.searchPaddingCells);
             }
 
             var regionCells = new HashSet<VoxelCellKey>();
             if (!graph.TryBuildPathRegion(nodePath, pathfinder.options.searchPaddingCells, start, selectedTargetCell, regionCells))
             {
-                pathfinder.LogPassageGraphFallback("The coarse passage path did not produce a valid cell region.");
+                pathfinder.LogPassageGraphFallback("The coarse passage box path did not produce a valid cell region.");
                 return SearchPlan.Fallback(start, targetCells, pathfinder.voxelsPerBlock, pathfinder.options.searchPaddingCells);
             }
 
