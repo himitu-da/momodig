@@ -3327,6 +3327,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   minecartManager: {fileID: 1324682791}
   playerController: {fileID: 672003892}
+  terrainDataManager: {fileID: 0}
 --- !u!4 &1700943657
 Transform:
   m_ObjectHideFlags: 0
@@ -3593,6 +3594,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   playerController: {fileID: 672003892}
   storageManager: {fileID: 0}
+  terrainDataManager: {fileID: 0}
 --- !u!4 &2027667583
 Transform:
   m_ObjectHideFlags: 0
