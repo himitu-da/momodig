@@ -42,44 +42,16 @@ public sealed class MiningPassagePathfinder
 
     private readonly TerrainDataManager terrainDataManager;
     private readonly VoxelManager voxelManager;
-    private readonly TerrainManager terrainManager;
     private readonly int voxelsPerBlock;
     private readonly MiningPassagePathOptions options;
-    private readonly PassageBoxGraph passageGraph;
-    private bool passageGraphDirty = true;
 
     public MiningPassagePathfinder(TerrainManager terrainManager, MiningPassagePathOptions options)
     {
-        this.terrainManager = terrainManager;
         this.terrainDataManager = terrainManager != null ? terrainManager.TerrainDataManager : null;
         this.voxelManager = terrainManager != null ? terrainManager.VoxelManager : null;
         TerrainSettings settings = terrainManager != null ? terrainManager.Settings : null;
         this.voxelsPerBlock = Mathf.Max(1, settings != null ? settings.voxelsPerBlock : 1);
         this.options = options ?? new MiningPassagePathOptions();
-        this.passageGraph = new PassageBoxGraph(voxelManager, terrainDataManager, voxelsPerBlock);
-    }
-
-    public PassageBoxGraph PassageGraph => passageGraph;
-
-    public void InvalidatePassageGraph()
-    {
-        passageGraph?.Invalidate();
-        passageGraphDirty = true;
-    }
-
-    private PassageBoxGraph GetOrBuildPassageGraph()
-    {
-        if (passageGraphDirty && passageGraph != null && terrainManager?.BlockManager != null)
-        {
-            passageGraph.Build(terrainManager.BlockManager);
-            passageGraphDirty = false;
-        }
-        return passageGraph;
-    }
-
-    private void LogPassageGraphSearchFailure(string reason)
-    {
-        Debug.LogWarning($"MiningPassagePathfinder: passage box graph search failed. {reason}");
     }
 
     public bool TryFindPath(Vector3 startWorldPosition, Vector3 goalWorldPosition, List<Vector3> waypoints)
@@ -195,7 +167,7 @@ public sealed class MiningPassagePathfinder
 
     private bool TrySearch(VoxelCellKey start, VoxelCellKey goal, List<Vector3> waypoints, int variationSeed)
     {
-        SearchRegion region = SearchRegion.FromBounds(SearchBounds.Create(start, goal, voxelsPerBlock, options.searchPaddingCells));
+        SearchBounds bounds = SearchBounds.Create(start, goal, voxelsPerBlock, options.searchPaddingCells);
         List<VoxelCellKey> openSet = new List<VoxelCellKey> { start };
         HashSet<VoxelCellKey> closedSet = new HashSet<VoxelCellKey>();
         Dictionary<VoxelCellKey, VoxelCellKey> cameFrom = new Dictionary<VoxelCellKey, VoxelCellKey>();
@@ -210,12 +182,62 @@ public sealed class MiningPassagePathfinder
             VoxelCellKey current = PopBestOpenCell(openSet, goal, gScore);
             if (current.Equals(goal))
             {
-                return TryBuildWaypoints(start, goal, cameFrom, waypoints);
+                BuildWaypoints(start, goal, cameFrom, waypoints);
+                return waypoints.Count > 0;
             }
 
             closedSet.Add(current);
 
-            ExpandSearchNeighbors(current, region, closedSet, cameFrom, gScore, openSet, variationSeed);
+            for (int i = 0; i < CardinalNeighborOffsets.Length; i++)
+            {
+                Vector3Int offset = CardinalNeighborOffsets[i];
+                if (!TryGetValidNeighbor(current, offset, bounds, out VoxelCellKey neighbor) ||
+                    closedSet.Contains(neighbor))
+                {
+                    continue;
+                }
+
+                int tentativeScore = gScore[current] + GetMoveCost(offset, neighbor, variationSeed);
+                if (gScore.TryGetValue(neighbor, out int existingScore) && tentativeScore >= existingScore)
+                {
+                    continue;
+                }
+
+                cameFrom[neighbor] = current;
+                gScore[neighbor] = tentativeScore;
+                if (!openSet.Contains(neighbor))
+                {
+                    openSet.Add(neighbor);
+                }
+            }
+
+            if (!options.allowDiagonalMovement)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < DiagonalNeighborOffsets.Length; i++)
+            {
+                Vector3Int offset = DiagonalNeighborOffsets[i];
+                if (!TryGetValidNeighbor(current, offset, bounds, out VoxelCellKey neighbor) ||
+                    closedSet.Contains(neighbor))
+                {
+                    continue;
+                }
+
+                int tentativeScore = gScore[current] + GetMoveCost(offset, neighbor, variationSeed);
+                if (gScore.TryGetValue(neighbor, out int existingScore) && tentativeScore >= existingScore)
+                {
+                    continue;
+                }
+
+                cameFrom[neighbor] = current;
+                gScore[neighbor] = tentativeScore;
+                if (!openSet.Contains(neighbor))
+                {
+                    openSet.Add(neighbor);
+                }
+            }
         }
 
         return false;
@@ -225,7 +247,7 @@ public sealed class MiningPassagePathfinder
     {
         private readonly MiningPassagePathfinder pathfinder;
         private readonly VoxelCellKey start;
-        private readonly SearchRegion region;
+        private readonly SearchBounds bounds;
         private readonly int variationSeed;
         private readonly List<VoxelCellKey> openSet = new List<VoxelCellKey>();
         private readonly HashSet<VoxelCellKey> closedSet = new HashSet<VoxelCellKey>();
@@ -234,8 +256,6 @@ public sealed class MiningPassagePathfinder
         private readonly Dictionary<VoxelCellKey, int> targetIndexByCell = new Dictionary<VoxelCellKey, int>();
         private readonly List<Vector3> targetWorldPositions = new List<Vector3>();
         private readonly List<VoxelCellKey> targetCells = new List<VoxelCellKey>();
-        private readonly bool hasSearchGoal;
-        private readonly VoxelCellKey searchGoal;
         private MiningPassageNearestTargetSearchStatus status = MiningPassageNearestTargetSearchStatus.Running;
         private VoxelCellKey foundTargetCell;
         private int visitedCellCount;
@@ -256,7 +276,7 @@ public sealed class MiningPassagePathfinder
             {
                 start = default;
                 status = MiningPassageNearestTargetSearchStatus.NotFound;
-                region = SearchRegion.FromBounds(SearchBounds.Empty);
+                bounds = SearchBounds.Empty;
                 return;
             }
 
@@ -286,27 +306,11 @@ public sealed class MiningPassagePathfinder
             if (targetCells.Count == 0)
             {
                 status = MiningPassageNearestTargetSearchStatus.NotFound;
-                region = SearchRegion.FromBounds(SearchBounds.Empty);
+                bounds = SearchBounds.Empty;
                 return;
             }
 
-            SearchPlan searchPlan = BuildSearchPlan(start, targetCells, pathfinder);
-            if (!searchPlan.IsValid)
-            {
-                status = MiningPassageNearestTargetSearchStatus.NotFound;
-                region = SearchRegion.FromBounds(SearchBounds.Empty);
-                return;
-            }
-
-            region = searchPlan.Region;
-            int selectedTargetIndex = targetIndexByCell[searchPlan.SelectedTargetCell];
-            targetIndexByCell.Clear();
-            targetIndexByCell.Add(searchPlan.SelectedTargetCell, selectedTargetIndex);
-            targetCells.Clear();
-            targetCells.Add(searchPlan.SelectedTargetCell);
-            searchGoal = searchPlan.SelectedTargetCell;
-            hasSearchGoal = true;
-
+            bounds = SearchBounds.Create(start, targetCells, pathfinder.voxelsPerBlock, pathfinder.options.searchPaddingCells);
             openSet.Add(start);
             gScore[start] = 0;
         }
@@ -324,9 +328,7 @@ public sealed class MiningPassagePathfinder
 
             while (openSet.Count > 0 && processedCells < budget && visitedCellCount < maxVisitedCells)
             {
-                VoxelCellKey current = hasSearchGoal
-                    ? pathfinder.PopBestOpenCell(openSet, searchGoal, gScore)
-                    : PopLowestScoreOpenCell();
+                VoxelCellKey current = PopLowestScoreOpenCell();
                 processedCells++;
                 visitedCellCount++;
                 closedSet.Add(current);
@@ -339,7 +341,34 @@ public sealed class MiningPassagePathfinder
                     return status;
                 }
 
-                pathfinder.ExpandSearchNeighbors(current, region, closedSet, cameFrom, gScore, openSet, variationSeed);
+                for (int i = 0; i < CardinalNeighborOffsets.Length; i++)
+                {
+                    Vector3Int offset = CardinalNeighborOffsets[i];
+                    if (!pathfinder.TryGetValidNeighbor(current, offset, bounds, out VoxelCellKey neighbor) ||
+                        closedSet.Contains(neighbor))
+                    {
+                        continue;
+                    }
+
+                    AddOrUpdateNeighbor(current, neighbor, offset);
+                }
+
+                if (!pathfinder.options.allowDiagonalMovement)
+                {
+                    continue;
+                }
+
+                for (int i = 0; i < DiagonalNeighborOffsets.Length; i++)
+                {
+                    Vector3Int offset = DiagonalNeighborOffsets[i];
+                    if (!pathfinder.TryGetValidNeighbor(current, offset, bounds, out VoxelCellKey neighbor) ||
+                        closedSet.Contains(neighbor))
+                    {
+                        continue;
+                    }
+
+                    AddOrUpdateNeighbor(current, neighbor, offset);
+                }
             }
 
             if (openSet.Count == 0 || visitedCellCount >= maxVisitedCells)
@@ -350,36 +379,20 @@ public sealed class MiningPassagePathfinder
             return status;
         }
 
-        private static SearchPlan BuildSearchPlan(VoxelCellKey start, List<VoxelCellKey> targetCells, MiningPassagePathfinder pathfinder)
+        private void AddOrUpdateNeighbor(VoxelCellKey current, VoxelCellKey neighbor, Vector3Int offset)
         {
-            PassageBoxGraph graph = pathfinder.GetOrBuildPassageGraph();
-            if (graph == null || !graph.IsBuilt)
+            int tentativeScore = gScore[current] + pathfinder.GetMoveCost(offset, neighbor, variationSeed);
+            if (gScore.TryGetValue(neighbor, out int existingScore) && tentativeScore >= existingScore)
             {
-                pathfinder.LogPassageGraphSearchFailure("The passage box graph is not built.");
-                return SearchPlan.Invalid;
+                return;
             }
 
-            if (!graph.TryGetNodeForCell(start, out int startNodeId))
+            cameFrom[neighbor] = current;
+            gScore[neighbor] = tentativeScore;
+            if (!openSet.Contains(neighbor))
             {
-                pathfinder.LogPassageGraphSearchFailure("The start cell is not assigned to a passage box.");
-                return SearchPlan.Invalid;
+                openSet.Add(neighbor);
             }
-
-            var nodePath = new List<int>();
-            if (!graph.TryFindPathToNearestTarget(startNodeId, targetCells, nodePath, out VoxelCellKey selectedTargetCell))
-            {
-                pathfinder.LogPassageGraphSearchFailure("No coarse passage box path was found.");
-                return SearchPlan.Invalid;
-            }
-
-            var regionCells = new HashSet<VoxelCellKey>();
-            if (!graph.TryBuildPathRegion(nodePath, pathfinder.options.searchPaddingCells, start, selectedTargetCell, regionCells))
-            {
-                pathfinder.LogPassageGraphSearchFailure("The coarse passage box path did not produce a valid cell region.");
-                return SearchPlan.Invalid;
-            }
-
-            return new SearchPlan(SearchRegion.FromCells(regionCells, pathfinder.voxelsPerBlock), selectedTargetCell, true);
         }
 
         private VoxelCellKey PopLowestScoreOpenCell()
@@ -415,9 +428,25 @@ public sealed class MiningPassagePathfinder
                 return false;
             }
 
-            if (!pathfinder.TryBuildWaypoints(start, foundTargetCell, cameFrom, waypoints))
+            List<VoxelCellKey> cells = new List<VoxelCellKey>();
+            VoxelCellKey current = foundTargetCell;
+            cells.Add(current);
+
+            while (!current.Equals(start))
             {
-                return false;
+                if (!cameFrom.TryGetValue(current, out current))
+                {
+                    waypoints.Clear();
+                    return false;
+                }
+
+                cells.Add(current);
+            }
+
+            cells.Reverse();
+            for (int i = 0; i < cells.Count; i++)
+            {
+                AppendWaypoint(waypoints, pathfinder.voxelManager.GetVoxelCellWorldBounds(cells[i]).center);
             }
 
             AppendWaypoint(waypoints, targetWorldPositions[FoundTargetIndex]);
@@ -449,11 +478,11 @@ public sealed class MiningPassagePathfinder
         return best;
     }
 
-    private bool TryGetValidNeighbor(VoxelCellKey current, Vector3Int offset, SearchRegion region, out VoxelCellKey neighbor)
+    private bool TryGetValidNeighbor(VoxelCellKey current, Vector3Int offset, SearchBounds bounds, out VoxelCellKey neighbor)
     {
         neighbor = default;
         if (!TryOffsetCell(current, offset, out neighbor) ||
-            !region.Contains(neighbor, voxelsPerBlock) ||
+            !bounds.Contains(neighbor, voxelsPerBlock) ||
             !IsPassageCell(neighbor))
         {
             return false;
@@ -474,70 +503,6 @@ public sealed class MiningPassagePathfinder
         }
 
         return true;
-    }
-
-    private void ExpandSearchNeighbors(
-        VoxelCellKey current,
-        SearchRegion region,
-        HashSet<VoxelCellKey> closedSet,
-        Dictionary<VoxelCellKey, VoxelCellKey> cameFrom,
-        Dictionary<VoxelCellKey, int> gScore,
-        List<VoxelCellKey> openSet,
-        int variationSeed)
-    {
-        ExpandSearchNeighbors(current, CardinalNeighborOffsets, region, closedSet, cameFrom, gScore, openSet, variationSeed);
-        if (!options.allowDiagonalMovement)
-        {
-            return;
-        }
-
-        ExpandSearchNeighbors(current, DiagonalNeighborOffsets, region, closedSet, cameFrom, gScore, openSet, variationSeed);
-    }
-
-    private void ExpandSearchNeighbors(
-        VoxelCellKey current,
-        Vector3Int[] offsets,
-        SearchRegion region,
-        HashSet<VoxelCellKey> closedSet,
-        Dictionary<VoxelCellKey, VoxelCellKey> cameFrom,
-        Dictionary<VoxelCellKey, int> gScore,
-        List<VoxelCellKey> openSet,
-        int variationSeed)
-    {
-        for (int i = 0; i < offsets.Length; i++)
-        {
-            Vector3Int offset = offsets[i];
-            if (!TryGetValidNeighbor(current, offset, region, out VoxelCellKey neighbor) ||
-                closedSet.Contains(neighbor))
-            {
-                continue;
-            }
-
-            AddOrUpdateSearchNeighbor(current, neighbor, offset, cameFrom, gScore, openSet, variationSeed);
-        }
-    }
-
-    private void AddOrUpdateSearchNeighbor(
-        VoxelCellKey current,
-        VoxelCellKey neighbor,
-        Vector3Int offset,
-        Dictionary<VoxelCellKey, VoxelCellKey> cameFrom,
-        Dictionary<VoxelCellKey, int> gScore,
-        List<VoxelCellKey> openSet,
-        int variationSeed)
-    {
-        int tentativeScore = gScore[current] + GetMoveCost(offset, neighbor, variationSeed);
-        if (gScore.TryGetValue(neighbor, out int existingScore) && tentativeScore >= existingScore)
-        {
-            return;
-        }
-
-        cameFrom[neighbor] = current;
-        gScore[neighbor] = tentativeScore;
-        if (!openSet.Contains(neighbor))
-        {
-            openSet.Add(neighbor);
-        }
     }
 
     private int GetMoveCost(Vector3Int offset, VoxelCellKey destination, int variationSeed)
@@ -570,9 +535,8 @@ public sealed class MiningPassagePathfinder
         }
     }
 
-    private bool TryBuildWaypoints(VoxelCellKey start, VoxelCellKey goal, Dictionary<VoxelCellKey, VoxelCellKey> cameFrom, List<Vector3> waypoints)
+    private void BuildWaypoints(VoxelCellKey start, VoxelCellKey goal, Dictionary<VoxelCellKey, VoxelCellKey> cameFrom, List<Vector3> waypoints)
     {
-        waypoints.Clear();
         List<VoxelCellKey> cells = new List<VoxelCellKey>();
         VoxelCellKey current = goal;
         cells.Add(current);
@@ -582,7 +546,7 @@ public sealed class MiningPassagePathfinder
             if (!cameFrom.TryGetValue(current, out current))
             {
                 waypoints.Clear();
-                return false;
+                return;
             }
 
             cells.Add(current);
@@ -594,8 +558,6 @@ public sealed class MiningPassagePathfinder
         {
             AppendWaypoint(waypoints, voxelManager.GetVoxelCellWorldBounds(cells[i]).center);
         }
-
-        return waypoints.Count > 0;
     }
 
     private bool TryOffsetCell(VoxelCellKey key, Vector3Int offset, out VoxelCellKey result)
@@ -679,64 +641,6 @@ public sealed class MiningPassagePathfinder
         return length;
     }
 
-    private readonly struct SearchPlan
-    {
-        public readonly SearchRegion Region;
-        public readonly VoxelCellKey SelectedTargetCell;
-        public readonly bool IsValid;
-
-        public SearchPlan(SearchRegion region, VoxelCellKey selectedTargetCell, bool isValid)
-        {
-            Region = region;
-            SelectedTargetCell = selectedTargetCell;
-            IsValid = isValid;
-        }
-
-        public static SearchPlan Invalid => new SearchPlan(null, default, false);
-    }
-
-    private sealed class SearchRegion
-    {
-        private readonly SearchBounds bounds;
-        private readonly HashSet<VoxelCellKey> allowedCells;
-
-        private SearchRegion(SearchBounds bounds, HashSet<VoxelCellKey> allowedCells)
-        {
-            this.bounds = bounds;
-            this.allowedCells = allowedCells;
-        }
-
-        public static SearchRegion FromBounds(SearchBounds bounds)
-        {
-            return new SearchRegion(bounds, null);
-        }
-
-        public static SearchRegion FromCells(HashSet<VoxelCellKey> cells, int voxelsPerBlock)
-        {
-            Vector3Int min = new Vector3Int(int.MaxValue, int.MaxValue, int.MaxValue);
-            Vector3Int max = new Vector3Int(int.MinValue, int.MinValue, int.MinValue);
-
-            foreach (VoxelCellKey cell in cells)
-            {
-                Vector3Int global = SearchBounds.GetGlobalCellPosition(cell, voxelsPerBlock);
-                min = Vector3Int.Min(min, global);
-                max = Vector3Int.Max(max, global);
-            }
-
-            return new SearchRegion(SearchBounds.FromGlobal(min, max), cells);
-        }
-
-        public bool Contains(VoxelCellKey key, int voxelsPerBlock)
-        {
-            if (!bounds.Contains(key, voxelsPerBlock))
-            {
-                return false;
-            }
-
-            return allowedCells == null || allowedCells.Contains(key);
-        }
-    }
-
     private readonly struct SearchBounds
     {
         private readonly Vector3Int min;
@@ -749,11 +653,6 @@ public sealed class MiningPassagePathfinder
         }
 
         public static SearchBounds Empty => new SearchBounds(Vector3Int.zero, Vector3Int.zero);
-
-        public static SearchBounds FromGlobal(Vector3Int min, Vector3Int max)
-        {
-            return new SearchBounds(min, max);
-        }
 
         public static SearchBounds Create(VoxelCellKey start, VoxelCellKey goal, int voxelsPerBlock, int padding)
         {
@@ -789,7 +688,7 @@ public sealed class MiningPassagePathfinder
                    global.z >= min.z && global.z <= max.z;
         }
 
-        public static Vector3Int GetGlobalCellPosition(VoxelCellKey key, int voxelsPerBlock)
+        private static Vector3Int GetGlobalCellPosition(VoxelCellKey key, int voxelsPerBlock)
         {
             return new Vector3Int(
                 key.blockPosition.x * voxelsPerBlock + key.localVoxelPosition.x,
