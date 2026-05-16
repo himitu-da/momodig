@@ -170,10 +170,25 @@ public sealed class PassageBoxGraph
 
     private void EnumeratePassageCells(BlockManager blockManager)
     {
+        var blockPositions = new HashSet<Vector3Int>();
         List<BlockManager.BlockInstanceData> allBlocks = blockManager.GetAllBlocks();
         for (int b = 0; b < allBlocks.Count; b++)
         {
-            Vector3Int blockPos = allBlocks[b].position;
+            blockPositions.Add(allBlocks[b].position);
+        }
+
+        if (terrainDataManager != null)
+        {
+            var excludedBlocks = new List<Vector3Int>();
+            terrainDataManager.AppendExcludedBlockPositions(excludedBlocks);
+            for (int i = 0; i < excludedBlocks.Count; i++)
+            {
+                blockPositions.Add(excludedBlocks[i]);
+            }
+        }
+
+        foreach (Vector3Int blockPos in blockPositions)
+        {
             for (int lx = 0; lx < voxelsPerBlock; lx++)
             for (int ly = 0; ly < voxelsPerBlock; ly++)
             for (int lz = 0; lz < voxelsPerBlock; lz++)

@@ -80,6 +80,31 @@ public class TerrainDataManager : ScriptableObject
         return false;
     }
 
+    public void AppendExcludedBlockPositions(List<Vector3Int> results)
+    {
+        if (results == null || terrainExclusionRegions == null)
+        {
+            return;
+        }
+
+        foreach (var region in terrainExclusionRegions)
+        {
+            if (region == null)
+            {
+                continue;
+            }
+
+            Vector3Int min = Vector3Int.Min(region.minBlockPosition, region.maxBlockPosition);
+            Vector3Int max = Vector3Int.Max(region.minBlockPosition, region.maxBlockPosition);
+            for (int x = min.x; x <= max.x; x++)
+            for (int y = min.y; y <= max.y; y++)
+            for (int z = min.z; z <= max.z; z++)
+            {
+                results.Add(new Vector3Int(x, y, z));
+            }
+        }
+    }
+
     public BlockData GetBlockDataByName(string name)
     {
         if (string.IsNullOrEmpty(name))
