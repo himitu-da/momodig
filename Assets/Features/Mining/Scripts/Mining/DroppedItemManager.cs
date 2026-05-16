@@ -1035,6 +1035,11 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             // 状態とリストから削除
             if (itemStates.TryGetValue(droppedItemComponent, out ItemState state))
             {
+                if (state.state == DropState.Anchored || state.state == DropState.Invalidated)
+                {
+                    WakeAnchoredItemsAbove(droppedItemComponent, WakeReason.SupportLost);
+                }
+
                 SetDynamic(droppedItemComponent, state, WakeReason.Pool);
             }
             itemStates.Remove(droppedItemComponent);

@@ -28,6 +28,7 @@ public class FairyCarrierManager : MonoBehaviour
         public MiningPassagePathfinder.NearestTargetSearch TargetSearch;
         public int ActivePathIndex;
         public Vector3 ActivePathDestination;
+        public int PathVariationSeed;
         public bool HasActivePath;
         public bool PathDirty = true;
     }
@@ -191,7 +192,8 @@ public class FairyCarrierManager : MonoBehaviour
         {
             FairyCarrier fairy = new FairyCarrier
             {
-                State = FairyState.Searching
+                State = FairyState.Searching,
+                PathVariationSeed = CreatePathVariationSeed(fairies.Count)
             };
             fairies.Add(fairy);
             EnsureFairyInstance(fairy, fairies.Count - 1);
@@ -357,7 +359,7 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         fairy.ActivePath.Clear();
-        if (!pathfinder.TryFindPath(fairy.Instance.transform.position, destination, fairy.ActivePath))
+        if (!pathfinder.TryFindPath(fairy.Instance.transform.position, destination, fairy.ActivePath, out _, fairy.PathVariationSeed))
         {
             ClearActivePath(fairy);
             return false;
@@ -419,7 +421,7 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
-        fairy.TargetSearch = pathfinder.BeginNearestTargetSearch(origin, fairy.SearchTargetPositions);
+        fairy.TargetSearch = pathfinder.BeginNearestTargetSearch(origin, fairy.SearchTargetPositions, fairy.PathVariationSeed);
     }
 
     private bool TryAssignFoundTarget(FairyCarrier fairy)
@@ -555,6 +557,18 @@ public class FairyCarrierManager : MonoBehaviour
     private bool IsReservedItemInvalid(DroppedItem item)
     {
         return item == null || item.gameObject == null || !item.gameObject.activeInHierarchy;
+    }
+
+    private int CreatePathVariationSeed(int fairyIndex)
+    {
+        unchecked
+        {
+            int seed = 7919;
+            seed = seed * 31 + fairyIndex;
+            seed = seed * 31 + (homePoint != null ? homePoint.GetInstanceID() : 0);
+            seed = seed * 31 + GetInstanceID();
+            return seed == 0 ? 1 : seed;
+        }
     }
 
     private bool EnsurePathfinder()
