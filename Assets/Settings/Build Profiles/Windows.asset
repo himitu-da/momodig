@@ -21,8 +21,6 @@ MonoBehaviour:
   m_OverrideGlobalSceneList: 0
   m_Scenes:
   - m_enabled: 1
-    m_path: Assets/Scenes/ShopScene.unity
-  - m_enabled: 1
     m_path: Assets/Scenes/BaseScene.unity
   - m_enabled: 1
     m_path: Assets/Scenes/MiningScene.unity

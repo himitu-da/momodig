@@ -2826,10 +2826,8 @@ MonoBehaviour:
   changescene: {fileID: 1067940504}
   facilityUIHost: {fileID: 900000202}
   miningSceneName: MiningScene
-  legacyShopSceneName: ShopScene
   workshopFacility: {fileID: 11400000, guid: e17c652b84ba44d19846990aa0f65e4a, type: 2}
   garageFacility: {fileID: 11400000, guid: 427a7121d9ea4a4f9e969e544c405ae1, type: 2}
-  legacyShopStateManager: {fileID: 1342635314}
 --- !u!114 &1067940504
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3281,7 +3279,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1342635315}
-  - component: {fileID: 1342635314}
   - component: {fileID: 1342635316}
   m_Layer: 0
   m_Name: StateManager
@@ -3290,19 +3287,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1342635314
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1342635313}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5da365d9900be0846bfcbbede280a1e3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  startMode: 0
 --- !u!4 &1342635315
 Transform:
   m_ObjectHideFlags: 0

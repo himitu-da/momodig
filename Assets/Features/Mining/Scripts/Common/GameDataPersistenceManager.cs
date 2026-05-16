@@ -42,7 +42,6 @@ public class GameDataPersistenceManager : MonoBehaviour
     }
 
     // --- Events ---
-    public static event Action OnPurchasedItemsChanged;
     public static event Action OnFacilityUpgradesChanged;
 
     // --- 永続化するデータ ---
@@ -65,9 +64,6 @@ public class GameDataPersistenceManager : MonoBehaviour
     public Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>> voxelCellOverrides = new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>();
     public List<SolidifiedVoxelRecord> solidifiedVoxelHistory = new List<SolidifiedVoxelRecord>();
 
-    [Header("購入済み商品データ")]
-    public Dictionary<ItemData, int> purchaseditems = new Dictionary<ItemData, int>();
-
     [Header("Facility Upgrade Data")]
     public List<FacilityUpgradeProgressRecord> facilityUpgradeProgress = new List<FacilityUpgradeProgressRecord>();
 
@@ -77,15 +73,6 @@ public class GameDataPersistenceManager : MonoBehaviour
     public string mainToolSlotId = "";
     public string subToolSlotId = "";
     
-    /// <summary>
-    /// purchaseditemsが変更されたことを通知します。
-    /// アイテムの購入やロード後に呼び出してください。
-    /// </summary>
-    public void NotifyPurchasedItemsChanged()
-    {
-        OnPurchasedItemsChanged?.Invoke();
-    }
-
     public int GetFacilityUpgradeLevel(string upgradeId, int defaultLevel)
     {
         if (string.IsNullOrWhiteSpace(upgradeId))
@@ -227,9 +214,6 @@ public class GameDataPersistenceManager : MonoBehaviour
         solidifiedVoxelHistory = source.solidifiedVoxelHistory != null
             ? new List<SolidifiedVoxelRecord>(source.solidifiedVoxelHistory)
             : new List<SolidifiedVoxelRecord>();
-        purchaseditems = source.purchaseditems != null
-            ? new Dictionary<ItemData, int>(source.purchaseditems)
-            : new Dictionary<ItemData, int>();
         facilityUpgradeProgress = CopyFacilityUpgradeProgress(source.facilityUpgradeProgress);
         hasToolInventoryData = source.hasToolInventoryData;
         toolSlots = CopyToolSlots(source.toolSlots);

@@ -595,7 +595,6 @@ MonoBehaviour:
   materialname: "\u77F3"
   text: {fileID: 53369831}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 0
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -752,8 +751,6 @@ MonoBehaviour:
   materialname: "\u9F8D\u73E0"
   text: {fileID: 54707309}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &74073486
 GameObject:
   m_ObjectHideFlags: 0
@@ -1040,8 +1037,6 @@ MonoBehaviour:
   materialname: "\u30D2\u30D2\u30A4\u30ED\u30AB\u30CD"
   text: {fileID: 82703350}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &100267088
 GameObject:
   m_ObjectHideFlags: 0
@@ -1688,9 +1683,7 @@ MonoBehaviour:
   Rareearth_Request: {fileID: 1525264997}
   Diamond_Request: {fileID: 125897371}
   storage: {fileID: 1514389441}
-  requests: []
   popcounter: {fileID: 1156197135}
-  Materialrequest: []
   popbuymanager: {fileID: 1062286946}
 --- !u!1 &172833336
 GameObject:
@@ -1909,8 +1902,6 @@ MonoBehaviour:
   materialname: "\u91D1"
   text: {fileID: 175838465}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &188263840
 GameObject:
   m_ObjectHideFlags: 0
@@ -2064,8 +2055,6 @@ MonoBehaviour:
   materialname: "\u786B\u9EC4"
   text: {fileID: 188263842}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &248803627
 GameObject:
   m_ObjectHideFlags: 0
@@ -2712,7 +2701,6 @@ MonoBehaviour:
   materialname: "\u30CB\u30C3\u30B1\u30EB"
   text: {fileID: 300669889}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 0
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -3332,7 +3320,6 @@ MonoBehaviour:
   materialname: "\u9F8D\u73E0"
   text: {fileID: 410416367}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 10
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -3626,8 +3613,6 @@ MonoBehaviour:
   materialname: "\u932B"
   text: {fileID: 467011452}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &483718712
 GameObject:
   m_ObjectHideFlags: 0
@@ -3893,8 +3878,6 @@ MonoBehaviour:
   materialname: "\u30B7\u30EA\u30B3\u30F3"
   text: {fileID: 506058997}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &517815327
 GameObject:
   m_ObjectHideFlags: 0
@@ -4091,7 +4074,6 @@ MonoBehaviour:
   materialname: "\u9285"
   text: {fileID: 527901065}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 4
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -4640,7 +4622,6 @@ MonoBehaviour:
   materialname: "\u30EC\u30A2\u30A2\u30FC\u30B9"
   text: {fileID: 630803349}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 0
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -5210,7 +5191,6 @@ MonoBehaviour:
   materialname: "\u30B7\u30EA\u30B3\u30F3"
   text: {fileID: 682747233}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 7
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -5477,8 +5457,6 @@ MonoBehaviour:
   materialname: "\u30BF\u30F3\u30B0\u30B9\u30C6\u30F3"
   text: {fileID: 717798563}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &723795183
 GameObject:
   m_ObjectHideFlags: 0
@@ -5632,7 +5610,6 @@ MonoBehaviour:
   materialname: "\u91D1"
   text: {fileID: 723795186}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 2
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -6015,7 +5992,6 @@ MonoBehaviour:
   materialname: "\u30C1\u30BF\u30F3"
   text: {fileID: 794680293}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 9
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -6323,7 +6299,6 @@ MonoBehaviour:
   materialname: "\u30B3\u30D0\u30EB\u30C8"
   text: {fileID: 844956637}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 8
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -6739,8 +6714,6 @@ MonoBehaviour:
   CheckList: {fileID: 169139762}
   popup: {fileID: 2134072261}
   popbuy: {fileID: 1062286946}
-  requestmaterials: []
-  requests: []
   candidateitem: {fileID: 0}
 --- !u!95 &882006949
 Animator:
@@ -6917,8 +6890,6 @@ MonoBehaviour:
   materialname: "\u77F3"
   text: {fileID: 883836932}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &900714720
 GameObject:
   m_ObjectHideFlags: 0
@@ -7840,8 +7811,6 @@ MonoBehaviour:
   materialname: "\u30CB\u30C3\u30B1\u30EB"
   text: {fileID: 1073893193}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &1080899207
 GameObject:
   m_ObjectHideFlags: 0
@@ -8106,8 +8075,6 @@ MonoBehaviour:
   materialname: "\u30C1\u30BF\u30F3"
   text: {fileID: 1100248452}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &1115171322
 GameObject:
   m_ObjectHideFlags: 0
@@ -8493,8 +8460,6 @@ MonoBehaviour:
   materialname: "\u9285"
   text: {fileID: 1153044720}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &1156197133
 GameObject:
   m_ObjectHideFlags: 0
@@ -8548,7 +8513,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ce238d119ed4c8c42b0d4b6cd2b991b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  countnum: 1
   ActiveMaterialText: []
   countertxt: {fileID: 1398203440}
   buymanager: {fileID: 1062286946}
@@ -8904,8 +8868,6 @@ MonoBehaviour:
   materialname: "\u9244"
   text: {fileID: 1234329355}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &1238997010
 GameObject:
   m_ObjectHideFlags: 0
@@ -8942,7 +8904,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0.000061035156}
+  m_AnchoredPosition: {x: 0, y: 0.00018310547}
   m_SizeDelta: {x: 219, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!114 &1238997012
@@ -9171,7 +9133,6 @@ MonoBehaviour:
   materialname: "\u932B"
   text: {fileID: 1246976856}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 5
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -9328,7 +9289,6 @@ MonoBehaviour:
   materialname: "\u30D2\u30D2\u30A4\u30ED\u30AB\u30CD"
   text: {fileID: 1263809543}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 0
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -10138,8 +10098,6 @@ MonoBehaviour:
   materialname: "\u30C0\u30A4\u30E4\u30E2\u30F3\u30C9"
   text: {fileID: 1449423756}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &1458586029
 GameObject:
   m_ObjectHideFlags: 0
@@ -10293,7 +10251,6 @@ MonoBehaviour:
   materialname: "\u30BF\u30F3\u30B0\u30B9\u30C6\u30F3"
   text: {fileID: 1458586032}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 0
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -10921,7 +10878,6 @@ MonoBehaviour:
   materialname: "\u9244"
   text: {fileID: 1545057191}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 1
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -12275,7 +12231,6 @@ MonoBehaviour:
   materialname: "\u786B\u9EC4"
   text: {fileID: 1773374973}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 0
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -12817,8 +12772,6 @@ MonoBehaviour:
   materialname: "\u30B3\u30D0\u30EB\u30C8"
   text: {fileID: 1864705061}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1 &1869863422
 GameObject:
   m_ObjectHideFlags: 0
@@ -12972,7 +12925,6 @@ MonoBehaviour:
   materialname: "\u30C0\u30A4\u30E4\u30E2\u30F3\u30C9"
   text: {fileID: 1869863425}
   Storage: {fileID: 1514389441}
-  parmaterialamount: 0
   type: 3
   counter: {fileID: 1156197135}
   popbuymanager: {fileID: 0}
@@ -14758,8 +14710,6 @@ MonoBehaviour:
   materialname: "\u30EC\u30A2\u30A2\u30FC\u30B9"
   text: {fileID: 2134657907}
   Storage: {fileID: 1514389441}
-  materialamount: 0
-  type: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
