@@ -19,12 +19,12 @@ MonoBehaviour:
   displayName: "\u642C\u9001\u5996\u7CBE"
   description: "\u843D\u3061\u3066\u3044\u308B\u30DC\u30AF\u30BB\u30EB\u30921\u3064\u305A\u3064\u5165\u53E3\u307E\u3067\u904B\u3073\u307E\u3059\u3002"
   initialLevel: 0
-  maxLevel: 1
+  maxLevel: 99
   costScaling: 0
   resourceCosts:
+  - resourceType: 0
+    baseAmount: 1
   - resourceType: 1
-    baseAmount: 20
-  - resourceType: 5
-    baseAmount: 5
+    baseAmount: 1
   enhancements:
   - {fileID: 11400000, guid: fd42d5c90a9c46ca8ecabc8d7c1fe6c5, type: 2}
