@@ -1320,27 +1320,116 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         reusableCandidateDistances.Clear();
     }
 
+    public bool CollectActiveItemsNearIncremental(
+        Vector3 origin,
+        float radius,
+        List<DroppedItem> results,
+        List<float> candidateDistances,
+        int maxCount,
+        ISet<DroppedItem> excludedItems,
+        ref int nextIndex,
+        int maxItemsToScan)
+    {
+        if (results == null)
+        {
+            Debug.LogError("DroppedItemManager: results list is null.", this);
+            return true;
+        }
+
+        if (candidateDistances == null)
+        {
+            Debug.LogError("DroppedItemManager: candidateDistances list is null.", this);
+            return true;
+        }
+
+        if (maxCount <= 0)
+        {
+            Debug.LogError($"DroppedItemManager: maxCount must be greater than 0. maxCount={maxCount}", this);
+            return true;
+        }
+
+        if (maxItemsToScan <= 0)
+        {
+            Debug.LogError($"DroppedItemManager: maxItemsToScan must be greater than 0. maxItemsToScan={maxItemsToScan}", this);
+            return true;
+        }
+
+        if (candidateDistances.Count != results.Count)
+        {
+            Debug.LogError(
+                $"DroppedItemManager: candidateDistances count must match results count. Distances={candidateDistances.Count}, Results={results.Count}",
+                this);
+            return true;
+        }
+
+        if (nextIndex < 0)
+        {
+            Debug.LogError($"DroppedItemManager: nextIndex must not be negative. nextIndex={nextIndex}", this);
+            return true;
+        }
+
+        bool useRadius = radius > 0f;
+        float radiusSqr = radius * radius;
+        int scanned = 0;
+        while (nextIndex < activeItems.Count && scanned < maxItemsToScan)
+        {
+            DroppedItem item = activeItems[nextIndex];
+            nextIndex++;
+            scanned++;
+
+            if (item == null || item.gameObject == null || !item.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            if (excludedItems != null && excludedItems.Contains(item))
+            {
+                continue;
+            }
+
+            float distanceSqr = (item.transform.position - origin).sqrMagnitude;
+            if (useRadius && distanceSqr > radiusSqr)
+            {
+                continue;
+            }
+
+            InsertNearestCandidate(item, distanceSqr, results, candidateDistances, maxCount);
+        }
+
+        return nextIndex >= activeItems.Count;
+    }
+
     private void InsertNearestCandidate(DroppedItem item, float distanceSqr, List<DroppedItem> results, int maxCount)
     {
-        if (results.Count >= maxCount && distanceSqr >= reusableCandidateDistances[reusableCandidateDistances.Count - 1])
+        InsertNearestCandidate(item, distanceSqr, results, reusableCandidateDistances, maxCount);
+    }
+
+    private void InsertNearestCandidate(
+        DroppedItem item,
+        float distanceSqr,
+        List<DroppedItem> results,
+        List<float> candidateDistances,
+        int maxCount)
+    {
+        if (results.Count >= maxCount && distanceSqr >= candidateDistances[candidateDistances.Count - 1])
         {
             return;
         }
 
         int insertIndex = 0;
-        while (insertIndex < reusableCandidateDistances.Count && reusableCandidateDistances[insertIndex] <= distanceSqr)
+        while (insertIndex < candidateDistances.Count && candidateDistances[insertIndex] <= distanceSqr)
         {
             insertIndex++;
         }
 
         results.Insert(insertIndex, item);
-        reusableCandidateDistances.Insert(insertIndex, distanceSqr);
+        candidateDistances.Insert(insertIndex, distanceSqr);
 
         if (results.Count > maxCount)
         {
             int removeIndex = results.Count - 1;
             results.RemoveAt(removeIndex);
-            reusableCandidateDistances.RemoveAt(removeIndex);
+            candidateDistances.RemoveAt(removeIndex);
         }
     }
 

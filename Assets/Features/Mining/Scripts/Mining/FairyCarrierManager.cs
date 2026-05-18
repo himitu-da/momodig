@@ -1,14 +1,24 @@
 using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEngine;
 
 public class FairyCarrierManager : MonoBehaviour
 {
     private const string CarrierUpgradeId = "garage.fairy.carrier";
+    private static readonly ProfilerMarker UpdateMarker =
+        new ProfilerMarker("FairyCarrierManager.Update");
+    private static readonly ProfilerMarker CollectTargetsIncrementalMarker =
+        new ProfilerMarker("FairyCarrierManager.CollectTargetsIncremental");
+    private static readonly ProfilerMarker StartTargetSearchMarker =
+        new ProfilerMarker("FairyCarrierManager.StartTargetSearch");
+    private static readonly ProfilerMarker StepTargetSearchesMarker =
+        new ProfilerMarker("FairyCarrierManager.StepTargetSearches");
 
     private enum FairyState
     {
         IdleAtHome,
         WaitingForSearchSlot,
+        CollectingTargets,
         Searching,
         MovingToItem,
         CarryingToHome,
@@ -26,10 +36,14 @@ public class FairyCarrierManager : MonoBehaviour
         public float SearchWaitStartedAt = -1f;
         public readonly List<Vector3> ActivePath = new List<Vector3>();
         public readonly List<DroppedItem> SearchTargets = new List<DroppedItem>();
+        public readonly List<float> SearchTargetDistances = new List<float>();
         public readonly List<Vector3> SearchTargetPositions = new List<Vector3>();
         public MiningPassagePathfinder.NearestTargetSearch TargetSearch;
         public int ActivePathIndex;
         public Vector3 ActivePathDestination;
+        public Vector3 TargetCollectionOrigin;
+        public int TargetCollectionNextIndex;
+        public bool TargetCollectionComplete;
         public int PathVariationSeed;
         public bool HasActivePath;
         public bool PathDirty = true;
@@ -58,12 +72,28 @@ public class FairyCarrierManager : MonoBehaviour
     [SerializeField] private float waypointArrivalDistance = 0.08f;
     [SerializeField] private float destinationRepathDistance = 0.25f;
 
+    [Header("Search Work Budget")]
+    [SerializeField, Min(1)] private int maxTargetCollectionsPerFrame = 2;
+    [SerializeField, Min(1)] private int maxFairyTargetScanItemsPerFrame = 512;
+    [SerializeField, Min(1)] private int maxTargetSearchStartsPerFrame = 2;
+    [SerializeField, Min(1)] private int maxTargetSearchCellsPerFrameTotal = 1024;
+    [SerializeField, Min(0.01f)] private float maxFairySearchWorkMilliseconds = 2f;
+    [SerializeField] private bool showFairySearchDebugInfo = false;
+
     private readonly HashSet<DroppedItem> reservedItems = new HashSet<DroppedItem>();
     private readonly List<FairyCarrier> fairies = new List<FairyCarrier>();
     private bool isUnlocked;
     private MiningPassagePathfinder pathfinder;
     private int targetFairyCount;
     private int targetSearchSlotsRemaining;
+    private int targetCollectionsRemaining;
+    private int targetSearchStartsRemaining;
+    private int targetSearchCellsRemaining;
+    private int targetCollectionsProcessed;
+    private int targetSearchStartsProcessed;
+    private int targetSearchCellsProcessed;
+    private double fairySearchWorkStartedAt;
+    private bool fairySearchBudgetErrorLogged;
 
     private void Awake()
     {
@@ -90,50 +120,64 @@ public class FairyCarrierManager : MonoBehaviour
 
     private void Update()
     {
-        if (!isUnlocked)
+        using (UpdateMarker.Auto())
         {
-            return;
-        }
-
-        EnsurePathfinder();
-
-        if (homePoint == null)
-        {
-            return;
-        }
-
-        EnsureFairyInstances();
-        targetSearchSlotsRemaining = Mathf.Max(1, maxConcurrentTargetSearches) - CountActiveTargetSearches();
-        for (int i = 0; i < fairies.Count; i++)
-        {
-            FairyCarrier fairy = fairies[i];
-            EnsureFairyInstance(fairy, i);
-            if (fairy.Instance == null)
+            if (!isUnlocked)
             {
-                continue;
+                return;
             }
 
-            switch (fairy.State)
+            if (!ValidateSearchBudgetSettings())
             {
-                case FairyState.IdleAtHome:
-                    UpdateIdleAtHome(fairy);
-                    break;
-                case FairyState.WaitingForSearchSlot:
-                    UpdateWaitingForSearchSlot(fairy);
-                    break;
-                case FairyState.Searching:
-                    SearchFromCurrentPosition(fairy);
-                    break;
-                case FairyState.MovingToItem:
-                    UpdateMovingToItem(fairy);
-                    break;
-                case FairyState.CarryingToHome:
-                    UpdateCarryingToHome(fairy);
-                    break;
-                case FairyState.Depositing:
-                    DepositCarriedItem(fairy);
-                    break;
+                return;
             }
+
+            EnsurePathfinder();
+
+            if (homePoint == null)
+            {
+                return;
+            }
+
+            BeginSearchWorkFrame();
+            EnsureFairyInstances();
+            targetSearchSlotsRemaining = maxConcurrentTargetSearches - CountActiveTargetSearches();
+            for (int i = 0; i < fairies.Count; i++)
+            {
+                FairyCarrier fairy = fairies[i];
+                EnsureFairyInstance(fairy, i);
+                if (fairy.Instance == null)
+                {
+                    continue;
+                }
+
+                switch (fairy.State)
+                {
+                    case FairyState.IdleAtHome:
+                        UpdateIdleAtHome(fairy);
+                        break;
+                    case FairyState.WaitingForSearchSlot:
+                        UpdateWaitingForSearchSlot(fairy);
+                        break;
+                    case FairyState.CollectingTargets:
+                        ContinueTargetCollection(fairy);
+                        break;
+                    case FairyState.Searching:
+                        SearchFromCurrentPosition(fairy);
+                        break;
+                    case FairyState.MovingToItem:
+                        UpdateMovingToItem(fairy);
+                        break;
+                    case FairyState.CarryingToHome:
+                        UpdateCarryingToHome(fairy);
+                        break;
+                    case FairyState.Depositing:
+                        DepositCarriedItem(fairy);
+                        break;
+                }
+            }
+
+            LogFairySearchWorkIfNeeded();
         }
     }
 
@@ -183,6 +227,63 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         return isValid;
+    }
+
+    private bool ValidateSearchBudgetSettings()
+    {
+        if (maxConcurrentTargetSearches <= 0 ||
+            targetSearchCellsPerFrame <= 0 ||
+            maxSearchTargetCandidates <= 0 ||
+            targetSearchRadius < 0f ||
+            maxTargetCollectionsPerFrame <= 0 ||
+            maxFairyTargetScanItemsPerFrame <= 0 ||
+            maxTargetSearchStartsPerFrame <= 0 ||
+            maxTargetSearchCellsPerFrameTotal <= 0 ||
+            maxFairySearchWorkMilliseconds <= 0f)
+        {
+            if (!fairySearchBudgetErrorLogged)
+            {
+                fairySearchBudgetErrorLogged = true;
+                Debug.LogError(
+                    $"FairyCarrierManager: invalid search budget settings. maxConcurrentTargetSearches={maxConcurrentTargetSearches}, targetSearchCellsPerFrame={targetSearchCellsPerFrame}, maxSearchTargetCandidates={maxSearchTargetCandidates}, targetSearchRadius={targetSearchRadius}, maxTargetCollectionsPerFrame={maxTargetCollectionsPerFrame}, maxFairyTargetScanItemsPerFrame={maxFairyTargetScanItemsPerFrame}, maxTargetSearchStartsPerFrame={maxTargetSearchStartsPerFrame}, maxTargetSearchCellsPerFrameTotal={maxTargetSearchCellsPerFrameTotal}, maxFairySearchWorkMilliseconds={maxFairySearchWorkMilliseconds}",
+                    this);
+            }
+
+            return false;
+        }
+
+        fairySearchBudgetErrorLogged = false;
+        return true;
+    }
+
+    private void BeginSearchWorkFrame()
+    {
+        targetCollectionsRemaining = maxTargetCollectionsPerFrame;
+        targetSearchStartsRemaining = maxTargetSearchStartsPerFrame;
+        targetSearchCellsRemaining = maxTargetSearchCellsPerFrameTotal;
+        targetCollectionsProcessed = 0;
+        targetSearchStartsProcessed = 0;
+        targetSearchCellsProcessed = 0;
+        fairySearchWorkStartedAt = Time.realtimeSinceStartupAsDouble;
+    }
+
+    private bool HasSearchWorkBudget()
+    {
+        return Time.realtimeSinceStartupAsDouble - fairySearchWorkStartedAt <
+            maxFairySearchWorkMilliseconds / 1000.0;
+    }
+
+    private void LogFairySearchWorkIfNeeded()
+    {
+        if (!showFairySearchDebugInfo ||
+            (targetCollectionsProcessed == 0 && targetSearchStartsProcessed == 0 && targetSearchCellsProcessed == 0))
+        {
+            return;
+        }
+
+        Debug.Log(
+            $"FairyCarrierManager search work: collections={targetCollectionsProcessed}, starts={targetSearchStartsProcessed}, cells={targetSearchCellsProcessed}",
+            this);
     }
 
     private void EnsureFairyInstances()
@@ -275,7 +376,19 @@ public class FairyCarrierManager : MonoBehaviour
             return;
         }
 
-        MiningPassageNearestTargetSearchStatus status = fairy.TargetSearch.Step(targetSearchCellsPerFrame);
+        if (targetSearchCellsRemaining <= 0 || !HasSearchWorkBudget())
+        {
+            return;
+        }
+
+        MiningPassageNearestTargetSearchStatus status;
+        int cellsToVisit = Mathf.Min(targetSearchCellsPerFrame, targetSearchCellsRemaining);
+        using (StepTargetSearchesMarker.Auto())
+        {
+            status = fairy.TargetSearch.Step(cellsToVisit);
+        }
+        targetSearchCellsRemaining -= cellsToVisit;
+        targetSearchCellsProcessed += cellsToVisit;
         if (status == MiningPassageNearestTargetSearchStatus.Running)
         {
             return;
@@ -471,17 +584,65 @@ public class FairyCarrierManager : MonoBehaviour
             return false;
         }
 
-        BeginTargetSearch(fairy, origin);
-        if (fairy.TargetSearch == null)
+        BeginTargetCollection(fairy, origin);
+        ContinueTargetCollection(fairy);
+        return fairy.State == FairyState.CollectingTargets || fairy.State == FairyState.Searching;
+    }
+
+    private void BeginTargetCollection(FairyCarrier fairy, Vector3 origin)
+    {
+        ClearTargetSearch(fairy);
+        fairy.TargetCollectionOrigin = origin;
+        fairy.TargetCollectionNextIndex = 0;
+        fairy.TargetCollectionComplete = false;
+        fairy.SearchWaitStartedAt = -1f;
+        fairy.State = FairyState.CollectingTargets;
+    }
+
+    private void ContinueTargetCollection(FairyCarrier fairy)
+    {
+        if (fairy.TargetCollectionComplete)
         {
-            fairy.NextSearchTime = Time.time + searchInterval;
-            return false;
+            FinishTargetCollection(fairy);
+            return;
         }
 
-        targetSearchSlotsRemaining--;
-        fairy.SearchWaitStartedAt = -1f;
-        fairy.State = FairyState.Searching;
-        return true;
+        if (targetCollectionsRemaining <= 0 || !HasSearchWorkBudget())
+        {
+            return;
+        }
+
+        DroppedItemManager itemManager = DroppedItemManager.Instance;
+        if (itemManager == null)
+        {
+            QueueSearchFromCurrentPosition(fairy, searchInterval);
+            return;
+        }
+
+        using (CollectTargetsIncrementalMarker.Auto())
+        {
+            targetCollectionsRemaining--;
+            targetCollectionsProcessed++;
+            reservedItems.RemoveWhere(IsReservedItemInvalid);
+            bool complete = itemManager.CollectActiveItemsNearIncremental(
+                fairy.TargetCollectionOrigin,
+                targetSearchRadius,
+                fairy.SearchTargets,
+                fairy.SearchTargetDistances,
+                maxSearchTargetCandidates,
+                reservedItems,
+                ref fairy.TargetCollectionNextIndex,
+                maxFairyTargetScanItemsPerFrame);
+
+            if (!complete)
+            {
+                return;
+            }
+
+            fairy.TargetCollectionComplete = true;
+        }
+
+        FinishTargetCollection(fairy);
     }
 
     private int CountActiveTargetSearches()
@@ -498,30 +659,16 @@ public class FairyCarrierManager : MonoBehaviour
         return count;
     }
 
-    private void BeginTargetSearch(FairyCarrier fairy, Vector3 origin)
+    private void FinishTargetCollection(FairyCarrier fairy)
     {
-        ClearTargetSearch(fairy);
-
-        DroppedItemManager itemManager = DroppedItemManager.Instance;
-        if (itemManager == null)
-        {
-            return;
-        }
-
-        reservedItems.RemoveWhere(IsReservedItemInvalid);
-        itemManager.CollectActiveItemsNear(
-            origin,
-            targetSearchRadius,
-            fairy.SearchTargets,
-            maxSearchTargetCandidates,
-            reservedItems);
-
+        fairy.SearchTargetPositions.Clear();
         for (int i = fairy.SearchTargets.Count - 1; i >= 0; i--)
         {
             DroppedItem item = fairy.SearchTargets[i];
             if (!IsTargetCandidateAvailable(item))
             {
                 fairy.SearchTargets.RemoveAt(i);
+                fairy.SearchTargetDistances.RemoveAt(i);
             }
         }
 
@@ -533,10 +680,36 @@ public class FairyCarrierManager : MonoBehaviour
 
         if (fairy.SearchTargetPositions.Count == 0)
         {
+            QueueSearchFromCurrentPosition(fairy, searchInterval);
             return;
         }
 
-        fairy.TargetSearch = pathfinder.BeginNearestTargetSearch(origin, fairy.SearchTargetPositions, fairy.PathVariationSeed);
+        if (targetSearchSlotsRemaining <= 0 ||
+            targetSearchStartsRemaining <= 0 ||
+            !HasSearchWorkBudget())
+        {
+            return;
+        }
+
+        using (StartTargetSearchMarker.Auto())
+        {
+            targetSearchSlotsRemaining--;
+            targetSearchStartsRemaining--;
+            targetSearchStartsProcessed++;
+            fairy.TargetSearch = pathfinder.BeginNearestTargetSearch(
+                fairy.TargetCollectionOrigin,
+                fairy.SearchTargetPositions,
+                fairy.PathVariationSeed);
+        }
+
+        if (fairy.TargetSearch == null)
+        {
+            QueueSearchFromCurrentPosition(fairy, searchInterval);
+            return;
+        }
+
+        fairy.SearchWaitStartedAt = -1f;
+        fairy.State = FairyState.Searching;
     }
 
     private bool TryAssignFoundTarget(FairyCarrier fairy)
@@ -751,7 +924,7 @@ public class FairyCarrierManager : MonoBehaviour
         {
             fairies[i].PathDirty = true;
             ClearTargetSearch(fairies[i]);
-            if (fairies[i].State == FairyState.Searching)
+            if (fairies[i].State == FairyState.Searching || fairies[i].State == FairyState.CollectingTargets)
             {
                 fairies[i].State = FairyState.WaitingForSearchSlot;
             }
@@ -770,7 +943,10 @@ public class FairyCarrierManager : MonoBehaviour
     {
         fairy.TargetSearch = null;
         fairy.SearchTargets.Clear();
+        fairy.SearchTargetDistances.Clear();
         fairy.SearchTargetPositions.Clear();
+        fairy.TargetCollectionNextIndex = 0;
+        fairy.TargetCollectionComplete = false;
     }
 
     private void DestroyFairy(FairyCarrier fairy)
