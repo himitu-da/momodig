@@ -152,7 +152,7 @@ public class Digger : MonoBehaviour
         List<UniTask<int>> diggingTasks = new List<UniTask<int>>();
         foreach (var block in hitBlocks)
         {
-            diggingTasks.Add(block.DigVoxels(diggingArea, damagePerHit, changeReason));
+            diggingTasks.Add(block.DigVoxels(diggingArea, damagePerHit, changeReason, info, true));
         }
 
         // 全ての掘削処理が完了するのを待ち、結果を集計
