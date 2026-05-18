@@ -2375,6 +2375,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _wakeUpRadiusMultiplier: 3
+  maxQueuedDropSpawnsPerFrame: 108
+  maxQueuedDropSpawnMilliseconds: 2
+  dropQueueWarningThreshold: 512
+  showDropQueueDebugInfo: 0
   enableSolidification: 1
   solidifyAfterSleepingSeconds: 30
   maxSolidificationsPerCheck: 16
@@ -2408,19 +2412,7 @@ MonoBehaviour:
   debugTintAnchoredItems: 0
   showAnchoredDebugInfo: 0
   debugStateLogInterval: 2
---- !u!114 &1375720079
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1375720076}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f35cd1e66e84ec596c86f3f123bbd42, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  playerController: {fileID: 672003892}
+  maxFluidTickItemsPerFixedUpdate: 432
 --- !u!4 &1375720078
 Transform:
   m_ObjectHideFlags: 0
@@ -2436,6 +2428,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1375720079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1375720076}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f35cd1e66e84ec596c86f3f123bbd42, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerController: {fileID: 672003892}
 --- !u!1 &1392169857
 GameObject:
   m_ObjectHideFlags: 0
@@ -3850,6 +3855,7 @@ MonoBehaviour:
   pickupDistance: 0.25
   homeArrivalDistance: 0.25
   searchInterval: 0.25
+  offHomeSearchWaitReturnSeconds: 5
   carriedItemLocalOffset: {x: 0, y: 0.45, z: 0}
   pathOptions:
     endpointSearchRadiusCells: 3
@@ -3860,8 +3866,16 @@ MonoBehaviour:
     pathVariationCost: 3
   maxConcurrentTargetSearches: 10
   targetSearchCellsPerFrame: 128
+  maxSearchTargetCandidates: 128
+  targetSearchRadius: 0
   waypointArrivalDistance: 0.08
   destinationRepathDistance: 0.25
+  maxTargetCollectionsPerFrame: 2
+  maxFairyTargetScanItemsPerFrame: 512
+  maxTargetSearchStartsPerFrame: 2
+  maxTargetSearchCellsPerFrameTotal: 1024
+  maxFairySearchWorkMilliseconds: 2
+  showFairySearchDebugInfo: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
