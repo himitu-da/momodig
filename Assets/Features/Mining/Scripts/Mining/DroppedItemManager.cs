@@ -163,6 +163,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     private int toolLayer = -1;
     private bool dropQueueThresholdWarningIssued;
     private bool dropQueueSettingsErrorLogged;
+    private bool missingFluidManagerLogged;
 
     // 静止・起床ロジックの定数
     private const float SleepCheckInterval = 0.2f; // 0.1秒ごとにチェック
@@ -338,6 +339,35 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
 
         LogDropStateCountsIfNeeded();
+    }
+
+    void FixedUpdate()
+    {
+        float fixedDeltaTime = Time.fixedDeltaTime;
+        float currentTime = Time.time;
+        for (int i = activeItems.Count - 1; i >= 0; i--)
+        {
+            DroppedItem item = activeItems[i];
+            if (item == null || !item.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            if (!itemStates.TryGetValue(item, out ItemState state) ||
+                state.state == DropState.Anchored ||
+                state.state == DropState.Invalidated ||
+                state.state == DropState.Solidified)
+            {
+                continue;
+            }
+
+            if (!item.ShouldTickFluidPhysics())
+            {
+                continue;
+            }
+
+            item.TickFluidPhysics(fixedDeltaTime, currentTime);
+        }
     }
 
     private void UpdateItemMotionState(DroppedItem item, ItemState state)
@@ -1236,6 +1266,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         var droppedItemComponent = itemInstance.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
+            InjectFluidManager(droppedItemComponent);
             SetItemLayer(itemInstance, dynamicDropLayer);
             droppedItemComponent.SetAnchoredPhysicsMode(false);
             SetAnchoredDebugTint(droppedItemComponent, false);
@@ -1529,6 +1560,35 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
 
         return cachedTerrainManager;
+    }
+
+    private FluidManager ResolveFluidManager()
+    {
+        TerrainManager terrainManager = ResolveTerrainManager();
+        return terrainManager != null ? terrainManager.FluidManager : null;
+    }
+
+    private void InjectFluidManager(DroppedItem item)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        FluidManager fluidManager = ResolveFluidManager();
+        if (fluidManager == null)
+        {
+            if (!missingFluidManagerLogged)
+            {
+                missingFluidManagerLogged = true;
+                Debug.LogError("DroppedItemManager: FluidManager is not configured. Dropped item fluid physics will be skipped.", this);
+            }
+
+            return;
+        }
+
+        missingFluidManagerLogged = false;
+        item.SetFluidManager(fluidManager);
     }
 
     private bool IsStableForSolidification(ItemState state)

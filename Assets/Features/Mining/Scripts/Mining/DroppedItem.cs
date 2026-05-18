@@ -56,6 +56,7 @@ public class DroppedItem : MonoBehaviour
     private bool hasFluidNotifyPosition;
     private float nextFluidNotifyTime;
     private bool anchoredPhysicsMode;
+    private bool missingFluidManagerLogged;
 
     // --- For Persistence ---
     public Vector3 scale;
@@ -81,7 +82,6 @@ public class DroppedItem : MonoBehaviour
         EnsureDroppedItemMesh();
         rb = GetComponent<Rigidbody>();
         obstacleCollider = GetComponent<Collider>();
-        ResolveFluidManager();
         lastFluidNotifyPosition = GetFluidObstacleCenter();
         hasFluidNotifyPosition = true;
     }
@@ -115,15 +115,41 @@ public class DroppedItem : MonoBehaviour
         RefreshFluidObstacleTracking(true);
     }
 
-    void FixedUpdate()
+    public bool ShouldTickFluidPhysics()
     {
-        if (anchoredPhysicsMode)
+        return !anchoredPhysicsMode &&
+            enableFluidResistance &&
+            rb != null &&
+            !rb.isKinematic;
+    }
+
+    public void TickFluidPhysics(float fixedDeltaTime, float currentTime)
+    {
+        if (!ShouldTickFluidPhysics())
         {
             return;
         }
 
-        ApplyFluidResistance();
-        RefreshFluidObstacleTracking(false);
+        ApplyFluidResistance(fixedDeltaTime);
+        RefreshFluidObstacleTracking(false, currentTime);
+    }
+
+    public void SetFluidManager(FluidManager assignedFluidManager)
+    {
+        if (assignedFluidManager == null)
+        {
+            if (!missingFluidManagerLogged)
+            {
+                missingFluidManagerLogged = true;
+                Debug.LogError("DroppedItem: FluidManager is not configured.", this);
+            }
+
+            fluidManager = null;
+            return;
+        }
+
+        fluidManager = assignedFluidManager;
+        missingFluidManagerLogged = false;
     }
 
     public void SetAnchoredPhysicsMode(bool anchored)
@@ -171,30 +197,16 @@ public class DroppedItem : MonoBehaviour
         }
     }
 
-    private void ResolveFluidManager()
-    {
-        if (fluidManager != null)
-        {
-            return;
-        }
-
-        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
-        if (terrainManager != null)
-        {
-            fluidManager = terrainManager.FluidManager;
-        }
-    }
-
-    private void ApplyFluidResistance()
+    private void ApplyFluidResistance(float fixedDeltaTime)
     {
         if (!enableFluidResistance || rb == null || rb.isKinematic)
         {
             return;
         }
 
-        ResolveFluidManager();
         if (fluidManager == null)
         {
+            LogMissingFluidManager();
             return;
         }
 
@@ -213,8 +225,8 @@ public class DroppedItem : MonoBehaviour
         
         float resistanceFactor = Mathf.Clamp01(displacedFluidMass / effectiveMass);
 
-        float linearDamping = 1f - Mathf.Exp(-fluidLinearResistanceStrength * resistanceFactor * Time.fixedDeltaTime);
-        float angularDamping = 1f - Mathf.Exp(-fluidAngularResistanceStrength * resistanceFactor * Time.fixedDeltaTime);
+        float linearDamping = 1f - Mathf.Exp(-fluidLinearResistanceStrength * resistanceFactor * fixedDeltaTime);
+        float angularDamping = 1f - Mathf.Exp(-fluidAngularResistanceStrength * resistanceFactor * fixedDeltaTime);
 
         rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, linearDamping);
         rb.angularVelocity = Vector3.Lerp(rb.angularVelocity, Vector3.zero, angularDamping);
@@ -222,7 +234,11 @@ public class DroppedItem : MonoBehaviour
 
     private void RefreshFluidObstacleTracking(bool force)
     {
-        ResolveFluidManager();
+        RefreshFluidObstacleTracking(force, Time.time);
+    }
+
+    private void RefreshFluidObstacleTracking(bool force, float currentTime)
+    {
         if (fluidManager == null)
         {
             return;
@@ -240,7 +256,7 @@ public class DroppedItem : MonoBehaviour
                 return;
             }
 
-            if (Time.time < nextFluidNotifyTime)
+            if (currentTime < nextFluidNotifyTime)
             {
                 return;
             }
@@ -255,7 +271,18 @@ public class DroppedItem : MonoBehaviour
         fluidManager.MarkDirtyAroundWorldPosition(currentPosition, dirtyRadius);
         lastFluidNotifyPosition = currentPosition;
         hasFluidNotifyPosition = true;
-        nextFluidNotifyTime = Time.time + FluidNotifyInterval;
+        nextFluidNotifyTime = currentTime + FluidNotifyInterval;
+    }
+
+    private void LogMissingFluidManager()
+    {
+        if (missingFluidManagerLogged)
+        {
+            return;
+        }
+
+        missingFluidManagerLogged = true;
+        Debug.LogError("DroppedItem: FluidManager is not configured.", this);
     }
 
     private float GetFluidSubmersionRatio()
