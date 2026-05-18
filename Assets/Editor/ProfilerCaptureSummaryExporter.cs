@@ -146,21 +146,57 @@ namespace Momodig.EditorTools
                 AnalyzeFrameSamples(frame.frameIndex, markerAccumulator, threadAccumulator, warnings);
             }
 
-            List<MarkerSummary> topMarkers = markerAccumulator.Values
+            List<MarkerSummary> allMarkerSummaries = markerAccumulator.Values
+                .Select(marker => marker.ToSummary())
+                .ToList();
+
+            List<MarkerSummary> topMarkers = allMarkerSummaries
+                .Where(IsActionableMarkerForReport)
                 .OrderByDescending(marker => marker.totalInclusiveMs)
                 .ThenByDescending(marker => marker.totalSelfMs)
                 .Take(Math.Max(1, topMarkerCount))
-                .Select(marker => marker.ToSummary())
                 .ToList();
+
+            if (topMarkers.Count == 0)
+            {
+                warnings.Add("No actionable profiler markers were found in the worst CPU frames. The marker report falls back to raw marker totals.");
+                topMarkers = allMarkerSummaries
+                    .OrderByDescending(marker => marker.totalInclusiveMs)
+                    .ThenByDescending(marker => marker.totalSelfMs)
+                    .Take(Math.Max(1, topMarkerCount))
+                    .ToList();
+            }
 
             List<ThreadSummary> topThreads = threadAccumulator.Values
                 .OrderByDescending(thread => thread.totalRootMs)
                 .Select(thread => thread.ToSummary())
                 .ToList();
 
+            List<MarkerSummary> topMainThreadMarkers = allMarkerSummaries
+                .Where(marker => marker.threadName == "Main Thread")
+                .Where(IsActionableMarkerForReport)
+                .OrderByDescending(marker => marker.totalInclusiveMs)
+                .ThenByDescending(marker => marker.totalSelfMs)
+                .Take(Math.Max(1, topMarkerCount))
+                .ToList();
+
+            List<MarkerSummary> topSelfTimeMarkers = allMarkerSummaries
+                .Where(IsActionableMarkerForReport)
+                .OrderByDescending(marker => marker.totalSelfMs)
+                .ThenByDescending(marker => marker.totalInclusiveMs)
+                .Take(Math.Max(1, topMarkerCount))
+                .ToList();
+
+            List<MarkerSummary> topWaitMarkers = allMarkerSummaries
+                .Where(IsWaitOrIdleMarker)
+                .OrderByDescending(marker => marker.totalInclusiveMs)
+                .ThenByDescending(marker => marker.totalSelfMs)
+                .Take(Math.Max(1, topMarkerCount))
+                .ToList();
+
             var report = new ExportReport
             {
-                schemaVersion = "1.0",
+                schemaVersion = "1.1",
                 generatedAtLocal = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
                 capturePath = capturePath,
                 projectName = Application.productName,
@@ -176,6 +212,9 @@ namespace Momodig.EditorTools
                 overGpuBudgetFrameCount = frameSummaries.Count(frame => frame.overGpuBudget),
                 worstCpuFrames = worstFrames,
                 topMarkersInWorstCpuFrames = topMarkers,
+                topMainThreadMarkersInWorstCpuFrames = topMainThreadMarkers,
+                topSelfTimeMarkersInWorstCpuFrames = topSelfTimeMarkers,
+                topWaitMarkersInWorstCpuFrames = topWaitMarkers,
                 threadTotalsInWorstCpuFrames = topThreads,
                 warnings = warnings
             };
@@ -330,6 +369,44 @@ namespace Momodig.EditorTools
             }
         }
 
+        private static bool IsActionableMarkerForReport(MarkerSummary marker)
+        {
+            if (marker == null || marker.totalInclusiveMs <= 0f)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(marker.name) || marker.name == "<unnamed sample>")
+            {
+                return false;
+            }
+
+            if (marker.name == marker.threadName || marker.name == "Main Thread" || marker.name == "Render Thread")
+            {
+                return false;
+            }
+
+            if (IsWaitOrIdleMarker(marker))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsWaitOrIdleMarker(MarkerSummary marker)
+        {
+            if (marker == null || string.IsNullOrWhiteSpace(marker.name))
+            {
+                return false;
+            }
+
+            return marker.name == "Idle"
+                || marker.name.Contains("Wait", StringComparison.Ordinal)
+                || marker.name.Contains("Semaphore", StringComparison.Ordinal)
+                || marker.name.Contains("Sleep", StringComparison.Ordinal);
+        }
+
         private static IEnumerable<int> EnumerateFrameIndices(int firstFrame, int lastFrame)
         {
             int frameIndex = firstFrame;
@@ -426,12 +503,22 @@ namespace Momodig.EditorTools
             builder.AppendLine();
             builder.AppendLine("## Top Markers In Worst CPU Frames");
             builder.AppendLine();
-            builder.AppendLine("| Marker | Thread | Category | Total ms | Self ms | Max ms | Samples |");
-            builder.AppendLine("| --- | --- | --- | ---: | ---: | ---: | ---: |");
-            foreach (MarkerSummary marker in report.topMarkersInWorstCpuFrames.Take(30))
-            {
-                builder.AppendLine($"| {EscapeMarkdown(marker.name)} | {EscapeMarkdown(marker.threadName)} | {EscapeMarkdown(marker.categoryName)} | {Format(marker.totalInclusiveMs)} | {Format(marker.totalSelfMs)} | {Format(marker.maxInclusiveMs)} | {marker.sampleCount} |");
-            }
+            AppendMarkerTable(builder, report.topMarkersInWorstCpuFrames.Take(30));
+
+            builder.AppendLine();
+            builder.AppendLine("## Main Thread Markers In Worst CPU Frames");
+            builder.AppendLine();
+            AppendMarkerTable(builder, report.topMainThreadMarkersInWorstCpuFrames.Take(30));
+
+            builder.AppendLine();
+            builder.AppendLine("## Self Time Markers In Worst CPU Frames");
+            builder.AppendLine();
+            AppendMarkerTable(builder, report.topSelfTimeMarkersInWorstCpuFrames.Take(30));
+
+            builder.AppendLine();
+            builder.AppendLine("## Wait And Idle Markers");
+            builder.AppendLine();
+            AppendMarkerTable(builder, report.topWaitMarkersInWorstCpuFrames.Take(15));
 
             if (report.warnings.Count > 0)
             {
@@ -445,6 +532,16 @@ namespace Momodig.EditorTools
             }
 
             return builder.ToString();
+        }
+
+        private static void AppendMarkerTable(StringBuilder builder, IEnumerable<MarkerSummary> markers)
+        {
+            builder.AppendLine("| Marker | Thread | Category | Total ms | Self ms | Max ms | Samples |");
+            builder.AppendLine("| --- | --- | --- | ---: | ---: | ---: | ---: |");
+            foreach (MarkerSummary marker in markers)
+            {
+                builder.AppendLine($"| {EscapeMarkdown(marker.name)} | {EscapeMarkdown(marker.threadName)} | {EscapeMarkdown(marker.categoryName)} | {Format(marker.totalInclusiveMs)} | {Format(marker.totalSelfMs)} | {Format(marker.maxInclusiveMs)} | {marker.sampleCount} |");
+            }
         }
 
         private static string Format(float value)
@@ -476,6 +573,9 @@ namespace Momodig.EditorTools
             public int overGpuBudgetFrameCount;
             public List<FrameSummary> worstCpuFrames = new();
             public List<MarkerSummary> topMarkersInWorstCpuFrames = new();
+            public List<MarkerSummary> topMainThreadMarkersInWorstCpuFrames = new();
+            public List<MarkerSummary> topSelfTimeMarkersInWorstCpuFrames = new();
+            public List<MarkerSummary> topWaitMarkersInWorstCpuFrames = new();
             public List<ThreadSummary> threadTotalsInWorstCpuFrames = new();
             public List<string> warnings = new();
         }
