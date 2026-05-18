@@ -43,7 +43,12 @@ public class BlockDiggingSystem
         }
     }
 
-    public async UniTask<int> DigVoxels(BoxCollider diggingArea, int damagePerHit, TerrainChangeReason changeReason = TerrainChangeReason.Digging)
+    public async UniTask<int> DigVoxels(
+        BoxCollider diggingArea,
+        int damagePerHit,
+        TerrainChangeReason changeReason = TerrainChangeReason.Digging,
+        MiningInfo miningInfo = default,
+        bool applyDropInitialForce = false)
     {
         int destroyedVoxelCount = 0;
         AudioClip destructionSound = null;
@@ -80,7 +85,7 @@ public class BlockDiggingSystem
                 {
                     for (int y = startY; y <= endY; y++)
                     {
-                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, ref destructionSound, ref destructionSoundVolume))
+                        if (ProcessVoxel(x, y, z, diggingArea, sampleResolution, totalSamples, worldToLocalMatrix, diggingAreaWorldToLocal, halfSize, center, dropActions, damagePerHit, miningInfo, applyDropInitialForce, ref destructionSound, ref destructionSoundVolume))
                         {
                             layerModified = true;
                             destroyedVoxelCount++;
@@ -121,7 +126,8 @@ public class BlockDiggingSystem
 
     private bool ProcessVoxel(int x, int y, int z, BoxCollider diggingArea, int sampleResolution, int totalSamples,
         Matrix4x4 worldToLocalMatrix, Matrix4x4 diggingAreaWorldToLocal, Vector3 halfSize, Vector3 center,
-        List<System.Action> dropActions, int damagePerHit, ref AudioClip destructionSound, ref float destructionSoundVolume)
+        List<System.Action> dropActions, int damagePerHit, MiningInfo miningInfo, bool applyDropInitialForce,
+        ref AudioClip destructionSound, ref float destructionSoundVolume)
     {
         Vector3Int localVoxelPos = new Vector3Int(x, y, z);
         Voxel voxelData = voxelManager.GetVoxelAt(blockPosition, localVoxelPos);
@@ -171,7 +177,7 @@ public class BlockDiggingSystem
         int capturedX = x;
         int capturedY = y;
         int capturedZ = z;
-        dropActions.Add(() => BlockItemDropper.DropItem(dropPosition, voxelBlockData, voxelUseTexture1, capturedX, capturedY, capturedZ, voxelsPerBlock, voxelWorldSize, textureExtractor));
+        dropActions.Add(() => BlockItemDropper.DropItem(dropPosition, voxelBlockData, voxelUseTexture1, capturedX, capturedY, capturedZ, voxelsPerBlock, voxelWorldSize, textureExtractor, miningInfo, applyDropInitialForce));
         return true;
     }
 }

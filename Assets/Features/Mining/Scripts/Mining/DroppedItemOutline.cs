@@ -10,6 +10,8 @@ public class DroppedItemOutline : MonoBehaviour
     private static readonly int OutlineColorID = Shader.PropertyToID("_OutlineColor");
     private static readonly int OutlineWidthID = Shader.PropertyToID("_OutlineWidth");
     private static readonly int SurfaceOffsetID = Shader.PropertyToID("_SurfaceOffset");
+    private const float IntensityVisibilityThreshold = 0.001f;
+    private const float IntensityChangeEpsilon = 0.0001f;
 
     [Header("Voxel Speed Gate")]
     [SerializeField, InspectorName("Voxel Hide Velocity"), Tooltip("Hide the outline while this voxel moves at or above this speed (m/s).")]
@@ -44,9 +46,7 @@ public class DroppedItemOutline : MonoBehaviour
     private float fadeOutDuration = 0.25f;
 
     private static Material sharedOutlineMaterial;
-    private static PlayerController sharedPlayerController;
-    private static float lastPlayerSearchTime = -1f;
-    private const float PlayerSearchInterval = 1f;
+    private static bool missingManagerLogged;
 
     private Rigidbody rb;
     private MeshFilter parentMeshFilter;
@@ -54,6 +54,11 @@ public class DroppedItemOutline : MonoBehaviour
     private MeshFilter outlineMeshFilter;
     private MaterialPropertyBlock mpb;
     private float currentIntensity;
+    private float appliedIntensity = float.NaN;
+    private Color appliedOutlineColor;
+    private float appliedOutlineWidth = float.NaN;
+    private float appliedSurfaceOffset = float.NaN;
+    private bool appliedRendererEnabled;
 
     void Awake()
     {
@@ -68,7 +73,18 @@ public class DroppedItemOutline : MonoBehaviour
     {
         currentIntensity = 0f;
         SyncOutlineMesh();
-        ApplyToMaterial();
+        ForceApplyToMaterial();
+        RegisterWithManager();
+    }
+
+    void OnDisable()
+    {
+        UnregisterFromManager();
+    }
+
+    void Start()
+    {
+        RegisterWithManager();
     }
 
     void OnValidate()
@@ -85,20 +101,16 @@ public class DroppedItemOutline : MonoBehaviour
         fadeOutDuration = Mathf.Max(0f, fadeOutDuration);
     }
 
-    void Update()
+    public void TickOutline(float playerInputMagnitude, float deltaTime)
     {
-        SyncOutlineMesh();
-
         if (IsVoxelMovingTooFast())
         {
-            currentIntensity = 0f;
-            ApplyToMaterial();
+            SetCurrentIntensity(0f);
             return;
         }
 
-        float target = fullIntensity * ComputePlayerInputMultiplier();
-        currentIntensity = MoveIntensityToward(currentIntensity, target, Time.deltaTime);
-        ApplyToMaterial();
+        float target = fullIntensity * ComputePlayerInputMultiplier(playerInputMagnitude);
+        SetCurrentIntensity(MoveIntensityToward(currentIntensity, target, deltaTime));
     }
 
     private float MoveIntensityToward(float current, float target, float dt)
@@ -202,15 +214,9 @@ public class DroppedItemOutline : MonoBehaviour
         return speedSqr >= voxelHideVelocityThreshold * voxelHideVelocityThreshold;
     }
 
-    private float ComputePlayerInputMultiplier()
+    private float ComputePlayerInputMultiplier(float playerInputMagnitude)
     {
-        PlayerController pc = ResolvePlayerController();
-        if (pc == null)
-        {
-            return playerStoppedMultiplier;
-        }
-
-        float inputMagnitude = Mathf.Clamp01(pc.MoveInput.magnitude);
+        float inputMagnitude = Mathf.Clamp01(playerInputMagnitude);
         if (inputMagnitude <= playerStoppedInputThreshold)
         {
             return playerStoppedMultiplier;
@@ -226,26 +232,73 @@ public class DroppedItemOutline : MonoBehaviour
         return Mathf.Lerp(playerStoppedMultiplier, playerMovingMultiplier, t);
     }
 
-    private static PlayerController ResolvePlayerController()
+    private void SetCurrentIntensity(float nextIntensity)
     {
-        if (sharedPlayerController != null)
+        nextIntensity = Mathf.Clamp01(nextIntensity);
+        if (Mathf.Abs(currentIntensity - nextIntensity) <= IntensityChangeEpsilon)
         {
-            return sharedPlayerController;
+            return;
         }
 
-        if (Time.time - lastPlayerSearchTime < PlayerSearchInterval && lastPlayerSearchTime >= 0f)
+        currentIntensity = nextIntensity;
+        ApplyToMaterial();
+    }
+
+    private void RegisterWithManager()
+    {
+        DroppedItemOutlineManager manager = DroppedItemOutlineManager.Instance;
+        if (manager == null)
         {
-            return null;
+            if (!missingManagerLogged)
+            {
+                missingManagerLogged = true;
+                Debug.LogError("DroppedItemOutline: DroppedItemOutlineManager is not configured in the scene.", this);
+            }
+
+            return;
         }
 
-        lastPlayerSearchTime = Time.time;
-        sharedPlayerController = FindFirstObjectByType<PlayerController>();
-        return sharedPlayerController;
+        manager.Register(this);
+    }
+
+    private void UnregisterFromManager()
+    {
+        DroppedItemOutlineManager manager = DroppedItemOutlineManager.Instance;
+        if (manager != null)
+        {
+            manager.Unregister(this);
+        }
+    }
+
+    private void ForceApplyToMaterial()
+    {
+        appliedIntensity = float.NaN;
+        appliedOutlineWidth = float.NaN;
+        appliedSurfaceOffset = float.NaN;
+        ApplyToMaterial();
     }
 
     private void ApplyToMaterial()
     {
         if (outlineRenderer == null || mpb == null)
+        {
+            return;
+        }
+
+        bool shouldRender = currentIntensity > IntensityVisibilityThreshold;
+        if (outlineRenderer.enabled != shouldRender)
+        {
+            outlineRenderer.enabled = shouldRender;
+        }
+
+        bool valuesUnchanged =
+            appliedRendererEnabled == shouldRender &&
+            Mathf.Abs(appliedIntensity - currentIntensity) <= IntensityChangeEpsilon &&
+            appliedOutlineColor == outlineColor &&
+            Mathf.Abs(appliedOutlineWidth - outlineWidth) <= Mathf.Epsilon &&
+            Mathf.Abs(appliedSurfaceOffset - surfaceOffset) <= Mathf.Epsilon;
+
+        if (valuesUnchanged)
         {
             return;
         }
@@ -256,5 +309,11 @@ public class DroppedItemOutline : MonoBehaviour
         mpb.SetFloat(SurfaceOffsetID, surfaceOffset);
         mpb.SetFloat(OutlineIntensityID, currentIntensity);
         outlineRenderer.SetPropertyBlock(mpb);
+
+        appliedRendererEnabled = shouldRender;
+        appliedIntensity = currentIntensity;
+        appliedOutlineColor = outlineColor;
+        appliedOutlineWidth = outlineWidth;
+        appliedSurfaceOffset = surfaceOffset;
     }
 }

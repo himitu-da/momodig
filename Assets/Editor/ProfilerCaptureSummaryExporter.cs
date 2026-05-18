@@ -41,12 +41,36 @@ namespace Momodig.EditorTools
             ExportCaptureSummary(capturePath);
         }
 
+        [MenuItem("Tools/Momodig/Profiler/Export Capture Frame Detail...")]
+        public static void ExportCaptureFrameDetailMenu()
+        {
+            ProfilerFrameDetailExportWindow.Open(GetLatestCapturePathIfAvailable());
+        }
+
         // Batchmode entry point:
         // Unity.exe -batchmode -projectPath <project> -executeMethod Momodig.EditorTools.ProfilerCaptureSummaryExporter.ExportLatestCaptureSummaryBatch -quit
         public static void ExportLatestCaptureSummaryBatch()
         {
             string capturePath = GetLatestCapturePath();
             ExportCaptureSummary(capturePath);
+        }
+
+        // Batchmode entry point:
+        // Unity.exe -batchmode -projectPath <project> -executeMethod Momodig.EditorTools.ProfilerCaptureSummaryExporter.ExportLatestCaptureFrameDetailBatch -profilerFrameIndex <frame> -quit
+        public static void ExportLatestCaptureFrameDetailBatch()
+        {
+            string capturePath = GetLatestCapturePath();
+            int frameIndex = GetRequiredCommandLineInt("-profilerFrameIndex");
+            ExportCaptureFrameDetail(capturePath, frameIndex);
+        }
+
+        // Batchmode entry point:
+        // Unity.exe -batchmode -projectPath <project> -executeMethod Momodig.EditorTools.ProfilerCaptureSummaryExporter.ExportCaptureFrameDetailBatch -profilerCapturePath <capture.data> -profilerFrameIndex <frame> -quit
+        public static void ExportCaptureFrameDetailBatch()
+        {
+            string capturePath = GetRequiredCommandLineString("-profilerCapturePath");
+            int frameIndex = GetRequiredCommandLineInt("-profilerFrameIndex");
+            ExportCaptureFrameDetail(capturePath, frameIndex);
         }
 
         public static void ExportCaptureSummary(string capturePath)
@@ -78,6 +102,34 @@ namespace Momodig.EditorTools
             WriteUtf8NoBom(markdownPath, BuildMarkdown(report));
 
             Debug.Log($"Profiler summary exported.\nJSON: {jsonPath}\nMarkdown: {markdownPath}");
+        }
+
+        public static void ExportCaptureFrameDetail(string capturePath, int frameIndex)
+        {
+            if (string.IsNullOrWhiteSpace(capturePath))
+            {
+                throw new ArgumentException("Profiler capture path is empty.", nameof(capturePath));
+            }
+
+            string absoluteCapturePath = Path.GetFullPath(capturePath);
+            if (!File.Exists(absoluteCapturePath))
+            {
+                throw new FileNotFoundException("Profiler capture file was not found.", absoluteCapturePath);
+            }
+
+            Directory.CreateDirectory(ExportDirectory);
+
+            string captureName = Path.GetFileNameWithoutExtension(absoluteCapturePath);
+            string fileStem = $"{captureName}.frame-{frameIndex}.profile-frame-detail";
+            string jsonPath = Path.Combine(ExportDirectory, fileStem + ".json");
+            string markdownPath = Path.Combine(ExportDirectory, fileStem + ".md");
+
+            FrameDetailReport report = BuildFrameDetailReport(absoluteCapturePath, frameIndex);
+
+            WriteUtf8NoBom(jsonPath, JsonUtility.ToJson(report, true));
+            WriteUtf8NoBom(markdownPath, BuildFrameDetailMarkdown(report, jsonPath));
+
+            Debug.Log($"Profiler frame detail exported.\nJSON: {jsonPath}\nMarkdown: {markdownPath}");
         }
 
         private static ExportReport BuildReport(
@@ -222,6 +274,80 @@ namespace Momodig.EditorTools
             return report;
         }
 
+        private static FrameDetailReport BuildFrameDetailReport(string capturePath, int frameIndex)
+        {
+            if (!ProfilerDriver.LoadProfile(capturePath, false))
+            {
+                throw new InvalidOperationException($"Failed to load profiler capture: {capturePath}");
+            }
+
+            int firstFrame = ProfilerDriver.firstFrameIndex;
+            int lastFrame = ProfilerDriver.lastFrameIndex;
+            if (firstFrame < 0 || lastFrame < firstFrame)
+            {
+                throw new InvalidOperationException($"Profiler capture has no readable frames: {capturePath}");
+            }
+
+            if (frameIndex < firstFrame || frameIndex > lastFrame)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(frameIndex),
+                    frameIndex,
+                    $"Frame {frameIndex} is outside the capture range {firstFrame} to {lastFrame}.");
+            }
+
+            if (!EnumerateFrameIndices(firstFrame, lastFrame).Contains(frameIndex))
+            {
+                throw new InvalidOperationException($"Frame {frameIndex} is not a readable frame in this capture.");
+            }
+
+            var warnings = new List<string>();
+            FrameSummary frameSummary = ReadFrameSummary(frameIndex);
+            if (frameSummary == null)
+            {
+                throw new InvalidOperationException($"Frame {frameIndex} had no valid raw frame data.");
+            }
+
+            List<FrameThreadDetail> threads = ReadFrameThreadDetails(frameIndex, warnings);
+            if (threads.Count == 0)
+            {
+                throw new InvalidOperationException($"Frame {frameIndex} had no readable profiler threads.");
+            }
+
+            List<FrameSampleSummary> allSamples = threads
+                .SelectMany(thread => thread.flatSamples)
+                .ToList();
+
+            return new FrameDetailReport
+            {
+                schemaVersion = "1.0",
+                generatedAtLocal = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+                capturePath = capturePath,
+                projectName = Application.productName,
+                unityVersion = Application.unityVersion,
+                firstFrameIndex = firstFrame,
+                lastFrameIndex = lastFrame,
+                frameIndex = frameIndex,
+                cpuFrameTimeMs = frameSummary.cpuFrameTimeMs,
+                gpuFrameTimeMs = frameSummary.gpuFrameTimeMs,
+                fps = frameSummary.fps,
+                threadCount = threads.Count,
+                totalSampleCount = threads.Sum(thread => thread.sampleCount),
+                threads = threads,
+                topInclusiveSamples = allSamples
+                    .OrderByDescending(sample => sample.inclusiveMs)
+                    .ThenByDescending(sample => sample.selfMs)
+                    .Take(DefaultTopMarkerCount)
+                    .ToList(),
+                topSelfSamples = allSamples
+                    .OrderByDescending(sample => sample.selfMs)
+                    .ThenByDescending(sample => sample.inclusiveMs)
+                    .Take(DefaultTopMarkerCount)
+                    .ToList(),
+                warnings = warnings
+            };
+        }
+
         private static FrameSummary ReadFrameSummary(int frameIndex)
         {
             for (int threadIndex = 0; threadIndex < MaxThreadSearchCount; threadIndex++)
@@ -300,6 +426,151 @@ namespace Momodig.EditorTools
                     sampleIndex = nextIndex;
                 }
             }
+        }
+
+        private static List<FrameThreadDetail> ReadFrameThreadDetails(int frameIndex, List<string> warnings)
+        {
+            var threads = new List<FrameThreadDetail>();
+            int missingThreadStreak = 0;
+            bool foundThread = false;
+
+            for (int threadIndex = 0; threadIndex < MaxThreadSearchCount; threadIndex++)
+            {
+                using RawFrameDataView view = ProfilerDriver.GetRawFrameDataView(frameIndex, threadIndex);
+                if (!view.valid)
+                {
+                    if (foundThread)
+                    {
+                        missingThreadStreak++;
+                        if (missingThreadStreak >= MissingThreadStopCount)
+                        {
+                            break;
+                        }
+                    }
+
+                    continue;
+                }
+
+                foundThread = true;
+                missingThreadStreak = 0;
+
+                string threadName = string.IsNullOrWhiteSpace(view.threadName) ? $"Thread {threadIndex}" : view.threadName;
+                var thread = new FrameThreadDetail
+                {
+                    threadIndex = threadIndex,
+                    threadName = threadName,
+                    threadGroupName = view.threadGroupName,
+                    sampleCount = view.sampleCount,
+                    rootSamples = new List<FrameSampleSummary>(),
+                    flatSamples = new List<FrameSampleSummary>()
+                };
+
+                int sampleIndex = 0;
+                while (sampleIndex < view.sampleCount)
+                {
+                    int nextIndex = BuildFrameSampleDetail(
+                        view,
+                        frameIndex,
+                        threadIndex,
+                        sampleIndex,
+                        -1,
+                        0,
+                        thread.flatSamples,
+                        warnings,
+                        out FrameSampleSummary sample);
+
+                    if (nextIndex <= sampleIndex)
+                    {
+                        warnings.Add($"Stopped detail sample traversal at frame {frameIndex}, thread {threadIndex}, sample {sampleIndex} because the profiler sample tree did not advance.");
+                        break;
+                    }
+
+                    thread.rootSamples.Add(sample);
+                    thread.totalRootMs += sample.inclusiveMs;
+                    sampleIndex = nextIndex;
+                }
+
+                foreach (FrameSampleSummary sample in thread.flatSamples)
+                {
+                    thread.totalInclusiveMs += sample.inclusiveMs;
+                    thread.totalSelfMs += sample.selfMs;
+                }
+
+                threads.Add(thread);
+            }
+
+            return threads;
+        }
+
+        private static int BuildFrameSampleDetail(
+            RawFrameDataView view,
+            int frameIndex,
+            int threadIndex,
+            int sampleIndex,
+            int parentSampleIndex,
+            int depth,
+            List<FrameSampleSummary> flatSamples,
+            List<string> warnings,
+            out FrameSampleSummary sample)
+        {
+            float inclusiveMs = SanitizeMs(view.GetSampleTimeMs(sampleIndex));
+            int childCount = Math.Max(0, view.GetSampleChildrenCount(sampleIndex));
+            int nextIndex = sampleIndex + 1;
+            float childInclusiveMs = 0f;
+
+            for (int childOffset = 0; childOffset < childCount && nextIndex < view.sampleCount; childOffset++)
+            {
+                int childIndex = nextIndex;
+                int childNextIndex = BuildFrameSampleDetail(
+                    view,
+                    frameIndex,
+                    threadIndex,
+                    childIndex,
+                    sampleIndex,
+                    depth + 1,
+                    flatSamples,
+                    warnings,
+                    out FrameSampleSummary child);
+
+                if (childNextIndex <= childIndex)
+                {
+                    warnings.Add($"Stopped detail child traversal at frame {frameIndex}, thread {threadIndex}, sample {childIndex} because the profiler sample tree did not advance.");
+                    break;
+                }
+
+                childInclusiveMs += child.inclusiveMs;
+                nextIndex = childNextIndex;
+            }
+
+            float selfMs = Mathf.Max(0f, inclusiveMs - childInclusiveMs);
+            string markerName = view.GetSampleName(sampleIndex);
+            if (string.IsNullOrWhiteSpace(markerName))
+            {
+                markerName = "<unnamed sample>";
+            }
+
+            ushort categoryIndex = view.GetSampleCategoryIndex(sampleIndex);
+            string categoryName = GetCategoryName(view, categoryIndex);
+
+            sample = new FrameSampleSummary
+            {
+                threadIndex = threadIndex,
+                threadName = string.IsNullOrWhiteSpace(view.threadName) ? $"Thread {threadIndex}" : view.threadName,
+                sampleIndex = sampleIndex,
+                parentSampleIndex = parentSampleIndex,
+                depth = depth,
+                name = markerName,
+                categoryIndex = categoryIndex,
+                categoryName = categoryName,
+                inclusiveMs = inclusiveMs,
+                selfMs = selfMs,
+                childInclusiveMs = childInclusiveMs,
+                childCount = childCount
+            };
+
+            flatSamples.Add(sample);
+
+            return nextIndex;
         }
 
         private static int AccumulateSampleTree(
@@ -449,6 +720,50 @@ namespace Momodig.EditorTools
             return latestCapture.FullName;
         }
 
+        private static string GetLatestCapturePathIfAvailable()
+        {
+            if (!Directory.Exists(CaptureDirectory))
+            {
+                return string.Empty;
+            }
+
+            FileInfo latestCapture = new DirectoryInfo(CaptureDirectory)
+                .GetFiles("*.data", SearchOption.TopDirectoryOnly)
+                .OrderByDescending(file => file.LastWriteTimeUtc)
+                .FirstOrDefault();
+
+            return latestCapture?.FullName ?? string.Empty;
+        }
+
+        private static string GetRequiredCommandLineString(string argumentName)
+        {
+            string[] arguments = Environment.GetCommandLineArgs();
+            for (int i = 0; i < arguments.Length - 1; i++)
+            {
+                if (arguments[i] == argumentName)
+                {
+                    string value = arguments[i + 1];
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+
+            throw new ArgumentException($"Required command line argument was not provided: {argumentName}");
+        }
+
+        private static int GetRequiredCommandLineInt(string argumentName)
+        {
+            string value = GetRequiredCommandLineString(argumentName);
+            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result))
+            {
+                return result;
+            }
+
+            throw new ArgumentException($"Command line argument {argumentName} must be an integer. Actual value: {value}");
+        }
+
         private static float SanitizeMs(float value)
         {
             if (float.IsNaN(value) || float.IsInfinity(value))
@@ -534,6 +849,68 @@ namespace Momodig.EditorTools
             return builder.ToString();
         }
 
+        private static string BuildFrameDetailMarkdown(FrameDetailReport report, string jsonPath)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("# Profiler Frame Detail");
+            builder.AppendLine();
+            builder.AppendLine($"- Capture: `{report.capturePath}`");
+            builder.AppendLine($"- Detail JSON: `{jsonPath}`");
+            builder.AppendLine($"- Unity: `{report.unityVersion}`");
+            builder.AppendLine($"- Generated: `{report.generatedAtLocal}`");
+            builder.AppendLine($"- Frame: `{report.frameIndex}` (`{report.firstFrameIndex}` to `{report.lastFrameIndex}`)");
+            builder.AppendLine($"- CPU: `{Format(report.cpuFrameTimeMs)} ms`");
+            builder.AppendLine($"- GPU: `{Format(report.gpuFrameTimeMs)} ms`");
+            builder.AppendLine($"- FPS: `{Format(report.fps)}`");
+            builder.AppendLine($"- Threads: `{report.threadCount}`");
+            builder.AppendLine($"- Samples: `{report.totalSampleCount}`");
+            builder.AppendLine();
+            builder.AppendLine("## Threads");
+            builder.AppendLine();
+            builder.AppendLine("| Index | Thread | Group | Samples | Root ms | Inclusive ms | Self ms |");
+            builder.AppendLine("| ---: | --- | --- | ---: | ---: | ---: | ---: |");
+            foreach (FrameThreadDetail thread in report.threads.OrderByDescending(thread => thread.totalRootMs))
+            {
+                builder.AppendLine($"| {thread.threadIndex} | {EscapeMarkdown(thread.threadName)} | {EscapeMarkdown(thread.threadGroupName)} | {thread.sampleCount} | {Format(thread.totalRootMs)} | {Format(thread.totalInclusiveMs)} | {Format(thread.totalSelfMs)} |");
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("## Root Samples");
+            builder.AppendLine();
+            builder.AppendLine("| Thread | Sample | Category | Inclusive ms | Self ms | Children |");
+            builder.AppendLine("| --- | --- | --- | ---: | ---: | ---: |");
+            foreach (FrameThreadDetail thread in report.threads.OrderByDescending(thread => thread.totalRootMs))
+            {
+                foreach (FrameSampleSummary sample in thread.rootSamples.OrderByDescending(sample => sample.inclusiveMs).Take(20))
+                {
+                    builder.AppendLine($"| {EscapeMarkdown(thread.threadName)} | {EscapeMarkdown(sample.name)} | {EscapeMarkdown(sample.categoryName)} | {Format(sample.inclusiveMs)} | {Format(sample.selfMs)} | {sample.childCount} |");
+                }
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("## Top Inclusive Samples");
+            builder.AppendLine();
+            AppendFrameSampleTable(builder, report.topInclusiveSamples.Take(30));
+
+            builder.AppendLine();
+            builder.AppendLine("## Top Self Samples");
+            builder.AppendLine();
+            AppendFrameSampleTable(builder, report.topSelfSamples.Take(30));
+
+            if (report.warnings.Count > 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine("## Warnings");
+                builder.AppendLine();
+                foreach (string warning in report.warnings)
+                {
+                    builder.AppendLine($"- {warning}");
+                }
+            }
+
+            return builder.ToString();
+        }
+
         private static void AppendMarkerTable(StringBuilder builder, IEnumerable<MarkerSummary> markers)
         {
             builder.AppendLine("| Marker | Thread | Category | Total ms | Self ms | Max ms | Samples |");
@@ -541,6 +918,16 @@ namespace Momodig.EditorTools
             foreach (MarkerSummary marker in markers)
             {
                 builder.AppendLine($"| {EscapeMarkdown(marker.name)} | {EscapeMarkdown(marker.threadName)} | {EscapeMarkdown(marker.categoryName)} | {Format(marker.totalInclusiveMs)} | {Format(marker.totalSelfMs)} | {Format(marker.maxInclusiveMs)} | {marker.sampleCount} |");
+            }
+        }
+
+        private static void AppendFrameSampleTable(StringBuilder builder, IEnumerable<FrameSampleSummary> samples)
+        {
+            builder.AppendLine("| Thread | Depth | Sample | Category | Inclusive ms | Self ms | Children | Index | Parent |");
+            builder.AppendLine("| --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: |");
+            foreach (FrameSampleSummary sample in samples)
+            {
+                builder.AppendLine($"| {EscapeMarkdown(sample.threadName)} | {sample.depth} | {EscapeMarkdown(sample.name)} | {EscapeMarkdown(sample.categoryName)} | {Format(sample.inclusiveMs)} | {Format(sample.selfMs)} | {sample.childCount} | {sample.sampleIndex} | {sample.parentSampleIndex} |");
             }
         }
 
@@ -552,6 +939,130 @@ namespace Momodig.EditorTools
         private static string EscapeMarkdown(string value)
         {
             return string.IsNullOrEmpty(value) ? string.Empty : value.Replace("|", "\\|");
+        }
+
+        private sealed class ProfilerFrameDetailExportWindow : EditorWindow
+        {
+            private string capturePath;
+            private int frameIndex;
+
+            public static void Open(string initialCapturePath)
+            {
+                ProfilerFrameDetailExportWindow window = GetWindow<ProfilerFrameDetailExportWindow>("Frame Detail Export");
+                window.capturePath = initialCapturePath;
+                window.minSize = new Vector2(520f, 150f);
+                window.Show();
+            }
+
+            private void OnGUI()
+            {
+                EditorGUILayout.LabelField("Profiler Capture Frame Detail", EditorStyles.boldLabel);
+                EditorGUILayout.Space();
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    capturePath = EditorGUILayout.TextField("Capture", capturePath);
+                    if (GUILayout.Button("Select", GUILayout.Width(70f)))
+                    {
+                        string selectedPath = EditorUtility.OpenFilePanel("Select Unity Profiler capture", CaptureDirectory, "data");
+                        if (!string.IsNullOrEmpty(selectedPath))
+                        {
+                            capturePath = selectedPath;
+                        }
+                    }
+                }
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Space(EditorGUIUtility.labelWidth);
+                    if (GUILayout.Button("Use Latest Capture", GUILayout.Width(140f)))
+                    {
+                        capturePath = GetLatestCapturePath();
+                    }
+                }
+
+                frameIndex = EditorGUILayout.IntField("Frame Index", frameIndex);
+
+                EditorGUILayout.Space();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Export", GUILayout.Width(90f)))
+                    {
+                        string requestedCapturePath = capturePath;
+                        int requestedFrameIndex = frameIndex;
+                        EditorApplication.delayCall += () => ExportCaptureFrameDetailFromWindow(
+                            requestedCapturePath,
+                            requestedFrameIndex);
+                    }
+                }
+            }
+
+            private static void ExportCaptureFrameDetailFromWindow(string requestedCapturePath, int requestedFrameIndex)
+            {
+                try
+                {
+                    ExportCaptureFrameDetail(requestedCapturePath, requestedFrameIndex);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                    EditorUtility.DisplayDialog("Frame Detail Export Failed", exception.Message, "OK");
+                }
+            }
+        }
+
+        [Serializable]
+        private sealed class FrameDetailReport
+        {
+            public string schemaVersion;
+            public string generatedAtLocal;
+            public string capturePath;
+            public string projectName;
+            public string unityVersion;
+            public int firstFrameIndex;
+            public int lastFrameIndex;
+            public int frameIndex;
+            public float cpuFrameTimeMs;
+            public float gpuFrameTimeMs;
+            public float fps;
+            public int threadCount;
+            public int totalSampleCount;
+            public List<FrameThreadDetail> threads = new();
+            public List<FrameSampleSummary> topInclusiveSamples = new();
+            public List<FrameSampleSummary> topSelfSamples = new();
+            public List<string> warnings = new();
+        }
+
+        [Serializable]
+        private sealed class FrameThreadDetail
+        {
+            public int threadIndex;
+            public string threadName;
+            public string threadGroupName;
+            public int sampleCount;
+            public float totalRootMs;
+            public float totalInclusiveMs;
+            public float totalSelfMs;
+            public List<FrameSampleSummary> rootSamples = new();
+            public List<FrameSampleSummary> flatSamples = new();
+        }
+
+        [Serializable]
+        private sealed class FrameSampleSummary
+        {
+            public int threadIndex;
+            public string threadName;
+            public int sampleIndex;
+            public int parentSampleIndex;
+            public int depth;
+            public string name;
+            public int categoryIndex;
+            public string categoryName;
+            public float inclusiveMs;
+            public float selfMs;
+            public float childInclusiveMs;
+            public int childCount;
         }
 
         [Serializable]
