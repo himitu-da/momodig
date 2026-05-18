@@ -78,6 +78,8 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
     // アクティブなアイテムの管理リスト
     private List<DroppedItem> activeItems = new List<DroppedItem>();
+    private readonly List<DroppedItem> fluidTickCandidates = new List<DroppedItem>();
+    private readonly HashSet<DroppedItem> fluidTickCandidateSet = new HashSet<DroppedItem>();
 
     private enum DropState
     {
@@ -308,6 +310,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                 if (item != null)
                 {
                     queuedInitialForceSkipUntil.Remove(item);
+                    RemoveFluidTickCandidate(item);
                     if (itemStates.TryGetValue(item, out ItemState removedState))
                     {
                         RemoveFromAnchoredIndexes(item, removedState);
@@ -345,28 +348,82 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     {
         float fixedDeltaTime = Time.fixedDeltaTime;
         float currentTime = Time.time;
-        for (int i = activeItems.Count - 1; i >= 0; i--)
+        for (int i = fluidTickCandidates.Count - 1; i >= 0; i--)
         {
-            DroppedItem item = activeItems[i];
-            if (item == null || !item.gameObject.activeInHierarchy)
+            DroppedItem item = fluidTickCandidates[i];
+            if (item == null)
             {
+                fluidTickCandidates.RemoveAt(i);
                 continue;
             }
 
-            if (!itemStates.TryGetValue(item, out ItemState state) ||
-                state.state == DropState.Anchored ||
-                state.state == DropState.Invalidated ||
-                state.state == DropState.Solidified)
+            if (!itemStates.TryGetValue(item, out ItemState state) || !ShouldBeFluidTickCandidate(item, state))
             {
-                continue;
-            }
-
-            if (!item.ShouldTickFluidPhysics())
-            {
+                RemoveFluidTickCandidateAt(i, item);
                 continue;
             }
 
             item.TickFluidPhysics(fixedDeltaTime, currentTime);
+        }
+    }
+
+    private bool ShouldBeFluidTickCandidate(DroppedItem item, ItemState state)
+    {
+        if (item == null || state == null || !item.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        if (state.state != DropState.Dynamic && state.state != DropState.Settling)
+        {
+            return false;
+        }
+
+        return item.ShouldTickFluidPhysics();
+    }
+
+    private void RefreshFluidTickCandidate(DroppedItem item, ItemState state)
+    {
+        if (ShouldBeFluidTickCandidate(item, state))
+        {
+            AddFluidTickCandidate(item);
+        }
+        else
+        {
+            RemoveFluidTickCandidate(item);
+        }
+    }
+
+    private void AddFluidTickCandidate(DroppedItem item)
+    {
+        if (item == null || !fluidTickCandidateSet.Add(item))
+        {
+            return;
+        }
+
+        fluidTickCandidates.Add(item);
+    }
+
+    private void RemoveFluidTickCandidate(DroppedItem item)
+    {
+        if (item == null || !fluidTickCandidateSet.Remove(item))
+        {
+            return;
+        }
+
+        fluidTickCandidates.Remove(item);
+    }
+
+    private void RemoveFluidTickCandidateAt(int index, DroppedItem item)
+    {
+        if (item != null)
+        {
+            fluidTickCandidateSet.Remove(item);
+        }
+
+        if (index >= 0 && index < fluidTickCandidates.Count)
+        {
+            fluidTickCandidates.RemoveAt(index);
         }
     }
 
@@ -434,6 +491,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         state.settlingSince = Time.time;
         state.solidificationStartedAt = -1f;
         item.SetAnchoredPhysicsMode(false);
+        RefreshFluidTickCandidate(item, state);
     }
 
     private void SetAnchored(DroppedItem item, ItemState state, List<VoxelCellKey> supportCells)
@@ -442,6 +500,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         ReleaseSolidificationReservation(item);
 
         state.state = DropState.Anchored;
+        RemoveFluidTickCandidate(item);
         state.supportCells.Clear();
         for (int i = 0; i < supportCells.Count && i < maxSupportCells; i++)
         {
@@ -481,6 +540,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         item.SetAnchoredPhysicsMode(false);
         SetAnchoredDebugTint(item, false);
         SetItemLayer(item.gameObject, dynamicDropLayer);
+        RefreshFluidTickCandidate(item, state);
     }
 
     private void SetInvalidated(DroppedItem item, ItemState state, int terrainVersion)
@@ -491,6 +551,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
 
         state.state = DropState.Invalidated;
+        RemoveFluidTickCandidate(item);
         state.lastInvalidationVersion = terrainVersion;
         if (invalidatedItems.Add(item))
         {
@@ -502,6 +563,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     {
         state.state = DropState.Solidified;
         state.settlingSince = -1f;
+        RemoveFluidTickCandidate(item);
         RemoveFromAnchoredIndexes(item, state);
         ReleaseSolidificationReservation(item);
         item.SetAnchoredPhysicsMode(false);
@@ -1285,13 +1347,15 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             {
                 itemStates.Add(droppedItemComponent, new ItemState());
             }
-            itemStates[droppedItemComponent].state = DropState.Dynamic;
-            itemStates[droppedItemComponent].sleepCooldownTimer = Mathf.Max(0f, spawnSleepCooldownSeconds);
-            itemStates[droppedItemComponent].settlingSince = -1f;
-            itemStates[droppedItemComponent].solidificationStartedAt = -1f;
-            itemStates[droppedItemComponent].hasSolidificationReservation = false;
-            itemStates[droppedItemComponent].supportCells.Clear();
-            itemStates[droppedItemComponent].velocityHistory.Clear();
+            ItemState state = itemStates[droppedItemComponent];
+            state.state = DropState.Dynamic;
+            state.sleepCooldownTimer = Mathf.Max(0f, spawnSleepCooldownSeconds);
+            state.settlingSince = -1f;
+            state.solidificationStartedAt = -1f;
+            state.hasSolidificationReservation = false;
+            state.supportCells.Clear();
+            state.velocityHistory.Clear();
+            RefreshFluidTickCandidate(droppedItemComponent, state);
         }
 
         return itemInstance;
@@ -1487,6 +1551,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
                 SetDynamic(droppedItemComponent, state, WakeReason.Pool);
             }
+            RemoveFluidTickCandidate(droppedItemComponent);
             itemStates.Remove(droppedItemComponent);
             activeItems.Remove(droppedItemComponent);
         }
