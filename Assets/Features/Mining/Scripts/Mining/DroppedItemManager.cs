@@ -56,6 +56,11 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     [SerializeField] private bool showAnchoredDebugInfo = false;
     [SerializeField] private float debugStateLogInterval = 2f;
 
+    [Header("Dropped Item Fluid Physics")]
+    [SerializeField, Min(1), InspectorName("Max Fluid Tick Items Per FixedUpdate")]
+    [Tooltip("1回のFixedUpdateで流体物理を処理するDroppedItem数の上限。処理順はround-robinで分散されます。")]
+    private int maxFluidTickItemsPerFixedUpdate = 432;
+
     public float WakeUpRadiusMultiplier => _wakeUpRadiusMultiplier;
     
     private static DroppedItemManager _instance;
@@ -80,6 +85,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     private List<DroppedItem> activeItems = new List<DroppedItem>();
     private readonly List<DroppedItem> fluidTickCandidates = new List<DroppedItem>();
     private readonly HashSet<DroppedItem> fluidTickCandidateSet = new HashSet<DroppedItem>();
+    private int nextFluidTickCandidateIndex;
 
     private enum DropState
     {
@@ -348,22 +354,42 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     {
         float fixedDeltaTime = Time.fixedDeltaTime;
         float currentTime = Time.time;
-        for (int i = fluidTickCandidates.Count - 1; i >= 0; i--)
+        int startingCandidateCount = fluidTickCandidates.Count;
+        if (startingCandidateCount == 0)
         {
-            DroppedItem item = fluidTickCandidates[i];
+            nextFluidTickCandidateIndex = 0;
+            return;
+        }
+
+        int fluidTickBudget = Mathf.Min(Mathf.Max(1, maxFluidTickItemsPerFixedUpdate), startingCandidateCount);
+        int scannedCount = 0;
+        int processedCount = 0;
+        NormalizeFluidTickCandidateIndex();
+
+        while (fluidTickCandidates.Count > 0 &&
+            scannedCount < startingCandidateCount &&
+            processedCount < fluidTickBudget)
+        {
+            int currentIndex = nextFluidTickCandidateIndex;
+            DroppedItem item = fluidTickCandidates[currentIndex];
+            scannedCount++;
+
             if (item == null)
             {
-                fluidTickCandidates.RemoveAt(i);
+                RemoveFluidTickCandidateAt(currentIndex, item);
                 continue;
             }
 
             if (!itemStates.TryGetValue(item, out ItemState state) || !ShouldBeFluidTickCandidate(item, state))
             {
-                RemoveFluidTickCandidateAt(i, item);
+                RemoveFluidTickCandidateAt(currentIndex, item);
                 continue;
             }
 
             item.TickFluidPhysics(fixedDeltaTime, currentTime);
+            processedCount++;
+            nextFluidTickCandidateIndex = currentIndex + 1;
+            NormalizeFluidTickCandidateIndex();
         }
     }
 
@@ -411,7 +437,20 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             return;
         }
 
-        fluidTickCandidates.Remove(item);
+        int removedIndex = fluidTickCandidates.IndexOf(item);
+        if (removedIndex < 0)
+        {
+            NormalizeFluidTickCandidateIndex();
+            return;
+        }
+
+        fluidTickCandidates.RemoveAt(removedIndex);
+        if (removedIndex < nextFluidTickCandidateIndex)
+        {
+            nextFluidTickCandidateIndex--;
+        }
+
+        NormalizeFluidTickCandidateIndex();
     }
 
     private void RemoveFluidTickCandidateAt(int index, DroppedItem item)
@@ -424,6 +463,32 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         if (index >= 0 && index < fluidTickCandidates.Count)
         {
             fluidTickCandidates.RemoveAt(index);
+            if (index < nextFluidTickCandidateIndex)
+            {
+                nextFluidTickCandidateIndex--;
+            }
+        }
+
+        NormalizeFluidTickCandidateIndex();
+    }
+
+    private void NormalizeFluidTickCandidateIndex()
+    {
+        if (fluidTickCandidates.Count == 0)
+        {
+            nextFluidTickCandidateIndex = 0;
+            return;
+        }
+
+        if (nextFluidTickCandidateIndex < 0)
+        {
+            nextFluidTickCandidateIndex = 0;
+            return;
+        }
+
+        if (nextFluidTickCandidateIndex >= fluidTickCandidates.Count)
+        {
+            nextFluidTickCandidateIndex %= fluidTickCandidates.Count;
         }
     }
 
