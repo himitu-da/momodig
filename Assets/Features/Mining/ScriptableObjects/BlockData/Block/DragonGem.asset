@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: DragonGem
   m_EditorClassIdentifier: 
   resourceType: 11
-  voxelHp: 5
+  voxelHp: 20
   materialType: 1
   textures:
   - {fileID: 2800000, guid: 1f95feb9e3ce25e40adc4a12a4811d69, type: 3}

@@ -10,17 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d552916d40791ba4b92c2c9762f04b09, type: 3}
-  m_Name: Iron
+  m_Name: Tin
   m_EditorClassIdentifier: 
-  resourceType: 2
-  voxelHp: 6
+  resourceType: 6
+  voxelHp: 15
   materialType: 0
   textures:
-  - {fileID: 2800000, guid: 1a3a3945e70414946991f795d2d633e5, type: 3}
+  - {fileID: 2800000, guid: 4bf1829931e569c4eb66468d41fbcec7, type: 3}
   droppedItemPrefab: {fileID: 5313337329262707675, guid: e31edd0b8e028754f9cff52745811db7, type: 3}
   disableRotation: 1
   autoScale: 1
   scaleMultiplier: 1
-  density: 7800
+  density: 7300
   destroyedSound: {fileID: 8300000, guid: b6579af8bb1c4924da30bc5bef1f6e0c, type: 3}
   destroyedSoundVolume: 1
