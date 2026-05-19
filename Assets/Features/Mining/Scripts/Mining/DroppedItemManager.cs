@@ -1395,11 +1395,11 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         {
             InjectFluidManager(droppedItemComponent);
             SetItemLayer(itemInstance, dynamicDropLayer);
-            droppedItemComponent.SetAnchoredPhysicsMode(false);
+            droppedItemComponent.ResetPhysicsForSpawn();
             SetAnchoredDebugTint(droppedItemComponent, false);
-            if (droppedItemComponent.rb != null)
+            if (droppedItemComponent.ItemCollider != null)
             {
-                droppedItemComponent.rb.isKinematic = false;
+                droppedItemComponent.ItemCollider.enabled = true;
             }
 
             // 管理リストに追加
