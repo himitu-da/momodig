@@ -148,11 +148,12 @@ public class FacilityUpgradeService : MonoBehaviour
         }
 
         int currentLevel = GetLevel(upgrade);
+        int currentEffectLevel = upgrade.GetEffectLevel(currentLevel);
         try
         {
             for (int levelOffset = 0; levelOffset < purchaseCount; levelOffset++)
             {
-                int levelForCost = currentLevel + levelOffset;
+                int levelForCost = currentEffectLevel + levelOffset + 1;
                 IReadOnlyList<FacilityResourceCost> resourceCosts = upgrade.ResourceCosts;
                 for (int i = 0; i < resourceCosts.Count; i++)
                 {

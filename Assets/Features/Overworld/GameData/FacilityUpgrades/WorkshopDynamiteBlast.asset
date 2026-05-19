@@ -18,8 +18,8 @@ MonoBehaviour:
   categoryLabel: "\u30C0\u30A4\u30CA\u30DE\u30A4\u30C8\u3000Dynamite"
   displayName: Dynamite Blast Radius
   description: Expands the dynamite blast area.
-  initialLevel: 1
-  maxLevel: 99
+  initialLevel: 0
+  maxLevel: 10
   costScaling: 2
   resourceCosts:
   - resourceType: 11

@@ -34,6 +34,7 @@ public class FacilityUpgradeDefinition : ScriptableObject
     public string Description => description;
     public int InitialLevel => initialLevel;
     public int MaxLevel => maxLevel;
+    public int MaxEffectLevel => Mathf.Max(0, maxLevel - initialLevel);
     public FacilityUpgradeCostScaling CostScaling => costScaling;
     public IReadOnlyList<FacilityResourceCost> ResourceCosts => resourceCosts;
     public IReadOnlyList<Enhancement> Enhancements => enhancements;
@@ -41,6 +42,11 @@ public class FacilityUpgradeDefinition : ScriptableObject
     public bool IsMaxLevel(int currentLevel)
     {
         return maxLevel > 0 && currentLevel >= maxLevel;
+    }
+
+    public int GetEffectLevel(int currentLevel)
+    {
+        return Mathf.Clamp(currentLevel - initialLevel, 0, MaxEffectLevel);
     }
 
     public bool ValidateConfiguration(Object context)
