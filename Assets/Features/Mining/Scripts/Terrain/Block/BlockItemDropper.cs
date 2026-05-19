@@ -85,11 +85,15 @@ public static class BlockItemDropper
         DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
+            if (!droppedItemComponent.enabled)
+            {
+                droppedItemComponent.enabled = true;
+            }
+
             droppedItemComponent.ResetSolidificationState();
             droppedItemComponent.resourceType = data.resourceType;
             droppedItemComponent.blockDataName = data.name;
             droppedItemComponent.scale = item.transform.localScale;
-            droppedItemComponent.enabled = !data.disableRotation;
         }
 
         if (!item.CompareTag("DroppedItem"))

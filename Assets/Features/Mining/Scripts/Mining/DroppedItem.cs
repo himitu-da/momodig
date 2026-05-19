@@ -90,6 +90,13 @@ public class DroppedItem : MonoBehaviour
     {
         anchoredPhysicsMode = false;
         SetTemporaryAnchoredDebugTint(false);
+        RefreshFluidObstacleTracking(true);
+    }
+
+    public void ResetPhysicsForSpawn()
+    {
+        anchoredPhysicsMode = false;
+        SetTemporaryAnchoredDebugTint(false);
         if (rb != null)
         {
             rb.isKinematic = false;
