@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Silicon
   m_EditorClassIdentifier: 
   resourceType: 8
-  voxelHp: 10
+  voxelHp: 15
   materialType: 0
   textures:
   - {fileID: 2800000, guid: 32cf9818c2e71a547bf5c6ca7c94622e, type: 3}

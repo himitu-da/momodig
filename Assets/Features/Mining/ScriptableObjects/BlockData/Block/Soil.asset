@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Soil
   m_EditorClassIdentifier: 
   resourceType: 0
-  voxelHp: 1
+  voxelHp: 2
   materialType: 0
   textures:
   - {fileID: 2800000, guid: 6ce98367fac1d644b8bac6062642b1ec, type: 3}

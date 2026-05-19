@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Gold
   m_EditorClassIdentifier: 
   resourceType: 3
-  voxelHp: 10
+  voxelHp: 15
   materialType: 0
   textures:
   - {fileID: 2800000, guid: 0dc91a170d2da3c4ab3470477f4ad3b0, type: 3}

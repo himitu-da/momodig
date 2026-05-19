@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Iron
   m_EditorClassIdentifier: 
   resourceType: 2
-  voxelHp: 6
+  voxelHp: 8
   materialType: 0
   textures:
   - {fileID: 2800000, guid: 1a3a3945e70414946991f795d2d633e5, type: 3}

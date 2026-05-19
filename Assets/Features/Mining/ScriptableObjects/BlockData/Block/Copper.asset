@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Copper
   m_EditorClassIdentifier: 
   resourceType: 5
-  voxelHp: 6
+  voxelHp: 8
   materialType: 0
   textures:
   - {fileID: 2800000, guid: fcb0579173c78c544a06db375d004b76, type: 3}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Tin
   m_EditorClassIdentifier: 
   resourceType: 6
-  voxelHp: 10
+  voxelHp: 15
   materialType: 0
   textures:
   - {fileID: 2800000, guid: 4bf1829931e569c4eb66468d41fbcec7, type: 3}

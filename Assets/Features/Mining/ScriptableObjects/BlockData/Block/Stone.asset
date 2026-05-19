@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Stone
   m_EditorClassIdentifier: 
   resourceType: 1
-  voxelHp: 3
+  voxelHp: 5
   materialType: 0
   textures:
   - {fileID: 2800000, guid: 61a6e08a908b9934eb53aa0af194bf2e, type: 3}

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Diamond
   m_EditorClassIdentifier: 
   resourceType: 4
-  voxelHp: 10
+  voxelHp: 15
   materialType: 0
   textures:
   - {fileID: 2800000, guid: 133ec6d2019cd6a41b517365ae25452e, type: 3}
