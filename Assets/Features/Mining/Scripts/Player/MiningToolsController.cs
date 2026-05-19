@@ -525,8 +525,9 @@ public class MiningToolsController : MonoBehaviour
         {
             FacilityUpgradeDefinition upgrade = upgrades[upgradeIndex];
             int level = persistence.GetFacilityUpgradeLevel(upgrade.UpgradeId, upgrade.InitialLevel);
+            int effectLevel = upgrade.GetEffectLevel(level);
 
-            if (level == 0) continue;
+            if (effectLevel == 0) continue;
 
             IReadOnlyList<Enhancement> enhancements = upgrade.Enhancements;
             for (int enhancementIndex = 0; enhancementIndex < enhancements.Count; enhancementIndex++)
@@ -539,7 +540,7 @@ public class MiningToolsController : MonoBehaviour
                     // Enhancementに設定されたTargetCategoryと現在のtool名が一致する場合のみ適用
                     if (enhancement.TargetCategory == tool.name && tool.miningModule != null)
                     {
-                        ApplyEnhancementToModule(tool.miningModule, enhancement, level);
+                        ApplyEnhancementToModule(tool.miningModule, enhancement, effectLevel);
                     }
                 }
             }

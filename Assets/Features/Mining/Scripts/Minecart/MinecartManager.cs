@@ -318,8 +318,9 @@ public class MinecartManager : MonoBehaviour
         {
             FacilityUpgradeDefinition upgrade = upgrades[upgradeIndex];
             int level = persistence.GetFacilityUpgradeLevel(upgrade.UpgradeId, upgrade.InitialLevel);
+            int effectLevel = upgrade.GetEffectLevel(level);
 
-            if (level == 0) continue; // レベル0のアイテムは効果なし
+            if (effectLevel == 0) continue; // レベル0のアイテムは効果なし
 
             IReadOnlyList<Enhancement> enhancements = upgrade.Enhancements;
             for (int enhancementIndex = 0; enhancementIndex < enhancements.Count; enhancementIndex++)
@@ -337,7 +338,7 @@ public class MinecartManager : MonoBehaviour
                         continue;
                     }
 
-                    ApplyModifier(targetStat, enhancement, level);
+                    ApplyModifier(targetStat, enhancement, effectLevel);
                 }
             }
         }

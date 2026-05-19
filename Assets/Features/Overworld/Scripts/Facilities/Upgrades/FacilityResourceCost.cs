@@ -21,24 +21,24 @@ public class FacilityResourceCost
         return false;
     }
 
-    public int CalculateAmount(FacilityUpgradeCostScaling scaling, int currentLevel)
+    public int CalculateAmount(FacilityUpgradeCostScaling scaling, int effectLevelForCost)
     {
-        int multiplier = CalculateMultiplier(scaling, currentLevel);
+        int multiplier = CalculateMultiplier(scaling, effectLevelForCost);
         return checked(baseAmount * multiplier);
     }
 
-    private static int CalculateMultiplier(FacilityUpgradeCostScaling scaling, int currentLevel)
+    private static int CalculateMultiplier(FacilityUpgradeCostScaling scaling, int effectLevelForCost)
     {
         switch (scaling)
         {
             case FacilityUpgradeCostScaling.NoChange:
                 return 1;
             case FacilityUpgradeCostScaling.MultiplyByNextLevel:
-                return Mathf.Max(1, currentLevel + 1);
+                return Mathf.Max(1, effectLevelForCost);
             case FacilityUpgradeCostScaling.FactorialByCurrentLevel:
-                return Factorial(Mathf.Max(1, currentLevel));
+                return Factorial(Mathf.Max(1, effectLevelForCost));
             case FacilityUpgradeCostScaling.FibonacciByCurrentLevel:
-                return Fibonacci(Mathf.Max(1, currentLevel));
+                return Fibonacci(Mathf.Max(1, effectLevelForCost));
             default:
                 throw new ArgumentOutOfRangeException(nameof(scaling), scaling, "Unsupported facility upgrade cost scaling.");
         }
