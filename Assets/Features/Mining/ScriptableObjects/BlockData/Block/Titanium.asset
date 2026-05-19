@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d552916d40791ba4b92c2c9762f04b09, type: 3}
   m_Name: Titanium
   m_EditorClassIdentifier: 
-  resourceType: 6
+  resourceType: 10
   voxelHp: 10
   materialType: 0
   textures:
