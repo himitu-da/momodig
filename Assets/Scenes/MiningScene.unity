@@ -1622,6 +1622,7 @@ GameObject:
   m_Component:
   - component: {fileID: 995654920}
   - component: {fileID: 995654918}
+  - component: {fileID: 995654921}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -1661,6 +1662,34 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &995654921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 995654917}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2f4b2b1dd99472dbd8e8d5f6d93a5b1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MiningLightManager
+  terrainManager: {fileID: 2071865104}
+  playerTransform: {fileID: 672003891}
+  sourceBrightness: 1
+  airCellTransmission: 0.9
+  solidCellTransmission: 0.8
+  minBrightness: 0.05
+  playerSourceRadiusCells: 1
+  maxCalculatedCells: 4096
+  maxPropagationCellsPerFrame: 243
+  drawGizmos: 1
+  drawOnlyWhenSelected: 0
+  maxGizmoCells: 1024
+  gizmoCellScale: 0.75
+  airCellGizmoColor: {r: 1, g: 0.92, b: 0.25, a: 0.45}
+  solidCellGizmoColor: {r: 1, g: 0.45, b: 0.15, a: 0.45}
+  sourceCellGizmoColor: {r: 1, g: 1, b: 1, a: 0.8}
 --- !u!1 &1046567922
 GameObject:
   m_ObjectHideFlags: 0
