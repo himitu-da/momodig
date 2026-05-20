@@ -1678,12 +1678,13 @@ MonoBehaviour:
   terrainManager: {fileID: 2071865104}
   playerTransform: {fileID: 672003891}
   sourceBrightness: 1
-  airCellTransmission: 0.9
-  solidCellTransmission: 0.8
-  minBrightness: 0.05
+  airCellTransmission: 0.8
+  solidCellTransmission: 0.5
+  minBrightness: 0.01
   playerSourceRadiusCells: 1
-  maxCalculatedCells: 4096
-  maxPropagationCellsPerFrame: 243
+  maxCalculatedCells: 8192
+  maxPropagationCellsPerPropagationPerFrame: 27
+  maxPropagationCellsPerFrame: 729
   drawGizmos: 1
   drawOnlyWhenSelected: 0
   maxGizmoCells: 8192

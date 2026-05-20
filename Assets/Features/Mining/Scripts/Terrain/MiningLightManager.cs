@@ -29,6 +29,7 @@ public class MiningLightManager : MonoBehaviour
     [SerializeField, Range(0.001f, 1f)] private float minBrightness = 0.05f;
     [SerializeField, Min(0)] private int playerSourceRadiusCells = 1;
     [SerializeField, Min(1)] private int maxCalculatedCells = 4096;
+    [SerializeField, Min(1)] private int maxPropagationCellsPerPropagationPerFrame = 64;
     [SerializeField, Min(1)] private int maxPropagationCellsPerFrame = 256;
 
     [Header("Gizmos")]
@@ -260,22 +261,35 @@ public class MiningLightManager : MonoBehaviour
         using (PropagationStepMarker.Auto())
         {
             int processedCells = 0;
+            int maxCellsPerPropagation = Mathf.Max(1, maxPropagationCellsPerPropagationPerFrame);
             int maxCellsThisFrame = Mathf.Max(1, maxPropagationCellsPerFrame);
-            while (activePropagations.Count > 0 && processedCells < maxCellsThisFrame)
+            int propagationSlotsThisFrame = activePropagations.Count;
+            while (activePropagations.Count > 0 &&
+                   propagationSlotsThisFrame > 0 &&
+                   processedCells < maxCellsThisFrame)
             {
                 ClampRoundRobinPropagationIndex();
                 PropagationRun propagation = activePropagations[roundRobinPropagationIndex];
 
-                ProcessOnePropagationCell(propagation);
-                processedCells++;
+                int processedPropagationCells = 0;
+                while (propagation.activeJobs.Count > 0 &&
+                       processedPropagationCells < maxCellsPerPropagation &&
+                       processedCells < maxCellsThisFrame)
+                {
+                    ProcessOnePropagationCell(propagation);
+                    processedPropagationCells++;
+                    processedCells++;
+                }
 
                 if (propagation.activeJobs.Count == 0)
                 {
                     CompletePropagation(propagation);
+                    propagationSlotsThisFrame--;
                     continue;
                 }
 
                 roundRobinPropagationIndex++;
+                propagationSlotsThisFrame--;
             }
         }
     }
@@ -692,6 +706,7 @@ public class MiningLightManager : MonoBehaviour
         minBrightness = Mathf.Clamp(minBrightness, 0.001f, Mathf.Max(0.001f, sourceBrightness));
         playerSourceRadiusCells = Mathf.Max(0, playerSourceRadiusCells);
         maxCalculatedCells = Mathf.Max(1, maxCalculatedCells);
+        maxPropagationCellsPerPropagationPerFrame = Mathf.Max(1, maxPropagationCellsPerPropagationPerFrame);
         maxPropagationCellsPerFrame = Mathf.Max(1, maxPropagationCellsPerFrame);
         maxGizmoCells = Mathf.Max(1, maxGizmoCells);
         gizmoCellScale = Mathf.Clamp(gizmoCellScale, 0.05f, 1f);
