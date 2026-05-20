@@ -5,6 +5,7 @@ Shader "Custom/Default"
         [MainTexture] _BaseMap("Texture", 2D) = "white" {}
         [MainColor] _BaseColor("Color", Color) = (1,1,1,1)
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
+        _UseVertexColor("Use Vertex Color", Float) = 0
     }
     SubShader
     {
@@ -24,6 +25,7 @@ Shader "Custom/Default"
             {
                 float4 positionOS   : POSITION;
                 float2 uv           : TEXCOORD0;
+                half4 color         : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -31,6 +33,7 @@ Shader "Custom/Default"
             {
                 float4 positionHCS  : SV_POSITION;
                 float2 uv           : TEXCOORD0;
+                half4 color         : COLOR;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -40,6 +43,7 @@ Shader "Custom/Default"
                 float4 _BaseMap_ST;
                 half4 _BaseColor;
                 half _Cutoff;
+                half _UseVertexColor;
             CBUFFER_END
 
             Varyings vert(Attributes IN)
@@ -49,13 +53,15 @@ Shader "Custom/Default"
                 UNITY_TRANSFER_INSTANCE_ID(IN, OUT);
                 OUT.positionHCS = TransformObjectToHClip(IN.positionOS.xyz);
                 OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
+                OUT.color = IN.color;
                 return OUT;
             }
 
             half4 frag(Varyings IN) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(IN);
-                half4 color = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor;
+                half4 vertexColor = lerp(half4(1.0, 1.0, 1.0, 1.0), IN.color, saturate(_UseVertexColor));
+                half4 color = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor * vertexColor;
                 clip(color.a - _Cutoff);
                 return color;
             }

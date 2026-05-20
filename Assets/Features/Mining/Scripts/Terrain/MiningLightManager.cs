@@ -34,15 +34,18 @@ public class MiningLightManager : MonoBehaviour
     [Header("Gizmos")]
     [SerializeField] private bool drawGizmos = true;
     [SerializeField] private bool drawOnlyWhenSelected = false;
-    [SerializeField, Min(1)] private int maxGizmoCells = 1024;
+    [SerializeField, Min(1)] private int maxGizmoCells = 8192;
     [SerializeField, Range(0.05f, 1f)] private float gizmoCellScale = 0.75f;
     [SerializeField] private Color airCellGizmoColor = new Color(1f, 0.92f, 0.25f, 0.45f);
     [SerializeField] private Color solidCellGizmoColor = new Color(1f, 0.45f, 0.15f, 0.45f);
     [SerializeField] private Color sourceCellGizmoColor = new Color(1f, 1f, 1f, 0.8f);
 
+    private readonly Queue<VoxelCellKey> dirtyBrightnessCells = new Queue<VoxelCellKey>(512);
+    private readonly HashSet<VoxelCellKey> queuedDirtyBrightnessCells = new HashSet<VoxelCellKey>();
     private PropagationRun displayedPropagation;
-    private PropagationRun activePropagation;
+    private readonly List<PropagationRun> activePropagations = new List<PropagationRun>(4);
     private PropagationRun retainedPreviousPropagation;
+    private int roundRobinPropagationIndex;
 
     private VoxelCellKey lastPlayerCell;
     private bool hasLastPlayerCell;
@@ -89,6 +92,33 @@ public class MiningLightManager : MonoBehaviour
     public bool TryGetBrightness(VoxelCellKey key, out float brightness)
     {
         return TryGetDisplayedBrightness(key, out brightness);
+    }
+
+    public int DrainDirtyBrightnessCells(List<VoxelCellKey> buffer, int maxCells)
+    {
+        if (buffer == null)
+        {
+            Debug.LogError("MiningLightManager: dirty brightness cell buffer is null.", this);
+            return 0;
+        }
+
+        buffer.Clear();
+        if (maxCells <= 0)
+        {
+            Debug.LogError($"MiningLightManager: maxCells must be greater than 0. maxCells={maxCells}", this);
+            return 0;
+        }
+
+        int drained = 0;
+        while (dirtyBrightnessCells.Count > 0 && drained < maxCells)
+        {
+            VoxelCellKey key = dirtyBrightnessCells.Dequeue();
+            queuedDirtyBrightnessCells.Remove(key);
+            buffer.Add(key);
+            drained++;
+        }
+
+        return drained;
     }
 
     private void OnEnable()
@@ -138,7 +168,7 @@ public class MiningLightManager : MonoBehaviour
             RestartPropagation(playerCell);
         }
 
-        if (activePropagation != null)
+        if (activePropagations.Count > 0)
         {
             ProcessPropagationStep();
         }
@@ -152,7 +182,7 @@ public class MiningLightManager : MonoBehaviour
             retainedPreviousPropagation = displayedPropagation;
             nextPropagation.previousPropagation = retainedPreviousPropagation;
             displayedPropagation = nextPropagation;
-            activePropagation = nextPropagation;
+            activePropagations.Add(nextPropagation);
             terrainDirty = false;
             hasCalculated = true;
             hasLastPlayerCell = true;
@@ -173,7 +203,10 @@ public class MiningLightManager : MonoBehaviour
                     Debug.LogWarning("MiningLightManager: no generated player-adjacent cells were available for light propagation.", this);
                 }
 
-                activePropagation = null;
+                MarkStalePreviousCellsDirty(nextPropagation);
+                nextPropagation.previousPropagation = null;
+                activePropagations.Remove(nextPropagation);
+                ClampRoundRobinPropagationIndex();
                 retainedPreviousPropagation = null;
                 return;
             }
@@ -226,45 +259,81 @@ public class MiningLightManager : MonoBehaviour
     {
         using (PropagationStepMarker.Auto())
         {
-            PropagationRun propagation = activePropagation;
-            if (propagation == null)
-            {
-                return;
-            }
-
             int processedCells = 0;
             int maxCellsThisFrame = Mathf.Max(1, maxPropagationCellsPerFrame);
-            while (propagation.activeJobs.Count > 0 && processedCells < maxCellsThisFrame)
+            while (activePropagations.Count > 0 && processedCells < maxCellsThisFrame)
             {
-                if (propagation.roundRobinJobIndex >= propagation.activeJobs.Count)
-                {
-                    propagation.roundRobinJobIndex = 0;
-                }
+                ClampRoundRobinPropagationIndex();
+                PropagationRun propagation = activePropagations[roundRobinPropagationIndex];
 
-                PropagationJob job = propagation.activeJobs[propagation.roundRobinJobIndex];
-                bool jobStillActive = ProcessOneFrontierCell(propagation, job);
+                ProcessOnePropagationCell(propagation);
                 processedCells++;
 
-                if (!jobStillActive)
+                if (propagation.activeJobs.Count == 0)
                 {
-                    propagation.activeJobs.RemoveAt(propagation.roundRobinJobIndex);
+                    CompletePropagation(propagation);
                     continue;
                 }
 
-                propagation.roundRobinJobIndex++;
+                roundRobinPropagationIndex++;
             }
+        }
+    }
 
+    private void ProcessOnePropagationCell(PropagationRun propagation)
+    {
+        if (propagation.activeJobs.Count == 0)
+        {
+            return;
+        }
+
+        if (propagation.roundRobinJobIndex >= propagation.activeJobs.Count)
+        {
+            propagation.roundRobinJobIndex = 0;
+        }
+
+        PropagationJob job = propagation.activeJobs[propagation.roundRobinJobIndex];
+        bool jobStillActive = ProcessOneFrontierCell(propagation, job);
+        if (!jobStillActive)
+        {
+            propagation.activeJobs.RemoveAt(propagation.roundRobinJobIndex);
             if (propagation.roundRobinJobIndex >= propagation.activeJobs.Count)
             {
                 propagation.roundRobinJobIndex = 0;
             }
+            return;
+        }
 
-            if (propagation.activeJobs.Count == 0 && activePropagation == propagation)
-            {
-                propagation.previousPropagation = null;
-                activePropagation = null;
-                retainedPreviousPropagation = null;
-            }
+        propagation.roundRobinJobIndex++;
+        if (propagation.roundRobinJobIndex >= propagation.activeJobs.Count)
+        {
+            propagation.roundRobinJobIndex = 0;
+        }
+    }
+
+    private void CompletePropagation(PropagationRun propagation)
+    {
+        MarkStalePreviousCellsDirty(propagation);
+        propagation.previousPropagation = null;
+        activePropagations.Remove(propagation);
+        ClampRoundRobinPropagationIndex();
+        if (displayedPropagation == propagation)
+        {
+            retainedPreviousPropagation = null;
+        }
+    }
+
+    private void ClampRoundRobinPropagationIndex()
+    {
+        if (activePropagations.Count == 0)
+        {
+            roundRobinPropagationIndex = 0;
+            return;
+        }
+
+        if (roundRobinPropagationIndex >= activePropagations.Count)
+        {
+            roundRobinPropagationIndex = 0;
         }
     }
 
@@ -320,6 +389,7 @@ public class MiningLightManager : MonoBehaviour
             }
 
             propagation.cellBrightness[key] = brightness;
+            EnqueueDirtyBrightnessCell(key);
             return true;
         }
 
@@ -334,7 +404,32 @@ public class MiningLightManager : MonoBehaviour
         }
 
         propagation.cellBrightness.Add(key, brightness);
+        EnqueueDirtyBrightnessCell(key);
         return true;
+    }
+
+    private void MarkStalePreviousCellsDirty(PropagationRun propagation)
+    {
+        PropagationRun previous = propagation.previousPropagation;
+        while (previous != null)
+        {
+            foreach (KeyValuePair<VoxelCellKey, float> pair in previous.cellBrightness)
+            {
+                if (!propagation.cellBrightness.ContainsKey(pair.Key))
+                {
+                    EnqueueDirtyBrightnessCell(pair.Key);
+                }
+            }
+            previous = previous.previousPropagation;
+        }
+    }
+
+    private void EnqueueDirtyBrightnessCell(VoxelCellKey key)
+    {
+        if (queuedDirtyBrightnessCells.Add(key))
+        {
+            dirtyBrightnessCells.Enqueue(key);
+        }
     }
 
     private bool TryGetPlayerCell(out VoxelCellKey key)
@@ -400,11 +495,27 @@ public class MiningLightManager : MonoBehaviour
 
     private void ClearLightState()
     {
+        MarkDisplayedCellsDirty();
         displayedPropagation = null;
-        activePropagation = null;
+        activePropagations.Clear();
         retainedPreviousPropagation = null;
+        roundRobinPropagationIndex = 0;
         hasLastPlayerCell = false;
         hasCalculated = false;
+    }
+
+    private void MarkDisplayedCellsDirty()
+    {
+        PropagationRun propagation = displayedPropagation;
+        while (propagation != null)
+        {
+            foreach (KeyValuePair<VoxelCellKey, float> pair in propagation.cellBrightness)
+            {
+                EnqueueDirtyBrightnessCell(pair.Key);
+            }
+
+            propagation = propagation.previousPropagation;
+        }
     }
 
     private bool ValidateConfiguration()
