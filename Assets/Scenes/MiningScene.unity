@@ -3668,7 +3668,8 @@ MonoBehaviour:
     blockSize: 1
     voxelsPerBlock: 3
     generationType: 0
-    blocksPerFrame: 16
+    blocksPerFrame: 50
+    blockGenerationBudgetMilliseconds: 4
     itemLoadDelay: 0.35
   playerTransform: {fileID: 672003891}
   chunkManager: {fileID: 2014132665}
