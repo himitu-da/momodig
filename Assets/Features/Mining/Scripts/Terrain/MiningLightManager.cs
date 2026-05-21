@@ -57,6 +57,8 @@ public class MiningLightManager : MonoBehaviour
     private sealed class PropagationRun
     {
         public readonly Dictionary<VoxelCellKey, float> cellBrightness = new Dictionary<VoxelCellKey, float>();
+        public readonly Dictionary<VoxelCellKey, bool> propagationCellCache = new Dictionary<VoxelCellKey, bool>();
+        public readonly Dictionary<VoxelCellKey, bool> solidCellCache = new Dictionary<VoxelCellKey, bool>();
         public readonly List<PropagationJob> activeJobs = new List<PropagationJob>(32);
         public readonly HashSet<VoxelCellKey> sourceCells = new HashSet<VoxelCellKey>();
         public readonly List<VoxelCellKey> sourceCellOrder = new List<VoxelCellKey>(32);
@@ -64,6 +66,12 @@ public class MiningLightManager : MonoBehaviour
         public PropagationRun previousPropagation;
         public int roundRobinJobIndex;
         public bool maxCalculatedCellsLogged;
+
+        public void ClearCellStateCaches()
+        {
+            propagationCellCache.Clear();
+            solidCellCache.Clear();
+        }
     }
 
     private sealed class PropagationJob
@@ -240,7 +248,7 @@ public class MiningLightManager : MonoBehaviour
 
     private void AddSourcePropagation(PropagationRun propagation, VoxelCellKey sourceCell)
     {
-        if (propagation.sourceCells.Contains(sourceCell) || !IsLightPropagationCell(sourceCell))
+        if (propagation.sourceCells.Contains(sourceCell) || !IsLightPropagationCellCached(propagation, sourceCell))
         {
             return;
         }
@@ -373,12 +381,12 @@ public class MiningLightManager : MonoBehaviour
         for (int i = 0; i < NeighborOffsets.Length; i++)
         {
             if (!TryGetOffsetCell(current.key, NeighborOffsets[i], out VoxelCellKey neighbor) ||
-                !IsLightPropagationCell(neighbor))
+                !IsLightPropagationCellCached(propagation, neighbor))
             {
                 continue;
             }
 
-            bool solid = terrainManager.VoxelManager.IsVoxelCellSolid(neighbor);
+            bool solid = IsSolidCellCached(propagation, neighbor);
             float transmission = solid ? solidCellTransmission : airCellTransmission;
             float nextBrightness = current.brightness * transmission;
             if (nextBrightness < minBrightness)
@@ -502,9 +510,54 @@ public class MiningLightManager : MonoBehaviour
         return terrainManager.TerrainDataManager.IsBlockGenerationExcluded(key.blockPosition);
     }
 
+    private bool IsLightPropagationCellCached(PropagationRun propagation, VoxelCellKey key)
+    {
+        if (propagation == null)
+        {
+            Debug.LogError("MiningLightManager: propagation run is null while resolving light propagation cell.", this);
+            return false;
+        }
+
+        if (propagation.propagationCellCache.TryGetValue(key, out bool cached))
+        {
+            return cached;
+        }
+
+        bool resolved = IsLightPropagationCell(key);
+        propagation.propagationCellCache.Add(key, resolved);
+        return resolved;
+    }
+
+    private bool IsSolidCellCached(PropagationRun propagation, VoxelCellKey key)
+    {
+        if (propagation == null)
+        {
+            Debug.LogError("MiningLightManager: propagation run is null while resolving solid cell.", this);
+            return false;
+        }
+
+        if (propagation.solidCellCache.TryGetValue(key, out bool cached))
+        {
+            return cached;
+        }
+
+        bool resolved = terrainManager.VoxelManager.IsVoxelCellSolid(key);
+        propagation.solidCellCache.Add(key, resolved);
+        return resolved;
+    }
+
     private void HandleTerrainCellsChanged(TerrainChangeBatch change)
     {
+        ClearActivePropagationCellStateCaches();
         terrainDirty = true;
+    }
+
+    private void ClearActivePropagationCellStateCaches()
+    {
+        for (int i = 0; i < activePropagations.Count; i++)
+        {
+            activePropagations[i]?.ClearCellStateCaches();
+        }
     }
 
     private void ClearLightState()
