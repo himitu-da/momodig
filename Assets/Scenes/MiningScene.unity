@@ -1254,6 +1254,7 @@ GameObject:
   - component: {fileID: 672003893}
   - component: {fileID: 672003892}
   - component: {fileID: 672003894}
+  - component: {fileID: 672003895}
   m_Layer: 3
   m_Name: Player
   m_TagString: Player
@@ -1314,6 +1315,21 @@ MonoBehaviour:
   fluidDrag: 4
   lastMoveDirection: {x: 0, y: 0, z: 1}
   minecartInteraction: {fileID: 1700943656}
+--- !u!114 &672003895
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 672003887}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55b65f9e8a8c4a819ee75884b7bb8db5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lightManager: {fileID: 995654921}
+  profile: {fileID: 11400000, guid: a8bfe1d35f19404faf3f6a02b6bfeb45, type: 2}
+  sourceTransform: {fileID: 672003891}
 --- !u!54 &672003893
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1676,12 +1692,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MiningLightManager
   terrainManager: {fileID: 2071865104}
-  playerTransform: {fileID: 672003891}
-  sourceBrightness: 1
-  airCellTransmission: 0.7
-  solidCellTransmission: 0.5
-  minBrightness: 0.01
-  playerSourceRadiusCells: 1
+  initialLightSources:
+  - {fileID: 672003895}
   maxCalculatedCells: 8192
   maxPropagationCellsPerPropagationPerFrame: 16
   maxPropagationCellsPerFrame: 432
@@ -1691,7 +1703,6 @@ MonoBehaviour:
   gizmoCellScale: 0.75
   airCellGizmoColor: {r: 1, g: 0.92, b: 0.25, a: 0.45}
   solidCellGizmoColor: {r: 1, g: 0.45, b: 0.15, a: 0.45}
-  sourceCellGizmoColor: {r: 1, g: 1, b: 1, a: 0.8}
 --- !u!114 &995654922
 MonoBehaviour:
   m_ObjectHideFlags: 0

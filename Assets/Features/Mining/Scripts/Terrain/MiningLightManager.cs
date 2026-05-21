@@ -20,14 +20,9 @@ public class MiningLightManager : MonoBehaviour
 
     [Header("Required References")]
     [SerializeField] private TerrainManager terrainManager;
-    [SerializeField] private Transform playerTransform;
+    [SerializeField] private List<MiningLightSource> initialLightSources = new List<MiningLightSource>();
 
-    [Header("Light Propagation")]
-    [SerializeField, Range(0f, 1f)] private float sourceBrightness = 1f;
-    [SerializeField, Range(0f, 1f)] private float airCellTransmission = 0.9f;
-    [SerializeField, Range(0f, 1f)] private float solidCellTransmission = 0.8f;
-    [SerializeField, Range(0.001f, 1f)] private float minBrightness = 0.05f;
-    [SerializeField, Min(0)] private int playerSourceRadiusCells = 1;
+    [Header("Light Propagation Budget")]
     [SerializeField, Min(1)] private int maxCalculatedCells = 4096;
     [SerializeField, Min(1)] private int maxPropagationCellsPerPropagationPerFrame = 64;
     [SerializeField, Min(1)] private int maxPropagationCellsPerFrame = 256;
@@ -39,26 +34,49 @@ public class MiningLightManager : MonoBehaviour
     [SerializeField, Range(0.05f, 1f)] private float gizmoCellScale = 0.75f;
     [SerializeField] private Color airCellGizmoColor = new Color(1f, 0.92f, 0.25f, 0.45f);
     [SerializeField] private Color solidCellGizmoColor = new Color(1f, 0.45f, 0.15f, 0.45f);
-    [SerializeField] private Color sourceCellGizmoColor = new Color(1f, 1f, 1f, 0.8f);
 
     private readonly Queue<VoxelCellKey> dirtyBrightnessCells = new Queue<VoxelCellKey>(512);
     private readonly HashSet<VoxelCellKey> queuedDirtyBrightnessCells = new HashSet<VoxelCellKey>();
+    private readonly List<MiningLightSource> registeredLightSources = new List<MiningLightSource>(8);
+    private readonly HashSet<MiningLightSource> registeredLightSourceSet = new HashSet<MiningLightSource>();
+    private readonly List<LightSourceCell> currentLightSourceCells = new List<LightSourceCell>(8);
+    private readonly Dictionary<MiningLightSource, VoxelCellKey> lastLightSourceCells =
+        new Dictionary<MiningLightSource, VoxelCellKey>();
+    private readonly Dictionary<MiningLightSource, MiningLightProfile> lastLightSourceProfiles =
+        new Dictionary<MiningLightSource, MiningLightProfile>();
+
     private PropagationRun displayedPropagation;
     private readonly List<PropagationRun> activePropagations = new List<PropagationRun>(4);
     private PropagationRun retainedPreviousPropagation;
     private int roundRobinPropagationIndex;
 
-    private VoxelCellKey lastPlayerCell;
-    private bool hasLastPlayerCell;
     private bool terrainDirty = true;
+    private bool lightSourcesDirty = true;
     private bool hasCalculated;
     private bool invalidSourceLogged;
     private bool noPropagationSourceLogged;
+
+    private readonly struct LightSourceCell
+    {
+        public readonly MiningLightSource source;
+        public readonly MiningLightProfile profile;
+        public readonly VoxelCellKey key;
+
+        public LightSourceCell(MiningLightSource source, MiningLightProfile profile, VoxelCellKey key)
+        {
+            this.source = source;
+            this.profile = profile;
+            this.key = key;
+        }
+    }
+
     private sealed class PropagationRun
     {
         public readonly Dictionary<VoxelCellKey, float> cellBrightness = new Dictionary<VoxelCellKey, float>();
         public readonly Dictionary<VoxelCellKey, bool> propagationCellCache = new Dictionary<VoxelCellKey, bool>();
         public readonly Dictionary<VoxelCellKey, bool> solidCellCache = new Dictionary<VoxelCellKey, bool>();
+        public readonly Dictionary<VoxelCellKey, MiningLightProfile> sourceProfiles =
+            new Dictionary<VoxelCellKey, MiningLightProfile>();
         public readonly List<PropagationJob> activeJobs = new List<PropagationJob>(32);
         public readonly HashSet<VoxelCellKey> sourceCells = new HashSet<VoxelCellKey>();
         public readonly List<VoxelCellKey> sourceCellOrder = new List<VoxelCellKey>(32);
@@ -66,22 +84,46 @@ public class MiningLightManager : MonoBehaviour
         public PropagationRun previousPropagation;
         public int roundRobinJobIndex;
         public bool maxCalculatedCellsLogged;
+        public bool hasSourceProfile;
+        public float minSourceBrightness = 0.001f;
+        public float maxSourceBrightness = 1f;
 
         public void ClearCellStateCaches()
         {
             propagationCellCache.Clear();
             solidCellCache.Clear();
         }
+
+        public void RecordSourceProfile(MiningLightProfile profile)
+        {
+            if (profile == null)
+            {
+                return;
+            }
+
+            if (!hasSourceProfile)
+            {
+                minSourceBrightness = profile.MinBrightness;
+                maxSourceBrightness = profile.Brightness;
+                hasSourceProfile = true;
+                return;
+            }
+
+            minSourceBrightness = Mathf.Min(minSourceBrightness, profile.MinBrightness);
+            maxSourceBrightness = Mathf.Max(maxSourceBrightness, profile.Brightness);
+        }
     }
 
     private sealed class PropagationJob
     {
         public readonly VoxelCellKey sourceCell;
+        public readonly MiningLightProfile profile;
         public readonly Queue<FrontierCell> frontier = new Queue<FrontierCell>(64);
 
-        public PropagationJob(VoxelCellKey sourceCell, float brightness)
+        public PropagationJob(VoxelCellKey sourceCell, MiningLightProfile profile, float brightness)
         {
             this.sourceCell = sourceCell;
+            this.profile = profile;
             frontier.Enqueue(new FrontierCell(sourceCell, brightness));
         }
     }
@@ -101,6 +143,40 @@ public class MiningLightManager : MonoBehaviour
     public bool TryGetBrightness(VoxelCellKey key, out float brightness)
     {
         return TryGetDisplayedBrightness(key, out brightness);
+    }
+
+    public void RegisterLightSource(MiningLightSource source)
+    {
+        if (source == null)
+        {
+            Debug.LogError("MiningLightManager: attempted to register a null light source.", this);
+            return;
+        }
+
+        if (registeredLightSourceSet.Add(source))
+        {
+            registeredLightSources.Add(source);
+            MarkLightSourcesDirty();
+        }
+    }
+
+    public void UnregisterLightSource(MiningLightSource source)
+    {
+        if (source == null)
+        {
+            return;
+        }
+
+        if (registeredLightSourceSet.Remove(source))
+        {
+            registeredLightSources.Remove(source);
+            MarkLightSourcesDirty();
+        }
+    }
+
+    public void MarkLightSourcesDirty()
+    {
+        lightSourcesDirty = true;
     }
 
     public int DrainDirtyBrightnessCells(List<VoxelCellKey> buffer, int maxCells)
@@ -138,8 +214,10 @@ public class MiningLightManager : MonoBehaviour
             return;
         }
 
+        RegisterInitialLightSources();
         terrainManager.VoxelManager.TerrainCellsChanged += HandleTerrainCellsChanged;
         terrainDirty = true;
+        lightSourcesDirty = true;
     }
 
     private void OnDisable()
@@ -158,23 +236,23 @@ public class MiningLightManager : MonoBehaviour
             return;
         }
 
-        if (!TryGetPlayerCell(out VoxelCellKey playerCell))
+        CollectCurrentLightSourceCells(currentLightSourceCells);
+        if (currentLightSourceCells.Count == 0)
         {
             ClearLightState();
-            if (!invalidSourceLogged)
+            if (!noPropagationSourceLogged)
             {
-                invalidSourceLogged = true;
-                Debug.LogWarning("MiningLightManager: player position could not be converted to a voxel cell.", this);
+                noPropagationSourceLogged = true;
+                Debug.LogWarning("MiningLightManager: no registered light sources were available for light propagation.", this);
             }
             return;
         }
 
-        invalidSourceLogged = false;
+        noPropagationSourceLogged = false;
 
-        bool playerCellChanged = !hasLastPlayerCell || !playerCell.Equals(lastPlayerCell);
-        if (!hasCalculated || terrainDirty || playerCellChanged)
+        if (!hasCalculated || terrainDirty || HaveLightSourcesChanged(currentLightSourceCells))
         {
-            RestartPropagation(playerCell);
+            RestartPropagation(currentLightSourceCells);
         }
 
         if (activePropagations.Count > 0)
@@ -183,7 +261,120 @@ public class MiningLightManager : MonoBehaviour
         }
     }
 
-    private void RestartPropagation(VoxelCellKey playerCell)
+    private void RegisterInitialLightSources()
+    {
+        if (initialLightSources == null)
+        {
+            Debug.LogError("MiningLightManager: Initial Light Sources list is null.", this);
+            return;
+        }
+
+        for (int i = 0; i < initialLightSources.Count; i++)
+        {
+            MiningLightSource source = initialLightSources[i];
+            if (source == null)
+            {
+                Debug.LogError($"MiningLightManager: Initial Light Sources contains a null entry at index {i}.", this);
+                continue;
+            }
+
+            RegisterLightSource(source);
+        }
+    }
+
+    private void CollectCurrentLightSourceCells(List<LightSourceCell> buffer)
+    {
+        buffer.Clear();
+        bool foundInvalidSource = false;
+
+        for (int i = registeredLightSources.Count - 1; i >= 0; i--)
+        {
+            MiningLightSource source = registeredLightSources[i];
+            if (source == null)
+            {
+                registeredLightSources.RemoveAt(i);
+                lightSourcesDirty = true;
+                continue;
+            }
+
+            if (!source.isActiveAndEnabled)
+            {
+                continue;
+            }
+
+            MiningLightProfile profile = source.Profile;
+            if (profile == null)
+            {
+                foundInvalidSource = true;
+                Debug.LogError("MiningLightManager: registered light source has no MiningLightProfile.", source);
+                continue;
+            }
+
+            if (!source.TryGetSourceCell(terrainManager, out VoxelCellKey sourceCell))
+            {
+                foundInvalidSource = true;
+                continue;
+            }
+
+            buffer.Add(new LightSourceCell(source, profile, sourceCell));
+        }
+
+        if (foundInvalidSource)
+        {
+            if (!invalidSourceLogged)
+            {
+                invalidSourceLogged = true;
+                Debug.LogWarning("MiningLightManager: one or more light sources could not be converted to voxel cells.", this);
+            }
+        }
+        else
+        {
+            invalidSourceLogged = false;
+        }
+    }
+
+    private bool HaveLightSourcesChanged(List<LightSourceCell> sourceCells)
+    {
+        if (lightSourcesDirty || sourceCells.Count != lastLightSourceCells.Count)
+        {
+            return true;
+        }
+
+        for (int i = 0; i < sourceCells.Count; i++)
+        {
+            LightSourceCell sourceCell = sourceCells[i];
+            if (!lastLightSourceCells.TryGetValue(sourceCell.source, out VoxelCellKey previousCell) ||
+                !previousCell.Equals(sourceCell.key))
+            {
+                return true;
+            }
+
+            if (!lastLightSourceProfiles.TryGetValue(sourceCell.source, out MiningLightProfile previousProfile) ||
+                previousProfile != sourceCell.profile)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void StoreLightSourceState(List<LightSourceCell> sourceCells)
+    {
+        lastLightSourceCells.Clear();
+        lastLightSourceProfiles.Clear();
+
+        for (int i = 0; i < sourceCells.Count; i++)
+        {
+            LightSourceCell sourceCell = sourceCells[i];
+            lastLightSourceCells[sourceCell.source] = sourceCell.key;
+            lastLightSourceProfiles[sourceCell.source] = sourceCell.profile;
+        }
+
+        lightSourcesDirty = false;
+    }
+
+    private void RestartPropagation(List<LightSourceCell> sourceCells)
     {
         using (RestartPropagationMarker.Auto())
         {
@@ -194,14 +385,18 @@ public class MiningLightManager : MonoBehaviour
             activePropagations.Add(nextPropagation);
             terrainDirty = false;
             hasCalculated = true;
-            hasLastPlayerCell = true;
-            lastPlayerCell = playerCell;
+            StoreLightSourceState(sourceCells);
 
-            AddSourcePropagation(nextPropagation, playerCell);
-            int radius = Mathf.Max(0, playerSourceRadiusCells);
-            for (int shell = 1; shell <= radius; shell++)
+            for (int i = 0; i < sourceCells.Count; i++)
             {
-                AddSourceShell(nextPropagation, playerCell, shell);
+                LightSourceCell lightSource = sourceCells[i];
+                AddSourcePropagation(nextPropagation, lightSource.key, lightSource.profile);
+
+                int radius = Mathf.Max(0, lightSource.profile.SourceRadiusCells);
+                for (int shell = 1; shell <= radius; shell++)
+                {
+                    AddSourceShell(nextPropagation, lightSource.key, shell, lightSource.profile);
+                }
             }
 
             if (nextPropagation.activeJobs.Count == 0)
@@ -209,7 +404,7 @@ public class MiningLightManager : MonoBehaviour
                 if (!noPropagationSourceLogged)
                 {
                     noPropagationSourceLogged = true;
-                    Debug.LogWarning("MiningLightManager: no generated player-adjacent cells were available for light propagation.", this);
+                    Debug.LogWarning("MiningLightManager: no generated light source cells were available for light propagation.", this);
                 }
 
                 MarkStalePreviousCellsDirty(nextPropagation);
@@ -224,7 +419,7 @@ public class MiningLightManager : MonoBehaviour
         }
     }
 
-    private void AddSourceShell(PropagationRun propagation, VoxelCellKey centerCell, int shell)
+    private void AddSourceShell(PropagationRun propagation, VoxelCellKey centerCell, int shell, MiningLightProfile profile)
     {
         for (int x = -shell; x <= shell; x++)
         {
@@ -239,29 +434,45 @@ public class MiningLightManager : MonoBehaviour
 
                     if (TryGetOffsetCell(centerCell, new Vector3Int(x, y, z), out VoxelCellKey sourceCell))
                     {
-                        AddSourcePropagation(propagation, sourceCell);
+                        AddSourcePropagation(propagation, sourceCell, profile);
                     }
                 }
             }
         }
     }
 
-    private void AddSourcePropagation(PropagationRun propagation, VoxelCellKey sourceCell)
+    private void AddSourcePropagation(PropagationRun propagation, VoxelCellKey sourceCell, MiningLightProfile profile)
     {
-        if (propagation.sourceCells.Contains(sourceCell) || !IsLightPropagationCellCached(propagation, sourceCell))
+        if (profile == null)
+        {
+            Debug.LogError("MiningLightManager: MiningLightProfile is null while adding a propagation source.", this);
+            return;
+        }
+
+        if (!IsLightPropagationCellCached(propagation, sourceCell))
         {
             return;
         }
 
-        float brightness = Mathf.Clamp01(sourceBrightness);
+        float brightness = Mathf.Clamp01(profile.Brightness);
+        if (brightness <= 0f)
+        {
+            return;
+        }
+
         if (!AddOrUpdateCell(propagation, sourceCell, brightness))
         {
             return;
         }
 
-        propagation.sourceCells.Add(sourceCell);
-        propagation.sourceCellOrder.Add(sourceCell);
-        propagation.activeJobs.Add(new PropagationJob(sourceCell, brightness));
+        if (propagation.sourceCells.Add(sourceCell))
+        {
+            propagation.sourceCellOrder.Add(sourceCell);
+            propagation.sourceProfiles.Add(sourceCell, profile);
+        }
+
+        propagation.RecordSourceProfile(profile);
+        propagation.activeJobs.Add(new PropagationJob(sourceCell, profile, brightness));
     }
 
     private void ProcessPropagationStep()
@@ -378,6 +589,12 @@ public class MiningLightManager : MonoBehaviour
 
     private void PropagateFromCell(PropagationRun propagation, PropagationJob job, FrontierCell current)
     {
+        if (job.profile == null)
+        {
+            Debug.LogError("MiningLightManager: propagation job has no MiningLightProfile.", this);
+            return;
+        }
+
         for (int i = 0; i < NeighborOffsets.Length; i++)
         {
             if (!TryGetOffsetCell(current.key, NeighborOffsets[i], out VoxelCellKey neighbor) ||
@@ -387,9 +604,9 @@ public class MiningLightManager : MonoBehaviour
             }
 
             bool solid = IsSolidCellCached(propagation, neighbor);
-            float transmission = solid ? solidCellTransmission : airCellTransmission;
+            float transmission = solid ? job.profile.SolidCellTransmission : job.profile.AirCellTransmission;
             float nextBrightness = current.brightness * transmission;
-            if (nextBrightness < minBrightness)
+            if (nextBrightness < job.profile.MinBrightness)
             {
                 continue;
             }
@@ -452,15 +669,6 @@ public class MiningLightManager : MonoBehaviour
         {
             dirtyBrightnessCells.Enqueue(key);
         }
-    }
-
-    private bool TryGetPlayerCell(out VoxelCellKey key)
-    {
-        key = default;
-        return terrainManager != null &&
-               terrainManager.VoxelManager != null &&
-               playerTransform != null &&
-               terrainManager.VoxelManager.TryGetVoxelCellAtWorldPosition(playerTransform.position, out key);
     }
 
     private bool TryGetDisplayedBrightness(VoxelCellKey key, out float brightness)
@@ -567,8 +775,9 @@ public class MiningLightManager : MonoBehaviour
         activePropagations.Clear();
         retainedPreviousPropagation = null;
         roundRobinPropagationIndex = 0;
-        hasLastPlayerCell = false;
         hasCalculated = false;
+        lastLightSourceCells.Clear();
+        lastLightSourceProfiles.Clear();
     }
 
     private void MarkDisplayedCellsDirty()
@@ -608,12 +817,6 @@ public class MiningLightManager : MonoBehaviour
         if (terrainManager.TerrainDataManager == null)
         {
             Debug.LogError("MiningLightManager: TerrainManager.TerrainDataManager is not assigned.", this);
-            return false;
-        }
-
-        if (playerTransform == null)
-        {
-            Debug.LogError("MiningLightManager: Player Transform is not assigned.", this);
             return false;
         }
 
@@ -681,7 +884,7 @@ public class MiningLightManager : MonoBehaviour
                 break;
             }
 
-            if (propagation.sourceCells.Contains(pair.Key) || pair.Value <= minBrightness)
+            if (propagation.sourceCells.Contains(pair.Key) || pair.Value <= propagation.minSourceBrightness)
             {
                 continue;
             }
@@ -702,7 +905,8 @@ public class MiningLightManager : MonoBehaviour
                     return;
                 }
 
-                if (HasNewerBrightness(newestPropagation, fallback, pair.Key) || pair.Value <= minBrightness)
+                if (HasNewerBrightness(newestPropagation, fallback, pair.Key) ||
+                    pair.Value <= fallback.minSourceBrightness)
                 {
                     continue;
                 }
@@ -741,11 +945,20 @@ public class MiningLightManager : MonoBehaviour
 
     private Color GetGizmoColor(PropagationRun propagation, VoxelCellKey key, float brightness)
     {
-        Color color = propagation.sourceCells.Contains(key)
-            ? sourceCellGizmoColor
-            : (terrainManager.VoxelManager.IsVoxelCellSolid(key) ? solidCellGizmoColor : airCellGizmoColor);
+        Color color;
+        if (propagation.sourceCells.Contains(key))
+        {
+            color = propagation.sourceProfiles.TryGetValue(key, out MiningLightProfile profile) && profile != null
+                ? profile.SourceGizmoColor
+                : Color.white;
+        }
+        else
+        {
+            color = terrainManager.VoxelManager.IsVoxelCellSolid(key) ? solidCellGizmoColor : airCellGizmoColor;
+        }
 
-        float alphaScale = Mathf.InverseLerp(minBrightness, Mathf.Max(minBrightness, sourceBrightness), brightness);
+        float maxBrightness = Mathf.Max(propagation.minSourceBrightness, propagation.maxSourceBrightness);
+        float alphaScale = Mathf.InverseLerp(propagation.minSourceBrightness, maxBrightness, brightness);
         color.a *= Mathf.Clamp01(alphaScale);
         return color;
     }
@@ -753,16 +966,12 @@ public class MiningLightManager : MonoBehaviour
 #if UNITY_EDITOR
     private void OnValidate()
     {
-        sourceBrightness = Mathf.Clamp01(sourceBrightness);
-        airCellTransmission = Mathf.Clamp01(airCellTransmission);
-        solidCellTransmission = Mathf.Clamp01(solidCellTransmission);
-        minBrightness = Mathf.Clamp(minBrightness, 0.001f, Mathf.Max(0.001f, sourceBrightness));
-        playerSourceRadiusCells = Mathf.Max(0, playerSourceRadiusCells);
         maxCalculatedCells = Mathf.Max(1, maxCalculatedCells);
         maxPropagationCellsPerPropagationPerFrame = Mathf.Max(1, maxPropagationCellsPerPropagationPerFrame);
         maxPropagationCellsPerFrame = Mathf.Max(1, maxPropagationCellsPerFrame);
         maxGizmoCells = Mathf.Max(1, maxGizmoCells);
         gizmoCellScale = Mathf.Clamp(gizmoCellScale, 0.05f, 1f);
+        MarkLightSourcesDirty();
     }
 #endif
 }
