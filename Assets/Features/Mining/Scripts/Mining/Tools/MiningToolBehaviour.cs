@@ -78,6 +78,10 @@ public abstract class MiningToolBehaviour : MonoBehaviour
         this.digger = digger;
     }
 
+    public virtual void SetMiningLightManager(MiningLightManager miningLightManager)
+    {
+    }
+
     /// <summary>
     /// コントローラー側から Tool の Animator を注入します。
     /// </summary>

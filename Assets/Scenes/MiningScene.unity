@@ -2003,6 +2003,7 @@ MonoBehaviour:
   _mainDiggerPrefab: {fileID: 1220892178057369463, guid: 66567eefa547b094ba204c59ae2595db, type: 3}
   _subDiggerPrefab: {fileID: 1220892178057369463, guid: 75a578e9e2e430e45a17b565f72ce3c7, type: 3}
   toolMount: {fileID: 0}
+  miningLightManager: {fileID: 1199508971}
 --- !u!114 &1227563694
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -12,9 +12,8 @@ public class MiningLightSource : MonoBehaviour
 
     private void OnEnable()
     {
-        if (!ValidateConfiguration())
+        if (!HasRequiredReferences())
         {
-            enabled = false;
             return;
         }
 
@@ -26,6 +25,41 @@ public class MiningLightSource : MonoBehaviour
         if (lightManager != null)
         {
             lightManager.UnregisterLightSource(this);
+        }
+    }
+
+    public void Configure(MiningLightManager assignedLightManager, MiningLightProfile assignedProfile, Transform assignedSourceTransform)
+    {
+        if (assignedLightManager == null)
+        {
+            Debug.LogError("MiningLightSource: cannot configure with a null MiningLightManager.", this);
+            return;
+        }
+
+        if (assignedProfile == null)
+        {
+            Debug.LogError("MiningLightSource: cannot configure with a null MiningLightProfile.", this);
+            return;
+        }
+
+        if (assignedSourceTransform == null)
+        {
+            Debug.LogError("MiningLightSource: cannot configure with a null Source Transform.", this);
+            return;
+        }
+
+        if (lightManager != null && lightManager != assignedLightManager)
+        {
+            lightManager.UnregisterLightSource(this);
+        }
+
+        lightManager = assignedLightManager;
+        profile = assignedProfile;
+        sourceTransform = assignedSourceTransform;
+
+        if (isActiveAndEnabled)
+        {
+            lightManager.RegisterLightSource(this);
         }
     }
 
@@ -51,6 +85,11 @@ public class MiningLightSource : MonoBehaviour
         }
 
         return terrainManager.VoxelManager.TryGetVoxelCellAtWorldPosition(sourceTransform.position, out key);
+    }
+
+    private bool HasRequiredReferences()
+    {
+        return lightManager != null && profile != null && sourceTransform != null;
     }
 
     private bool ValidateConfiguration()

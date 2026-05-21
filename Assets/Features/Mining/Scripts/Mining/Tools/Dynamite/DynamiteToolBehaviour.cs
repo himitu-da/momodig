@@ -6,6 +6,12 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
 
     private GameObject owner;
     private PlayerController playerController;
+    private MiningLightManager miningLightManager;
+
+    public override void SetMiningLightManager(MiningLightManager miningLightManager)
+    {
+        this.miningLightManager = miningLightManager;
+    }
 
     public override void OnEquip(GameObject user)
     {
@@ -69,6 +75,7 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         var proj = go.GetComponent<DynamiteProjectile>();
         if (proj == null) proj = go.AddComponent<DynamiteProjectile>();
         proj.SetBehaviour(this);
+        proj.ConfigureProjectileLight(miningLightManager, dynamiteModule.ProjectileLightProfile);
 
         var rb = go.GetComponent<Rigidbody>();
         if (rb == null) rb = go.AddComponent<Rigidbody>();

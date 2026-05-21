@@ -14,6 +14,9 @@ public class DynamiteMiningModule : MiningModule
     [Header("Explosion Settings")]
     [SerializeField] private Stat explosionForce = new Stat { BaseValue = 10f };
 
+    [Header("Light")]
+    [SerializeField] private MiningLightProfile projectileLightProfile;
+
     // Digging settings (not used directly by Dynamite throw, but for explosion)
     [Header("Box Dig Settings")]
     [SerializeField] private Vector3 diggingCenter = Vector3.zero;
@@ -25,6 +28,7 @@ public class DynamiteMiningModule : MiningModule
     public Stat MaxThrowDistance => maxThrowDistance;
     public float Gravity => gravity;
     public Stat ExplosionForce => explosionForce;
+    public MiningLightProfile ProjectileLightProfile => projectileLightProfile;
 
     public override Vector3 DiggingCenter => diggingCenter;
     public override StatVector3 DiggingSize => diggingSize;

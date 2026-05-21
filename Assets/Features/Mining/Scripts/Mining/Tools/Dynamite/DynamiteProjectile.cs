@@ -8,6 +8,7 @@ public class DynamiteProjectile : MonoBehaviour
     [SerializeField] private bool enableDebugLogs = true;
     
     private DynamiteToolBehaviour behaviour; // behaviour からデータを取得
+    private MiningLightSource lightSource;
     private bool hasExploded = false;
     
     private void Start()
@@ -28,6 +29,28 @@ public class DynamiteProjectile : MonoBehaviour
         {
             Debug.Log($"DynamiteProjectile: Behaviour set - ToolData: {b.ToolData}");
         }
+    }
+
+    public void ConfigureProjectileLight(MiningLightManager lightManager, MiningLightProfile lightProfile)
+    {
+        if (lightProfile == null)
+        {
+            return;
+        }
+
+        if (lightManager == null)
+        {
+            Debug.LogError("DynamiteProjectile: MiningLightManager is not configured for projectile light.", this);
+            return;
+        }
+
+        lightSource = GetComponent<MiningLightSource>();
+        if (lightSource == null)
+        {
+            lightSource = gameObject.AddComponent<MiningLightSource>();
+        }
+
+        lightSource.Configure(lightManager, lightProfile, transform);
     }
     
     private void Explode()
