@@ -48,7 +48,7 @@ public class BlockMeshGenerator
                 int voxelMaxHealth = Mathf.Max(1, voxelData.maxHealth);
                 float healthPercentage = Mathf.Clamp01((float)voxelData.health / voxelMaxHealth);
                 Color healthColor = Color.Lerp(Color.black, initialColor, healthPercentage);
-                healthColor.a = healthPercentage;
+                healthColor.a = 1f;
 
                 Vector3 pos = new Vector3(x - voxelsPerBlock / 2.0f + 0.5f, y - voxelsPerBlock / 2.0f + 0.5f, z - voxelsPerBlock / 2.0f + 0.5f);
                 Vector3Int localCell = new Vector3Int(x, y, z);
