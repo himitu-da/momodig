@@ -28,7 +28,10 @@ public class MiningLightSource : MonoBehaviour
         }
     }
 
-    public void Configure(MiningLightManager assignedLightManager, MiningLightProfile assignedProfile, Transform assignedSourceTransform)
+    public void Configure(
+        MiningLightManager assignedLightManager,
+        MiningLightProfile assignedProfile,
+        Transform assignedSourceTransform)
     {
         if (assignedLightManager == null)
         {

@@ -1907,7 +1907,6 @@ MonoBehaviour:
   initialLightSources:
   - {fileID: 672003895}
   maxCalculatedCells: 8192
-  maxPropagationCellsPerPropagationPerFrame: 16
   maxPropagationCellsPerFrame: 432
   drawGizmos: 1
   drawOnlyWhenSelected: 0
