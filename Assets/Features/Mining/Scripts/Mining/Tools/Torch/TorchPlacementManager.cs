@@ -75,7 +75,7 @@ public class TorchPlacementManager : MonoBehaviour
                torchesByPlacementAnchor.ContainsKey(placementAnchor);
     }
 
-    public bool TryGetCursorSquareAtWorldPosition(
+    public bool TryGetPlaceableCursorSquareAtWorldPosition(
         Vector3 worldPosition,
         out Vector3 center,
         out float size)
@@ -88,9 +88,23 @@ public class TorchPlacementManager : MonoBehaviour
             return false;
         }
 
-        Bounds cellBounds = terrainManager.VoxelManager.GetVoxelCellWorldBounds(targetCell);
-        center = cellBounds.center;
-        size = Mathf.Max(cellBounds.size.x, cellBounds.size.y);
+        if (TryFindTorchContainingCell(targetCell, out _))
+        {
+            return false;
+        }
+
+        if (!TryGetPlacementAnchor(targetCell, out VoxelCellKey placementAnchor))
+        {
+            return false;
+        }
+
+        if (torchesByPlacementAnchor.ContainsKey(placementAnchor) || !CanPlaceTorch(placementAnchor))
+        {
+            return false;
+        }
+
+        center = GetPlacementWorldPosition(placementAnchor) + placementOffset;
+        size = terrainManager.Settings.blockSize;
         return size > 0f;
     }
 

@@ -102,7 +102,7 @@ public class TorchToolBehaviour : MiningToolBehaviour
         }
 
         Vector3 mouseWorldPosition = equippedPlayerController.GetMouseWorldPosition(10f);
-        if (!torchPlacementManager.TryGetCursorSquareAtWorldPosition(
+        if (!torchPlacementManager.TryGetPlaceableCursorSquareAtWorldPosition(
                 mouseWorldPosition,
                 out Vector3 cursorCenter,
                 out float cursorSize))
