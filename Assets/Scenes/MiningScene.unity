@@ -1254,6 +1254,7 @@ GameObject:
   - component: {fileID: 672003893}
   - component: {fileID: 672003892}
   - component: {fileID: 672003894}
+  - component: {fileID: 672003895}
   m_Layer: 3
   m_Name: Player
   m_TagString: Player
@@ -1363,6 +1364,21 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &672003895
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 672003887}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55b65f9e8a8c4a819ee75884b7bb8db5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lightManager: {fileID: 0}
+  profile: {fileID: 11400000, guid: a8bfe1d35f19404faf3f6a02b6bfeb45, type: 2}
+  sourceTransform: {fileID: 672003891}
 --- !u!1 &690827969
 GameObject:
   m_ObjectHideFlags: 0
@@ -1841,6 +1857,95 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb560a64c6325ee4f911332f0fe97d8f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1 &1199508969
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1199508973}
+  - component: {fileID: 1199508972}
+  - component: {fileID: 1199508971}
+  - component: {fileID: 1199508970}
+  m_Layer: 0
+  m_Name: MiningLightManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1199508970
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1199508969}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ad19ea0697449ed85ae6c19633136bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MiningTerrainBrightnessApplier
+  terrainManager: {fileID: 2071865104}
+  lightManager: {fileID: 1199508971}
+  maxBrightnessCellsPerFrame: 512
+--- !u!114 &1199508971
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1199508969}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2f4b2b1dd99472dbd8e8d5f6d93a5b1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MiningLightManager
+  terrainManager: {fileID: 2071865104}
+  initialLightSources:
+  - {fileID: 672003895}
+  maxCalculatedCells: 8192
+  maxPropagationCellsPerFrame: 432
+  drawGizmos: 1
+  drawOnlyWhenSelected: 0
+  maxGizmoCells: 8192
+  gizmoCellScale: 0.75
+  airCellGizmoColor: {r: 1, g: 0.92, b: 0.25, a: 0.45}
+  solidCellGizmoColor: {r: 1, g: 0.45, b: 0.15, a: 0.45}
+--- !u!114 &1199508972
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1199508969}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5643ba753e1042418dc1c9421d0e1ce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FluidSource
+  fluidManager: {fileID: 1961065937}
+  fluidDefinition: {fileID: 11400000, guid: 62d2961d21c46c9488fcc55cbc8404fa, type: 2}
+  emitContinuously: 1
+  litersPerSecond: 250
+  burstLiters: 100
+--- !u!4 &1199508973
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1199508969}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 4, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1227563691
 GameObject:
   m_ObjectHideFlags: 0
@@ -1897,6 +2002,7 @@ MonoBehaviour:
   _mainDiggerPrefab: {fileID: 1220892178057369463, guid: 66567eefa547b094ba204c59ae2595db, type: 3}
   _subDiggerPrefab: {fileID: 1220892178057369463, guid: 75a578e9e2e430e45a17b565f72ce3c7, type: 3}
   toolMount: {fileID: 0}
+  miningLightManager: {fileID: 1199508971}
 --- !u!114 &1227563694
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3668,7 +3774,8 @@ MonoBehaviour:
     blockSize: 1
     voxelsPerBlock: 3
     generationType: 0
-    blocksPerFrame: 16
+    blocksPerFrame: 50
+    blockGenerationBudgetMilliseconds: 4
     itemLoadDelay: 0.35
   playerTransform: {fileID: 672003891}
   chunkManager: {fileID: 2014132665}
@@ -3896,5 +4003,6 @@ SceneRoots:
   - {fileID: 1375720078}
   - {fileID: 1674382979}
   - {fileID: 168293943}
+  - {fileID: 1199508973}
   - {fileID: 2086124477}
   - {fileID: 995654920}

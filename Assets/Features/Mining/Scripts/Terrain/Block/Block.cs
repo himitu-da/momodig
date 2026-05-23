@@ -26,10 +26,13 @@ public struct VoxelFaceTextureInfo
 [RequireComponent(typeof(MeshCollider))]
 public class Block : MonoBehaviour
 {
+    private static readonly int UseVertexColorId = Shader.PropertyToID("_UseVertexColor");
+
     private VoxelManager voxelManager;
     private Vector3Int blockPosition;
 
     public int VoxelsPerBlock { get; private set; }
+    public Vector3Int BlockPosition => blockPosition;
 
     [Range(0.01f, 1.0f)]
     public float diggingThreshold = 0.1f;
@@ -49,6 +52,10 @@ public class Block : MonoBehaviour
     private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private new MeshCollider collider;
+    private Dictionary<Vector3Int, List<int>> brightnessVertexIndicesByLocalCell =
+        new Dictionary<Vector3Int, List<int>>();
+    private Color[] baseVertexColors = new Color[0];
+    private Color[] brightnessVertexColors = new Color[0];
 
     void Awake()
     {
@@ -106,7 +113,70 @@ public class Block : MonoBehaviour
     public void GenerateMesh()
     {
         var result = meshGenerator.GenerateMesh(this, voxelManager, blockPosition, VoxelsPerBlock, initialColor, mesh, collider);
+        brightnessVertexIndicesByLocalCell = result.vertexIndicesByLocalCell ?? new Dictionary<Vector3Int, List<int>>();
+        baseVertexColors = mesh.colors != null ? mesh.colors : new Color[0];
+        brightnessVertexColors = new Color[baseVertexColors.Length];
+        ApplyAllVertexBrightness(0f);
         UpdateMaterials(result.submeshBlockData);
+    }
+
+    public bool ApplyBrightness(VoxelCellKey key, float brightness)
+    {
+        if (!key.blockPosition.Equals(blockPosition) ||
+            brightnessVertexColors == null ||
+            baseVertexColors == null ||
+            brightnessVertexColors.Length != baseVertexColors.Length ||
+            !brightnessVertexIndicesByLocalCell.TryGetValue(key.localVoxelPosition, out List<int> vertexIndices))
+        {
+            return false;
+        }
+
+        float clampedBrightness = Mathf.Clamp01(brightness);
+        for (int i = 0; i < vertexIndices.Count; i++)
+        {
+            int vertexIndex = vertexIndices[i];
+            if (vertexIndex < 0 || vertexIndex >= baseVertexColors.Length)
+            {
+                Debug.LogError($"Block: invalid brightness vertex index. blockPosition={blockPosition}, localCell={key.localVoxelPosition}, vertexIndex={vertexIndex}, vertexCount={baseVertexColors.Length}", this);
+                return false;
+            }
+
+            brightnessVertexColors[vertexIndex] = ApplyBrightnessToColor(baseVertexColors[vertexIndex], clampedBrightness);
+        }
+
+        mesh.colors = brightnessVertexColors;
+        return true;
+    }
+
+    public void CollectBrightnessLocalCells(List<Vector3Int> localCells)
+    {
+        if (localCells == null)
+        {
+            Debug.LogError("Block: localCells buffer is null.", this);
+            return;
+        }
+
+        localCells.Clear();
+        foreach (Vector3Int localCell in brightnessVertexIndicesByLocalCell.Keys)
+        {
+            localCells.Add(localCell);
+        }
+    }
+
+    private void ApplyAllVertexBrightness(float brightness)
+    {
+        float clampedBrightness = Mathf.Clamp01(brightness);
+        for (int i = 0; i < baseVertexColors.Length; i++)
+        {
+            brightnessVertexColors[i] = ApplyBrightnessToColor(baseVertexColors[i], clampedBrightness);
+        }
+
+        mesh.colors = brightnessVertexColors;
+    }
+
+    private static Color ApplyBrightnessToColor(Color color, float brightness)
+    {
+        return new Color(color.r * brightness, color.g * brightness, color.b * brightness, color.a);
     }
 
     private void UpdateMaterials(List<BlockData> submeshBlockData)
@@ -134,6 +204,7 @@ public class Block : MonoBehaviour
 
         Material mat = new Material(Shader.Find("Custom/Default"));
         mat.renderQueue = RenderQueue.Geometry;
+        mat.SetFloat(UseVertexColorId, 1f);
         if (data.textures != null && data.textures.Count > 0)
         {
             mat.mainTexture = data.textures[0];

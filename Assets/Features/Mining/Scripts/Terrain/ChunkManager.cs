@@ -17,6 +17,7 @@ public class ChunkManager : MonoBehaviour
 
     private TerrainManager terrainManager;
     private CancellationTokenSource cancellationTokenSource;
+    private bool blockGenerationSettingsErrorLogged;
 
     public void Initialize(TerrainManager manager)
     {
@@ -166,18 +167,50 @@ public class ChunkManager : MonoBehaviour
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            int blocksToProcess = Mathf.Min(_blockGenerationList.Count, terrainManager.Settings.blocksPerFrame);
-            for (int i = 0; i < blocksToProcess; i++)
+            if (_blockGenerationList.Count > 0 && ValidateBlockGenerationSettings())
             {
-                if (_blockGenerationList.Count > 0)
+                TerrainSettings settings = terrainManager.Settings;
+                int blocksToProcess = Mathf.Min(_blockGenerationList.Count, settings.blocksPerFrame);
+                int processedCount = 0;
+                double startedAt = Time.realtimeSinceStartupAsDouble;
+                double budgetSeconds = settings.blockGenerationBudgetMilliseconds / 1000.0;
+
+                while (_blockGenerationList.Count > 0 && processedCount < blocksToProcess)
                 {
+                    if (processedCount > 0 && Time.realtimeSinceStartupAsDouble - startedAt >= budgetSeconds)
+                    {
+                        break;
+                    }
+
                     Vector3Int blockPos = _blockGenerationList[0];
                     _blockGenerationList.RemoveAt(0);
                     GenerateSingleBlock(blockPos);
+                    processedCount++;
                 }
             }
             await UniTask.Yield(cancellationToken);
         }
+    }
+
+    private bool ValidateBlockGenerationSettings()
+    {
+        TerrainSettings settings = terrainManager.Settings;
+        if (settings.blocksPerFrame <= 0 ||
+            settings.blockGenerationBudgetMilliseconds <= 0f)
+        {
+            if (!blockGenerationSettingsErrorLogged)
+            {
+                blockGenerationSettingsErrorLogged = true;
+                Debug.LogError(
+                    $"ChunkManager: invalid block generation settings. blocksPerFrame={settings.blocksPerFrame}, blockGenerationBudgetMilliseconds={settings.blockGenerationBudgetMilliseconds}",
+                    this);
+            }
+
+            return false;
+        }
+
+        blockGenerationSettingsErrorLogged = false;
+        return true;
     }
 
     private void GenerateSingleBlock(Vector3Int blockPos)

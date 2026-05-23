@@ -33,7 +33,8 @@ public class TerrainSettings
     public TerrainGenerationType generationType = TerrainGenerationType.PlayPlane;
     
     [Header("Performance")]
-    public int blocksPerFrame = 16; // 1フレームあたり�EブロチE��生�E数
+    public int blocksPerFrame = 25; // 1フレームあたり�EブロチE��生�E数
+    public float blockGenerationBudgetMilliseconds = 4.0f;
     
     [Header("Item Loading")]
     public float itemLoadDelay = 0.1f; // チャンク生�E後�EアイチE��ロード遅延
