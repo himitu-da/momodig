@@ -16,6 +16,12 @@ public class FacilityUpgradeProgressRecord
     public int level;
 }
 
+[System.Serializable]
+public class TorchPlacementData
+{
+    public Vector3Int blockPosition;
+}
+
 /// <summary>
 /// ゲームのセッション中、シーンをまたいでデータを保持するクラス。
 /// シード値や破壊されたブロックの情報などを管理します。
@@ -72,6 +78,9 @@ public class GameDataPersistenceManager : MonoBehaviour
     public List<ToolSlotPersistenceData> toolSlots = new List<ToolSlotPersistenceData>();
     public string mainToolSlotId = "";
     public string subToolSlotId = "";
+
+    [Header("Torch Placement Data")]
+    public List<TorchPlacementData> torchPlacements = new List<TorchPlacementData>();
     
     public int GetFacilityUpgradeLevel(string upgradeId, int defaultLevel)
     {
@@ -219,6 +228,7 @@ public class GameDataPersistenceManager : MonoBehaviour
         toolSlots = CopyToolSlots(source.toolSlots);
         mainToolSlotId = source.mainToolSlotId;
         subToolSlotId = source.subToolSlotId;
+        torchPlacements = CopyTorchPlacements(source.torchPlacements);
     }
 
     private Dictionary<Vector3Int, HashSet<Vector3Int>> CopyPartiallyDestroyedBlocks(
@@ -307,6 +317,32 @@ public class GameDataPersistenceManager : MonoBehaviour
             {
                 slotId = record.slotId,
                 tool = record.tool
+            });
+        }
+
+        return copy;
+    }
+
+    private List<TorchPlacementData> CopyTorchPlacements(List<TorchPlacementData> source)
+    {
+        List<TorchPlacementData> copy = new List<TorchPlacementData>();
+        if (source == null)
+        {
+            return copy;
+        }
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            TorchPlacementData record = source[i];
+            if (record == null)
+            {
+                Debug.LogError($"GameDataPersistenceManager: torchPlacements contains a null record at index {i}.", this);
+                continue;
+            }
+
+            copy.Add(new TorchPlacementData
+            {
+                blockPosition = record.blockPosition
             });
         }
 

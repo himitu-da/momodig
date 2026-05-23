@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31ad7fe1df704220911fc42c3bb99672, type: 3}
+  m_Name: Torch
+  m_EditorClassIdentifier: 
+  toolName: Torch
+  toolIcon: {fileID: 0}
+  toolTypeID: 0
+  animationTriggerName: Mine
+  animationStateName: Mine
+  toolPrefab: {fileID: 7010000000000000000, guid: 2df909825e6e4b39933157ef87dd72a9, type: 3}
+  miningModule: {fileID: 0}
+  volume: 1
+  defaultMiningSound: {fileID: 0}
+  materialSounds: []

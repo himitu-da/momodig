@@ -82,6 +82,10 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     {
     }
 
+    public virtual void SetTorchPlacementManager(TorchPlacementManager torchPlacementManager)
+    {
+    }
+
     /// <summary>
     /// コントローラー側から Tool の Animator を注入します。
     /// </summary>
