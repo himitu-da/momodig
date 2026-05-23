@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5294178447619927837}
   m_Layer: 0
-  m_Name: TorchTransform
+  m_Name: TorchRotation
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -101,7 +101,7 @@ MonoBehaviour:
   queueRenderers:
   - {fileID: 7010000000000000013}
   - {fileID: 7010000000000000023}
-  renderQueueLayer: 4001
+  renderQueueLayer: 4000
   renderQueueOffset: 0
 --- !u!114 &7010000000000000004
 MonoBehaviour:
@@ -274,7 +274,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 1db2e39e2ea94886b860848f04be541e, type: 2}
+  - {fileID: 2100000, guid: b3c9eaf44242467bbfba2cfb23988e18, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
