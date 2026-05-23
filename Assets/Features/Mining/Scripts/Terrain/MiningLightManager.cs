@@ -288,7 +288,7 @@ public class MiningLightManager : MonoBehaviour
         {
             this.sourceCell = sourceCell;
             this.profile = profile;
-            frontier.Enqueue(new FrontierCell(sourceCell, brightness));
+            frontier.Enqueue(new FrontierCell(sourceCell, brightness, 0));
         }
     }
 
@@ -297,10 +297,13 @@ public class MiningLightManager : MonoBehaviour
         public readonly VoxelCellKey key;
         public readonly float brightness;
 
-        public FrontierCell(VoxelCellKey key, float brightness)
+        public readonly int distanceFromSourceCells;
+
+        public FrontierCell(VoxelCellKey key, float brightness, int distanceFromSourceCells)
         {
             this.key = key;
             this.brightness = brightness;
+            this.distanceFromSourceCells = distanceFromSourceCells;
         }
     }
 
@@ -1185,7 +1188,9 @@ public class MiningLightManager : MonoBehaviour
 
             bool solid = IsSolidCellCached(propagation, neighbor);
             float transmission = solid ? job.profile.SolidCellTransmission : job.profile.AirCellTransmission;
-            float nextBrightness = current.brightness * transmission;
+            int nextDistanceFromSourceCells = current.distanceFromSourceCells + 1;
+            bool attenuate = nextDistanceFromSourceCells > job.profile.FalloffStartDistanceCells;
+            float nextBrightness = attenuate ? current.brightness * transmission : current.brightness;
             if (nextBrightness < job.profile.MinBrightness)
             {
                 continue;
@@ -1193,7 +1198,7 @@ public class MiningLightManager : MonoBehaviour
 
             if (AddOrUpdateCell(propagation, neighbor, nextBrightness))
             {
-                job.frontier.Enqueue(new FrontierCell(neighbor, nextBrightness));
+                job.frontier.Enqueue(new FrontierCell(neighbor, nextBrightness, nextDistanceFromSourceCells));
             }
         }
     }

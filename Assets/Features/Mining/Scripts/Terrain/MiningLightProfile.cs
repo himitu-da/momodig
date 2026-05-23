@@ -6,6 +6,7 @@ public class MiningLightProfile : ScriptableObject
     [Header("Light Propagation")]
     [SerializeField, Range(0f, 1f)] private float brightness = 1f;
     [SerializeField, Min(0)] private int sourceRadiusCells = 1;
+    [SerializeField, Min(0)] private int falloffStartDistanceCells = 0;
     [SerializeField, Range(0f, 1f)] private float airCellTransmission = 0.9f;
     [SerializeField, Range(0f, 1f)] private float solidCellTransmission = 0.8f;
     [SerializeField, Range(0.001f, 1f)] private float minBrightness = 0.05f;
@@ -17,6 +18,7 @@ public class MiningLightProfile : ScriptableObject
 
     public float Brightness => brightness;
     public int SourceRadiusCells => sourceRadiusCells;
+    public int FalloffStartDistanceCells => Mathf.Max(0, falloffStartDistanceCells);
     public float AirCellTransmission => airCellTransmission;
     public float SolidCellTransmission => solidCellTransmission;
     public float MinBrightness => minBrightness;
@@ -29,6 +31,7 @@ public class MiningLightProfile : ScriptableObject
     {
         brightness = Mathf.Clamp01(brightness);
         sourceRadiusCells = Mathf.Max(0, sourceRadiusCells);
+        falloffStartDistanceCells = Mathf.Max(0, falloffStartDistanceCells);
         airCellTransmission = Mathf.Clamp01(airCellTransmission);
         solidCellTransmission = Mathf.Clamp01(solidCellTransmission);
         minBrightness = Mathf.Clamp(minBrightness, 0.001f, Mathf.Max(0.001f, brightness));
