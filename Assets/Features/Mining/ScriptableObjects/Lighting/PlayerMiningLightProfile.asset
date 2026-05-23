@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: PlayerMiningLightProfile
   m_EditorClassIdentifier: 
   brightness: 1
-  sourceRadiusCells: 1
+  sourceRadiusCells: 0
+  falloffStartDistanceCells: 3
   airCellTransmission: 0.7
   solidCellTransmission: 0.5
   minBrightness: 0.01

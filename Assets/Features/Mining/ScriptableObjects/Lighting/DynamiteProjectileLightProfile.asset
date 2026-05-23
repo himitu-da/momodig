@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   brightness: 0.8
   sourceRadiusCells: 0
+  falloffStartDistanceCells: 0
   airCellTransmission: 0.6
   solidCellTransmission: 0.4
   minBrightness: 0.02
