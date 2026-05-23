@@ -1,10 +1,18 @@
 using UnityEngine;
 
+public enum MiningLightPropagationNeighborhood
+{
+    Orthogonal6,
+    Full26
+}
+
 [CreateAssetMenu(fileName = "MiningLightProfile", menuName = "Momodig/Mining Light Profile")]
 public class MiningLightProfile : ScriptableObject
 {
     [Header("Light Propagation")]
     [SerializeField, Range(0f, 1f)] private float brightness = 1f;
+    [SerializeField] private MiningLightPropagationNeighborhood propagationNeighborhood =
+        MiningLightPropagationNeighborhood.Orthogonal6;
     [SerializeField, Min(0)] private int sourceRadiusCells = 1;
     [SerializeField, Min(0)] private int falloffStartDistanceCells = 0;
     [SerializeField, Range(0f, 1f)] private float airCellTransmission = 0.9f;
@@ -17,6 +25,7 @@ public class MiningLightProfile : ScriptableObject
     [SerializeField] private Color sourceGizmoColor = new Color(1f, 1f, 1f, 0.8f);
 
     public float Brightness => brightness;
+    public MiningLightPropagationNeighborhood PropagationNeighborhood => propagationNeighborhood;
     public int SourceRadiusCells => sourceRadiusCells;
     public int FalloffStartDistanceCells => Mathf.Max(0, falloffStartDistanceCells);
     public float AirCellTransmission => airCellTransmission;
@@ -30,6 +39,11 @@ public class MiningLightProfile : ScriptableObject
     private void OnValidate()
     {
         brightness = Mathf.Clamp01(brightness);
+        if (!System.Enum.IsDefined(typeof(MiningLightPropagationNeighborhood), propagationNeighborhood))
+        {
+            propagationNeighborhood = MiningLightPropagationNeighborhood.Orthogonal6;
+        }
+
         sourceRadiusCells = Mathf.Max(0, sourceRadiusCells);
         falloffStartDistanceCells = Mathf.Max(0, falloffStartDistanceCells);
         airCellTransmission = Mathf.Clamp01(airCellTransmission);
