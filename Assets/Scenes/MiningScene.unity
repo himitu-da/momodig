@@ -304,6 +304,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6dea85fb09e70dd44aefd9d70f53da30, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  terrainManager: {fileID: 2071865104}
   terrainDataManager: {fileID: 11400000, guid: dac20b2304c3f1043a3cf6f0dbd2e30d, type: 2}
   playerTransform: {fileID: 672003891}
   backgroundTilePrefab: {fileID: 9132363438655162761, guid: 0fba5c71f82d16e4e9e8becd6053582e, type: 3}
