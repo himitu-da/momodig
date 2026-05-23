@@ -27,9 +27,10 @@ public class PlayerRespawnController : MonoBehaviour
 
     [Header("Item Release")]
     [SerializeField] private float releaseRadius = 0.8f;
-    [SerializeField] private float releaseHorizontalVelocity = 1.2f;
-    [SerializeField] private float releaseUpwardVelocity = 1.8f;
-    [SerializeField] private float releaseAngularVelocity = 3.5f;
+    [SerializeField] private float releaseHorizontalVelocity = 0.25f;
+    [SerializeField] private float releaseUpwardVelocity = 0.2f;
+    [SerializeField] private float releaseAngularVelocity = 0.8f;
+    [SerializeField] private int maxReleasedItemsPerFrame = 8;
 
     [Header("Log")]
     [SerializeField] private string respawnLogMessage = "百々世はリスポーンした！";
@@ -63,7 +64,7 @@ public class PlayerRespawnController : MonoBehaviour
 
             try
             {
-                if (!ReleaseInventoryItems())
+                if (!await ReleaseInventoryItemsAsync(cancellationToken))
                 {
                     return;
                 }
@@ -98,7 +99,7 @@ public class PlayerRespawnController : MonoBehaviour
         }
     }
 
-    private bool ReleaseInventoryItems()
+    private async UniTask<bool> ReleaseInventoryItemsAsync(System.Threading.CancellationToken cancellationToken)
     {
         using (ReleaseInventoryMarker.Auto())
         {
@@ -111,6 +112,8 @@ public class PlayerRespawnController : MonoBehaviour
             int releasedCount = 0;
             while (!playerController.Inventory.IsEmpty())
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (!playerController.Inventory.TryPeekNextItem(out VoxelItemData itemData))
                 {
                     Debug.LogError("PlayerRespawnController: failed to read next voxel item from inventory. Respawn aborted.", this);
@@ -150,6 +153,10 @@ public class PlayerRespawnController : MonoBehaviour
                 }
 
                 releasedCount++;
+                if (releasedCount % maxReleasedItemsPerFrame == 0)
+                {
+                    await UniTask.Yield(cancellationToken);
+                }
             }
 
             return true;
@@ -252,5 +259,6 @@ public class PlayerRespawnController : MonoBehaviour
         releaseHorizontalVelocity = Mathf.Max(0f, releaseHorizontalVelocity);
         releaseUpwardVelocity = Mathf.Max(0f, releaseUpwardVelocity);
         releaseAngularVelocity = Mathf.Max(0f, releaseAngularVelocity);
+        maxReleasedItemsPerFrame = Mathf.Max(1, maxReleasedItemsPerFrame);
     }
 }

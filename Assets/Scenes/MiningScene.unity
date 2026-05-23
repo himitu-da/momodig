@@ -1398,15 +1398,17 @@ MonoBehaviour:
   playerSpriteRenderer: {fileID: 1166258683}
   respawnPoint: {fileID: 1700130090}
   droppedItemManager: {fileID: 1375720077}
+  terrainManager: {fileID: 2071865104}
   terrainDataManager: {fileID: 11400000, guid: dac20b2304c3f1043a3cf6f0dbd2e30d, type: 2}
   miningLogSystem: {fileID: 2086124476}
   fadeOutDuration: 0.35
   hiddenDuration: 0.1
   fadeInDuration: 0.35
   releaseRadius: 0.8
-  releaseHorizontalVelocity: 1.2
-  releaseUpwardVelocity: 1.8
-  releaseAngularVelocity: 3.5
+  releaseHorizontalVelocity: 0.25
+  releaseUpwardVelocity: 0.2
+  releaseAngularVelocity: 0.8
+  maxReleasedItemsPerFrame: 8
   respawnLogMessage: "\u767E\u3005\u4E16\u306F\u30EA\u30B9\u30DD\u30FC\u30F3\u3057\u305F\uFF01"
 --- !u!1 &690827969
 GameObject:
