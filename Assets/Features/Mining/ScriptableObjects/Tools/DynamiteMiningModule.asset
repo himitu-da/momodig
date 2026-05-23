@@ -23,6 +23,34 @@ MonoBehaviour:
   explosionForce:
     BaseValue: 400
   projectileLightProfile: {fileID: 11400000, guid: b62b6a417c744f3fa22e65198610f2b8, type: 2}
+  enableExplosionAfterglowLight: 1
+  explosionAfterglowLightProfile: {fileID: 11400000, guid: d41b781646604d18bc30df6caef7821a, type: 2}
+  explosionAfterglowLifetimeSeconds: 1.5
+  explosionAfterglowBrightnessCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0.5
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  explosionAfterglowUpdateIntervalSeconds: 0.03
   diggingCenter: {x: 0, y: 0, z: 0}
   diggingSize:
     X:

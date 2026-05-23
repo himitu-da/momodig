@@ -6,6 +6,7 @@ public class MiningLightManager : MonoBehaviour
 {
     private static readonly ProfilerMarker RestartPropagationMarker = new ProfilerMarker("MiningLightManager.RestartPropagation");
     private static readonly ProfilerMarker PropagationStepMarker = new ProfilerMarker("MiningLightManager.PropagationStep");
+    private static readonly ProfilerMarker BurstLightUpdateMarker = new ProfilerMarker("MiningLightManager.BurstLightUpdate");
     private static readonly ProfilerMarker DrawGizmosMarker = new ProfilerMarker("MiningLightManager.DrawGizmos");
 
     private static readonly Vector3Int[] NeighborOffsets =
@@ -39,6 +40,7 @@ public class MiningLightManager : MonoBehaviour
     private readonly List<MiningLightSource> registeredLightSources = new List<MiningLightSource>(8);
     private readonly HashSet<MiningLightSource> registeredLightSourceSet = new HashSet<MiningLightSource>();
     private readonly List<TemporaryLightSource> temporaryLightSources = new List<TemporaryLightSource>(8);
+    private readonly List<BurstLightSource> burstLightSources = new List<BurstLightSource>(8);
     private readonly List<LightSourceCell> currentLightSourceCells = new List<LightSourceCell>(8);
     private readonly Dictionary<object, VoxelCellKey> lastLightSourceCells =
         new Dictionary<object, VoxelCellKey>();
@@ -132,6 +134,55 @@ public class MiningLightManager : MonoBehaviour
         }
     }
 
+    private sealed class BurstLightSource
+    {
+        public readonly object sourceKey;
+        public readonly MiningLightProfile profile;
+        public readonly AnimationCurve brightnessCurve;
+        public readonly float startTime;
+        public readonly float expiresAt;
+        public readonly float updateIntervalSeconds;
+        public readonly string sourceName;
+        public readonly Dictionary<VoxelCellKey, float> baseBrightness =
+            new Dictionary<VoxelCellKey, float>();
+
+        public LightRuntimeState state;
+        public float currentTimeBrightness;
+        public float nextUpdateAt;
+        public int displaySequence;
+
+        public BurstLightSource(
+            MiningLightProfile profile,
+            float lifetimeSeconds,
+            AnimationCurve brightnessCurve,
+            float updateIntervalSeconds)
+        {
+            sourceKey = this;
+            this.profile = profile;
+            this.brightnessCurve = brightnessCurve;
+            this.updateIntervalSeconds = Mathf.Max(0.001f, updateIntervalSeconds);
+            startTime = Time.time;
+            expiresAt = startTime + lifetimeSeconds;
+            nextUpdateAt = startTime;
+            currentTimeBrightness = EvaluateTimeBrightness();
+            sourceName = "TemporaryBurstLight";
+        }
+
+        public bool IsExpired => Time.time >= expiresAt;
+
+        public float EvaluateTimeBrightness()
+        {
+            float duration = Mathf.Max(0.001f, expiresAt - startTime);
+            float normalizedTime = Mathf.Clamp01((Time.time - startTime) / duration);
+            return Mathf.Clamp01(brightnessCurve.Evaluate(normalizedTime));
+        }
+
+        public float CalculateDisplayBrightness(float distanceBrightness)
+        {
+            return Mathf.Clamp01(distanceBrightness) * currentTimeBrightness;
+        }
+    }
+
     private readonly struct SourceCellDisplay
     {
         public readonly int sequence;
@@ -153,6 +204,7 @@ public class MiningLightManager : MonoBehaviour
 
         public string sourceName;
         public MiningLightProfile profile;
+        public BurstLightSource burstLight;
         public int nextRunSequence;
         public int roundRobinRunIndex;
 
@@ -297,6 +349,66 @@ public class MiningLightManager : MonoBehaviour
         return true;
     }
 
+    public bool SpawnTemporaryBurstLight(
+        Vector3 worldPosition,
+        MiningLightProfile profile,
+        float lifetimeSeconds,
+        AnimationCurve brightnessCurve,
+        float updateIntervalSeconds)
+    {
+        if (!ValidateTemporaryBurstLightRequest(
+                profile,
+                lifetimeSeconds,
+                brightnessCurve,
+                updateIntervalSeconds))
+        {
+            return false;
+        }
+
+        if (!terrainManager.VoxelManager.TryGetVoxelCellAtWorldPosition(worldPosition, out VoxelCellKey sourceCell))
+        {
+            Debug.LogError(
+                $"MiningLightManager: temporary burst light position could not be converted to a voxel cell. worldPosition={worldPosition}",
+                this);
+            return false;
+        }
+
+        BurstLightSource burstSource =
+            new BurstLightSource(profile, lifetimeSeconds, brightnessCurve, updateIntervalSeconds);
+        LightRuntimeState state =
+            new LightRuntimeState(burstSource.sourceKey, burstSource.sourceName, profile);
+        state.burstLight = burstSource;
+        burstSource.state = state;
+        lightStates.Add(burstSource.sourceKey, state);
+        burstLightSources.Add(burstSource);
+
+        PropagationRun propagation = new PropagationRun(
+            state,
+            burstSource.sourceKey,
+            burstSource.sourceName,
+            profile,
+            state.nextRunSequence++);
+        burstSource.displaySequence = propagation.sequence;
+
+        AddSourcePropagation(propagation, sourceCell, profile);
+        int radius = Mathf.Max(0, profile.SourceRadiusCells);
+        for (int shell = 1; shell <= radius; shell++)
+        {
+            AddSourceShell(propagation, sourceCell, shell, profile);
+        }
+
+        if (propagation.activeJobs.Count == 0)
+        {
+            Debug.LogWarning("MiningLightManager: temporary burst light did not generate any propagation jobs.", this);
+            RemoveBurstLightSource(burstSource);
+            return false;
+        }
+
+        state.activeRuns.Add(propagation);
+        EnsureActiveLightStateQueued(state);
+        return true;
+    }
+
     public void RegisterLightSource(MiningLightSource source)
     {
         if (source == null)
@@ -388,29 +500,79 @@ public class MiningLightManager : MonoBehaviour
             return;
         }
 
+        UpdateBurstLightSources();
         PruneExpiredTemporaryLightSources();
         CollectCurrentLightSourceCells(currentLightSourceCells);
         if (currentLightSourceCells.Count == 0)
         {
-            ClearLightState();
-            if (!noPropagationSourceLogged)
+            if (burstLightSources.Count == 0)
             {
-                noPropagationSourceLogged = true;
-                Debug.LogWarning("MiningLightManager: no registered light sources were available for light propagation.", this);
+                ClearLightState();
+                if (!noPropagationSourceLogged)
+                {
+                    noPropagationSourceLogged = true;
+                    Debug.LogWarning("MiningLightManager: no registered light sources were available for light propagation.", this);
+                }
+                return;
             }
-            return;
+
+            HashSet<object> nextSourceKeys = new HashSet<object>();
+            AddActiveBurstLightKeys(nextSourceKeys);
+            RemoveMissingLightStates(nextSourceKeys);
+            StoreLightSourceState(currentLightSourceCells);
+            terrainDirty = false;
+            hasCalculated = true;
+            noPropagationSourceLogged = false;
         }
-
-        noPropagationSourceLogged = false;
-
-        if (!hasCalculated || terrainDirty || HaveLightSourcesChanged(currentLightSourceCells))
+        else
         {
-            RestartPropagation(currentLightSourceCells);
+            noPropagationSourceLogged = false;
+
+            if (!hasCalculated || terrainDirty || HaveLightSourcesChanged(currentLightSourceCells))
+            {
+                RestartPropagation(currentLightSourceCells);
+            }
         }
 
         if (activeLightStates.Count > 0)
         {
             ProcessPropagationStep();
+        }
+    }
+
+    private void UpdateBurstLightSources()
+    {
+        if (burstLightSources.Count == 0)
+        {
+            return;
+        }
+
+        using (BurstLightUpdateMarker.Auto())
+        {
+            for (int i = burstLightSources.Count - 1; i >= 0; i--)
+            {
+                BurstLightSource source = burstLightSources[i];
+                if (source == null || source.state == null || source.IsExpired)
+                {
+                    RemoveBurstLightSourceAt(i);
+                    continue;
+                }
+
+                if (Time.time < source.nextUpdateAt)
+                {
+                    continue;
+                }
+
+                source.nextUpdateAt = Time.time + source.updateIntervalSeconds;
+                float nextTimeBrightness = source.EvaluateTimeBrightness();
+                if (Mathf.Approximately(source.currentTimeBrightness, nextTimeBrightness))
+                {
+                    continue;
+                }
+
+                source.currentTimeBrightness = nextTimeBrightness;
+                UpdateBurstDisplayBrightness(source);
+            }
         }
     }
 
@@ -433,6 +595,32 @@ public class MiningLightManager : MonoBehaviour
 
             RegisterLightSource(source);
         }
+    }
+
+    private void RemoveBurstLightSourceAt(int index)
+    {
+        if (index < 0 || index >= burstLightSources.Count)
+        {
+            return;
+        }
+
+        BurstLightSource source = burstLightSources[index];
+        burstLightSources.RemoveAt(index);
+        if (source != null)
+        {
+            RemoveLightState(source.sourceKey);
+        }
+    }
+
+    private void RemoveBurstLightSource(BurstLightSource source)
+    {
+        if (source == null)
+        {
+            return;
+        }
+
+        burstLightSources.Remove(source);
+        RemoveLightState(source.sourceKey);
     }
 
     private void PruneExpiredTemporaryLightSources()
@@ -618,6 +806,7 @@ public class MiningLightManager : MonoBehaviour
                 EnsureActiveLightStateQueued(state);
             }
 
+            AddActiveBurstLightKeys(nextSourceKeys);
             RemoveMissingLightStates(nextSourceKeys);
 
             StoreLightSourceState(sourceCells);
@@ -1049,19 +1238,89 @@ public class MiningLightManager : MonoBehaviour
         }
 
         LightRuntimeState state = propagation.owner;
-        if (state.displayBrightness.TryGetValue(key, out SourceCellDisplay existing) &&
-            existing.sequence > propagation.sequence)
+        BurstLightSource burstSource = state.burstLight;
+        if (burstSource != null)
+        {
+            burstSource.baseBrightness[key] = brightness;
+            brightness = burstSource.CalculateDisplayBrightness(brightness);
+        }
+
+        SetSourceDisplayBrightness(state, propagation.sequence, key, brightness);
+    }
+
+    private void SetSourceDisplayBrightness(
+        LightRuntimeState state,
+        int sequence,
+        VoxelCellKey key,
+        float brightness)
+    {
+        if (state == null)
+        {
+            Debug.LogError("MiningLightManager: light runtime state is null while setting source brightness.", this);
+            return;
+        }
+
+        bool hasExisting = state.displayBrightness.TryGetValue(key, out SourceCellDisplay existing);
+        if (hasExisting && existing.sequence > sequence)
         {
             return;
         }
 
-        if (existing.sequence == propagation.sequence && Mathf.Approximately(existing.brightness, brightness))
+        if (brightness <= 0f)
+        {
+            if (hasExisting && existing.sequence <= sequence)
+            {
+                state.displayBrightness.Remove(key);
+                RecomposeBrightnessCell(key);
+            }
+            return;
+        }
+
+        if (hasExisting &&
+            existing.sequence == sequence &&
+            Mathf.Approximately(existing.brightness, brightness))
         {
             return;
         }
 
-        state.displayBrightness[key] = new SourceCellDisplay(propagation.sequence, brightness);
+        state.displayBrightness[key] = new SourceCellDisplay(sequence, brightness);
         RecomposeBrightnessCell(key);
+    }
+
+    private void UpdateBurstDisplayBrightness(BurstLightSource burstSource)
+    {
+        if (burstSource == null || burstSource.state == null)
+        {
+            Debug.LogError("MiningLightManager: burst light source is invalid while updating display brightness.", this);
+            return;
+        }
+
+        foreach (KeyValuePair<VoxelCellKey, float> pair in burstSource.baseBrightness)
+        {
+            SetSourceDisplayBrightness(
+                burstSource.state,
+                burstSource.displaySequence,
+                pair.Key,
+                burstSource.CalculateDisplayBrightness(pair.Value));
+        }
+    }
+
+    private void AddActiveBurstLightKeys(HashSet<object> sourceKeys)
+    {
+        if (sourceKeys == null)
+        {
+            Debug.LogError("MiningLightManager: source key set is null while adding burst light keys.", this);
+            return;
+        }
+
+        for (int i = 0; i < burstLightSources.Count; i++)
+        {
+            BurstLightSource source = burstLightSources[i];
+            if (source != null && source.state != null && !source.IsExpired)
+            {
+                sourceKeys.Add(source.sourceKey);
+            }
+        }
     }
 
     private void RemoveMissingLightStates(HashSet<object> nextSourceKeys)
@@ -1094,6 +1353,11 @@ public class MiningLightManager : MonoBehaviour
         foreach (KeyValuePair<VoxelCellKey, SourceCellDisplay> pair in state.displayBrightness)
         {
             reusableCellBuffer.Add(pair.Key);
+        }
+
+        if (state.burstLight != null)
+        {
+            burstLightSources.Remove(state.burstLight);
         }
 
         lightStates.Remove(sourceKey);
@@ -1240,6 +1504,7 @@ public class MiningLightManager : MonoBehaviour
     {
         ClearBrightnessCaches();
         lightStates.Clear();
+        burstLightSources.Clear();
         activeLightStates.Clear();
         activeLightStateSet.Clear();
         roundRobinLightIndex = 0;
@@ -1281,6 +1546,34 @@ public class MiningLightManager : MonoBehaviour
         if (lifetimeSeconds <= 0f)
         {
             Debug.LogError($"MiningLightManager: temporary light lifetime must be greater than 0. lifetimeSeconds={lifetimeSeconds}", this);
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool ValidateTemporaryBurstLightRequest(
+        MiningLightProfile profile,
+        float lifetimeSeconds,
+        AnimationCurve brightnessCurve,
+        float updateIntervalSeconds)
+    {
+        if (!ValidateTemporaryLightRequest(profile, lifetimeSeconds))
+        {
+            return false;
+        }
+
+        if (brightnessCurve == null)
+        {
+            Debug.LogError("MiningLightManager: cannot spawn a temporary burst light with a null brightness curve.", this);
+            return false;
+        }
+
+        if (updateIntervalSeconds <= 0f)
+        {
+            Debug.LogError(
+                $"MiningLightManager: temporary burst light update interval must be greater than 0. updateIntervalSeconds={updateIntervalSeconds}",
+                this);
             return false;
         }
 

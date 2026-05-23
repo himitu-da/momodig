@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e0f2a17f70b14f6aa92a0bdf77890810, type: 3}
-  m_Name: DynamiteProjectileLightProfile
+  m_Name: DynamiteExplosionAfterglowLightProfile
   m_EditorClassIdentifier: 
-  brightness: 0.8
+  brightness: 1
   sourceRadiusCells: 0
-  airCellTransmission: 0.6
-  solidCellTransmission: 0.4
-  minBrightness: 0.02
-  maxPropagationCellsPerLightPerFrame: 4
-  maxPropagationCellsPerRunPerFrame: 4
-  sourceGizmoColor: {r: 1, g: 0.78, b: 0.35, a: 0.8}
+  airCellTransmission: 0.8
+  solidCellTransmission: 0.8
+  minBrightness: 0.001
+  maxPropagationCellsPerLightPerFrame: 1
+  maxPropagationCellsPerRunPerFrame: 1
+  sourceGizmoColor: {r: 1, g: 0.62, b: 0.22, a: 0.8}
