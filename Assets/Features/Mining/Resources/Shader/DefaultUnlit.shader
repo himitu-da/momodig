@@ -6,6 +6,7 @@ Shader "Custom/Default"
         [MainColor] _BaseColor("Color", Color) = (1,1,1,1)
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
         _UseVertexColor("Use Vertex Color", Float) = 0
+        _MiningBrightness("Mining Brightness", Range(0.0, 1.0)) = 1
     }
     SubShader
     {
@@ -44,6 +45,7 @@ Shader "Custom/Default"
                 half4 _BaseColor;
                 half _Cutoff;
                 half _UseVertexColor;
+                half _MiningBrightness;
             CBUFFER_END
 
             Varyings vert(Attributes IN)
@@ -62,6 +64,7 @@ Shader "Custom/Default"
                 UNITY_SETUP_INSTANCE_ID(IN);
                 half4 vertexColor = lerp(half4(1.0, 1.0, 1.0, 1.0), IN.color, saturate(_UseVertexColor));
                 half4 color = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv) * _BaseColor * vertexColor;
+                color.rgb *= saturate(_MiningBrightness);
                 clip(color.a - _Cutoff);
                 return color;
             }

@@ -2726,6 +2726,10 @@ MonoBehaviour:
   showAnchoredDebugInfo: 0
   debugStateLogInterval: 2
   maxFluidTickItemsPerFixedUpdate: 432
+  miningLightManager: {fileID: 1199508971}
+  minDroppedItemVisualBrightness: 0.05
+  maxBrightnessUpdatesPerFrame: 432
+  brightnessCornerLocalInset: 0.02
 --- !u!4 &1375720078
 Transform:
   m_ObjectHideFlags: 0
