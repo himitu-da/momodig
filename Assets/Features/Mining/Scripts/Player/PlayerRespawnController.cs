@@ -14,6 +14,7 @@ public class PlayerRespawnController : MonoBehaviour
     [SerializeField] private PlayerController playerController;
     [SerializeField] private Rigidbody playerRigidbody;
     [SerializeField] private SpriteRenderer playerSpriteRenderer;
+    [SerializeField] private Collider[] playerCollisionColliders;
     [SerializeField] private Transform respawnPoint;
     [SerializeField] private DroppedItemManager droppedItemManager;
     [SerializeField] private TerrainManager terrainManager;
@@ -61,6 +62,7 @@ public class PlayerRespawnController : MonoBehaviour
             isRespawning = true;
             playerController.SetControlLocked(true);
             playerController.SetItemPickupLocked(true);
+            SetPlayerCollisionEnabled(false);
 
             try
             {
@@ -92,6 +94,7 @@ public class PlayerRespawnController : MonoBehaviour
             finally
             {
                 SetPlayerAlpha(1f);
+                SetPlayerCollisionEnabled(true);
                 playerController.SetItemPickupLocked(false);
                 playerController.SetControlLocked(false);
                 isRespawning = false;
@@ -195,6 +198,14 @@ public class PlayerRespawnController : MonoBehaviour
         playerSpriteRenderer.color = color;
     }
 
+    private void SetPlayerCollisionEnabled(bool enabled)
+    {
+        for (int i = 0; i < playerCollisionColliders.Length; i++)
+        {
+            playerCollisionColliders[i].enabled = enabled;
+        }
+    }
+
     private Vector3 CalculateReleaseDirection(int index)
     {
         float angle = index * 137.50776f * Mathf.Deg2Rad;
@@ -219,6 +230,7 @@ public class PlayerRespawnController : MonoBehaviour
         isValid &= ValidateReference(playerController, nameof(playerController));
         isValid &= ValidateReference(playerRigidbody, nameof(playerRigidbody));
         isValid &= ValidateReference(playerSpriteRenderer, nameof(playerSpriteRenderer));
+        isValid &= ValidatePlayerCollisionColliders();
         isValid &= ValidateReference(respawnPoint, nameof(respawnPoint));
         isValid &= ValidateReference(droppedItemManager, nameof(droppedItemManager));
         isValid &= ValidateReference(terrainManager, nameof(terrainManager));
@@ -234,6 +246,29 @@ public class PlayerRespawnController : MonoBehaviour
                     this);
                 isValid = false;
             }
+        }
+
+        return isValid;
+    }
+
+    private bool ValidatePlayerCollisionColliders()
+    {
+        if (playerCollisionColliders == null || playerCollisionColliders.Length == 0)
+        {
+            Debug.LogError("PlayerRespawnController: playerCollisionColliders is not configured.", this);
+            return false;
+        }
+
+        bool isValid = true;
+        for (int i = 0; i < playerCollisionColliders.Length; i++)
+        {
+            if (playerCollisionColliders[i] != null)
+            {
+                continue;
+            }
+
+            Debug.LogError($"PlayerRespawnController: playerCollisionColliders contains null at index {i}.", this);
+            isValid = false;
         }
 
         return isValid;
