@@ -58,6 +58,8 @@ public class TorchPlacementManager : MonoBehaviour
 
     private void OnEnable()
     {
+        SubscribeTerrainChanges();
+
         if (!restorePersistedTorchesOnEnable || restoredPersistedTorches)
         {
             return;
@@ -65,6 +67,11 @@ public class TorchPlacementManager : MonoBehaviour
 
         RestorePersistedTorches();
         restoredPersistedTorches = true;
+    }
+
+    private void OnDisable()
+    {
+        UnsubscribeTerrainChanges();
     }
 
     private bool TryGetBlockPosition(Vector3 worldPosition, out Vector3Int blockPosition)
@@ -88,6 +95,14 @@ public class TorchPlacementManager : MonoBehaviour
     {
         if (!ValidatePlacementReferences())
         {
+            return false;
+        }
+
+        if (!CanPlaceTorch(blockPosition))
+        {
+            Debug.LogWarning(
+                $"TorchPlacementManager: cannot place a torch because the block contains active voxels. blockPosition={blockPosition}",
+                this);
             return false;
         }
 
@@ -177,6 +192,92 @@ public class TorchPlacementManager : MonoBehaviour
                 PlaceTorch(placement.blockPosition, false);
             }
         }
+    }
+
+    private void HandleTerrainCellsChanged(TerrainChangeBatch change)
+    {
+        if (change == null)
+        {
+            Debug.LogError("TorchPlacementManager: terrain change batch is null.", this);
+            return;
+        }
+
+        if (change.addedSolidCells.Count == 0)
+        {
+            return;
+        }
+
+        HashSet<Vector3Int> torchBlocksToRemove = null;
+        for (int i = 0; i < change.addedSolidCells.Count; i++)
+        {
+            Vector3Int blockPosition = change.addedSolidCells[i].blockPosition;
+            if (!torchesByBlock.ContainsKey(blockPosition))
+            {
+                continue;
+            }
+
+            if (torchBlocksToRemove == null)
+            {
+                torchBlocksToRemove = new HashSet<Vector3Int>();
+            }
+
+            torchBlocksToRemove.Add(blockPosition);
+        }
+
+        if (torchBlocksToRemove == null || torchBlocksToRemove.Count == 0)
+        {
+            return;
+        }
+
+        foreach (Vector3Int blockPosition in torchBlocksToRemove)
+        {
+            RemoveTorch(blockPosition, false);
+        }
+
+        SyncPersistence();
+    }
+
+    private bool CanPlaceTorch(Vector3Int blockPosition)
+    {
+        if (!ValidateTerrainReferences())
+        {
+            return false;
+        }
+
+        if (terrainManager.VoxelManager == null)
+        {
+            Debug.LogError("TorchPlacementManager: TerrainManager.VoxelManager is not configured.", this);
+            return false;
+        }
+
+        return terrainManager.VoxelManager.CountVoxelsInBlock(blockPosition) == 0;
+    }
+
+    private void SubscribeTerrainChanges()
+    {
+        if (!ValidateTerrainReferences())
+        {
+            return;
+        }
+
+        if (terrainManager.VoxelManager == null)
+        {
+            Debug.LogError("TorchPlacementManager: TerrainManager.VoxelManager is not configured.", this);
+            return;
+        }
+
+        terrainManager.VoxelManager.TerrainCellsChanged -= HandleTerrainCellsChanged;
+        terrainManager.VoxelManager.TerrainCellsChanged += HandleTerrainCellsChanged;
+    }
+
+    private void UnsubscribeTerrainChanges()
+    {
+        if (terrainManager == null || terrainManager.VoxelManager == null)
+        {
+            return;
+        }
+
+        terrainManager.VoxelManager.TerrainCellsChanged -= HandleTerrainCellsChanged;
     }
 
     private void SyncPersistence()
