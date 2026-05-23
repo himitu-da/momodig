@@ -3,6 +3,7 @@ using UnityEngine;
 public enum MiningLightPropagationNeighborhood
 {
     Orthogonal6,
+    FaceAndEdge18,
     Full26
 }
 

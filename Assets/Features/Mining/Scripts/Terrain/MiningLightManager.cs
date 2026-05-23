@@ -19,7 +19,37 @@ public class MiningLightManager : MonoBehaviour
         new Vector3Int(0, 0, -1)
     };
 
+    private static readonly Vector3Int[] FaceAndEdgeNeighborOffsets = BuildFaceAndEdgeNeighborOffsets();
     private static readonly Vector3Int[] FullNeighborOffsets = BuildFullNeighborOffsets();
+
+    private static Vector3Int[] BuildFaceAndEdgeNeighborOffsets()
+    {
+        Vector3Int[] offsets = new Vector3Int[18];
+        int index = 0;
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                for (int z = -1; z <= 1; z++)
+                {
+                    if (x == 0 && y == 0 && z == 0)
+                    {
+                        continue;
+                    }
+
+                    if (Mathf.Abs(x) + Mathf.Abs(y) + Mathf.Abs(z) == 3)
+                    {
+                        continue;
+                    }
+
+                    offsets[index] = new Vector3Int(x, y, z);
+                    index++;
+                }
+            }
+        }
+
+        return offsets;
+    }
 
     private static Vector3Int[] BuildFullNeighborOffsets()
     {
@@ -1241,6 +1271,8 @@ public class MiningLightManager : MonoBehaviour
         {
             case MiningLightPropagationNeighborhood.Orthogonal6:
                 return OrthogonalNeighborOffsets;
+            case MiningLightPropagationNeighborhood.FaceAndEdge18:
+                return FaceAndEdgeNeighborOffsets;
             case MiningLightPropagationNeighborhood.Full26:
                 return FullNeighborOffsets;
             default:

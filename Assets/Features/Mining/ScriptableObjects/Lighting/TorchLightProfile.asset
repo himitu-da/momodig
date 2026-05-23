@@ -13,10 +13,11 @@ MonoBehaviour:
   m_Name: TorchLightProfile
   m_EditorClassIdentifier: 
   brightness: 1
+  propagationNeighborhood: 1
   sourceRadiusCells: 0
-  falloffStartDistanceCells: 3
-  airCellTransmission: 0.7
-  solidCellTransmission: 0.7
+  falloffStartDistanceCells: 5
+  airCellTransmission: 0.6
+  solidCellTransmission: 0.6
   minBrightness: 0.01
   maxPropagationCellsPerLightPerFrame: 432
   maxPropagationCellsPerRunPerFrame: 8
