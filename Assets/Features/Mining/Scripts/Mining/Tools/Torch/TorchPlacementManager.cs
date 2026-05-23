@@ -75,6 +75,25 @@ public class TorchPlacementManager : MonoBehaviour
                torchesByPlacementAnchor.ContainsKey(placementAnchor);
     }
 
+    public bool TryGetCursorSquareAtWorldPosition(
+        Vector3 worldPosition,
+        out Vector3 center,
+        out float size)
+    {
+        center = Vector3.zero;
+        size = 0f;
+
+        if (!TryGetPlacementCellAtWorldPosition(worldPosition, out VoxelCellKey targetCell))
+        {
+            return false;
+        }
+
+        Bounds cellBounds = terrainManager.VoxelManager.GetVoxelCellWorldBounds(targetCell);
+        center = cellBounds.center;
+        size = Mathf.Max(cellBounds.size.x, cellBounds.size.y);
+        return size > 0f;
+    }
+
     private void OnEnable()
     {
         SubscribeTerrainChanges();
@@ -102,6 +121,7 @@ public class TorchPlacementManager : MonoBehaviour
         }
 
         if (!ValidateVoxelManager()) return false;
+        worldPosition.z = terrainManager.Settings.center.z;
         return terrainManager.VoxelManager.TryGetVoxelCellAtWorldPosition(worldPosition, out key);
     }
 

@@ -49,6 +49,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   subUseDisplayDuration: 0.15
+  cursorMaterial: {fileID: 2100000, guid: 1db2e39e2ea94886b860848f04be541e, type: 2}
+  cursorLineWidth: 0.03
+  cursorZOffset: -0.01
 --- !u!114 &7010000000000000003
 MonoBehaviour:
   m_ObjectHideFlags: 0
