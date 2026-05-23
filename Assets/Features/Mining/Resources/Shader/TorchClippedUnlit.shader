@@ -5,7 +5,7 @@ Shader "Custom/TorchClippedUnlit"
         [MainTexture] _BaseMap("Texture", 2D) = "white" {}
         [MainColor] _BaseColor("Color", Color) = (1,1,1,1)
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
-        _ClipWorldZ("Clip World Z", Float) = 0
+        _ClipWorldZ("Clip World Z", Float) = 0.5
         _ClipKeepSign("Clip Keep Sign", Float) = -1
     }
 
