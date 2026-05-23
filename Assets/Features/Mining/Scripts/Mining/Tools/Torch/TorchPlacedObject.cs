@@ -11,13 +11,13 @@ public class TorchPlacedObject : MonoBehaviour
     [SerializeField] private RenderQueueLayer renderQueueLayer = RenderQueueLayer.Scenery;
     [SerializeField] private int renderQueueOffset = 0;
 
-    public Vector3Int BlockPosition { get; private set; }
+    public VoxelCellKey PlacementAnchor { get; private set; }
 
     private Material[][] originalMaterials;
     private Material[][] runtimeMaterials;
 
     public bool Configure(
-        Vector3Int blockPosition,
+        VoxelCellKey placementAnchor,
         MiningLightManager miningLightManager,
         MiningLightProfile lightProfile)
     {
@@ -26,7 +26,7 @@ public class TorchPlacedObject : MonoBehaviour
             return false;
         }
 
-        BlockPosition = blockPosition;
+        PlacementAnchor = placementAnchor;
         ApplyRenderQueues();
         lightSource.Configure(miningLightManager, lightProfile, sourceTransform);
         return true;

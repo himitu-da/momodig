@@ -20,40 +20,59 @@ public class TorchPlacementManager : MonoBehaviour
     [SerializeField] private Vector3 placementOffset = Vector3.zero;
     [SerializeField] private bool restorePersistedTorchesOnEnable = true;
 
-    private readonly Dictionary<Vector3Int, TorchPlacedObject> torchesByBlock =
-        new Dictionary<Vector3Int, TorchPlacedObject>();
+    private readonly Dictionary<VoxelCellKey, TorchPlacedObject> torchesByPlacementAnchor =
+        new Dictionary<VoxelCellKey, TorchPlacedObject>();
 
     private bool restoredPersistedTorches;
 
     public bool ToggleTorchAtWorldPosition(Vector3 worldPosition)
     {
-        if (!TryGetBlockPosition(worldPosition, out Vector3Int blockPosition))
+        if (!TryGetPlacementCellAtWorldPosition(worldPosition, out VoxelCellKey targetCell))
         {
             Debug.LogError(
-                $"TorchPlacementManager: failed to convert world position to block position. worldPosition={worldPosition}",
+                $"TorchPlacementManager: failed to convert world position to a voxel cell. worldPosition={worldPosition}",
                 this);
             return false;
         }
 
-        return ToggleTorch(blockPosition);
+        if (TryFindTorchContainingCell(targetCell, out VoxelCellKey existingPlacementAnchor))
+        {
+            return RemoveTorch(existingPlacementAnchor, true);
+        }
+
+        if (!TryGetPlacementAnchor(targetCell, out VoxelCellKey placementAnchor))
+        {
+            Debug.LogError(
+                $"TorchPlacementManager: failed to resolve placement anchor. targetCell={targetCell.blockPosition}/{targetCell.localVoxelPosition}",
+                this);
+            return false;
+        }
+
+        return PlaceTorch(placementAnchor, true);
     }
 
     public bool ToggleTorch(Vector3Int blockPosition)
     {
         using (ToggleTorchMarker.Auto())
         {
-            if (torchesByBlock.ContainsKey(blockPosition))
+            if (!TryGetPlacementAnchorFromBlockPosition(blockPosition, out VoxelCellKey placementAnchor))
             {
-                return RemoveTorch(blockPosition, true);
+                return false;
             }
 
-            return PlaceTorch(blockPosition, true);
+            if (torchesByPlacementAnchor.ContainsKey(placementAnchor))
+            {
+                return RemoveTorch(placementAnchor, true);
+            }
+
+            return PlaceTorch(placementAnchor, true);
         }
     }
 
     public bool HasTorch(Vector3Int blockPosition)
     {
-        return torchesByBlock.ContainsKey(blockPosition);
+        return TryGetPlacementAnchorFromBlockPosition(blockPosition, out VoxelCellKey placementAnchor) &&
+               torchesByPlacementAnchor.ContainsKey(placementAnchor);
     }
 
     private void OnEnable()
@@ -74,47 +93,44 @@ public class TorchPlacementManager : MonoBehaviour
         UnsubscribeTerrainChanges();
     }
 
-    private bool TryGetBlockPosition(Vector3 worldPosition, out Vector3Int blockPosition)
+    private bool TryGetPlacementCellAtWorldPosition(Vector3 worldPosition, out VoxelCellKey key)
     {
-        blockPosition = default;
+        key = default;
         if (!ValidateTerrainReferences())
         {
             return false;
         }
 
-        TerrainSettings settings = terrainManager.Settings;
-        float blockSize = Mathf.Max(0.001f, settings.blockSize);
-        blockPosition = new Vector3Int(
-            Mathf.FloorToInt(worldPosition.x / blockSize + 0.5f),
-            Mathf.FloorToInt(worldPosition.y / blockSize + 0.5f),
-            0);
-        return true;
+        if (!ValidateVoxelManager()) return false;
+        return terrainManager.VoxelManager.TryGetVoxelCellAtWorldPosition(worldPosition, out key);
     }
 
-    private bool PlaceTorch(Vector3Int blockPosition, bool syncPersistence)
+    private bool PlaceTorch(VoxelCellKey placementAnchor, bool syncPersistence)
     {
         if (!ValidatePlacementReferences())
         {
             return false;
         }
 
-        if (!CanPlaceTorch(blockPosition))
+        if (!CanPlaceTorch(placementAnchor))
         {
             Debug.LogWarning(
-                $"TorchPlacementManager: cannot place a torch because the block contains active voxels. blockPosition={blockPosition}",
+                $"TorchPlacementManager: cannot place a torch because the placement volume contains active voxels. anchor={placementAnchor.blockPosition}/{placementAnchor.localVoxelPosition}",
                 this);
             return false;
         }
 
-        if (torchesByBlock.ContainsKey(blockPosition))
+        if (torchesByPlacementAnchor.ContainsKey(placementAnchor))
         {
-            Debug.LogError($"TorchPlacementManager: torch already exists at blockPosition={blockPosition}.", this);
+            Debug.LogError(
+                $"TorchPlacementManager: torch already exists at anchor={placementAnchor.blockPosition}/{placementAnchor.localVoxelPosition}.",
+                this);
             return false;
         }
 
-        Vector3 worldPosition = GetBlockWorldPosition(blockPosition) + placementOffset;
+        Vector3 worldPosition = GetPlacementWorldPosition(placementAnchor) + placementOffset;
         GameObject torchObject = Instantiate(torchPrefab, worldPosition, Quaternion.identity, torchParent);
-        torchObject.name = $"Torch_{blockPosition.x}_{blockPosition.y}_{blockPosition.z}";
+        torchObject.name = $"Torch_{placementAnchor.blockPosition.x}_{placementAnchor.blockPosition.y}_{placementAnchor.blockPosition.z}_{placementAnchor.localVoxelPosition.x}_{placementAnchor.localVoxelPosition.y}_{placementAnchor.localVoxelPosition.z}";
 
         TorchPlacedObject placedObject = torchObject.GetComponent<TorchPlacedObject>();
         if (placedObject == null)
@@ -124,13 +140,13 @@ public class TorchPlacementManager : MonoBehaviour
             return false;
         }
 
-        if (!placedObject.Configure(blockPosition, miningLightManager, torchLightProfile))
+        if (!placedObject.Configure(placementAnchor, miningLightManager, torchLightProfile))
         {
             Destroy(torchObject);
             return false;
         }
 
-        torchesByBlock.Add(blockPosition, placedObject);
+        torchesByPlacementAnchor.Add(placementAnchor, placedObject);
         if (syncPersistence)
         {
             SyncPersistence();
@@ -139,15 +155,17 @@ public class TorchPlacementManager : MonoBehaviour
         return true;
     }
 
-    private bool RemoveTorch(Vector3Int blockPosition, bool syncPersistence)
+    private bool RemoveTorch(VoxelCellKey placementAnchor, bool syncPersistence)
     {
-        if (!torchesByBlock.TryGetValue(blockPosition, out TorchPlacedObject placedObject))
+        if (!torchesByPlacementAnchor.TryGetValue(placementAnchor, out TorchPlacedObject placedObject))
         {
-            Debug.LogError($"TorchPlacementManager: no torch exists at blockPosition={blockPosition}.", this);
+            Debug.LogError(
+                $"TorchPlacementManager: no torch exists at anchor={placementAnchor.blockPosition}/{placementAnchor.localVoxelPosition}.",
+                this);
             return false;
         }
 
-        torchesByBlock.Remove(blockPosition);
+        torchesByPlacementAnchor.Remove(placementAnchor);
         if (placedObject != null)
         {
             Destroy(placedObject.gameObject);
@@ -172,6 +190,7 @@ public class TorchPlacementManager : MonoBehaviour
                 return;
             }
 
+            bool removedInvalidPlacement = false;
             for (int i = 0; i < persistence.torchPlacements.Count; i++)
             {
                 TorchPlacementData placement = persistence.torchPlacements[i];
@@ -181,15 +200,27 @@ public class TorchPlacementManager : MonoBehaviour
                     continue;
                 }
 
-                if (torchesByBlock.ContainsKey(placement.blockPosition))
+                VoxelCellKey placementAnchor = new VoxelCellKey(
+                    placement.blockPosition,
+                    placement.localVoxelPosition);
+
+                if (torchesByPlacementAnchor.ContainsKey(placementAnchor))
                 {
                     Debug.LogError(
-                        $"TorchPlacementManager: duplicate persisted torch at blockPosition={placement.blockPosition}.",
+                        $"TorchPlacementManager: duplicate persisted torch at anchor={placementAnchor.blockPosition}/{placementAnchor.localVoxelPosition}.",
                         this);
                     continue;
                 }
 
-                PlaceTorch(placement.blockPosition, false);
+                if (!PlaceTorch(placementAnchor, false))
+                {
+                    removedInvalidPlacement = true;
+                }
+            }
+
+            if (removedInvalidPlacement)
+            {
+                SyncPersistence();
             }
         }
     }
@@ -207,50 +238,97 @@ public class TorchPlacementManager : MonoBehaviour
             return;
         }
 
-        HashSet<Vector3Int> torchBlocksToRemove = null;
+        HashSet<VoxelCellKey> torchPlacementsToRemove = null;
         for (int i = 0; i < change.addedSolidCells.Count; i++)
         {
-            Vector3Int blockPosition = change.addedSolidCells[i].blockPosition;
-            if (!torchesByBlock.ContainsKey(blockPosition))
+            if (!TryFindTorchContainingCell(change.addedSolidCells[i], out VoxelCellKey placementAnchor))
             {
                 continue;
             }
 
-            if (torchBlocksToRemove == null)
+            if (torchPlacementsToRemove == null)
             {
-                torchBlocksToRemove = new HashSet<Vector3Int>();
+                torchPlacementsToRemove = new HashSet<VoxelCellKey>();
             }
 
-            torchBlocksToRemove.Add(blockPosition);
+            torchPlacementsToRemove.Add(placementAnchor);
         }
 
-        if (torchBlocksToRemove == null || torchBlocksToRemove.Count == 0)
+        if (torchPlacementsToRemove == null || torchPlacementsToRemove.Count == 0)
         {
             return;
         }
 
-        foreach (Vector3Int blockPosition in torchBlocksToRemove)
+        foreach (VoxelCellKey placementAnchor in torchPlacementsToRemove)
         {
-            RemoveTorch(blockPosition, false);
+            RemoveTorch(placementAnchor, false);
         }
 
         SyncPersistence();
     }
 
-    private bool CanPlaceTorch(Vector3Int blockPosition)
+    private bool CanPlaceTorch(VoxelCellKey placementAnchor)
     {
         if (!ValidateTerrainReferences())
         {
             return false;
         }
 
-        if (terrainManager.VoxelManager == null)
+        if (!ValidateVoxelManager()) return false;
+
+        int side = Mathf.Max(1, terrainManager.Settings.voxelsPerBlock);
+        for (int x = 0; x < side; x++)
         {
-            Debug.LogError("TorchPlacementManager: TerrainManager.VoxelManager is not configured.", this);
-            return false;
+            for (int y = 0; y < side; y++)
+            {
+                for (int z = 0; z < side; z++)
+                {
+                    VoxelCellKey key = OffsetCell(placementAnchor, new Vector3Int(x, y, z));
+                    if (terrainManager.VoxelManager.GetVoxelAt(key.blockPosition, key.localVoxelPosition) != null)
+                    {
+                        return false;
+                    }
+                }
+            }
         }
 
-        return terrainManager.VoxelManager.CountVoxelsInBlock(blockPosition) == 0;
+        return true;
+    }
+
+    private bool TryFindTorchContainingCell(VoxelCellKey cell, out VoxelCellKey placementAnchor)
+    {
+        foreach (VoxelCellKey candidateAnchor in torchesByPlacementAnchor.Keys)
+        {
+            if (PlacementContainsCell(candidateAnchor, cell))
+            {
+                placementAnchor = candidateAnchor;
+                return true;
+            }
+        }
+
+        placementAnchor = default;
+        return false;
+    }
+
+    private bool PlacementContainsCell(VoxelCellKey placementAnchor, VoxelCellKey cell)
+    {
+        int side = Mathf.Max(1, terrainManager.Settings.voxelsPerBlock);
+        for (int x = 0; x < side; x++)
+        {
+            for (int y = 0; y < side; y++)
+            {
+                for (int z = 0; z < side; z++)
+                {
+                    VoxelCellKey key = OffsetCell(placementAnchor, new Vector3Int(x, y, z));
+                    if (key.Equals(cell))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
     }
 
     private void SubscribeTerrainChanges()
@@ -260,11 +338,7 @@ public class TorchPlacementManager : MonoBehaviour
             return;
         }
 
-        if (terrainManager.VoxelManager == null)
-        {
-            Debug.LogError("TorchPlacementManager: TerrainManager.VoxelManager is not configured.", this);
-            return;
-        }
+        if (!ValidateVoxelManager()) return;
 
         terrainManager.VoxelManager.TerrainCellsChanged -= HandleTerrainCellsChanged;
         terrainManager.VoxelManager.TerrainCellsChanged += HandleTerrainCellsChanged;
@@ -290,13 +364,83 @@ public class TorchPlacementManager : MonoBehaviour
         }
 
         persistence.torchPlacements.Clear();
-        foreach (Vector3Int blockPosition in torchesByBlock.Keys)
+        foreach (VoxelCellKey placementAnchor in torchesByPlacementAnchor.Keys)
         {
             persistence.torchPlacements.Add(new TorchPlacementData
             {
-                blockPosition = blockPosition
+                blockPosition = placementAnchor.blockPosition,
+                localVoxelPosition = placementAnchor.localVoxelPosition
             });
         }
+    }
+
+    private bool TryGetPlacementAnchorFromBlockPosition(Vector3Int blockPosition, out VoxelCellKey placementAnchor)
+    {
+        if (!ValidateTerrainReferences())
+        {
+            placementAnchor = default;
+            return false;
+        }
+
+        Vector3 worldPosition = GetBlockWorldPosition(blockPosition);
+        if (!TryGetPlacementCellAtWorldPosition(worldPosition, out VoxelCellKey targetCell))
+        {
+            placementAnchor = default;
+            return false;
+        }
+
+        return TryGetPlacementAnchor(targetCell, out placementAnchor);
+    }
+
+    private bool TryGetPlacementAnchor(VoxelCellKey targetCell, out VoxelCellKey placementAnchor)
+    {
+        placementAnchor = default;
+        if (!ValidateTerrainReferences())
+        {
+            return false;
+        }
+
+        if (!ValidateVoxelManager())
+        {
+            return false;
+        }
+
+        int side = Mathf.Max(1, terrainManager.Settings.voxelsPerBlock);
+        Vector3Int blockPosition = targetCell.blockPosition;
+        Vector3Int localVoxelPosition = targetCell.localVoxelPosition - Vector3Int.one * (side / 2);
+        if (!terrainManager.VoxelManager.NormalizeVoxelPosition(ref blockPosition, ref localVoxelPosition))
+        {
+            return false;
+        }
+
+        placementAnchor = new VoxelCellKey(blockPosition, localVoxelPosition);
+        return true;
+    }
+
+    private VoxelCellKey OffsetCell(VoxelCellKey origin, Vector3Int localOffset)
+    {
+        Vector3Int blockPosition = origin.blockPosition;
+        Vector3Int localVoxelPosition = origin.localVoxelPosition + localOffset;
+        if (!terrainManager.VoxelManager.NormalizeVoxelPosition(ref blockPosition, ref localVoxelPosition))
+        {
+            Debug.LogError(
+                $"TorchPlacementManager: failed to normalize voxel cell. origin={origin.blockPosition}/{origin.localVoxelPosition}, offset={localOffset}",
+                this);
+            return origin;
+        }
+
+        return new VoxelCellKey(blockPosition, localVoxelPosition);
+    }
+
+    private Vector3 GetPlacementWorldPosition(VoxelCellKey placementAnchor)
+    {
+        int side = Mathf.Max(1, terrainManager.Settings.voxelsPerBlock);
+        float voxelWorldSize = terrainManager.Settings.blockSize / side;
+        Vector3 anchorWorldPosition = terrainManager.VoxelManager.CalculateWorldPosition(
+            placementAnchor.blockPosition,
+            placementAnchor.localVoxelPosition);
+        float centerOffset = (side - 1) * 0.5f * voxelWorldSize;
+        return anchorWorldPosition + Vector3.one * centerOffset;
     }
 
     private Vector3 GetBlockWorldPosition(Vector3Int blockPosition)
@@ -347,6 +491,22 @@ public class TorchPlacementManager : MonoBehaviour
         if (terrainManager == null)
         {
             Debug.LogError("TorchPlacementManager: TerrainManager is not configured.", this);
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool ValidateVoxelManager()
+    {
+        if (!ValidateTerrainReferences())
+        {
+            return false;
+        }
+
+        if (terrainManager.VoxelManager == null)
+        {
+            Debug.LogError("TorchPlacementManager: TerrainManager.VoxelManager is not configured.", this);
             return false;
         }
 

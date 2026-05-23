@@ -20,6 +20,7 @@ public class FacilityUpgradeProgressRecord
 public class TorchPlacementData
 {
     public Vector3Int blockPosition;
+    public Vector3Int localVoxelPosition;
 }
 
 /// <summary>
@@ -342,7 +343,8 @@ public class GameDataPersistenceManager : MonoBehaviour
 
             copy.Add(new TorchPlacementData
             {
-                blockPosition = record.blockPosition
+                blockPosition = record.blockPosition,
+                localVoxelPosition = record.localVoxelPosition
             });
         }
 
