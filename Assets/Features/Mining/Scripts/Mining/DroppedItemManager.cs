@@ -69,7 +69,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
     [Header("Dropped Item Visual Brightness")]
     [SerializeField] private MiningLightManager miningLightManager;
-    [SerializeField, Range(0f, 1f)] private float minDroppedItemVisualBrightness = 0.05f;
+    [SerializeField, Range(0f, 1f)] private float droppedItemVisualBrightnessOffset = 0.05f;
     [SerializeField, Min(1)] private int maxBrightnessUpdatesPerFrame = 432;
     [SerializeField, Range(0f, 0.49f)] private float brightnessCornerLocalInset = 0.02f;
 
@@ -467,7 +467,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
         if (miningLightManager == null)
         {
-            item.SetVisualBrightness(minDroppedItemVisualBrightness);
+            item.SetVisualBrightness(droppedItemVisualBrightnessOffset);
             return;
         }
 
@@ -486,14 +486,14 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                 if (!brightnessSamplingFailureLogged)
                 {
                     brightnessSamplingFailureLogged = true;
-                    Debug.LogError("DroppedItemManager: failed to sample dropped item brightness. Minimum visual brightness will be used for affected items.", this);
+                    Debug.LogError("DroppedItemManager: failed to sample dropped item brightness. Brightness offset will be used for affected items.", this);
                 }
 
-                item.SetVisualBrightness(minDroppedItemVisualBrightness);
+                item.SetVisualBrightness(droppedItemVisualBrightnessOffset);
                 return;
             }
 
-            item.SetVisualBrightness(Mathf.Max(minDroppedItemVisualBrightness, sampledBrightness));
+            item.SetVisualBrightness(Mathf.Clamp01(sampledBrightness + droppedItemVisualBrightnessOffset));
         }
     }
 
@@ -2343,7 +2343,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         maxQueuedDropSpawnMilliseconds = Mathf.Max(0f, maxQueuedDropSpawnMilliseconds);
         dropQueueWarningThreshold = Mathf.Max(1, dropQueueWarningThreshold);
         maxFluidTickItemsPerFixedUpdate = Mathf.Max(1, maxFluidTickItemsPerFixedUpdate);
-        minDroppedItemVisualBrightness = Mathf.Clamp01(minDroppedItemVisualBrightness);
+        droppedItemVisualBrightnessOffset = Mathf.Clamp01(droppedItemVisualBrightnessOffset);
         maxBrightnessUpdatesPerFrame = Mathf.Max(1, maxBrightnessUpdatesPerFrame);
         brightnessCornerLocalInset = Mathf.Clamp(brightnessCornerLocalInset, 0f, 0.49f);
     }
