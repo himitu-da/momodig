@@ -10,6 +10,10 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         new ProfilerMarker("DroppedItemManager.SpawnQueuedDrop");
     private static readonly ProfilerMarker SpawnInventoryDropMarker =
         new ProfilerMarker("DroppedItemManager.SpawnInventoryDrop");
+    private static readonly ProfilerMarker UpdateDroppedItemBrightnessMarker =
+        new ProfilerMarker("DroppedItemManager.UpdateDroppedItemBrightness");
+    private static readonly ProfilerMarker SampleDroppedItemBrightnessMarker =
+        new ProfilerMarker("DroppedItemManager.SampleDroppedItemBrightness");
 
     [Header("アイテム管理設定")]
     [SerializeField] private float _wakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
@@ -62,6 +66,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     [SerializeField, Min(1), InspectorName("Max Fluid Tick Items Per FixedUpdate")]
     [Tooltip("1回のFixedUpdateで流体物理を処理するDroppedItem数の上限。処理順はround-robinで分散されます。")]
     private int maxFluidTickItemsPerFixedUpdate = 432;
+
+    [Header("Dropped Item Visual Brightness")]
+    [SerializeField] private MiningLightManager miningLightManager;
+    [SerializeField, Range(0f, 1f)] private float droppedItemVisualBrightnessOffset = 0.05f;
+    [SerializeField, Min(1)] private int maxBrightnessUpdatesPerFrame = 432;
+    [SerializeField, Range(0f, 0.49f)] private float brightnessCornerLocalInset = 0.02f;
 
     public float WakeUpRadiusMultiplier => _wakeUpRadiusMultiplier;
     
@@ -166,6 +176,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     private readonly HashSet<DroppedItem> upwardWakeVisited = new HashSet<DroppedItem>();
     private readonly List<float> reusableCandidateDistances = new List<float>(128);
     private readonly Vector3[] supportSampleBuffer = new Vector3[5];
+    private readonly Vector3[] brightnessSampleBuffer = new Vector3[DroppedItem.VisualBrightnessCornerCount];
     private readonly Collider[] overlapBuffer = new Collider[2048];
     private TerrainManager cachedTerrainManager;
     private int dynamicDropLayer = -1;
@@ -174,6 +185,8 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     private bool dropQueueThresholdWarningIssued;
     private bool dropQueueSettingsErrorLogged;
     private bool missingFluidManagerLogged;
+    private bool missingMiningLightManagerLogged;
+    private bool brightnessSamplingFailureLogged;
 
     // 静止・起床ロジックの定数
     private const float SleepCheckInterval = 0.2f; // 0.1秒ごとにチェック
@@ -184,6 +197,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     private float sleepCheckTimer = 0f;
     private float solidificationCheckTimer = 0f;
     private float nextAnchoredDebugLogTime = 0f;
+    private int nextBrightnessItemIndex;
 
     void Awake()
     {
@@ -296,6 +310,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         CleanupExpiredQueuedInitialForceSkips();
         ProcessQueuedDropSpawns();
         ProcessInvalidatedQueue(32);
+        UpdateDroppedItemBrightness();
         solidificationCheckTimer += Time.deltaTime;
         if (solidificationCheckTimer >= SleepCheckInterval)
         {
@@ -392,6 +407,111 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             processedCount++;
             nextFluidTickCandidateIndex = currentIndex + 1;
             NormalizeFluidTickCandidateIndex();
+        }
+    }
+
+    private void UpdateDroppedItemBrightness()
+    {
+        if (activeItems.Count == 0)
+        {
+            nextBrightnessItemIndex = 0;
+            return;
+        }
+
+        if (miningLightManager == null)
+        {
+            if (!missingMiningLightManagerLogged)
+            {
+                missingMiningLightManagerLogged = true;
+                Debug.LogError("DroppedItemManager: MiningLightManager is not configured. Dropped item brightness will use the current material value.", this);
+            }
+
+            return;
+        }
+
+        missingMiningLightManagerLogged = false;
+        using (UpdateDroppedItemBrightnessMarker.Auto())
+        {
+            int startingItemCount = activeItems.Count;
+            int updateBudget = Mathf.Min(Mathf.Max(1, maxBrightnessUpdatesPerFrame), startingItemCount);
+            int scannedCount = 0;
+            int updatedCount = 0;
+            NormalizeBrightnessItemIndex();
+
+            while (activeItems.Count > 0 &&
+                scannedCount < startingItemCount &&
+                updatedCount < updateBudget)
+            {
+                int currentIndex = nextBrightnessItemIndex;
+                DroppedItem item = activeItems[currentIndex];
+                scannedCount++;
+
+                if (item != null && item.gameObject.activeInHierarchy)
+                {
+                    ApplyDroppedItemBrightness(item);
+                    updatedCount++;
+                }
+
+                nextBrightnessItemIndex = currentIndex + 1;
+                NormalizeBrightnessItemIndex();
+            }
+        }
+    }
+
+    private void ApplyDroppedItemBrightness(DroppedItem item)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        if (miningLightManager == null)
+        {
+            item.SetVisualBrightness(droppedItemVisualBrightnessOffset);
+            return;
+        }
+
+        using (SampleDroppedItemBrightnessMarker.Auto())
+        {
+            int sampleCount = item.GetVisualBrightnessCornerSamples(
+                brightnessSampleBuffer,
+                brightnessCornerLocalInset);
+
+            if (sampleCount != DroppedItem.VisualBrightnessCornerCount ||
+                !miningLightManager.TrySampleAverageBrightnessAtWorldPositions(
+                    brightnessSampleBuffer,
+                    sampleCount,
+                    out float sampledBrightness))
+            {
+                if (!brightnessSamplingFailureLogged)
+                {
+                    brightnessSamplingFailureLogged = true;
+                    Debug.LogError("DroppedItemManager: failed to sample dropped item brightness. Brightness offset will be used for affected items.", this);
+                }
+
+                item.SetVisualBrightness(droppedItemVisualBrightnessOffset);
+                return;
+            }
+
+            item.SetVisualBrightness(Mathf.Clamp01(sampledBrightness + droppedItemVisualBrightnessOffset));
+        }
+    }
+
+    private void NormalizeBrightnessItemIndex()
+    {
+        if (activeItems.Count == 0)
+        {
+            nextBrightnessItemIndex = 0;
+            return;
+        }
+
+        if (nextBrightnessItemIndex < 0)
+        {
+            nextBrightnessItemIndex = 0;
+        }
+        else if (nextBrightnessItemIndex >= activeItems.Count)
+        {
+            nextBrightnessItemIndex = 0;
         }
     }
 
@@ -1276,6 +1396,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                     droppedItem.ItemCollider.enabled = true;
                 }
 
+                ApplyDroppedItemBrightness(droppedItem);
                 itemRigidbody.WakeUp();
             }
 
@@ -1413,6 +1534,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                 request.textureExtractor);
 
             DroppedItem droppedItem = item.GetComponent<DroppedItem>();
+            ApplyDroppedItemBrightness(droppedItem);
             if (request.applyInitialForce)
             {
                 ApplyMiningForceToItem(droppedItem, request.miningInfo);
@@ -2179,6 +2301,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                 }
 
                 droppedItem.ApplyFaceTextureData(savedFaceData, tex1, tex2);
+                ApplyDroppedItemBrightness(droppedItem);
 
                 if (itemRigidbody != null)
                 {
@@ -2212,4 +2335,17 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
                                     RigidbodyConstraints.FreezeRotationX |
                                     RigidbodyConstraints.FreezeRotationY;
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        maxQueuedDropSpawnsPerFrame = Mathf.Max(1, maxQueuedDropSpawnsPerFrame);
+        maxQueuedDropSpawnMilliseconds = Mathf.Max(0f, maxQueuedDropSpawnMilliseconds);
+        dropQueueWarningThreshold = Mathf.Max(1, dropQueueWarningThreshold);
+        maxFluidTickItemsPerFixedUpdate = Mathf.Max(1, maxFluidTickItemsPerFixedUpdate);
+        droppedItemVisualBrightnessOffset = Mathf.Clamp01(droppedItemVisualBrightnessOffset);
+        maxBrightnessUpdatesPerFrame = Mathf.Max(1, maxBrightnessUpdatesPerFrame);
+        brightnessCornerLocalInset = Mathf.Clamp(brightnessCornerLocalInset, 0f, 0.49f);
+    }
+#endif
 }

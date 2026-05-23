@@ -4,14 +4,17 @@ using UnityEngine.Rendering;
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
 [RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(DroppedItem))]
 public class DroppedItemOutline : MonoBehaviour
 {
     private static readonly int OutlineIntensityID = Shader.PropertyToID("_OutlineIntensity");
     private static readonly int OutlineColorID = Shader.PropertyToID("_OutlineColor");
     private static readonly int OutlineWidthID = Shader.PropertyToID("_OutlineWidth");
     private static readonly int SurfaceOffsetID = Shader.PropertyToID("_SurfaceOffset");
+    private static readonly int MiningBrightnessID = Shader.PropertyToID("_MiningBrightness");
     private const float IntensityVisibilityThreshold = 0.001f;
     private const float IntensityChangeEpsilon = 0.0001f;
+    private const float BrightnessChangeEpsilon = 0.001f;
 
     [Header("Voxel Speed Gate")]
     [SerializeField, InspectorName("Voxel Hide Velocity"), Tooltip("Hide the outline while this voxel moves at or above this speed (m/s).")]
@@ -24,6 +27,8 @@ public class DroppedItemOutline : MonoBehaviour
     private float outlineWidth = 0.025f;
     [SerializeField, InspectorName("Surface Offset"), Tooltip("Tiny world-space offset that keeps surface edge lines above the voxel faces.")]
     private float surfaceOffset = 0.002f;
+    [SerializeField, Range(0f, 1f), InspectorName("Brightness Offset"), Tooltip("Brightness added on top of the dropped item's visual brightness.")]
+    private float brightnessOffset = 0.25f;
 
     [Header("Outline Strength")]
     [SerializeField, Range(0f, 1f), InspectorName("Full Intensity"), Tooltip("Outline intensity before the player speed multiplier is applied.")]
@@ -49,6 +54,7 @@ public class DroppedItemOutline : MonoBehaviour
     private static bool missingManagerLogged;
 
     private Rigidbody rb;
+    private DroppedItem droppedItem;
     private MeshFilter parentMeshFilter;
     private MeshRenderer outlineRenderer;
     private MeshFilter outlineMeshFilter;
@@ -58,11 +64,13 @@ public class DroppedItemOutline : MonoBehaviour
     private Color appliedOutlineColor;
     private float appliedOutlineWidth = float.NaN;
     private float appliedSurfaceOffset = float.NaN;
+    private float appliedMiningBrightness = float.NaN;
     private bool appliedRendererEnabled;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        droppedItem = GetComponent<DroppedItem>();
         parentMeshFilter = GetComponent<MeshFilter>();
         mpb = new MaterialPropertyBlock();
 
@@ -92,6 +100,7 @@ public class DroppedItemOutline : MonoBehaviour
         voxelHideVelocityThreshold = Mathf.Max(0f, voxelHideVelocityThreshold);
         outlineWidth = Mathf.Max(0f, outlineWidth);
         surfaceOffset = Mathf.Max(0f, surfaceOffset);
+        brightnessOffset = Mathf.Clamp01(brightnessOffset);
         fullIntensity = Mathf.Clamp01(fullIntensity);
         playerStoppedInputThreshold = Mathf.Clamp01(playerStoppedInputThreshold);
         playerMovingInputThreshold = Mathf.Clamp01(Mathf.Max(playerStoppedInputThreshold, playerMovingInputThreshold));
@@ -106,11 +115,13 @@ public class DroppedItemOutline : MonoBehaviour
         if (IsVoxelMovingTooFast())
         {
             SetCurrentIntensity(0f);
+            ApplyToMaterial();
             return;
         }
 
         float target = fullIntensity * ComputePlayerInputMultiplier(playerInputMagnitude);
         SetCurrentIntensity(MoveIntensityToward(currentIntensity, target, deltaTime));
+        ApplyToMaterial();
     }
 
     private float MoveIntensityToward(float current, float target, float dt)
@@ -275,6 +286,7 @@ public class DroppedItemOutline : MonoBehaviour
         appliedIntensity = float.NaN;
         appliedOutlineWidth = float.NaN;
         appliedSurfaceOffset = float.NaN;
+        appliedMiningBrightness = float.NaN;
         ApplyToMaterial();
     }
 
@@ -286,6 +298,7 @@ public class DroppedItemOutline : MonoBehaviour
         }
 
         bool shouldRender = currentIntensity > IntensityVisibilityThreshold;
+        float miningBrightness = CalculateOutlineBrightness();
         if (outlineRenderer.enabled != shouldRender)
         {
             outlineRenderer.enabled = shouldRender;
@@ -296,7 +309,8 @@ public class DroppedItemOutline : MonoBehaviour
             Mathf.Abs(appliedIntensity - currentIntensity) <= IntensityChangeEpsilon &&
             appliedOutlineColor == outlineColor &&
             Mathf.Abs(appliedOutlineWidth - outlineWidth) <= Mathf.Epsilon &&
-            Mathf.Abs(appliedSurfaceOffset - surfaceOffset) <= Mathf.Epsilon;
+            Mathf.Abs(appliedSurfaceOffset - surfaceOffset) <= Mathf.Epsilon &&
+            Mathf.Abs(appliedMiningBrightness - miningBrightness) <= BrightnessChangeEpsilon;
 
         if (valuesUnchanged)
         {
@@ -308,6 +322,7 @@ public class DroppedItemOutline : MonoBehaviour
         mpb.SetFloat(OutlineWidthID, outlineWidth);
         mpb.SetFloat(SurfaceOffsetID, surfaceOffset);
         mpb.SetFloat(OutlineIntensityID, currentIntensity);
+        mpb.SetFloat(MiningBrightnessID, miningBrightness);
         outlineRenderer.SetPropertyBlock(mpb);
 
         appliedRendererEnabled = shouldRender;
@@ -315,5 +330,12 @@ public class DroppedItemOutline : MonoBehaviour
         appliedOutlineColor = outlineColor;
         appliedOutlineWidth = outlineWidth;
         appliedSurfaceOffset = surfaceOffset;
+        appliedMiningBrightness = miningBrightness;
+    }
+
+    private float CalculateOutlineBrightness()
+    {
+        float itemBrightness = droppedItem != null ? droppedItem.VisualBrightness : 1f;
+        return Mathf.Clamp01(itemBrightness + brightnessOffset);
     }
 }

@@ -368,6 +368,48 @@ public class MiningLightManager : MonoBehaviour
         return composedBrightness.TryGetValue(key, out brightness);
     }
 
+    public bool TrySampleAverageBrightnessAtWorldPositions(
+        Vector3[] worldPositions,
+        int positionCount,
+        out float averageBrightness)
+    {
+        averageBrightness = 0f;
+        if (worldPositions == null)
+        {
+            Debug.LogError("MiningLightManager: world position sample buffer is null.", this);
+            return false;
+        }
+
+        if (positionCount <= 0 || positionCount > worldPositions.Length)
+        {
+            Debug.LogError(
+                $"MiningLightManager: invalid world position sample count. Count={positionCount}, BufferLength={worldPositions.Length}",
+                this);
+            return false;
+        }
+
+        if (!ValidateConfiguration())
+        {
+            return false;
+        }
+
+        float totalBrightness = 0f;
+        for (int i = 0; i < positionCount; i++)
+        {
+            if (!terrainManager.VoxelManager.TryGetVoxelCellAtWorldPosition(worldPositions[i], out VoxelCellKey key))
+            {
+                return false;
+            }
+
+            totalBrightness += TryGetBrightness(key, out float brightness)
+                ? Mathf.Clamp01(brightness)
+                : 0f;
+        }
+
+        averageBrightness = totalBrightness / positionCount;
+        return true;
+    }
+
     public bool SpawnTemporaryLight(
         Vector3 worldPosition,
         MiningLightProfile profile,
