@@ -34,7 +34,7 @@ Material:
     m_Ints: []
     m_Floats:
     - _ClipKeepSign: -1
-    - _ClipWorldZ: 1
+    - _ClipWorldZ: 0.5
     - _Cutoff: 0.5
     m_Colors:
     - _BaseColor: {r: 1, g: 0.8774591, b: 0.24056602, a: 1}
