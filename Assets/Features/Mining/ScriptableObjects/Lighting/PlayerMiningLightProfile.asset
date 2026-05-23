@@ -17,6 +17,6 @@ MonoBehaviour:
   airCellTransmission: 0.7
   solidCellTransmission: 0.5
   minBrightness: 0.01
-  maxPropagationCellsPerLightPerFrame: 144
-  maxPropagationCellsPerRunPerFrame: 2
+  maxPropagationCellsPerLightPerFrame: 432
+  maxPropagationCellsPerRunPerFrame: 9
   sourceGizmoColor: {r: 1, g: 1, b: 1, a: 0.8}
