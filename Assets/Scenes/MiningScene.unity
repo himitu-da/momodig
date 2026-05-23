@@ -2466,7 +2466,8 @@ MonoBehaviour:
   CartCapacity:
     BaseValue: 50
   minecartCapacityUIPrefab: {fileID: 389274024485993804, guid: 393ff803e241034418760f2c9c02f0e5, type: 3}
-  worldCanvasTransform: {fileID: 0}
+  worldCanvasTransform: {fileID: 421652223}
+  uiWorldCamera: {fileID: 330585545}
   uiOffset: {x: 0, y: 1, z: 0}
   groundStationPosition: {x: 0, y: 2, z: 0}
   followMoveSpeed:
