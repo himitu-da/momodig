@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: TorchLightProfile
   m_EditorClassIdentifier: 
   brightness: 1
-  sourceRadiusCells: 2
-  falloffStartDistanceCells: 1
-  airCellTransmission: 0.88
+  sourceRadiusCells: 0
+  falloffStartDistanceCells: 3
+  airCellTransmission: 0.7
   solidCellTransmission: 0.7
-  minBrightness: 0.04
+  minBrightness: 0.01
   maxPropagationCellsPerLightPerFrame: 432
-  maxPropagationCellsPerRunPerFrame: 16
+  maxPropagationCellsPerRunPerFrame: 8
   sourceGizmoColor: {r: 1, g: 0.72, b: 0.25, a: 0.8}
