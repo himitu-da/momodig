@@ -20,6 +20,9 @@ public class MiningToolsController : MonoBehaviour
     [Header("Light")]
     [SerializeField] private MiningLightManager miningLightManager;
 
+    [Header("Placement")]
+    [SerializeField] private TorchPlacementManager torchPlacementManager;
+
     // Behaviour 駆動用キャッシュと参照
     private readonly Dictionary<MiningTool, MiningToolBehaviour> _mainBehaviourCache = new Dictionary<MiningTool, MiningToolBehaviour>();
     private readonly Dictionary<MiningTool, MiningToolBehaviour> _subBehaviourCache = new Dictionary<MiningTool, MiningToolBehaviour>();
@@ -425,6 +428,7 @@ public class MiningToolsController : MonoBehaviour
         {
             behaviour.gameObject.name = tool.name; // ツール名を設定
             behaviour.SetMiningLightManager(miningLightManager);
+            behaviour.SetTorchPlacementManager(torchPlacementManager);
             behaviour.gameObject.SetActive(false);
             cache[tool] = behaviour;
         }
@@ -450,6 +454,7 @@ public class MiningToolsController : MonoBehaviour
             _mainBehaviour.SetToolAnimator(_mainBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _mainBehaviour.SetDigger(_mainDigger);  // MainDiggerを渡す
             _mainBehaviour.SetMiningLightManager(miningLightManager);
+            _mainBehaviour.SetTorchPlacementManager(torchPlacementManager);
             _mainBehaviour.SetRole(ToolActionRole.Main);
             _mainBehaviour.gameObject.SetActive(true);
             _mainBehaviour.OnEquip(user);
@@ -481,6 +486,7 @@ public class MiningToolsController : MonoBehaviour
             _subBehaviour.SetToolAnimator(_subBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _subBehaviour.SetDigger(_subDigger);  // SubDiggerを渡す
             _subBehaviour.SetMiningLightManager(miningLightManager);
+            _subBehaviour.SetTorchPlacementManager(torchPlacementManager);
             _subBehaviour.SetRole(ToolActionRole.Sub);
             _subBehaviour.gameObject.SetActive(true);
             _subBehaviour.OnEquip(user);

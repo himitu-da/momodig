@@ -83,6 +83,7 @@ public class TerrainManager : MonoBehaviour
     public VoxelManager VoxelManager => voxelManager;
     public FluidManager FluidManager => fluidManager;
     public TerrainDataManager TerrainDataManager => terrainDataManager;
+    public float BackgroundWorldZ => settings.center.z + settings.blockSize * 0.5f;
 
     void Awake()
     {

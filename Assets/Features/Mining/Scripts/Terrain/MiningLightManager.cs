@@ -9,7 +9,7 @@ public class MiningLightManager : MonoBehaviour
     private static readonly ProfilerMarker BurstLightUpdateMarker = new ProfilerMarker("MiningLightManager.BurstLightUpdate");
     private static readonly ProfilerMarker DrawGizmosMarker = new ProfilerMarker("MiningLightManager.DrawGizmos");
 
-    private static readonly Vector3Int[] NeighborOffsets =
+    private static readonly Vector3Int[] OrthogonalNeighborOffsets =
     {
         Vector3Int.right,
         Vector3Int.left,
@@ -18,6 +18,62 @@ public class MiningLightManager : MonoBehaviour
         new Vector3Int(0, 0, 1),
         new Vector3Int(0, 0, -1)
     };
+
+    private static readonly Vector3Int[] FaceAndEdgeNeighborOffsets = BuildFaceAndEdgeNeighborOffsets();
+    private static readonly Vector3Int[] FullNeighborOffsets = BuildFullNeighborOffsets();
+
+    private static Vector3Int[] BuildFaceAndEdgeNeighborOffsets()
+    {
+        Vector3Int[] offsets = new Vector3Int[18];
+        int index = 0;
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                for (int z = -1; z <= 1; z++)
+                {
+                    if (x == 0 && y == 0 && z == 0)
+                    {
+                        continue;
+                    }
+
+                    if (Mathf.Abs(x) + Mathf.Abs(y) + Mathf.Abs(z) == 3)
+                    {
+                        continue;
+                    }
+
+                    offsets[index] = new Vector3Int(x, y, z);
+                    index++;
+                }
+            }
+        }
+
+        return offsets;
+    }
+
+    private static Vector3Int[] BuildFullNeighborOffsets()
+    {
+        Vector3Int[] offsets = new Vector3Int[26];
+        int index = 0;
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                for (int z = -1; z <= 1; z++)
+                {
+                    if (x == 0 && y == 0 && z == 0)
+                    {
+                        continue;
+                    }
+
+                    offsets[index] = new Vector3Int(x, y, z);
+                    index++;
+                }
+            }
+        }
+
+        return offsets;
+    }
 
     [Header("Required References")]
     [SerializeField] private TerrainManager terrainManager;
@@ -1178,9 +1234,10 @@ public class MiningLightManager : MonoBehaviour
             return;
         }
 
-        for (int i = 0; i < NeighborOffsets.Length; i++)
+        Vector3Int[] neighborOffsets = GetNeighborOffsets(job.profile);
+        for (int i = 0; i < neighborOffsets.Length; i++)
         {
-            if (!TryGetOffsetCell(current.key, NeighborOffsets[i], out VoxelCellKey neighbor) ||
+            if (!TryGetOffsetCell(current.key, neighborOffsets[i], out VoxelCellKey neighbor) ||
                 !IsLightPropagationCellCached(propagation, neighbor))
             {
                 continue;
@@ -1200,6 +1257,26 @@ public class MiningLightManager : MonoBehaviour
             {
                 job.frontier.Enqueue(new FrontierCell(neighbor, nextBrightness, nextDistanceFromSourceCells));
             }
+        }
+    }
+
+    private static Vector3Int[] GetNeighborOffsets(MiningLightProfile profile)
+    {
+        if (profile == null)
+        {
+            return OrthogonalNeighborOffsets;
+        }
+
+        switch (profile.PropagationNeighborhood)
+        {
+            case MiningLightPropagationNeighborhood.Orthogonal6:
+                return OrthogonalNeighborOffsets;
+            case MiningLightPropagationNeighborhood.FaceAndEdge18:
+                return FaceAndEdgeNeighborOffsets;
+            case MiningLightPropagationNeighborhood.Full26:
+                return FullNeighborOffsets;
+            default:
+                return OrthogonalNeighborOffsets;
         }
     }
 

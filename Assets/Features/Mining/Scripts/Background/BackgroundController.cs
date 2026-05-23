@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 public class BackgroundController : MonoBehaviour
 {
+    [Header("Required References")]
+    public TerrainManager terrainManager;
     public TerrainDataManager terrainDataManager;
     public Transform playerTransform;
     public GameObject backgroundTilePrefab; // SpriteRendererを持つプレハブ
@@ -23,24 +25,42 @@ public class BackgroundController : MonoBehaviour
 
     void Start()
     {
+        if (!ValidateReferences())
+        {
+            enabled = false;
+            return;
+        }
+    }
+
+    private bool ValidateReferences()
+    {
+        bool isValid = true;
+
+        if (terrainManager == null)
+        {
+            Debug.LogError("BackgroundController: TerrainManager is not assigned.", this);
+            isValid = false;
+        }
+
+        if (terrainDataManager == null)
+        {
+            Debug.LogError("BackgroundController: TerrainDataManager is not assigned.", this);
+            isValid = false;
+        }
+
         if (playerTransform == null)
         {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null) playerTransform = player.transform;
-            else
-            {
-                Debug.LogError("Player not found.");
-                enabled = false;
-                return;
-            }
+            Debug.LogError("BackgroundController: Player Transform is not assigned.", this);
+            isValid = false;
         }
 
         if (backgroundTilePrefab == null)
         {
-            Debug.LogError("Background Tile Prefab is not assigned.");
-            enabled = false;
-            return;
+            Debug.LogError("BackgroundController: Background Tile Prefab is not assigned.", this);
+            isValid = false;
         }
+
+        return isValid;
     }
 
     void Update()
@@ -98,7 +118,7 @@ public class BackgroundController : MonoBehaviour
     void CreateTile(Vector2Int gridPos)
     {
         // グリッド座標からワールド座標を計算
-        Vector3 worldPos = new Vector3(gridPos.x * tileSize.x, gridPos.y * tileSize.y, transform.position.z);
+        Vector3 worldPos = new Vector3(gridPos.x * tileSize.x, gridPos.y * tileSize.y, terrainManager.BackgroundWorldZ);
         
         GameObject newTile = Instantiate(backgroundTilePrefab, worldPos, Quaternion.identity, transform);
         newTile.transform.localScale = Vector3.one; // スケールをリセット
@@ -118,6 +138,11 @@ public class BackgroundController : MonoBehaviour
         if (texture != null)
         {
             SpriteRenderer tileRenderer = newTile.GetComponent<SpriteRenderer>();
+            if (tileRenderer == null)
+            {
+                Debug.LogError("BackgroundController: Background Tile Prefab has no SpriteRenderer.", newTile);
+                return;
+            }
             
             // プレハブのスプライトを差し替えるのではなく、テクスチャだけを上書きする
             propertyBlock.SetTexture("_MainTex", texture);
