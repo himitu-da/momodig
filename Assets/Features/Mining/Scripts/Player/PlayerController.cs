@@ -94,9 +94,12 @@ public class PlayerController : MonoBehaviour
     public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
     private PlayerVisualsController playerVisualsController; // ビジュアル担当
+    private bool controlLocked;
+    private bool itemPickupLocked;
     
     // MiningPassageControllerからの制御用
     public bool IsInPassage { get; set; } = false;
+    public bool IsControlLocked => controlLocked;
     
     // 接触中のアイテム管理用
     private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
@@ -298,6 +301,16 @@ public class PlayerController : MonoBehaviour
     // 物理演算の更新タイミングで呼ばれる
     void FixedUpdate()
     {
+        if (controlLocked)
+        {
+            ResetMotion();
+            if (playerVisualsController != null)
+            {
+                playerVisualsController.UpdateMovementAnimation(Vector3.zero);
+            }
+            return;
+        }
+
         Vector3 moveDirection;
         Vector3 targetVelocity;
 
@@ -379,6 +392,11 @@ public class PlayerController : MonoBehaviour
 
     private void OnMainMine(InputAction.CallbackContext context)
     {
+        if (controlLocked)
+        {
+            return;
+        }
+
         // UI要素上をクリックした場合は、採掘処理を行わない
         if (IsPointerOverNonMineableUI())
         {
@@ -397,6 +415,11 @@ public class PlayerController : MonoBehaviour
 
     private void OnSubMine(InputAction.CallbackContext context)
     {
+        if (controlLocked)
+        {
+            return;
+        }
+
         // UI要素上をクリックした場合は、採掘処理を行わない
         if (IsPointerOverNonMineableUI())
         {
@@ -444,6 +467,11 @@ public class PlayerController : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        if (itemPickupLocked)
+        {
+            return;
+        }
+
         // 衝突したオブジェクトが "DroppedItem" タグを持っているか確認
         if (collision.gameObject.CompareTag("DroppedItem"))
         {
@@ -518,6 +546,11 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private void TryPickupItem(GameObject itemObject)
     {
+        if (itemPickupLocked)
+        {
+            return;
+        }
+
         // 周辺アイテムを起床させる（インターフェース経由）
         if (itemManager != null)
         {
@@ -761,6 +794,47 @@ public class PlayerController : MonoBehaviour
         // 総数変更時にUIを更新
         UpdateInventoryUI();
         UpdateInventoryCapacityUI();
+    }
+
+    public void SetControlLocked(bool locked)
+    {
+        controlLocked = locked;
+        moveInput = Vector2.zero;
+        if (locked)
+        {
+            ResetMotion();
+        }
+    }
+
+    public void SetItemPickupLocked(bool locked)
+    {
+        itemPickupLocked = locked;
+        if (locked)
+        {
+            contactItems.Clear();
+            pickupRetryCancellationTokenSource?.Cancel();
+            pickupRetryCancellationTokenSource?.Dispose();
+            pickupRetryCancellationTokenSource = null;
+        }
+    }
+
+    public void ResetMotion()
+    {
+        currentFallSpeed = 0f;
+        currentVelocity = Vector3.zero;
+        if (rb == null)
+        {
+            return;
+        }
+
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+    }
+
+    public void TeleportTo(Vector3 position)
+    {
+        transform.position = position;
+        ResetMotion();
     }
 
     /// <summary>

@@ -8,6 +8,8 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         new ProfilerMarker("DroppedItemManager.ProcessQueuedDropSpawns");
     private static readonly ProfilerMarker SpawnQueuedDropMarker =
         new ProfilerMarker("DroppedItemManager.SpawnQueuedDrop");
+    private static readonly ProfilerMarker SpawnInventoryDropMarker =
+        new ProfilerMarker("DroppedItemManager.SpawnInventoryDrop");
 
     [Header("アイテム管理設定")]
     [SerializeField] private float _wakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
@@ -1188,6 +1190,97 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
             Debug.LogWarning(
                 $"DroppedItemManager: queued drop spawn count exceeded threshold. Count={queuedDropSpawns.Count}, Threshold={dropQueueWarningThreshold}",
                 this);
+        }
+    }
+
+    public bool TrySpawnDroppedItemFromVoxelItemData(
+        Vector3 position,
+        VoxelItemData itemData,
+        TerrainDataManager terrainDataManager,
+        Vector3 initialVelocity,
+        Vector3 initialAngularVelocity,
+        out GameObject itemObject)
+    {
+        using (SpawnInventoryDropMarker.Auto())
+        {
+            itemObject = null;
+            const string context = "DroppedItemManager.TrySpawnDroppedItemFromVoxelItemData";
+            if (itemData == null || !itemData.IsValid(context))
+            {
+                return false;
+            }
+
+            if (terrainDataManager == null)
+            {
+                Debug.LogError("DroppedItemManager: TerrainDataManager is not assigned. Cannot spawn inventory drop.", this);
+                return false;
+            }
+
+            BlockData blockData = terrainDataManager.GetBlockDataByName(itemData.blockDataName);
+            if (blockData == null)
+            {
+                Debug.LogError($"DroppedItemManager: BlockData '{itemData.blockDataName}' could not be resolved.", this);
+                return false;
+            }
+
+            if (blockData.droppedItemPrefab == null)
+            {
+                Debug.LogError($"DroppedItemManager: BlockData '{blockData.name}' has no droppedItemPrefab assigned.", blockData);
+                return false;
+            }
+
+            GameObject spawnedItem = GetItem(blockData.droppedItemPrefab);
+            if (spawnedItem == null)
+            {
+                Debug.LogError($"DroppedItemManager: failed to get dropped item instance for '{blockData.name}'.", blockData);
+                return false;
+            }
+
+            spawnedItem.transform.position = position;
+            spawnedItem.transform.rotation = Quaternion.identity;
+
+            if (!VoxelItemVisualUtility.TryApplyAppearance(spawnedItem, itemData, terrainDataManager, context))
+            {
+                ReturnItem(spawnedItem);
+                return false;
+            }
+
+            Rigidbody itemRigidbody = spawnedItem.GetComponent<Rigidbody>();
+            if (itemRigidbody == null)
+            {
+                itemRigidbody = spawnedItem.AddComponent<Rigidbody>();
+            }
+
+            itemRigidbody.mass = Mathf.Max(0.001f, itemData.scale.x * itemData.scale.y * itemData.scale.z * blockData.density);
+            itemRigidbody.isKinematic = false;
+            itemRigidbody.linearVelocity = initialVelocity;
+            itemRigidbody.angularVelocity = initialAngularVelocity;
+            SetDroppedItemConstraints(itemRigidbody);
+
+            if (!spawnedItem.CompareTag("DroppedItem"))
+            {
+                spawnedItem.tag = "DroppedItem";
+            }
+
+            SetItemLayer(spawnedItem, dynamicDropLayer);
+
+            DroppedItem droppedItem = spawnedItem.GetComponent<DroppedItem>();
+            if (droppedItem != null)
+            {
+                droppedItem.ResetSolidificationState();
+                droppedItem.resourceType = itemData.resourceType;
+                droppedItem.blockDataName = itemData.blockDataName;
+                droppedItem.scale = itemData.scale;
+                if (droppedItem.ItemCollider != null)
+                {
+                    droppedItem.ItemCollider.enabled = true;
+                }
+
+                itemRigidbody.WakeUp();
+            }
+
+            itemObject = spawnedItem;
+            return true;
         }
     }
 
