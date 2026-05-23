@@ -130,11 +130,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   lightSource: {fileID: 7010000000000000004}
   sourceTransform: {fileID: 7010000000000000001}
-  queueRenderers:
+  materialRenderers:
   - {fileID: 7010000000000000013}
   - {fileID: 7010000000000000023}
-  renderQueueLayer: 4000
-  renderQueueOffset: 0
 --- !u!114 &7010000000000000004
 MonoBehaviour:
   m_ObjectHideFlags: 0
