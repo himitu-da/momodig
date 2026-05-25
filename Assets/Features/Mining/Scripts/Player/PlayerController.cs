@@ -71,7 +71,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
 
     [Header("流体抵抗設定")]
-    [SerializeField, InspectorName("流体シミュレーション"), Tooltip("同じシーンの FluidManager を割り当てます。未設定なら TerrainManager から自動取得を試みます。")] private FluidManager fluidManager;
+    [SerializeField, InspectorName("流体シミュレーション"), Tooltip("同じシーンの FluidManager を割り当てます。")] private FluidManager fluidManager;
     [SerializeField, InspectorName("抵抗判定に使う Collider"), Tooltip("プレイヤーのどの範囲で水量を測るかに使う Collider です。通常は PlayerCollider を指定します。")] private Collider fluidResistanceCollider;
     [SerializeField, InspectorName("流体抵抗を有効にする"), Tooltip("オフにすると、水による移動抵抗を無効にします。")] private bool enableFluidResistance = true;
     [SerializeField, InspectorName("横方向サンプル数"), Tooltip("Collider 内を横方向に何点読むかです。大きいほど正確ですが少し重くなります。")] private int fluidHorizontalSampleCount = 2;
@@ -108,10 +108,13 @@ public class PlayerController : MonoBehaviour
     // MinecartPlayerInteractionSystemへの参照
     [SerializeField] private MinecartPlayerInteractionSystem minecartInteraction;
 
+    [Header("Scene References")]
+    [SerializeField] private DroppedItemManager droppedItemManager;
+    [SerializeField] private MiningLogSystem miningLogSystem;
+
     // MiningToolsControllerへの参照
     private MiningToolsController miningToolsController;
     private PlayerInventory playerInventory;
-    private MiningLogSystem miningLogSystem;
 
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
@@ -123,14 +126,7 @@ public class PlayerController : MonoBehaviour
             rb.useGravity = false; // Rigidbodyの重力を無効にする
         }
 
-        if (fluidManager == null)
-        {
-            TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
-            if (terrainManager != null)
-            {
-                fluidManager = terrainManager.FluidManager;
-            }
-        }
+        ValidateSceneReferences();
 
         ResolveFluidResistanceCollider();        
         transform.rotation = Quaternion.identity;
@@ -153,52 +149,12 @@ public class PlayerController : MonoBehaviour
     // "SubMine" アクションの登録
     controls.Player.SubMine.performed += OnSubMine;
 
-        // Textコンポーネントを探して、それをscoreTextに追加
-        if (scoreText == null)
-        {
-            var scoreTextObject = GameObject.Find("ScoreText");
-            if (scoreTextObject != null)
-            {
-                scoreText = scoreTextObject.GetComponent<TextMeshProUGUI>();
-            }
-        }
         UpdateScoreText();
-
-        // depthTextを探して設定
-        if (depthText == null)
-        {
-            var depthTextObject = GameObject.Find("DepthText");
-            if (depthTextObject != null)
-            {
-                depthText = depthTextObject.GetComponent<TextMeshProUGUI>();
-            }
-        }
-
-        // inventoryTextを探して設定
-        if (inventoryText == null)
-        {
-            var inventoryTextObject = GameObject.Find("InventoryText");
-            if (inventoryTextObject != null)
-            {
-                inventoryText = inventoryTextObject.GetComponent<TextMeshProUGUI>();
-            }
-        }
-
-        // inventoryCapacityTextを探して設定
-        if (inventoryCapacityText == null)
-        {
-            var inventoryCapacityTextObject = GameObject.Find("InventoryCapacityText");
-            if (inventoryCapacityTextObject != null)
-            {
-                inventoryCapacityText = inventoryCapacityTextObject.GetComponent<TextMeshProUGUI>();
-            }
-        }
         
         // 依存関係の初期化（インターフェース経由）
         playerInventory = new PlayerInventory();
         inventory = playerInventory;
-        itemManager = DroppedItemManager.Instance;
-        miningLogSystem = FindFirstObjectByType<MiningLogSystem>();
+        itemManager = droppedItemManager;
         
         // インベントリイベントの購読
         if (inventory != null)
@@ -224,6 +180,39 @@ public class PlayerController : MonoBehaviour
         if (miningToolsController == null)
         {
             Debug.LogError("MiningToolsControllerが見つかりません。Playerの子オブジェクトにアタッチしてください。");
+        }
+    }
+
+    private void ValidateSceneReferences()
+    {
+        if (fluidManager == null)
+        {
+            Debug.LogError("PlayerController: FluidManager is not assigned.", this);
+        }
+
+        if (depthText == null)
+        {
+            Debug.LogError("PlayerController: DepthText is not assigned.", this);
+        }
+
+        if (inventoryText == null)
+        {
+            Debug.LogError("PlayerController: InventoryText is not assigned.", this);
+        }
+
+        if (inventoryCapacityText == null)
+        {
+            Debug.LogError("PlayerController: InventoryCapacityText is not assigned.", this);
+        }
+
+        if (droppedItemManager == null)
+        {
+            Debug.LogError("PlayerController: DroppedItemManager is not assigned.", this);
+        }
+
+        if (miningLogSystem == null)
+        {
+            Debug.LogError("PlayerController: MiningLogSystem is not assigned.", this);
         }
     }
 

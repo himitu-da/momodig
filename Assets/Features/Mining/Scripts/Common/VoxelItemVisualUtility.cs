@@ -106,12 +106,6 @@ public static class VoxelItemVisualUtility
         return true;
     }
 
-    public static TerrainDataManager ResolveTerrainDataManager()
-    {
-        TerrainManager terrainManager = Object.FindFirstObjectByType<TerrainManager>();
-        return terrainManager != null ? terrainManager.TerrainDataManager : null;
-    }
-
     private static void SetWorldScale(Transform target, Vector3 worldScale)
     {
         Transform parent = target.parent;

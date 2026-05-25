@@ -7,6 +7,8 @@ using System.Collections.Generic;
 /// </summary>
 public class StorageManager : MonoBehaviour
 {
+    [SerializeField] private GameDataPersistenceManager persistenceManager;
+
     // シングルトンインスタンス
     private static StorageManager _instance;
     public static StorageManager Instance
@@ -15,13 +17,9 @@ public class StorageManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindFirstObjectByType<StorageManager>();
-                if (_instance == null)
-                {
-                    GameObject go = new GameObject("StorageManager");
-                    _instance = go.AddComponent<StorageManager>();
-                }
+                Debug.LogError("StorageManager.Instance is not initialized. Place StorageManager in the active scene.");
             }
+
             return _instance;
         }
     }
@@ -33,30 +31,31 @@ public class StorageManager : MonoBehaviour
     {
         if (_instance != null && _instance != this)
         {
-            StorageManager previousInstance = _instance;
-            if (previousInstance.storedResources != null)
+            if (_instance.gameObject.scene == gameObject.scene)
             {
-                storedResources = new Dictionary<ResourceType, int>(previousInstance.storedResources);
-            }
-
-            if (previousInstance.gameObject == gameObject)
-            {
-                Destroy(previousInstance);
-            }
-            else
-            {
-                Destroy(previousInstance.gameObject);
+                Debug.LogError("Multiple StorageManager instances exist in the same scene. Remove the duplicate from the scene.", this);
+                Destroy(gameObject);
+                return;
             }
         }
+
         _instance = this;
         
-        // GameDataPersistenceManagerからリソースをロード
-        if (GameDataPersistenceManager.Instance.storedResources != null)
+        persistenceManager = ResolvePersistenceManager();
+        if (persistenceManager != null && persistenceManager.storedResources != null)
         {
-            storedResources = new Dictionary<ResourceType, int>(GameDataPersistenceManager.Instance.storedResources);
+            storedResources = new Dictionary<ResourceType, int>(persistenceManager.storedResources);
         }
 
         NormalizeStoredResources();
+    }
+
+    void OnDestroy()
+    {
+        if (_instance == this)
+        {
+            _instance = null;
+        }
     }
 
     /// <summary>
@@ -81,7 +80,7 @@ public class StorageManager : MonoBehaviour
         }
         
         // 永続化データも更新
-        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+        PersistStoredResources();
 
         // 現在の貯蔵量を表示
         string storageInfo = "[StorageManager] 現在の貯蔵量: ";
@@ -108,7 +107,7 @@ public class StorageManager : MonoBehaviour
         }
 
         storedResources[type] += amount;
-        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+        PersistStoredResources();
 
         // 現在の貯蔵量を表示
         string storageInfo = "[StorageManager] 現在の貯蔵量: ";
@@ -163,7 +162,7 @@ public class StorageManager : MonoBehaviour
             storedResources[resource.Key] -= resource.Value;
         }
 
-        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+        PersistStoredResources();
         return true;
     }
 
@@ -228,7 +227,34 @@ public class StorageManager : MonoBehaviour
             }
         }
 
-        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+        PersistStoredResources();
+    }
+
+    private GameDataPersistenceManager ResolvePersistenceManager()
+    {
+        if (persistenceManager != null)
+        {
+            return persistenceManager;
+        }
+
+        persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager == null)
+        {
+            Debug.LogError("StorageManager: GameDataPersistenceManager is not assigned.", this);
+        }
+
+        return persistenceManager;
+    }
+
+    private void PersistStoredResources()
+    {
+        GameDataPersistenceManager resolvedPersistenceManager = ResolvePersistenceManager();
+        if (resolvedPersistenceManager == null)
+        {
+            return;
+        }
+
+        resolvedPersistenceManager.storedResources = new Dictionary<ResourceType, int>(storedResources);
     }
 
     private bool CanAddResource(ResourceType type, int amount)

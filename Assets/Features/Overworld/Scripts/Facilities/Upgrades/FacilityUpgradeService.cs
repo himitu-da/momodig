@@ -15,6 +15,7 @@ public class FacilityUpgradeService : MonoBehaviour
 
     private void Awake()
     {
+        persistenceManager = ResolvePersistenceManager();
         if (!ValidateConfiguration(this))
         {
             enabled = false;
@@ -59,6 +60,22 @@ public class FacilityUpgradeService : MonoBehaviour
         }
 
         return isValid;
+    }
+
+    private GameDataPersistenceManager ResolvePersistenceManager()
+    {
+        if (persistenceManager != null)
+        {
+            return persistenceManager;
+        }
+
+        GameDataPersistenceManager resolvedPersistenceManager = GameDataPersistenceManager.Instance;
+        if (resolvedPersistenceManager == null)
+        {
+            Debug.LogError("FacilityUpgradeService: GameDataPersistenceManager is not initialized.", this);
+        }
+
+        return resolvedPersistenceManager;
     }
 
     public List<FacilityUpgradeDefinition> GetUpgrades(FacilityType facilityType)

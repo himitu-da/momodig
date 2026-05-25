@@ -15,6 +15,12 @@ public class ChangeScene : MonoBehaviour
             return;
         }
 
+        if (GameSceneCoordinator.IsDefaultManagedContentSceneName(sceneNameToChange))
+        {
+            Debug.LogError($"ChangeScene: Cannot load managed content scene '{sceneNameToChange}' without GameSceneCoordinator. Start from BaseScene.");
+            return;
+        }
+
         SceneManager.LoadScene(sceneNameToChange);
     }
 
@@ -22,6 +28,12 @@ public class ChangeScene : MonoBehaviour
     {
         if (GameSceneCoordinator.TrySwitchToScene(sceneNameToChange, entryPointId, destinationPlayerPosition))
         {
+            return;
+        }
+
+        if (GameSceneCoordinator.IsDefaultManagedContentSceneName(sceneNameToChange))
+        {
+            Debug.LogError($"ChangeScene: Cannot load managed content scene '{sceneNameToChange}' without GameSceneCoordinator. Start from BaseScene.");
             return;
         }
 

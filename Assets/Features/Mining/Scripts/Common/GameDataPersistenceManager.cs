@@ -37,13 +37,9 @@ public class GameDataPersistenceManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindFirstObjectByType<GameDataPersistenceManager>();
-                if (_instance == null)
-                {
-                    GameObject go = new GameObject("GameDataPersistenceManager");
-                    _instance = go.AddComponent<GameDataPersistenceManager>();
-                }
+                Debug.LogError("GameDataPersistenceManager.Instance is not initialized. Place GameDataPersistenceManager in the persistent scene.");
             }
+
             return _instance;
         }
     }

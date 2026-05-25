@@ -15,6 +15,9 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     private static readonly ProfilerMarker SampleDroppedItemBrightnessMarker =
         new ProfilerMarker("DroppedItemManager.SampleDroppedItemBrightness");
 
+    [Header("Scene References")]
+    [SerializeField] private TerrainManager terrainManager;
+
     [Header("アイテム管理設定")]
     [SerializeField] private float _wakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
 
@@ -74,6 +77,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     [SerializeField, Range(0f, 0.49f)] private float brightnessCornerLocalInset = 0.02f;
 
     public float WakeUpRadiusMultiplier => _wakeUpRadiusMultiplier;
+    public int ActiveItemCount => activeItems.Count;
     
     private static DroppedItemManager _instance;
     public static DroppedItemManager Instance
@@ -82,7 +86,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         {
             if (_instance == null)
             {
-                _instance = FindFirstObjectByType<DroppedItemManager>();
+                Debug.LogError("DroppedItemManager.Instance is not initialized. Place DroppedItemManager in the scene.");
             }
             return _instance;
         }
@@ -201,15 +205,21 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
+            Debug.LogError("Multiple DroppedItemManager instances exist. Remove the duplicate from the scene.", this);
             Destroy(gameObject);
+            return;
         }
-        else
+
+        Instance = this;
+        cachedTerrainManager = terrainManager;
+        if (terrainManager == null)
         {
-            Instance = this;
-            ResolveDropLayers();
+            Debug.LogError("DroppedItemManager: TerrainManager is not assigned.", this);
         }
+
+        ResolveDropLayers();
     }
 
     private Dictionary<Vector3Int, List<DroppedItemData>> itemsByChunk = new Dictionary<Vector3Int, List<DroppedItemData>>();
@@ -1901,7 +1911,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     {
         if (cachedTerrainManager == null)
         {
-            cachedTerrainManager = FindFirstObjectByType<TerrainManager>();
+            cachedTerrainManager = terrainManager;
+        }
+
+        if (cachedTerrainManager == null)
+        {
+            Debug.LogError("DroppedItemManager: TerrainManager is not assigned.", this);
         }
 
         return cachedTerrainManager;
@@ -2207,10 +2222,10 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         var persistenceManager = GameDataPersistenceManager.Instance;
         if (persistenceManager.droppedItems == null || persistenceManager.droppedItems.Count == 0) return;
 
-        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
+        TerrainManager terrainManager = ResolveTerrainManager();
         if (terrainManager == null)
         {
-            Debug.LogError("TerrainManager not found. Cannot prepare item loading.");
+            Debug.LogError("DroppedItemManager: TerrainManager is not assigned. Cannot prepare item loading.", this);
             return;
         }
         if (terrainManager.ChunkManager == null)
@@ -2238,10 +2253,10 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     {
         if (!itemsByChunk.TryGetValue(chunkPosition, out var itemsToLoad)) return;
 
-        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
+        TerrainManager terrainManager = ResolveTerrainManager();
         if (terrainManager == null || terrainManager.TerrainDataManager == null)
         {
-            Debug.LogError("TerrainManager or TerrainDataManager not found. Cannot load items.");
+            Debug.LogError("DroppedItemManager: TerrainManager or TerrainDataManager is not assigned. Cannot load items.", this);
             return;
         }
 

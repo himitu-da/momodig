@@ -172,7 +172,7 @@ public class ToolInventoryUI : MonoBehaviour
     {
         if (toolsController == null)
         {
-            toolsController = FindFirstObjectByType<MiningToolsController>();
+            Debug.LogError("ToolInventoryUI: MiningToolsController is not assigned.", this);
         }
 
         if (toolInventory == null && toolsController != null)
