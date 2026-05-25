@@ -1674,7 +1674,6 @@ GameObject:
   m_Component:
   - component: {fileID: 995654920}
   - component: {fileID: 995654918}
-  - component: {fileID: 995654921}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -1714,18 +1713,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &995654921
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 995654917}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 10397458813e44a3a621e631e5ba8b78, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BlockTextureBorderTrimController
 --- !u!1 &1046567922
 GameObject:
   m_ObjectHideFlags: 0
@@ -2672,7 +2659,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c094062e6106c9a48997e6d6051cbd3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  terrainManager: {fileID: 0}
+  terrainManager: {fileID: 2071865104}
   _wakeUpRadiusMultiplier: 3
   maxQueuedDropSpawnsPerFrame: 108
   maxQueuedDropSpawnMilliseconds: 2

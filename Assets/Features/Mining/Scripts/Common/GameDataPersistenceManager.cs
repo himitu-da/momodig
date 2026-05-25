@@ -179,9 +179,17 @@ public class GameDataPersistenceManager : MonoBehaviour
     {
         if (_instance != null && _instance != this)
         {
-            Debug.LogError("Multiple GameDataPersistenceManager instances exist. Remove the duplicate from the scene.", this);
-            Destroy(gameObject);
-            return;
+            GameDataPersistenceManager previousInstance = _instance;
+            CopyRuntimeStateFrom(previousInstance);
+
+            if (previousInstance.gameObject == gameObject)
+            {
+                Destroy(previousInstance);
+            }
+            else
+            {
+                Destroy(previousInstance.gameObject);
+            }
         }
 
         _instance = this;

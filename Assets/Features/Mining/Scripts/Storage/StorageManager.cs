@@ -31,9 +31,20 @@ public class StorageManager : MonoBehaviour
     {
         if (_instance != null && _instance != this)
         {
-            Debug.LogError("Multiple StorageManager instances exist. Remove the duplicate from the scene.", this);
-            Destroy(gameObject);
-            return;
+            StorageManager previousInstance = _instance;
+            if (previousInstance.storedResources != null)
+            {
+                storedResources = new Dictionary<ResourceType, int>(previousInstance.storedResources);
+            }
+
+            if (previousInstance.gameObject == gameObject)
+            {
+                Destroy(previousInstance);
+            }
+            else
+            {
+                Destroy(previousInstance.gameObject);
+            }
         }
 
         _instance = this;
