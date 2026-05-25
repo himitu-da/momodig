@@ -30,7 +30,7 @@ public class SurfaceInteractionSystem : MonoBehaviour
 
         if (storageManager == null)
         {
-            storageManager = StorageManager.Instance;
+            Debug.LogError("SurfaceInteractionSystem: StorageManager is not assigned.", this);
         }
 
         if (terrainDataManager == null)

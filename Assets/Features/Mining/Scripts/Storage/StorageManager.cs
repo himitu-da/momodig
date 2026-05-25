@@ -31,19 +31,11 @@ public class StorageManager : MonoBehaviour
     {
         if (_instance != null && _instance != this)
         {
-            StorageManager previousInstance = _instance;
-            if (previousInstance.storedResources != null)
+            if (_instance.gameObject.scene == gameObject.scene)
             {
-                storedResources = new Dictionary<ResourceType, int>(previousInstance.storedResources);
-            }
-
-            if (previousInstance.gameObject == gameObject)
-            {
-                Destroy(previousInstance);
-            }
-            else
-            {
-                Destroy(previousInstance.gameObject);
+                Debug.LogError("Multiple StorageManager instances exist in the same scene. Remove the duplicate from the scene.", this);
+                Destroy(gameObject);
+                return;
             }
         }
 
