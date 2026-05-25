@@ -1826,10 +1826,22 @@ public class MiningLightManager : MonoBehaviour
 
         LightRuntimeState state = propagation.owner;
         BurstLightSource burstSource = state.burstLight;
+        float baseBrightness = brightness;
         if (burstSource != null)
         {
-            burstSource.baseBrightness[key] = brightness;
             brightness = burstSource.CalculateDisplayBrightness(brightness);
+        }
+
+        if (ShouldApplySourceDisplayBrightness(propagation, state, key, brightness))
+        {
+            if (burstSource != null)
+            {
+                burstSource.baseBrightness[key] = baseBrightness;
+            }
+        }
+        else
+        {
+            return;
         }
 
         SetSourceDisplayBrightness(
@@ -1980,6 +1992,36 @@ public class MiningLightManager : MonoBehaviour
                 existingDisplay.hasPredecessor,
                 existingDisplay.predecessor);
         }
+    }
+
+    private bool ShouldApplySourceDisplayBrightness(
+        PropagationRun propagation,
+        LightRuntimeState state,
+        VoxelCellKey key,
+        float brightness)
+    {
+        if (propagation == null || propagation.kind != PropagationRunKind.TerrainRepair)
+        {
+            return true;
+        }
+
+        if (propagation.terrainRepairPrunedCells.Contains(key))
+        {
+            return true;
+        }
+
+        if (state == null)
+        {
+            Debug.LogError("MiningLightManager: light runtime state is null while checking terrain repair brightness.", this);
+            return false;
+        }
+
+        if (!state.displayBrightness.TryGetValue(key, out SourceCellDisplay existing))
+        {
+            return true;
+        }
+
+        return brightness > existing.brightness && !Mathf.Approximately(brightness, existing.brightness);
     }
 
     private void AddActiveBurstLightKeys(HashSet<object> sourceKeys)
