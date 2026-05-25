@@ -1381,7 +1381,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 55b65f9e8a8c4a819ee75884b7bb8db5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lightManager: {fileID: 0}
+  lightManager: {fileID: 1199508971}
   profile: {fileID: 11400000, guid: a8bfe1d35f19404faf3f6a02b6bfeb45, type: 2}
   sourceTransform: {fileID: 672003891}
 --- !u!114 &672003896
@@ -2052,7 +2052,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1199508973}
-  - component: {fileID: 1199508972}
   - component: {fileID: 1199508971}
   - component: {fileID: 1199508970}
   - component: {fileID: 1199508974}
@@ -2101,23 +2100,6 @@ MonoBehaviour:
   gizmoCellScale: 0.75
   airCellGizmoColor: {r: 1, g: 0.92, b: 0.25, a: 0.45}
   solidCellGizmoColor: {r: 1, g: 0.45, b: 0.15, a: 0.45}
---- !u!114 &1199508972
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1199508969}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e5643ba753e1042418dc1c9421d0e1ce, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FluidSource
-  fluidManager: {fileID: 1961065937}
-  fluidDefinition: {fileID: 11400000, guid: 62d2961d21c46c9488fcc55cbc8404fa, type: 2}
-  emitContinuously: 1
-  litersPerSecond: 250
-  burstLiters: 100
 --- !u!4 &1199508973
 Transform:
   m_ObjectHideFlags: 0
@@ -2690,7 +2672,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c094062e6106c9a48997e6d6051cbd3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  terrainManager: {fileID: 2071865104}
+  terrainManager: {fileID: 0}
   _wakeUpRadiusMultiplier: 3
   maxQueuedDropSpawnsPerFrame: 108
   maxQueuedDropSpawnMilliseconds: 2
