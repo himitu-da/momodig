@@ -17,7 +17,7 @@ public class StorageManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                Debug.LogError("StorageManager.Instance is not initialized. Place StorageManager in the persistent scene.");
+                Debug.LogError("StorageManager.Instance is not initialized. Place StorageManager in the active scene.");
             }
 
             return _instance;
@@ -56,6 +56,14 @@ public class StorageManager : MonoBehaviour
         }
 
         NormalizeStoredResources();
+    }
+
+    void OnDestroy()
+    {
+        if (_instance == this)
+        {
+            _instance = null;
+        }
     }
 
     /// <summary>

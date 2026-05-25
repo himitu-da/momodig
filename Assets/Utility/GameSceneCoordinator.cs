@@ -7,6 +7,7 @@ using UnityEngine.SceneManagement;
 public class GameSceneCoordinator : MonoBehaviour
 {
     public static GameSceneCoordinator Instance { get; private set; }
+    public const string EditorDirectPlayContentSceneSessionKey = "Momodig.GameSceneCoordinator.DirectPlayContentScene";
 
     private static readonly string[] DefaultManagedContentSceneNames =
     {
@@ -31,12 +32,6 @@ public class GameSceneCoordinator : MonoBehaviour
 
     public string CurrentContentSceneName => currentContentSceneName;
     public bool IsTransitioning => transitionCoroutine != null;
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void BootstrapForDirectContentScenePlay()
-    {
-        TryCreateDirectPlayCoordinatorForActiveContentScene();
-    }
 
     private void Awake()
     {
@@ -65,7 +60,15 @@ public class GameSceneCoordinator : MonoBehaviour
             return;
         }
 
-        SwitchToScene(initialContentSceneName);
+        SwitchToScene(GetStartupContentSceneName());
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     public bool CanSwitchToScene(string sceneName)
@@ -121,8 +124,6 @@ public class GameSceneCoordinator : MonoBehaviour
 
     public static bool TrySwitchToScene(string sceneName, string entryPointId)
     {
-        TryCreateDirectPlayCoordinatorForActiveContentScene();
-
         if (Instance == null || !Instance.CanSwitchToScene(sceneName))
         {
             return false;
@@ -134,8 +135,6 @@ public class GameSceneCoordinator : MonoBehaviour
 
     public static bool TrySwitchToScene(string sceneName, string entryPointId, Vector3 destinationPlayerPosition)
     {
-        TryCreateDirectPlayCoordinatorForActiveContentScene();
-
         if (Instance == null || !Instance.CanSwitchToScene(sceneName))
         {
             return false;
@@ -421,28 +420,26 @@ public class GameSceneCoordinator : MonoBehaviour
         return handlers;
     }
 
-    private static void TryCreateDirectPlayCoordinatorForActiveContentScene()
+    private string GetStartupContentSceneName()
     {
-        if (Instance != null)
+#if UNITY_EDITOR
+        string editorDirectPlaySceneName = UnityEditor.SessionState.GetString(EditorDirectPlayContentSceneSessionKey, string.Empty);
+        UnityEditor.SessionState.EraseString(EditorDirectPlayContentSceneSessionKey);
+        if (!string.IsNullOrEmpty(editorDirectPlaySceneName))
         {
-            return;
+            if (CanSwitchToScene(editorDirectPlaySceneName))
+            {
+                return editorDirectPlaySceneName;
+            }
+
+            Debug.LogError($"GameSceneCoordinator: Editor direct play scene '{editorDirectPlaySceneName}' is not a managed content scene.", this);
         }
+#endif
 
-        Scene activeScene = SceneManager.GetActiveScene();
-        if (!IsDefaultManagedContentSceneName(activeScene.name))
-        {
-            return;
-        }
-
-        GameObject coordinatorObject = new GameObject("GameSceneCoordinator");
-        DontDestroyOnLoad(coordinatorObject);
-
-        GameSceneCoordinator coordinator = coordinatorObject.AddComponent<GameSceneCoordinator>();
-        coordinator.loadInitialContentSceneOnStart = false;
-        coordinator.currentContentSceneName = activeScene.name;
+        return initialContentSceneName;
     }
 
-    private static bool IsDefaultManagedContentSceneName(string sceneName)
+    public static bool IsDefaultManagedContentSceneName(string sceneName)
     {
         if (string.IsNullOrEmpty(sceneName))
         {
