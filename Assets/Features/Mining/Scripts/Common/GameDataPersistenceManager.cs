@@ -37,13 +37,9 @@ public class GameDataPersistenceManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindFirstObjectByType<GameDataPersistenceManager>();
-                if (_instance == null)
-                {
-                    GameObject go = new GameObject("GameDataPersistenceManager");
-                    _instance = go.AddComponent<GameDataPersistenceManager>();
-                }
+                Debug.LogError("GameDataPersistenceManager.Instance is not initialized. Place GameDataPersistenceManager in the persistent scene.");
             }
+
             return _instance;
         }
     }
@@ -183,17 +179,9 @@ public class GameDataPersistenceManager : MonoBehaviour
     {
         if (_instance != null && _instance != this)
         {
-            GameDataPersistenceManager previousInstance = _instance;
-            CopyRuntimeStateFrom(previousInstance);
-
-            if (previousInstance.gameObject == gameObject)
-            {
-                Destroy(previousInstance);
-            }
-            else
-            {
-                Destroy(previousInstance.gameObject);
-            }
+            Debug.LogError("Multiple GameDataPersistenceManager instances exist. Remove the duplicate from the scene.", this);
+            Destroy(gameObject);
+            return;
         }
 
         _instance = this;

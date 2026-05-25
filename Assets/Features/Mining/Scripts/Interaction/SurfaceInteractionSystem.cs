@@ -25,7 +25,7 @@ public class SurfaceInteractionSystem : MonoBehaviour
     {
         if (playerController == null)
         {
-            playerController = FindFirstObjectByType<PlayerController>();
+            Debug.LogError("SurfaceInteractionSystem: PlayerController is not assigned.", this);
         }
 
         if (storageManager == null)
@@ -35,7 +35,7 @@ public class SurfaceInteractionSystem : MonoBehaviour
 
         if (terrainDataManager == null)
         {
-            terrainDataManager = VoxelItemVisualUtility.ResolveTerrainDataManager();
+            Debug.LogError("SurfaceInteractionSystem: TerrainDataManager is not assigned.", this);
         }
     }
 

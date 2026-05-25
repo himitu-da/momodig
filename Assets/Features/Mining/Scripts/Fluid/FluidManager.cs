@@ -960,11 +960,8 @@ public class FluidManager : MonoBehaviour
     {
         if (terrainManager == null)
         {
-            terrainManager = FindFirstObjectByType<TerrainManager>();
-            if (terrainManager == null)
-            {
-                return false;
-            }
+            Debug.LogError("FluidManager: TerrainManager is not assigned.", this);
+            return false;
         }
 
         TerrainSettings settings = terrainManager.Settings;

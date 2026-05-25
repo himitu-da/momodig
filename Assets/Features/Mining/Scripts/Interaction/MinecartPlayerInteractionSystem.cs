@@ -24,7 +24,7 @@ public class MinecartPlayerInteractionSystem : MonoBehaviour
     {
         if (terrainDataManager == null)
         {
-            terrainDataManager = VoxelItemVisualUtility.ResolveTerrainDataManager();
+            Debug.LogError("MinecartInteractionSystem: TerrainDataManager is not assigned.", this);
         }
 
         ValidateReferences();

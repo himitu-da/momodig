@@ -64,6 +64,7 @@ public class TerrainManager : MonoBehaviour
     [SerializeField] private BlockGenerator blockGenerator;
     [SerializeField] private VoxelManager voxelManager;
     [SerializeField] private FluidManager fluidManager;
+    [SerializeField] private DroppedItemManager droppedItemManager;
     
     [Header("Debug")]
     public bool showDebugInfo = false;
@@ -88,6 +89,12 @@ public class TerrainManager : MonoBehaviour
     void Awake()
     {
         var persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager == null)
+        {
+            Debug.LogError("TerrainManager: GameDataPersistenceManager is not initialized.", this);
+            return;
+        }
+
         if (!persistenceManager.hasInitializedSeed)
         {
             if (settings.useRandomSeed)
@@ -111,7 +118,7 @@ public class TerrainManager : MonoBehaviour
         // UIチE��ストが設定されてぁE��ば、未回収のアイチE��数を表示
         if (voxelCountText != null)
         {
-            int droppedItemCount = GameObject.FindGameObjectsWithTag("DroppedItem").Length;
+            int droppedItemCount = droppedItemManager != null ? droppedItemManager.ActiveItemCount : 0;
             voxelCountText.text = $"Dropped Items: {droppedItemCount}";
         }
     }

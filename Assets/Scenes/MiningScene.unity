@@ -1301,11 +1301,11 @@ MonoBehaviour:
   fallSpeedMultiplier: 0.5
   fallAcceleration: 1
   scoreText: {fileID: 0}
-  depthText: {fileID: 0}
-  inventoryText: {fileID: 0}
-  inventoryCapacityText: {fileID: 0}
+  depthText: {fileID: 1244569037}
+  inventoryText: {fileID: 335452131}
+  inventoryCapacityText: {fileID: 1336696429}
   itemPickupRetryInterval: 0.1
-  fluidManager: {fileID: 0}
+  fluidManager: {fileID: 1961065937}
   fluidResistanceCollider: {fileID: 2114062275}
   enableFluidResistance: 1
   fluidHorizontalSampleCount: 2
@@ -1318,6 +1318,8 @@ MonoBehaviour:
   fluidDrag: 4
   lastMoveDirection: {x: 0, y: 0, z: 1}
   minecartInteraction: {fileID: 1700943656}
+  droppedItemManager: {fileID: 1375720077}
+  miningLogSystem: {fileID: 2086124476}
 --- !u!54 &672003893
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -2208,6 +2210,7 @@ MonoBehaviour:
   _subDiggerPrefab: {fileID: 1220892178057369463, guid: 75a578e9e2e430e45a17b565f72ce3c7, type: 3}
   toolMount: {fileID: 0}
   miningLightManager: {fileID: 1199508971}
+  terrainManager: {fileID: 2071865104}
   torchPlacementManager: {fileID: 1199508974}
 --- !u!114 &1227563694
 MonoBehaviour:
@@ -2687,6 +2690,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c094062e6106c9a48997e6d6051cbd3a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  terrainManager: {fileID: 2071865104}
   _wakeUpRadiusMultiplier: 3
   maxQueuedDropSpawnsPerFrame: 108
   maxQueuedDropSpawnMilliseconds: 2
@@ -3663,7 +3667,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   minecartManager: {fileID: 1324682791}
   playerController: {fileID: 672003892}
-  terrainDataManager: {fileID: 0}
+  terrainDataManager: {fileID: 11400000, guid: dac20b2304c3f1043a3cf6f0dbd2e30d, type: 2}
 --- !u!4 &1700943657
 Transform:
   m_ObjectHideFlags: 0
@@ -3930,7 +3934,7 @@ MonoBehaviour:
     m_RotationOrder: 4
   playerController: {fileID: 672003892}
   storageManager: {fileID: 0}
-  terrainDataManager: {fileID: 0}
+  terrainDataManager: {fileID: 11400000, guid: dac20b2304c3f1043a3cf6f0dbd2e30d, type: 2}
 --- !u!4 &2027667583
 Transform:
   m_ObjectHideFlags: 0
@@ -3994,6 +3998,7 @@ MonoBehaviour:
   blockGenerator: {fileID: 1392432598}
   voxelManager: {fileID: 399466131}
   fluidManager: {fileID: 1961065937}
+  droppedItemManager: {fileID: 1375720077}
   showDebugInfo: 0
   voxelCountText: {fileID: 514904028}
 --- !u!4 &2071865105

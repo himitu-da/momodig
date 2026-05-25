@@ -7,10 +7,16 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
     private GameObject owner;
     private PlayerController playerController;
     private MiningLightManager miningLightManager;
+    private TerrainManager terrainManager;
 
     public override void SetMiningLightManager(MiningLightManager miningLightManager)
     {
         this.miningLightManager = miningLightManager;
+    }
+
+    public override void SetTerrainManager(TerrainManager terrainManager)
+    {
+        this.terrainManager = terrainManager;
     }
 
     public override void OnEquip(GameObject user)
@@ -242,8 +248,14 @@ public class DynamiteToolBehaviour : MiningToolBehaviour
         // 掘削実衁E
         var (hitBlocks, destroyedVoxelCount) = await digger.Dig(damage, miningInfo);
 
-        TerrainManager terrainManager = Object.FindFirstObjectByType<TerrainManager>();
-        terrainManager?.FluidManager?.QueueExplosion(explosionPosition, size, force);
+        if (terrainManager == null)
+        {
+            Debug.LogError("DynamiteToolBehaviour: TerrainManager is not configured.", this);
+        }
+        else
+        {
+            terrainManager.FluidManager?.QueueExplosion(explosionPosition, size, force);
+        }
 
         // 位置を�Eに戻ぁE
         digger.transform.position = originalPosition;

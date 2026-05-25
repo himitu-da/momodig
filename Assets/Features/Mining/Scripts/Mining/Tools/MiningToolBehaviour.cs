@@ -82,6 +82,10 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     {
     }
 
+    public virtual void SetTerrainManager(TerrainManager terrainManager)
+    {
+    }
+
     public virtual void SetTorchPlacementManager(TorchPlacementManager torchPlacementManager)
     {
     }
