@@ -2037,6 +2037,11 @@ MonoBehaviour:
   torchLightProfile: {fileID: 11400000, guid: c49ab7ea50ce49d6a37c2dbf3b5ccf46, type: 2}
   torchPrefab: {fileID: 7010000000000000000, guid: 2df909825e6e4b39933157ef87dd72a9, type: 3}
   torchParent: {fileID: 1199508973}
+  facilityUpgradeCatalog: {fileID: 11400000, guid: 0b417d25e2424442af50b15005146422, type: 2}
+  lightRadiusCells:
+    BaseValue: 1
+  lightTransmission:
+    BaseValue: 0.3
   placementOffset: {x: 0, y: 0, z: 0}
   restorePersistedTorchesOnEnable: 1
 --- !u!1 &1227563691
