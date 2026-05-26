@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
-  m_Name: GarageFairyCarrier
+  m_Name: GarageFairyCount
   m_EditorClassIdentifier: 
-  upgradeId: garage.fairy.carrier
+  upgradeId: garage.fairy.count
   facilityType: 1
   categoryId: fairy
   categoryLabel: "\u5996\u7CBE Fairy"
-  displayName: "\u642C\u9001\u5996\u7CBE"
-  description: "\u843D\u3061\u3066\u3044\u308B\u30DC\u30AF\u30BB\u30EB\u30921\u3064\u305A\u3064\u5165\u53E3\u307E\u3067\u904B\u3073\u307E\u3059\u3002"
+  displayName: "\u5996\u7CBE\u306E\u6570"
+  description: "\u843D\u3061\u3066\u3044\u308B\u30DC\u30AF\u30BB\u30EB\u3092\u5165\u53E3\u307E\u3067\u904B\u3076\u5996\u7CBE\u306E\u6570\u3092\u5897\u3084\u3057\u307E\u3059\u3002"
   initialLevel: 0
   maxLevel: 100
   costScaling: 0
