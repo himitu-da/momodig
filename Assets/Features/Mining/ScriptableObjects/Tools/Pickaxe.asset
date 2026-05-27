@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Pickaxe
   m_EditorClassIdentifier: 
   toolName: NormalPickaxe
-  toolIcon: {fileID: 0}
+  toolIcon: {fileID: 21300000, guid: 352d15a2fe7b06d498beac18869f4893, type: 3}
   toolTypeID: 1
   animationTriggerName: MineWithPickaxe
   animationStateName: Pickaxe_Mining_BlendTree
