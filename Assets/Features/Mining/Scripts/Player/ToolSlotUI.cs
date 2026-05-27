@@ -11,7 +11,10 @@ public class ToolSlotUI : MonoBehaviour
     [SerializeField] private Button clearButton;
     [SerializeField] private Button removeButton;
     [SerializeField] private TMP_Text toolNameText;
-    [SerializeField] private TMP_Text roleText;
+    [SerializeField] private TMP_Text leftRoleText;
+    [SerializeField] private TMP_Text rightRoleText;
+    [SerializeField] private Image leftRoleBackgroundImage;
+    [SerializeField] private Image rightRoleBackgroundImage;
     [SerializeField] private TMP_Text slotIdText;
     [SerializeField] private Image toolIconImage;
     [SerializeField] private GameObject selectedIndicator;
@@ -91,9 +94,24 @@ public class ToolSlotUI : MonoBehaviour
             slotIdText.text = slotId;
         }
 
-        if (roleText != null)
+        if (leftRoleText != null)
         {
-            roleText.text = BuildRoleText(isMainSlot, isSubSlot);
+            leftRoleText.text = isMainSlot ? "L" : string.Empty;
+        }
+
+        if (leftRoleBackgroundImage != null)
+        {
+            leftRoleBackgroundImage.enabled = isMainSlot;
+        }
+
+        if (rightRoleText != null)
+        {
+            rightRoleText.text = isSubSlot ? "R" : string.Empty;
+        }
+
+        if (rightRoleBackgroundImage != null)
+        {
+            rightRoleBackgroundImage.enabled = isSubSlot;
         }
 
         if (toolIconImage != null)
@@ -143,23 +161,4 @@ public class ToolSlotUI : MonoBehaviour
         onRemoveClicked?.Invoke(slotId);
     }
 
-    private static string BuildRoleText(bool isMainSlot, bool isSubSlot)
-    {
-        if (isMainSlot && isSubSlot)
-        {
-            return "L/R";
-        }
-
-        if (isMainSlot)
-        {
-            return "L";
-        }
-
-        if (isSubSlot)
-        {
-            return "R";
-        }
-
-        return string.Empty;
-    }
 }
