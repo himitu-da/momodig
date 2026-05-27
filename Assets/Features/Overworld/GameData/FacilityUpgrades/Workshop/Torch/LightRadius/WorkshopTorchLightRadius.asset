@@ -20,11 +20,11 @@ MonoBehaviour:
   description: "\u305F\u3044\u307E\u3064\u304C\u5149\u3092\u5C4A\u3051\u308B\u7BC4\u56F2\u3092\u5E83\u3052\u307E\u3059\u3002"
   initialLevel: 0
   maxLevel: 4
-  costScaling: 1
+  costScaling: 2
   resourceCosts:
-  - resourceType: 1
-    baseAmount: 8
-  - resourceType: 5
-    baseAmount: 2
+  - resourceType: 8
+    baseAmount: 3
+  - resourceType: 9
+    baseAmount: 3
   enhancements:
   - {fileID: 11400000, guid: 48a181f9547f48ac801259801dfe1993, type: 2}

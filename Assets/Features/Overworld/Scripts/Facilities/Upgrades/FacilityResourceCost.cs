@@ -6,23 +6,37 @@ public class FacilityResourceCost
 {
     [SerializeField] private ResourceType resourceType;
     [SerializeField] private int baseAmount = 1;
+    [SerializeField] private int amountPerLevel;
 
     public ResourceType ResourceType => resourceType;
     public int BaseAmount => baseAmount;
+    public int AmountPerLevel => amountPerLevel;
 
     public bool ValidateConfiguration(UnityEngine.Object context)
     {
-        if (baseAmount > 0)
+        if (baseAmount <= 0)
         {
-            return true;
+            Debug.LogError($"FacilityResourceCost: baseAmount for '{resourceType}' must be greater than zero.", context);
+            return false;
         }
 
-        Debug.LogError($"FacilityResourceCost: baseAmount for '{resourceType}' must be greater than zero.", context);
-        return false;
+        if (amountPerLevel < 0)
+        {
+            Debug.LogError($"FacilityResourceCost: amountPerLevel for '{resourceType}' must not be negative.", context);
+            return false;
+        }
+
+        return true;
     }
 
     public int CalculateAmount(FacilityUpgradeCostScaling scaling, int effectLevelForCost)
     {
+        if (scaling == FacilityUpgradeCostScaling.AddAmountPerLevel)
+        {
+            int level = Mathf.Max(1, effectLevelForCost);
+            return checked(baseAmount + amountPerLevel * (level - 1));
+        }
+
         int multiplier = CalculateMultiplier(scaling, effectLevelForCost);
         return checked(baseAmount * multiplier);
     }

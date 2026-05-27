@@ -23,8 +23,10 @@ MonoBehaviour:
   costScaling: 1
   resourceCosts:
   - resourceType: 1
-    baseAmount: 12
+    baseAmount: 10
   - resourceType: 2
-    baseAmount: 2
+    baseAmount: 5
+  - resourceType: 10
+    baseAmount: 5
   enhancements:
   - {fileID: 11400000, guid: a06f9e7b2c8e4f47bf4e87e8c2f75d29, type: 2}

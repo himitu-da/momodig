@@ -3,5 +3,6 @@ public enum FacilityUpgradeCostScaling
     NoChange,
     MultiplyByNextLevel,
     FactorialByCurrentLevel,
-    FibonacciByCurrentLevel
+    FibonacciByCurrentLevel,
+    AddAmountPerLevel
 }

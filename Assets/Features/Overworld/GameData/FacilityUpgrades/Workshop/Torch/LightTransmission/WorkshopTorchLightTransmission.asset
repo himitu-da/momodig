@@ -22,9 +22,9 @@ MonoBehaviour:
   maxLevel: 15
   costScaling: 1
   resourceCosts:
-  - resourceType: 5
-    baseAmount: 4
-  - resourceType: 6
-    baseAmount: 4
+  - resourceType: 7
+    baseAmount: 5
+  - resourceType: 4
+    baseAmount: 5
   enhancements:
   - {fileID: 11400000, guid: 28c54873203c419db8ea8c42146d6be6, type: 2}
