@@ -16,6 +16,11 @@ public class TorchPlacementManager : MonoBehaviour
     [SerializeField] private GameObject torchPrefab;
     [SerializeField] private Transform torchParent;
 
+    [Header("Facility Upgrades")]
+    [SerializeField] private FacilityUpgradeCatalog facilityUpgradeCatalog;
+    [SerializeField] private Stat lightRadiusCells = new Stat { BaseValue = 1f };
+    [SerializeField] private Stat lightTransmission = new Stat { BaseValue = 0.3f };
+
     [Header("Placement")]
     [SerializeField] private Vector3 placementOffset = Vector3.zero;
     [SerializeField] private bool restorePersistedTorchesOnEnable = true;
@@ -24,6 +29,7 @@ public class TorchPlacementManager : MonoBehaviour
         new Dictionary<VoxelCellKey, TorchPlacedObject>();
 
     private bool restoredPersistedTorches;
+    private MiningLightProfile runtimeTorchLightProfile;
 
     public bool ToggleTorchAtWorldPosition(Vector3 worldPosition)
     {
@@ -110,6 +116,8 @@ public class TorchPlacementManager : MonoBehaviour
 
     private void OnEnable()
     {
+        GameDataPersistenceManager.OnFacilityUpgradesChanged += ApplyEnhancements;
+        ApplyEnhancements();
         SubscribeTerrainChanges();
 
         if (!restorePersistedTorchesOnEnable || restoredPersistedTorches)
@@ -123,7 +131,17 @@ public class TorchPlacementManager : MonoBehaviour
 
     private void OnDisable()
     {
+        GameDataPersistenceManager.OnFacilityUpgradesChanged -= ApplyEnhancements;
         UnsubscribeTerrainChanges();
+    }
+
+    private void OnDestroy()
+    {
+        if (runtimeTorchLightProfile != null)
+        {
+            Destroy(runtimeTorchLightProfile);
+            runtimeTorchLightProfile = null;
+        }
     }
 
     private bool TryGetPlacementCellAtWorldPosition(Vector3 worldPosition, out VoxelCellKey key)
@@ -174,7 +192,7 @@ public class TorchPlacementManager : MonoBehaviour
             return false;
         }
 
-        if (!placedObject.Configure(placementAnchor, miningLightManager, torchLightProfile))
+        if (!placedObject.Configure(placementAnchor, miningLightManager, runtimeTorchLightProfile))
         {
             Destroy(torchObject);
             return false;
@@ -299,6 +317,134 @@ public class TorchPlacementManager : MonoBehaviour
         }
 
         SyncPersistence();
+    }
+
+    private void ApplyEnhancements()
+    {
+        if (!ValidateFacilityUpgradeCatalog())
+        {
+            return;
+        }
+
+        lightRadiusCells.RemoveAllModifiers();
+        lightTransmission.RemoveAllModifiers();
+
+        GameDataPersistenceManager persistence = GameDataPersistenceManager.Instance;
+        IReadOnlyList<FacilityUpgradeDefinition> upgrades = facilityUpgradeCatalog.Upgrades;
+        for (int upgradeIndex = 0; upgradeIndex < upgrades.Count; upgradeIndex++)
+        {
+            FacilityUpgradeDefinition upgrade = upgrades[upgradeIndex];
+            int level = persistence.GetFacilityUpgradeLevel(upgrade.UpgradeId, upgrade.InitialLevel);
+            int effectLevel = upgrade.GetEffectLevel(level);
+
+            if (effectLevel == 0)
+            {
+                continue;
+            }
+
+            IReadOnlyList<Enhancement> enhancements = upgrade.Enhancements;
+            for (int enhancementIndex = 0; enhancementIndex < enhancements.Count; enhancementIndex++)
+            {
+                Enhancement enhancement = enhancements[enhancementIndex];
+                if (enhancement.TargetCategory != "Torch")
+                {
+                    continue;
+                }
+
+                Stat targetStat = GetStatByName(enhancement.TargetStatName);
+                if (targetStat == null)
+                {
+                    Debug.LogError(
+                        $"TorchPlacementManager: enhancement '{enhancement.name}' targets unsupported stat '{enhancement.TargetStatName}'.",
+                        this);
+                    continue;
+                }
+
+                ApplyModifier(targetStat, enhancement, effectLevel);
+            }
+        }
+
+        RebuildRuntimeTorchLightProfile();
+        ReconfigurePlacedTorches();
+        if (miningLightManager != null)
+        {
+            miningLightManager.MarkLightSourcesDirty();
+        }
+    }
+
+    private bool ValidateFacilityUpgradeCatalog()
+    {
+        if (facilityUpgradeCatalog == null)
+        {
+            Debug.LogError("TorchPlacementManager: facilityUpgradeCatalog is not configured.", this);
+            return false;
+        }
+
+        return facilityUpgradeCatalog.ValidateConfiguration(this);
+    }
+
+    private Stat GetStatByName(string statName)
+    {
+        switch (statName)
+        {
+            case "LightRadiusCells":
+                return lightRadiusCells;
+            case "LightTransmission":
+                return lightTransmission;
+            default:
+                return null;
+        }
+    }
+
+    private void ApplyModifier(Stat stat, Enhancement enhancement, int level)
+    {
+        if (enhancement.Type == EnhancementType.Additive)
+        {
+            stat.AddAdditiveModifier(level * enhancement.Value);
+        }
+        else if (enhancement.Type == EnhancementType.Multiplicative)
+        {
+            stat.AddMultiplicativeModifier(Mathf.Pow(enhancement.Value, level));
+        }
+    }
+
+    private void RebuildRuntimeTorchLightProfile()
+    {
+        if (torchLightProfile == null)
+        {
+            Debug.LogError("TorchPlacementManager: torchLightProfile is not configured.", this);
+            return;
+        }
+
+        if (runtimeTorchLightProfile != null)
+        {
+            Destroy(runtimeTorchLightProfile);
+            runtimeTorchLightProfile = null;
+        }
+
+        runtimeTorchLightProfile = torchLightProfile.CreateRuntimeOverride(
+            "RuntimeTorchLightProfile",
+            lightRadiusCells.IntValue,
+            lightTransmission.Value);
+    }
+
+    private void ReconfigurePlacedTorches()
+    {
+        if (runtimeTorchLightProfile == null || miningLightManager == null)
+        {
+            return;
+        }
+
+        foreach (TorchPlacedObject placedObject in torchesByPlacementAnchor.Values)
+        {
+            if (placedObject == null)
+            {
+                Debug.LogError("TorchPlacementManager: tracked torch placement is null.", this);
+                continue;
+            }
+
+            placedObject.Configure(placedObject.PlacementAnchor, miningLightManager, runtimeTorchLightProfile);
+        }
     }
 
     private bool CanPlaceTorch(VoxelCellKey placementAnchor)
@@ -502,6 +648,18 @@ public class TorchPlacementManager : MonoBehaviour
         if (torchLightProfile == null)
         {
             Debug.LogError("TorchPlacementManager: torchLightProfile is not configured.", this);
+            return false;
+        }
+
+        if (facilityUpgradeCatalog == null)
+        {
+            Debug.LogError("TorchPlacementManager: facilityUpgradeCatalog is not configured.", this);
+            return false;
+        }
+
+        if (runtimeTorchLightProfile == null)
+        {
+            Debug.LogError("TorchPlacementManager: runtimeTorchLightProfile is not configured.", this);
             return false;
         }
 

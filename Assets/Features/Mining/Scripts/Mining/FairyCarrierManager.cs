@@ -4,7 +4,6 @@ using UnityEngine;
 
 public class FairyCarrierManager : MonoBehaviour
 {
-    private const string CarrierUpgradeId = "garage.fairy.carrier";
     private static readonly ProfilerMarker UpdateMarker =
         new ProfilerMarker("FairyCarrierManager.Update");
     private static readonly ProfilerMarker CollectTargetsIncrementalMarker =
@@ -55,8 +54,12 @@ public class FairyCarrierManager : MonoBehaviour
     [SerializeField] private TerrainManager terrainManager;
     [SerializeField] private TerrainDataManager terrainDataManager;
 
+    [Header("Facility Upgrades")]
+    [SerializeField] private FacilityUpgradeCatalog facilityUpgradeCatalog;
+    [SerializeField] private Stat fairyCount = new Stat { BaseValue = 0f };
+
     [Header("Movement")]
-    [SerializeField] private float moveSpeed = 6f;
+    [SerializeField] private Stat moveSpeed = new Stat { BaseValue = 6f };
     [SerializeField] private float pickupDistance = 0.25f;
     [SerializeField] private float homeArrivalDistance = 0.25f;
     [SerializeField] private float searchInterval = 0.25f;
@@ -103,19 +106,19 @@ public class FairyCarrierManager : MonoBehaviour
 
     private void OnEnable()
     {
-        GameDataPersistenceManager.OnFacilityUpgradesChanged += RefreshUnlockState;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged += ApplyEnhancements;
         SubscribeTerrainChanges();
     }
 
     private void OnDisable()
     {
-        GameDataPersistenceManager.OnFacilityUpgradesChanged -= RefreshUnlockState;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged -= ApplyEnhancements;
         UnsubscribeTerrainChanges();
     }
 
     private void Start()
     {
-        RefreshUnlockState();
+        ApplyEnhancements();
     }
 
     private void Update()
@@ -181,10 +184,52 @@ public class FairyCarrierManager : MonoBehaviour
         }
     }
 
-    private void RefreshUnlockState()
+    private void ApplyEnhancements()
     {
-        int level = GameDataPersistenceManager.Instance.GetFacilityUpgradeLevel(CarrierUpgradeId, 0);
-        targetFairyCount = Mathf.Max(0, level);
+        if (!ValidateFacilityUpgradeCatalog())
+        {
+            return;
+        }
+
+        fairyCount.RemoveAllModifiers();
+        moveSpeed.RemoveAllModifiers();
+
+        GameDataPersistenceManager persistence = GameDataPersistenceManager.Instance;
+        IReadOnlyList<FacilityUpgradeDefinition> upgrades = facilityUpgradeCatalog.Upgrades;
+        for (int upgradeIndex = 0; upgradeIndex < upgrades.Count; upgradeIndex++)
+        {
+            FacilityUpgradeDefinition upgrade = upgrades[upgradeIndex];
+            int level = persistence.GetFacilityUpgradeLevel(upgrade.UpgradeId, upgrade.InitialLevel);
+            int effectLevel = upgrade.GetEffectLevel(level);
+
+            if (effectLevel == 0)
+            {
+                continue;
+            }
+
+            IReadOnlyList<Enhancement> enhancements = upgrade.Enhancements;
+            for (int enhancementIndex = 0; enhancementIndex < enhancements.Count; enhancementIndex++)
+            {
+                Enhancement enhancement = enhancements[enhancementIndex];
+                if (enhancement.TargetCategory != "Fairy")
+                {
+                    continue;
+                }
+
+                Stat targetStat = GetStatByName(enhancement.TargetStatName);
+                if (targetStat == null)
+                {
+                    Debug.LogError(
+                        $"FairyCarrierManager: enhancement '{enhancement.name}' targets unsupported stat '{enhancement.TargetStatName}'.",
+                        this);
+                    continue;
+                }
+
+                ApplyModifier(targetStat, enhancement, effectLevel);
+            }
+        }
+
+        targetFairyCount = Mathf.Max(0, fairyCount.IntValue);
         bool shouldBeUnlocked = targetFairyCount > 0;
 
         if (!shouldBeUnlocked)
@@ -197,6 +242,42 @@ public class FairyCarrierManager : MonoBehaviour
 
         isUnlocked = true;
         EnsureFairyInstances();
+    }
+
+    private bool ValidateFacilityUpgradeCatalog()
+    {
+        if (facilityUpgradeCatalog == null)
+        {
+            Debug.LogError("FairyCarrierManager: facilityUpgradeCatalog is not configured.", this);
+            return false;
+        }
+
+        return facilityUpgradeCatalog.ValidateConfiguration(this);
+    }
+
+    private Stat GetStatByName(string statName)
+    {
+        switch (statName)
+        {
+            case "FairyCount":
+                return fairyCount;
+            case "MoveSpeed":
+                return moveSpeed;
+            default:
+                return null;
+        }
+    }
+
+    private void ApplyModifier(Stat stat, Enhancement enhancement, int level)
+    {
+        if (enhancement.Type == EnhancementType.Additive)
+        {
+            stat.AddAdditiveModifier(level * enhancement.Value);
+        }
+        else if (enhancement.Type == EnhancementType.Multiplicative)
+        {
+            stat.AddMultiplicativeModifier(Mathf.Pow(enhancement.Value, level));
+        }
     }
 
     private bool ValidateConfiguration()
@@ -223,6 +304,12 @@ public class FairyCarrierManager : MonoBehaviour
         if (terrainDataManager == null)
         {
             Debug.LogError("FairyCarrierManager: terrainDataManager is not configured.", this);
+            isValid = false;
+        }
+
+        if (facilityUpgradeCatalog == null)
+        {
+            Debug.LogError("FairyCarrierManager: facilityUpgradeCatalog is not configured.", this);
             isValid = false;
         }
 
@@ -480,7 +567,7 @@ public class FairyCarrierManager : MonoBehaviour
         }
 
         Vector3 moveTarget = fairy.ActivePathIndex < fairy.ActivePath.Count ? fairy.ActivePath[fairy.ActivePathIndex] : destination;
-        fairy.Instance.transform.position = Vector3.MoveTowards(current, moveTarget, moveSpeed * Time.deltaTime);
+        fairy.Instance.transform.position = Vector3.MoveTowards(current, moveTarget, moveSpeed.Value * Time.deltaTime);
 
         if (Vector3.Distance(fairy.Instance.transform.position, destination) <= arrivalDistance)
         {

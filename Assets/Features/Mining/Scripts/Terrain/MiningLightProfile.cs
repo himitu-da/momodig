@@ -36,6 +36,26 @@ public class MiningLightProfile : ScriptableObject
     public int MaxPropagationCellsPerRunPerFrame => Mathf.Max(1, maxPropagationCellsPerRunPerFrame);
     public Color SourceGizmoColor => sourceGizmoColor;
 
+    public MiningLightProfile CreateRuntimeOverride(
+        string runtimeName,
+        int sourceRadiusCellsOverride,
+        float cellTransmissionOverride)
+    {
+        MiningLightProfile profile = CreateInstance<MiningLightProfile>();
+        profile.name = runtimeName;
+        profile.brightness = brightness;
+        profile.propagationNeighborhood = propagationNeighborhood;
+        profile.sourceRadiusCells = Mathf.Max(0, sourceRadiusCellsOverride);
+        profile.falloffStartDistanceCells = FalloffStartDistanceCells;
+        profile.airCellTransmission = Mathf.Clamp01(cellTransmissionOverride);
+        profile.solidCellTransmission = Mathf.Clamp01(cellTransmissionOverride);
+        profile.minBrightness = Mathf.Clamp(minBrightness, 0.001f, Mathf.Max(0.001f, brightness));
+        profile.maxPropagationCellsPerLightPerFrame = MaxPropagationCellsPerLightPerFrame;
+        profile.maxPropagationCellsPerRunPerFrame = MaxPropagationCellsPerRunPerFrame;
+        profile.sourceGizmoColor = sourceGizmoColor;
+        return profile;
+    }
+
 #if UNITY_EDITOR
     private void OnValidate()
     {

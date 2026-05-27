@@ -10,21 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
-  m_Name: GarageFairyCarrier
+  m_Name: GarageFairyMoveSpeed
   m_EditorClassIdentifier: 
-  upgradeId: garage.fairy.carrier
+  upgradeId: garage.fairy.move_speed
   facilityType: 1
   categoryId: fairy
   categoryLabel: "\u5996\u7CBE Fairy"
-  displayName: "\u642C\u9001\u5996\u7CBE"
-  description: "\u843D\u3061\u3066\u3044\u308B\u30DC\u30AF\u30BB\u30EB\u30921\u3064\u305A\u3064\u5165\u53E3\u307E\u3067\u904B\u3073\u307E\u3059\u3002"
+  displayName: "\u5996\u7CBE\u306E\u79FB\u52D5\u901F\u5EA6"
+  description: "\u5996\u7CBE\u304C\u30DC\u30AF\u30BB\u30EB\u3092\u56DE\u53CE\u3057\u3066\u5165\u53E3\u3078\u623B\u308B\u79FB\u52D5\u901F\u5EA6\u3092\u4E0A\u3052\u307E\u3059\u3002"
   initialLevel: 0
-  maxLevel: 100
-  costScaling: 0
+  maxLevel: 20
+  costScaling: 4
   resourceCosts:
-  - resourceType: 0
-    baseAmount: 1
-  - resourceType: 1
-    baseAmount: 1
+  - resourceType: 11
+    baseAmount: 10
+    amountPerLevel: 5
   enhancements:
-  - {fileID: 11400000, guid: fd42d5c90a9c46ca8ecabc8d7c1fe6c5, type: 2}
+  - {fileID: 11400000, guid: c6c344535ac843f9b53b7dbb77bbf575, type: 2}
