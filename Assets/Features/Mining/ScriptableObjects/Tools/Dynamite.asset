@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Dynamite
   m_EditorClassIdentifier: 
   toolName: Dynamite
-  toolIcon: {fileID: 0}
+  toolIcon: {fileID: 21300000, guid: ac1bd176a61dafe44bd847d9fe645bd7, type: 3}
   toolTypeID: 0
   animationTriggerName: Mine
   animationStateName: Mine
