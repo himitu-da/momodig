@@ -15,9 +15,9 @@ MonoBehaviour:
   brightness: 1
   propagationNeighborhood: 1
   sourceRadiusCells: 0
-  falloffStartDistanceCells: 5
-  airCellTransmission: 0.6
-  solidCellTransmission: 0.6
+  falloffStartDistanceCells: 2
+  airCellTransmission: 0.3
+  solidCellTransmission: 0.3
   minBrightness: 0.01
   maxPropagationCellsPerLightPerFrame: 432
   maxPropagationCellsPerRunPerFrame: 8
