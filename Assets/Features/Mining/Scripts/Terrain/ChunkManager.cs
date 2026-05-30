@@ -8,6 +8,10 @@ public class ChunkManager : MonoBehaviour
     [Header("Dynamic Generation")]
     [SerializeField] private Transform playerTransform; // プレイヤーのTransform
     [SerializeField] private int renderDistanceInChunks = 5; // チャンクの描画距離
+
+    [Header("Persistence Restoration")]
+    [SerializeField] private TorchPlacementManager torchPlacementManager;
+
     private float chunkUpdateInterval = 0.3f; // チャンクの更新間隔
     private float timeSinceLastChunkUpdate = 0f;
     private Vector3Int currentPlayerChunk;
@@ -18,6 +22,7 @@ public class ChunkManager : MonoBehaviour
     private TerrainManager terrainManager;
     private CancellationTokenSource cancellationTokenSource;
     private bool blockGenerationSettingsErrorLogged;
+    private bool torchPlacementManagerMissingErrorLogged;
 
     public void Initialize(TerrainManager manager)
     {
@@ -270,7 +275,7 @@ public class ChunkManager : MonoBehaviour
         newChunk.Initialize(chunkPos);
         activeChunks.Add(chunkPos, newChunk);
 
-        // このチャンクに対応するドロップアイテムを遅延ロード
+        // このチャンクに対応する復元対象を遅延ロード
         LoadItemsWithDelay(chunkPos).Forget();
 
         return newChunk;
@@ -401,6 +406,19 @@ public class ChunkManager : MonoBehaviour
         await UniTask.Delay(System.TimeSpan.FromSeconds(terrainManager.Settings.itemLoadDelay), cancellationToken: cancellationTokenSource.Token);
 
         if (cancellationTokenSource.IsCancellationRequested) return;
+
+        if (torchPlacementManager == null)
+        {
+            if (!torchPlacementManagerMissingErrorLogged)
+            {
+                torchPlacementManagerMissingErrorLogged = true;
+                Debug.LogError("ChunkManager: TorchPlacementManager is not assigned. Cannot load persisted torches.", this);
+            }
+        }
+        else
+        {
+            torchPlacementManager.LoadTorchesInChunk(chunkPos);
+        }
 
         // ドロップアイテムをロード
         if (DroppedItemManager.Instance != null)

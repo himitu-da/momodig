@@ -27,8 +27,10 @@ public class TorchPlacementManager : MonoBehaviour
 
     private readonly Dictionary<VoxelCellKey, TorchPlacedObject> torchesByPlacementAnchor =
         new Dictionary<VoxelCellKey, TorchPlacedObject>();
+    private readonly Dictionary<Vector3Int, List<TorchPlacementData>> pendingTorchPlacementsByChunk =
+        new Dictionary<Vector3Int, List<TorchPlacementData>>();
 
-    private bool restoredPersistedTorches;
+    private bool preparedPersistedTorchLoading;
     private MiningLightProfile runtimeTorchLightProfile;
 
     public bool ToggleTorchAtWorldPosition(Vector3 worldPosition)
@@ -120,13 +122,12 @@ public class TorchPlacementManager : MonoBehaviour
         ApplyEnhancements();
         SubscribeTerrainChanges();
 
-        if (!restorePersistedTorchesOnEnable || restoredPersistedTorches)
+        if (!restorePersistedTorchesOnEnable || preparedPersistedTorchLoading)
         {
             return;
         }
 
-        RestorePersistedTorches();
-        restoredPersistedTorches = true;
+        PreparePersistedTorchLoading();
     }
 
     private void OnDisable()
@@ -231,10 +232,82 @@ public class TorchPlacementManager : MonoBehaviour
         return true;
     }
 
-    private void RestorePersistedTorches()
+    public void LoadTorchesInChunk(Vector3Int chunkPosition)
+    {
+        if (!restorePersistedTorchesOnEnable)
+        {
+            return;
+        }
+
+        if (!preparedPersistedTorchLoading)
+        {
+            PreparePersistedTorchLoading();
+        }
+
+        if (!pendingTorchPlacementsByChunk.TryGetValue(chunkPosition, out List<TorchPlacementData> placements) ||
+            placements.Count == 0)
+        {
+            return;
+        }
+
+        using (RestoreTorchesMarker.Auto())
+        {
+            bool placedAnyTorch = false;
+            List<TorchPlacementData> failedPlacements = null;
+            for (int i = 0; i < placements.Count; i++)
+            {
+                TorchPlacementData placement = placements[i];
+                if (placement == null)
+                {
+                    Debug.LogError($"TorchPlacementManager: torch placement record is null in chunk {chunkPosition} at index {i}.", this);
+                    continue;
+                }
+
+                VoxelCellKey placementAnchor = new VoxelCellKey(
+                    placement.blockPosition,
+                    placement.localVoxelPosition);
+
+                if (torchesByPlacementAnchor.ContainsKey(placementAnchor))
+                {
+                    continue;
+                }
+
+                if (PlaceTorch(placementAnchor, false))
+                {
+                    placedAnyTorch = true;
+                    continue;
+                }
+
+                if (failedPlacements == null)
+                {
+                    failedPlacements = new List<TorchPlacementData>();
+                }
+
+                failedPlacements.Add(placement);
+            }
+
+            if (failedPlacements != null && failedPlacements.Count > 0)
+            {
+                pendingTorchPlacementsByChunk[chunkPosition] = failedPlacements;
+            }
+            else
+            {
+                pendingTorchPlacementsByChunk.Remove(chunkPosition);
+            }
+
+            if (placedAnyTorch && miningLightManager != null)
+            {
+                miningLightManager.MarkLightSourcesDirty();
+            }
+        }
+    }
+
+    private void PreparePersistedTorchLoading()
     {
         using (RestoreTorchesMarker.Auto())
         {
+            pendingTorchPlacementsByChunk.Clear();
+
             GameDataPersistenceManager persistence = GameDataPersistenceManager.Instance;
             if (persistence.torchPlacements == null)
             {
@@ -242,7 +315,7 @@ public class TorchPlacementManager : MonoBehaviour
                 return;
             }
 
-            bool removedInvalidPlacement = false;
+            HashSet<VoxelCellKey> pendingAnchors = new HashSet<VoxelCellKey>();
             for (int i = 0; i < persistence.torchPlacements.Count; i++)
             {
                 TorchPlacementData placement = persistence.torchPlacements[i];
@@ -258,22 +331,32 @@ public class TorchPlacementManager : MonoBehaviour
 
                 if (torchesByPlacementAnchor.ContainsKey(placementAnchor))
                 {
+                    continue;
+                }
+
+                if (!pendingAnchors.Add(placementAnchor))
+                {
                     Debug.LogError(
                         $"TorchPlacementManager: duplicate persisted torch at anchor={placementAnchor.blockPosition}/{placementAnchor.localVoxelPosition}.",
                         this);
                     continue;
                 }
 
-                if (!PlaceTorch(placementAnchor, false))
+                if (!TryGetChunkPositionForPlacement(placement, out Vector3Int chunkPosition))
                 {
-                    removedInvalidPlacement = true;
+                    continue;
                 }
+
+                if (!pendingTorchPlacementsByChunk.TryGetValue(chunkPosition, out List<TorchPlacementData> placements))
+                {
+                    placements = new List<TorchPlacementData>();
+                    pendingTorchPlacementsByChunk.Add(chunkPosition, placements);
+                }
+
+                placements.Add(placement);
             }
 
-            if (removedInvalidPlacement)
-            {
-                SyncPersistence();
-            }
+            preparedPersistedTorchLoading = true;
         }
     }
 
@@ -544,14 +627,62 @@ public class TorchPlacementManager : MonoBehaviour
         }
 
         persistence.torchPlacements.Clear();
+        HashSet<VoxelCellKey> persistedAnchors = new HashSet<VoxelCellKey>();
         foreach (VoxelCellKey placementAnchor in torchesByPlacementAnchor.Keys)
         {
+            persistedAnchors.Add(placementAnchor);
             persistence.torchPlacements.Add(new TorchPlacementData
             {
                 blockPosition = placementAnchor.blockPosition,
                 localVoxelPosition = placementAnchor.localVoxelPosition
             });
         }
+
+        foreach (List<TorchPlacementData> placements in pendingTorchPlacementsByChunk.Values)
+        {
+            for (int i = 0; i < placements.Count; i++)
+            {
+                TorchPlacementData placement = placements[i];
+                if (placement == null)
+                {
+                    Debug.LogError($"TorchPlacementManager: pending torch placement record is null at index {i}.", this);
+                    continue;
+                }
+
+                VoxelCellKey placementAnchor = new VoxelCellKey(
+                    placement.blockPosition,
+                    placement.localVoxelPosition);
+
+                if (!persistedAnchors.Add(placementAnchor))
+                {
+                    continue;
+                }
+
+                persistence.torchPlacements.Add(new TorchPlacementData
+                {
+                    blockPosition = placement.blockPosition,
+                    localVoxelPosition = placement.localVoxelPosition
+                });
+            }
+        }
+    }
+
+    private bool TryGetChunkPositionForPlacement(TorchPlacementData placement, out Vector3Int chunkPosition)
+    {
+        chunkPosition = Vector3Int.zero;
+        if (!ValidateTerrainReferences())
+        {
+            return false;
+        }
+
+        if (terrainManager.ChunkManager == null)
+        {
+            Debug.LogError("TorchPlacementManager: TerrainManager.ChunkManager is not configured.", this);
+            return false;
+        }
+
+        chunkPosition = terrainManager.ChunkManager.GetChunkPositionFromBlock(placement.blockPosition);
+        return true;
     }
 
     private bool TryGetPlacementAnchorFromBlockPosition(Vector3Int blockPosition, out VoxelCellKey placementAnchor)
