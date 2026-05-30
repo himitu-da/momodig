@@ -76,7 +76,7 @@ public class Title_Button_System : MonoBehaviour
     public ChangeScene changescene;
 
     public void SelectStartKey(){
-        changescene.OnClickToChangeScene("BaseScene");
+        changescene.OnClickToChangeScene("OverWorldScene");
     }
     public void SelectWebsiteKey()
     {

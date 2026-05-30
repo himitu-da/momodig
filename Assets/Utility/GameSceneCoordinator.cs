@@ -11,14 +11,16 @@ public class GameSceneCoordinator : MonoBehaviour
 
     private static readonly string[] DefaultManagedContentSceneNames =
     {
+        "TitleScene",
         "OverWorldScene",
         "MiningScene"
     };
 
     [Header("Content Scenes")]
-    [SerializeField] private string initialContentSceneName = "OverWorldScene";
+    [SerializeField] private string initialContentSceneName = "TitleScene";
     [SerializeField] private List<string> managedContentSceneNames = new List<string>
     {
+        "TitleScene",
         "OverWorldScene",
         "MiningScene"
     };
@@ -26,6 +28,9 @@ public class GameSceneCoordinator : MonoBehaviour
     [Header("Startup")]
     [SerializeField] private bool loadInitialContentSceneOnStart = true;
     [SerializeField] private bool setContentSceneActive = true;
+
+    [Header("Transition")]
+    [SerializeField] private SceneDotTransitionOverlay transitionOverlay;
 
     private Coroutine transitionCoroutine;
     private string currentContentSceneName;
@@ -42,6 +47,12 @@ public class GameSceneCoordinator : MonoBehaviour
         }
 
         Instance = this;
+
+        if (transitionOverlay == null)
+        {
+            Debug.LogError("GameSceneCoordinator: transitionOverlay is not configured.", this);
+            enabled = false;
+        }
     }
 
     private void Start()
@@ -157,6 +168,25 @@ public class GameSceneCoordinator : MonoBehaviour
             previousContentSceneName = FindLoadedManagedContentSceneName();
         }
 
+        bool shouldPlayTransitionOverlay = !string.IsNullOrEmpty(previousContentSceneName);
+        if (shouldPlayTransitionOverlay)
+        {
+            if (transitionOverlay == null)
+            {
+                Debug.LogError("GameSceneCoordinator: Cannot switch scenes because transitionOverlay is not configured.", this);
+                transitionCoroutine = null;
+                yield break;
+            }
+
+            yield return transitionOverlay.CaptureCurrentFrame();
+            if (!transitionOverlay.HasCapturedFrame)
+            {
+                Debug.LogError("GameSceneCoordinator: Failed to capture the previous scene frame for transition.", this);
+                transitionCoroutine = null;
+                yield break;
+            }
+        }
+
         Scene targetScene = SceneManager.GetSceneByName(targetSceneName);
         if (!targetScene.IsValid() || !targetScene.isLoaded)
         {
@@ -164,6 +194,7 @@ public class GameSceneCoordinator : MonoBehaviour
             if (loadOperation == null)
             {
                 Debug.LogError($"GameSceneCoordinator: Failed to load scene '{targetSceneName}'.");
+                ClearTransitionOverlayIfNeeded(shouldPlayTransitionOverlay);
                 transitionCoroutine = null;
                 yield break;
             }
@@ -179,6 +210,7 @@ public class GameSceneCoordinator : MonoBehaviour
         if (!targetScene.IsValid() || !targetScene.isLoaded)
         {
             Debug.LogError($"GameSceneCoordinator: Scene '{targetSceneName}' was not loaded.");
+            ClearTransitionOverlayIfNeeded(shouldPlayTransitionOverlay);
             transitionCoroutine = null;
             yield break;
         }
@@ -194,6 +226,7 @@ public class GameSceneCoordinator : MonoBehaviour
         if (!HasEnabledCamera(targetScene))
         {
             Debug.LogError($"GameSceneCoordinator: Scene '{targetSceneName}' has no enabled camera after scene load preparation.");
+            ClearTransitionOverlayIfNeeded(shouldPlayTransitionOverlay);
             transitionCoroutine = null;
             yield break;
         }
@@ -218,7 +251,20 @@ public class GameSceneCoordinator : MonoBehaviour
             }
         }
 
+        if (shouldPlayTransitionOverlay)
+        {
+            yield return transitionOverlay.PlayReveal();
+        }
+
         transitionCoroutine = null;
+    }
+
+    private void ClearTransitionOverlayIfNeeded(bool shouldClear)
+    {
+        if (shouldClear && transitionOverlay != null)
+        {
+            transitionOverlay.ClearOverlay();
+        }
     }
 
     private string FindLoadedManagedContentSceneName()

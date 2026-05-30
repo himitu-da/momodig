@@ -129,6 +129,7 @@ GameObject:
   m_Component:
   - component: {fileID: 100001}
   - component: {fileID: 100002}
+  - component: {fileID: 100003}
   m_Layer: 0
   m_Name: GameSceneCoordinator
   m_TagString: Untagged
@@ -163,12 +164,56 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e0c6c5d30ed9428d8e83b1223e4f85b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  initialContentSceneName: OverWorldScene
+  initialContentSceneName: TitleScene
   managedContentSceneNames:
+  - TitleScene
   - OverWorldScene
   - MiningScene
   loadInitialContentSceneOnStart: 1
   setContentSceneActive: 1
+  transitionOverlay: {fileID: 100003}
+--- !u!114 &100003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 100000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f6b7c4d0a3f4d7a9ec1e35f5b4a2098, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gridColumns: 22
+  centerOffsetPixels: {x: 0, y: 0}
+  revealDuration: 0.7
+  revealCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  randomness: 0.15
+  randomSeed: 127
+  sortingOrder: 32767
 --- !u!1 &100010
 GameObject:
   m_ObjectHideFlags: 0
