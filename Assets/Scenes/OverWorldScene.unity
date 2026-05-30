@@ -1215,9 +1215,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4a6a7f7288c845f7a46480f8d0a06464, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  surfaceBlockTexture: {fileID: 2800000, guid: 9e2b4d15fc6385c4ab1d0fd0415b11cf, type: 3}
-  fillBlockTexture: {fileID: 2800000, guid: 833649fd00a2432449bc4cbdba43339b, type: 3}
+  surfaceBlockTexture: {fileID: 2800000, guid: 1867722db0bcff547ae5ffb6a49ec3e6, type: 3}
+  fillBlockTexture: {fileID: 2800000, guid: 99b78a20cc161464d9a1d2576c3c45de, type: 3}
   pixelsPerUnit: 100
+  spriteOuterTrimRatio: 0.08
   columns: 50
   rows: 10
   blockSize: 1
