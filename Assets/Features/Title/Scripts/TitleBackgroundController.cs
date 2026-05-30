@@ -14,6 +14,9 @@ public class TitleBackgroundController : MonoBehaviour
     [Tooltip("タイルとして使用するプレハブ (SpriteRendererを持つこと)")]
     public GameObject tilePrefab;
 
+    [Tooltip("タイトル背景の表示範囲を決めるカメラ")]
+    [SerializeField] private Camera titleCamera;
+
     [Tooltip("タイルのサイズ")]
     public Vector2 tileSize = Vector2.one;
 
@@ -35,16 +38,14 @@ public class TitleBackgroundController : MonoBehaviour
     }
 
     private List<TileInfo> tiles = new List<TileInfo>();
-    private Camera mainCamera;
     private float rightBoundary;
     private float wrapWidth;
 
     void Start()
     {
-        mainCamera = Camera.main;
-        if (mainCamera == null)
+        if (titleCamera == null)
         {
-            Debug.LogError("Main Camera not found.");
+            Debug.LogError("TitleBackgroundController: titleCamera is not configured.", this);
             enabled = false;
             return;
         }
@@ -66,11 +67,11 @@ public class TitleBackgroundController : MonoBehaviour
         GenerateTiles();
 
         // ラッピング（画面外に出たタイルを反対側に移動させる）のための境界を計算
-        float cameraHeight = mainCamera.orthographicSize * 2;
+        float cameraHeight = titleCamera.orthographicSize * 2;
         // 画面を覆っているタイル全体の幅を計算
         float screenAspect = (float)Screen.width / Screen.height;
         Vector2 cameraSize = new Vector2(cameraHeight * screenAspect, cameraHeight);
-        rightBoundary = mainCamera.transform.position.x + cameraSize.x * 0.5f + tileSize.x;
+        rightBoundary = titleCamera.transform.position.x + cameraSize.x * 0.5f + tileSize.x;
         int tilesX = Mathf.CeilToInt(cameraSize.x / tileSize.x) + 2;
         wrapWidth = tilesX * tileSize.x;
     }
@@ -87,7 +88,7 @@ public class TitleBackgroundController : MonoBehaviour
     {
         // カメラのビューポートからワールド座標での表示範囲を取得
         float screenAspect = (float)Screen.width / Screen.height;
-        float cameraHeight = mainCamera.orthographicSize * 2;
+        float cameraHeight = titleCamera.orthographicSize * 2;
         Vector2 cameraSize = new Vector2(cameraHeight * screenAspect, cameraHeight);
 
         // 画面を覆うのに必要なタイルの数を計算 (余裕を持たせる)
