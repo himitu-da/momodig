@@ -1,24 +1,38 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class GameSceneCoordinator : MonoBehaviour
 {
+    private static readonly ProfilerMarker CapturePreviousFrameMarker =
+        new ProfilerMarker("GameSceneCoordinator.CapturePreviousFrame");
+    private static readonly ProfilerMarker LoadTargetSceneMarker =
+        new ProfilerMarker("GameSceneCoordinator.LoadTargetScene");
+    private static readonly ProfilerMarker PrepareTargetSceneMarker =
+        new ProfilerMarker("GameSceneCoordinator.PrepareTargetScene");
+    private static readonly ProfilerMarker StartPreviousSceneUnloadMarker =
+        new ProfilerMarker("GameSceneCoordinator.StartPreviousSceneUnload");
+    private static readonly ProfilerMarker RevealAndUnloadMarker =
+        new ProfilerMarker("GameSceneCoordinator.RevealAndUnload");
+
     public static GameSceneCoordinator Instance { get; private set; }
     public const string EditorDirectPlayContentSceneSessionKey = "Momodig.GameSceneCoordinator.DirectPlayContentScene";
 
     private static readonly string[] DefaultManagedContentSceneNames =
     {
+        "TitleScene",
         "OverWorldScene",
         "MiningScene"
     };
 
     [Header("Content Scenes")]
-    [SerializeField] private string initialContentSceneName = "OverWorldScene";
+    [SerializeField] private string initialContentSceneName = "TitleScene";
     [SerializeField] private List<string> managedContentSceneNames = new List<string>
     {
+        "TitleScene",
         "OverWorldScene",
         "MiningScene"
     };
@@ -26,6 +40,9 @@ public class GameSceneCoordinator : MonoBehaviour
     [Header("Startup")]
     [SerializeField] private bool loadInitialContentSceneOnStart = true;
     [SerializeField] private bool setContentSceneActive = true;
+
+    [Header("Transition")]
+    [SerializeField] private SceneDotTransitionOverlay transitionOverlay;
 
     private Coroutine transitionCoroutine;
     private string currentContentSceneName;
@@ -42,6 +59,12 @@ public class GameSceneCoordinator : MonoBehaviour
         }
 
         Instance = this;
+
+        if (transitionOverlay == null)
+        {
+            Debug.LogError("GameSceneCoordinator: transitionOverlay is not configured.", this);
+            enabled = false;
+        }
     }
 
     private void Start()
@@ -157,19 +180,48 @@ public class GameSceneCoordinator : MonoBehaviour
             previousContentSceneName = FindLoadedManagedContentSceneName();
         }
 
+        bool shouldPlayTransitionOverlay = !string.IsNullOrEmpty(previousContentSceneName);
+        if (shouldPlayTransitionOverlay)
+        {
+            if (transitionOverlay == null)
+            {
+                Debug.LogError("GameSceneCoordinator: Cannot switch scenes because transitionOverlay is not configured.", this);
+                transitionCoroutine = null;
+                yield break;
+            }
+
+            yield return RunMarkedCoroutine(transitionOverlay.CaptureCurrentFrame(), CapturePreviousFrameMarker);
+            if (!transitionOverlay.HasCapturedFrame)
+            {
+                Debug.LogError("GameSceneCoordinator: Failed to capture the previous scene frame for transition.", this);
+                transitionCoroutine = null;
+                yield break;
+            }
+        }
+
         Scene targetScene = SceneManager.GetSceneByName(targetSceneName);
         if (!targetScene.IsValid() || !targetScene.isLoaded)
         {
-            AsyncOperation loadOperation = SceneManager.LoadSceneAsync(targetSceneName, LoadSceneMode.Additive);
+            AsyncOperation loadOperation;
+            using (LoadTargetSceneMarker.Auto())
+            {
+                loadOperation = SceneManager.LoadSceneAsync(targetSceneName, LoadSceneMode.Additive);
+            }
+
             if (loadOperation == null)
             {
                 Debug.LogError($"GameSceneCoordinator: Failed to load scene '{targetSceneName}'.");
+                ClearTransitionOverlayIfNeeded(shouldPlayTransitionOverlay);
                 transitionCoroutine = null;
                 yield break;
             }
 
             while (!loadOperation.isDone)
             {
+                using (LoadTargetSceneMarker.Auto())
+                {
+                }
+
                 yield return null;
             }
 
@@ -179,21 +231,26 @@ public class GameSceneCoordinator : MonoBehaviour
         if (!targetScene.IsValid() || !targetScene.isLoaded)
         {
             Debug.LogError($"GameSceneCoordinator: Scene '{targetSceneName}' was not loaded.");
+            ClearTransitionOverlayIfNeeded(shouldPlayTransitionOverlay);
             transitionCoroutine = null;
             yield break;
         }
 
-        if (setContentSceneActive)
+        using (PrepareTargetSceneMarker.Auto())
         {
-            SceneManager.SetActiveScene(targetScene);
-        }
+            if (setContentSceneActive)
+            {
+                SceneManager.SetActiveScene(targetScene);
+            }
 
-        ApplyPlayerPlacement(targetScene, entryPointId, hasDestinationPlayerPosition, destinationPlayerPosition);
-        NotifyAfterSceneLoad(targetScene, previousContentSceneName);
+            ApplyPlayerPlacement(targetScene, entryPointId, hasDestinationPlayerPosition, destinationPlayerPosition);
+            NotifyAfterSceneLoad(targetScene, previousContentSceneName);
+        }
 
         if (!HasEnabledCamera(targetScene))
         {
             Debug.LogError($"GameSceneCoordinator: Scene '{targetSceneName}' has no enabled camera after scene load preparation.");
+            ClearTransitionOverlayIfNeeded(shouldPlayTransitionOverlay);
             transitionCoroutine = null;
             yield break;
         }
@@ -201,24 +258,128 @@ public class GameSceneCoordinator : MonoBehaviour
         currentContentSceneName = targetSceneName;
 
         List<Scene> scenesToUnload = GetLoadedManagedContentScenesExcept(targetSceneName);
-        for (int i = 0; i < scenesToUnload.Count; i++)
+        List<AsyncOperation> unloadOperations = StartPreviousSceneUnload(scenesToUnload, targetSceneName);
+        yield return RevealAndUnloadRoutine(shouldPlayTransitionOverlay, unloadOperations);
+
+        transitionCoroutine = null;
+    }
+
+    private List<AsyncOperation> StartPreviousSceneUnload(List<Scene> scenesToUnload, string targetSceneName)
+    {
+        List<AsyncOperation> unloadOperations = new List<AsyncOperation>();
+        using (StartPreviousSceneUnloadMarker.Auto())
         {
-            NotifyBeforeSceneUnload(scenesToUnload[i], targetSceneName);
-            DisableSceneRendering(scenesToUnload[i]);
-
-            AsyncOperation unloadOperation = SceneManager.UnloadSceneAsync(scenesToUnload[i]);
-            if (unloadOperation == null)
+            for (int i = 0; i < scenesToUnload.Count; i++)
             {
-                continue;
-            }
+                NotifyBeforeSceneUnload(scenesToUnload[i], targetSceneName);
+                DisableSceneRendering(scenesToUnload[i]);
 
-            while (!unloadOperation.isDone)
-            {
-                yield return null;
+                AsyncOperation unloadOperation = SceneManager.UnloadSceneAsync(scenesToUnload[i]);
+                if (unloadOperation != null)
+                {
+                    unloadOperations.Add(unloadOperation);
+                }
             }
         }
 
-        transitionCoroutine = null;
+        return unloadOperations;
+    }
+
+    private IEnumerator RevealAndUnloadRoutine(bool shouldPlayTransitionOverlay, List<AsyncOperation> unloadOperations)
+    {
+        IEnumerator revealRoutine = shouldPlayTransitionOverlay ? transitionOverlay.PlayReveal() : null;
+        bool revealDone = !shouldPlayTransitionOverlay;
+
+        try
+        {
+            while (true)
+            {
+                bool unloadDone;
+                using (RevealAndUnloadMarker.Auto())
+                {
+                    if (!revealDone)
+                    {
+                        revealDone = !revealRoutine.MoveNext();
+                    }
+
+                    unloadDone = AreAsyncOperationsDone(unloadOperations);
+                }
+
+                if (revealDone && unloadDone)
+                {
+                    yield break;
+                }
+
+                yield return null;
+            }
+        }
+        finally
+        {
+            if (revealRoutine is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    private static bool AreAsyncOperationsDone(List<AsyncOperation> operations)
+    {
+        if (operations == null)
+        {
+            return true;
+        }
+
+        for (int i = 0; i < operations.Count; i++)
+        {
+            if (operations[i] != null && !operations[i].isDone)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static IEnumerator RunMarkedCoroutine(IEnumerator routine, ProfilerMarker marker)
+    {
+        try
+        {
+            while (true)
+            {
+                bool hasNext;
+                object current = null;
+                using (marker.Auto())
+                {
+                    hasNext = routine.MoveNext();
+                    if (hasNext)
+                    {
+                        current = routine.Current;
+                    }
+                }
+
+                if (!hasNext)
+                {
+                    yield break;
+                }
+
+                yield return current;
+            }
+        }
+        finally
+        {
+            if (routine is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+    }
+
+    private void ClearTransitionOverlayIfNeeded(bool shouldClear)
+    {
+        if (shouldClear && transitionOverlay != null)
+        {
+            transitionOverlay.ClearOverlay();
+        }
     }
 
     private string FindLoadedManagedContentSceneName()
