@@ -10,7 +10,8 @@ public class OverworldBackgroundController : MonoBehaviour
     [Header("Required References")]
     [SerializeField] private Sprite[] backgroundSprites = System.Array.Empty<Sprite>();
     [SerializeField] private GameObject tilePrefab;
-    [SerializeField] private Material tileMaterial;
+    [SerializeField] private Material backgroundMaterial;
+    [SerializeField] private Material decorationMaterial;
 
     [Header("Layout")]
     [SerializeField, Min(1)] private int columns = 1;
@@ -29,17 +30,7 @@ public class OverworldBackgroundController : MonoBehaviour
     [SerializeField] private Vector2 decorationCenter = Vector2.zero;
     [SerializeField] private float decorationWorldZ = 0.9f;
 
-    [Header("Rendering")]
-    [SerializeField] private RenderQueueLayer renderQueueLayer = RenderQueueLayer.Background;
-    [SerializeField] private int renderQueueOffset;
-    [SerializeField] private int sortingOrder = -30;
-    [SerializeField] private RenderQueueLayer decorationRenderQueueLayer = RenderQueueLayer.Scenery;
-    [SerializeField] private int decorationRenderQueueOffset;
-    [SerializeField] private int decorationSortingOrder = -10;
-
     private readonly List<GameObject> generatedTiles = new List<GameObject>();
-    private Material runtimeBackgroundMaterial;
-    private Material runtimeDecorationMaterial;
 
     private void Awake()
     {
@@ -55,7 +46,6 @@ public class OverworldBackgroundController : MonoBehaviour
     private void OnDestroy()
     {
         ClearGeneratedTiles();
-        DestroyRuntimeMaterials();
     }
 
     [ContextMenu("Rebuild Background")]
@@ -74,10 +64,6 @@ public class OverworldBackgroundController : MonoBehaviour
         using (BuildBackgroundMarker.Auto())
         {
             ClearGeneratedTiles();
-            DestroyRuntimeMaterials();
-            runtimeBackgroundMaterial = CreateRuntimeMaterial(renderQueueLayer, renderQueueOffset, "Background");
-            runtimeDecorationMaterial = CreateRuntimeMaterial(decorationRenderQueueLayer, decorationRenderQueueOffset, "Decoration");
-
             BuildTiles();
             BuildDecorations();
         }
@@ -119,10 +105,9 @@ public class OverworldBackgroundController : MonoBehaviour
         }
 
         renderer.sprite = SelectBackgroundSprite(column, row);
-        renderer.sharedMaterial = runtimeBackgroundMaterial;
+        renderer.sharedMaterial = backgroundMaterial;
         renderer.drawMode = SpriteDrawMode.Sliced;
         renderer.size = tileSize;
-        renderer.sortingOrder = sortingOrder;
     }
 
     private void BuildDecorations()
@@ -172,10 +157,9 @@ public class OverworldBackgroundController : MonoBehaviour
         }
 
         renderer.sprite = rule.Sprite;
-        renderer.sharedMaterial = runtimeDecorationMaterial;
+        renderer.sharedMaterial = decorationMaterial;
         renderer.drawMode = SpriteDrawMode.Sliced;
         renderer.size = rule.Size;
-        renderer.sortingOrder = decorationSortingOrder + rule.SortingOrderOffset;
     }
 
     private Sprite SelectBackgroundSprite(int column, int row)
@@ -205,18 +189,6 @@ public class OverworldBackgroundController : MonoBehaviour
         }
 
         return null;
-    }
-
-    private Material CreateRuntimeMaterial(RenderQueueLayer layer, int offset, string label)
-    {
-        int renderQueue = RenderQueue.Resolve(layer) + offset;
-        Material material = new Material(tileMaterial)
-        {
-            name = $"{tileMaterial.name}_{name}_{label}_{renderQueue}",
-            renderQueue = renderQueue
-        };
-
-        return material;
     }
 
     private float Random01(int seed, int column, int row, int salt)
@@ -254,21 +226,6 @@ public class OverworldBackgroundController : MonoBehaviour
         }
 
         generatedTiles.Clear();
-    }
-
-    private void DestroyRuntimeMaterials()
-    {
-        if (runtimeBackgroundMaterial != null)
-        {
-            DestroyUnityObject(runtimeBackgroundMaterial);
-            runtimeBackgroundMaterial = null;
-        }
-
-        if (runtimeDecorationMaterial != null)
-        {
-            DestroyUnityObject(runtimeDecorationMaterial);
-            runtimeDecorationMaterial = null;
-        }
     }
 
     private void DestroyUnityObject(Object target)
@@ -320,9 +277,15 @@ public class OverworldBackgroundController : MonoBehaviour
             isValid = false;
         }
 
-        if (tileMaterial == null)
+        if (backgroundMaterial == null)
         {
-            Debug.LogError("OverworldBackgroundController: tileMaterial is not configured.", this);
+            Debug.LogError("OverworldBackgroundController: backgroundMaterial is not configured.", this);
+            isValid = false;
+        }
+
+        if (decorationMaterial == null)
+        {
+            Debug.LogError("OverworldBackgroundController: decorationMaterial is not configured.", this);
             isValid = false;
         }
 
@@ -341,18 +304,6 @@ public class OverworldBackgroundController : MonoBehaviour
         if (tileSize.x <= 0f || tileSize.y <= 0f)
         {
             Debug.LogError("OverworldBackgroundController: tileSize must be greater than 0.", this);
-            isValid = false;
-        }
-
-        if (!System.Enum.IsDefined(typeof(RenderQueueLayer), renderQueueLayer))
-        {
-            Debug.LogError("OverworldBackgroundController: renderQueueLayer is invalid.", this);
-            isValid = false;
-        }
-
-        if (!System.Enum.IsDefined(typeof(RenderQueueLayer), decorationRenderQueueLayer))
-        {
-            Debug.LogError("OverworldBackgroundController: decorationRenderQueueLayer is invalid.", this);
             isValid = false;
         }
 
@@ -426,7 +377,6 @@ public class OverworldBackgroundController : MonoBehaviour
         [SerializeField, Range(0f, 1f)] private float spawnProbability = 0.1f;
         [SerializeField] private Vector2 size = Vector2.one;
         [SerializeField] private Vector2 offset = Vector2.zero;
-        [SerializeField] private int sortingOrderOffset;
 
         public string RuleName => string.IsNullOrWhiteSpace(ruleName) ? "Decoration" : ruleName;
         public bool Enabled => enabled;
@@ -434,7 +384,6 @@ public class OverworldBackgroundController : MonoBehaviour
         public float SpawnProbability => spawnProbability;
         public Vector2 Size => size;
         public Vector2 Offset => offset;
-        public int SortingOrderOffset => sortingOrderOffset;
 
         public bool Validate(int index, Object context)
         {

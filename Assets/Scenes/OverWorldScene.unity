@@ -1223,7 +1223,6 @@ MonoBehaviour:
   blockSize: 1
   centerX: 0
   surfaceY: -0.5
-  sortingOrder: -5
   blockMaterial: {fileID: 2100000, guid: ac8e3fe3e2f44e8291d1e3039248d12b, type: 2}
   createSingleCollider: 1
   groundCollider: {fileID: 320000013}
@@ -2794,7 +2793,8 @@ MonoBehaviour:
   - {fileID: 21300000, guid: b5f5f81bd98c5224b877ec393d3f1a42, type: 3}
   - {fileID: 21300000, guid: 4bd4dedbd23553f4c967305703244314, type: 3}
   tilePrefab: {fileID: 930000000, guid: 9c39bfddc6b84388b899280a0447a761, type: 3}
-  tileMaterial: {fileID: 2100000, guid: 6bd31a34c12b47ec8461d3ce143a2b3e, type: 2}
+  backgroundMaterial: {fileID: 2100000, guid: 6bd31a34c12b47ec8461d3ce143a2b3e, type: 2}
+  decorationMaterial: {fileID: 2100000, guid: 2d61ea715e8541428be1cc0ee633c9e9, type: 2}
   columns: 25
   rows: 25
   tileSize: {x: 2, y: 2}
@@ -2808,68 +2808,54 @@ MonoBehaviour:
     spawnProbability: 0.05
     size: {x: 2, y: 2}
     offset: {x: 0, y: 0}
-    sortingOrderOffset: 0
   - ruleName: 
     enabled: 1
     sprite: {fileID: 21300000, guid: be8ed68f884c4b2419b1d986d0bc0c3b, type: 3}
     spawnProbability: 0.05
     size: {x: 2, y: 2}
     offset: {x: 0, y: 0}
-    sortingOrderOffset: 0
   - ruleName: 
     enabled: 1
     sprite: {fileID: 21300000, guid: a65e6352d255b5b4c8c120349e88e2fc, type: 3}
     spawnProbability: 0.05
     size: {x: 2, y: 2}
     offset: {x: 0, y: 0}
-    sortingOrderOffset: 0
   - ruleName: 
     enabled: 1
     sprite: {fileID: 21300000, guid: 327c22342059caa41be5489665c8b998, type: 3}
     spawnProbability: 0.05
     size: {x: 2, y: 2}
     offset: {x: 0, y: 0}
-    sortingOrderOffset: 0
   - ruleName: 
     enabled: 1
     sprite: {fileID: 21300000, guid: 26b64c4a11969b742b4e523d67c81cdd, type: 3}
     spawnProbability: 0.03
     size: {x: 2, y: 2}
     offset: {x: 0, y: 0}
-    sortingOrderOffset: 1
   - ruleName: 
     enabled: 1
     sprite: {fileID: 21300000, guid: 44088543b923f834a98fe7a914f2aea3, type: 3}
     spawnProbability: 0.03
     size: {x: 2, y: 2}
     offset: {x: 0, y: 0}
-    sortingOrderOffset: 1
   - ruleName: 
     enabled: 1
     sprite: {fileID: 21300000, guid: 8beddf49fe116934d8a09e5ee293fa80, type: 3}
     spawnProbability: 0.03
     size: {x: 2, y: 2}
     offset: {x: 0, y: 0}
-    sortingOrderOffset: 1
   - ruleName: 
     enabled: 1
     sprite: {fileID: 21300000, guid: 15aaf2cac82de5e42b28f0c6ed8d74ce, type: 3}
     spawnProbability: 0.03
     size: {x: 2, y: 2}
     offset: {x: 0, y: 0}
-    sortingOrderOffset: 1
   decorationSeed: 202
   decorationColumns: 25
   decorationRows: 25
   decorationCellSize: {x: 2, y: 2}
   decorationCenter: {x: 0, y: 0}
   decorationWorldZ: 0.9
-  renderQueueLayer: 4000
-  renderQueueOffset: 0
-  sortingOrder: -30
-  decorationRenderQueueLayer: 4001
-  decorationRenderQueueOffset: 0
-  decorationSortingOrder: -10
 --- !u!1 &1067940501
 GameObject:
   m_ObjectHideFlags: 0

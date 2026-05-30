@@ -14,7 +14,6 @@ public class OverworldStaticBlockField : MonoBehaviour
     [SerializeField] private float blockSize = 1f;
     [SerializeField] private float centerX = 0f;
     [SerializeField] private float surfaceY = -2.6f;
-    [SerializeField] private int sortingOrder = -5;
 
     [Header("Rendering")]
     [SerializeField] private Material blockMaterial;
@@ -25,7 +24,6 @@ public class OverworldStaticBlockField : MonoBehaviour
     [SerializeField] private float colliderDepth = 2f;
 
     private readonly List<GameObject> generatedBlocks = new List<GameObject>();
-    private Material runtimeBlockMaterial;
 
     private void Awake()
     {
@@ -38,29 +36,9 @@ public class OverworldStaticBlockField : MonoBehaviour
         BuildField();
     }
 
-    private void OnDestroy()
-    {
-        if (runtimeBlockMaterial != null)
-        {
-            Destroy(runtimeBlockMaterial);
-            runtimeBlockMaterial = null;
-        }
-    }
-
     private void BuildField()
     {
         ClearGeneratedBlocks();
-
-        if (runtimeBlockMaterial != null)
-        {
-            Destroy(runtimeBlockMaterial);
-        }
-
-        runtimeBlockMaterial = new Material(blockMaterial)
-        {
-            name = $"{blockMaterial.name}_{name}"
-        };
-        runtimeBlockMaterial.renderQueue = RenderQueue.Geometry;
 
         float startX = centerX - ((columns - 1) * blockSize * 0.5f);
         Sprite surfaceBlockSprite = CreateSprite(surfaceBlockTexture);
@@ -83,10 +61,9 @@ public class OverworldStaticBlockField : MonoBehaviour
 
                 SpriteRenderer renderer = block.AddComponent<SpriteRenderer>();
                 renderer.sprite = sprite;
-                renderer.sharedMaterial = runtimeBlockMaterial;
+                renderer.sharedMaterial = blockMaterial;
                 renderer.drawMode = SpriteDrawMode.Sliced;
                 renderer.size = new Vector2(blockSize, blockSize);
-                renderer.sortingOrder = sortingOrder - row;
             }
         }
 
