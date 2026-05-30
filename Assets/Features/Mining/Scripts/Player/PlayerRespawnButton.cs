@@ -18,6 +18,9 @@ public class PlayerRespawnButton : MonoBehaviour
 
         button.onClick.RemoveListener(HandleClicked);
         button.onClick.AddListener(HandleClicked);
+        respawnController.RespawnStateChanged -= HandleRespawnStateChanged;
+        respawnController.RespawnStateChanged += HandleRespawnStateChanged;
+        SyncButtonState();
         isBound = true;
     }
 
@@ -27,6 +30,11 @@ public class PlayerRespawnButton : MonoBehaviour
         {
             button.onClick.RemoveListener(HandleClicked);
             isBound = false;
+        }
+
+        if (respawnController != null)
+        {
+            respawnController.RespawnStateChanged -= HandleRespawnStateChanged;
         }
     }
 
@@ -38,7 +46,25 @@ public class PlayerRespawnButton : MonoBehaviour
             return;
         }
 
-        respawnController.RequestRespawn();
+        if (respawnController.RequestRespawn())
+        {
+            SyncButtonState();
+        }
+    }
+
+    private void HandleRespawnStateChanged(bool isRespawning)
+    {
+        SyncButtonState();
+    }
+
+    private void SyncButtonState()
+    {
+        if (button == null || respawnController == null)
+        {
+            return;
+        }
+
+        button.interactable = !respawnController.IsRespawning;
     }
 
     private bool ValidateReferences()

@@ -141,3 +141,7 @@ On this Windows environment, sandboxed shell startup may fail with:
 `windows sandbox: timed out after 15000ms connecting runner pipe-in`
 
 If this happens for read-only investigation commands such as `Get-ChildItem`, `rg`, `git status`, or file reads, retry the same read-only command with escalation. Do not use this as a reason to escalate write, delete, network, install, or Unity/Editor-launch commands without separate justification.
+
+## 実装における参考事例
+- ボタンなどのクリックやキーボード操作は毎秒60回以上押されても破綻しないことが望ましい
+  - ボタンは、その実行される処理が実行中に新しく処理が行われないようにフラグを立てて、ボタンを押せないようにする形が望ましいかもしれません
