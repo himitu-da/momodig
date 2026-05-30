@@ -2,8 +2,8 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// 繝悶Ο繝・け逕滓・繧ｯ繝ｩ繧ｹ
-/// 繝懊け繧ｻ繝ｫ繝代ち繝ｼ繝ｳ縺ｮ逕滓・繧呈球蠖・
+/// 繝悶Ο繝・・ｽ・ｽ逕滂ｿｽE繧ｯ繝ｩ繧ｹ
+/// 繝懊け繧ｻ繝ｫ繝代ち繝ｼ繝ｳ縺ｮ逕滂ｿｽE繧呈球蠖・
 /// </summary>
 public class BlockGenerator : MonoBehaviour
 {
@@ -11,7 +11,7 @@ public class BlockGenerator : MonoBehaviour
     [SerializeField] private bool showBlockDebugInfo = false;
     
     /// <summary>
-    /// 繝悶Ο繝・け逕滓・繝・・繧ｿ
+    /// 繝悶Ο繝・・ｽ・ｽ逕滂ｿｽE繝・・ｽE繧ｿ
     /// </summary>
     [System.Serializable]
     public class BlockGenerationData
@@ -33,10 +33,10 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// TerrainManager縺九ｉ縺ｮ蜿ら・
+    /// TerrainManager縺九ｉ縺ｮ蜿ゑｿｽE
     /// </summary>
     private TerrainManager terrainManager;
-    private System.Random random;
+    private int terrainSeed;
     
     /// <summary>
     /// 蛻晄悄蛹・
@@ -44,7 +44,7 @@ public class BlockGenerator : MonoBehaviour
     public void Initialize(TerrainManager manager, int seed)
     {
         terrainManager = manager;
-        random = new System.Random(seed);
+        terrainSeed = seed;
         
         if (showBlockDebugInfo)
         {
@@ -54,11 +54,11 @@ public class BlockGenerator : MonoBehaviour
 
     public void ResetRandom(int seed)
     {
-        random = new System.Random(seed);
+        terrainSeed = seed;
     }
     
     /// <summary>
-    /// 謖・ｮ壹＆繧後◆繝√Ε繝ｳ繧ｯ縺ｮ繝悶Ο繝・け繝代ち繝ｼ繝ｳ繧堤函謌・
+    /// 謖・・ｽ・ｽ縺輔ｌ縺溘メ繝｣繝ｳ繧ｯ縺ｮ繝悶Ο繝・・ｽ・ｽ繝代ち繝ｼ繝ｳ繧堤函謌・
     /// </summary>
     public bool[,,] GenerateBlockPattern(BlockGenerationData data)
     {
@@ -71,11 +71,8 @@ public class BlockGenerator : MonoBehaviour
         
         switch (data.generationType)
         {
-            case TerrainGenerationType.SideScroller:
-                return GenerateSideScrollerPattern(data, pattern);
-                
-            case TerrainGenerationType.TopDown:
-                return GenerateTopDownPattern(data, pattern);
+            case TerrainGenerationType.PlayPlane:
+                return GeneratePlayPlanePattern(data, pattern);
                 
             case TerrainGenerationType.Custom:
                 return GenerateCustomPattern(data, pattern);
@@ -87,13 +84,13 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// 繧ｵ繧､繝峨せ繧ｯ繝ｭ繝ｼ繝ｩ繝ｼ逕ｨ繝代ち繝ｼ繝ｳ逕滓・・・Y蟷ｳ髱｢縲〇霆ｸ蛻ｶ髯撰ｼ・
+    /// Play plane pattern generation (XY plane with Z-axis constraint).
     /// </summary>
-    private bool[,,] GenerateSideScrollerPattern(BlockGenerationData data, bool[,,] pattern)
+    private bool[,,] GeneratePlayPlanePattern(BlockGenerationData data, bool[,,] pattern)
     {
         if (showBlockDebugInfo)
         {
-            Debug.Log($"BlockGenerator: Generating SideScroller pattern, voxelWorldSize: {data.voxelWorldSize}");
+            Debug.Log($"BlockGenerator: Generating PlayPlane pattern, voxelWorldSize: {data.voxelWorldSize}");
         }
         
         for (int x = 0; x < data.voxelsPerBlock; x++)
@@ -111,31 +108,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// 繝医ャ繝励ム繧ｦ繝ｳ逕ｨ繝代ち繝ｼ繝ｳ逕滓・・・Z蟷ｳ髱｢縲〆霆ｸ蛻ｶ髯撰ｼ・
-    /// </summary>
-    private bool[,,] GenerateTopDownPattern(BlockGenerationData data, bool[,,] pattern)
-    {
-        if (showBlockDebugInfo)
-        {
-            Debug.Log($"BlockGenerator: Generating TopDown pattern, voxelWorldSize: {data.voxelWorldSize}");
-        }
-        
-        for (int x = 0; x < data.voxelsPerBlock; x++)
-        {
-            for (int y = 0; y < data.voxelsPerBlock; y++)
-            {
-                for (int z = 0; z < data.voxelsPerBlock; z++)
-                {
-                    pattern[x, y, z] = IsVoxelSolid(data.generationType, data.voxelsPerBlock, data.blockSize, data.blockPosition, new Vector3Int(x, y, z));
-                }
-            }
-        }
-        
-        return pattern;
-    }
-    
-    /// <summary>
-    /// 繧ｫ繧ｹ繧ｿ繝繝代ち繝ｼ繝ｳ逕滓・・域僑蠑ｵ逕ｨ・・
+    /// 繧ｫ繧ｹ繧ｿ繝繝代ち繝ｼ繝ｳ逕滂ｿｽE・ｽE・ｽ諡｡蠑ｵ逕ｨ・ｽE・ｽE
     /// </summary>
     private bool[,,] GenerateCustomPattern(BlockGenerationData data, bool[,,] pattern)
     {
@@ -144,7 +117,7 @@ public class BlockGenerator : MonoBehaviour
             Debug.Log($"BlockGenerator: Generating Custom pattern - using full cube");
         }
         
-        // 繝・ヵ繧ｩ繝ｫ繝医・蜈ｨ繝悶Ο繝・け繧堤函謌・
+        // 繝・・ｽ・ｽ繧ｩ繝ｫ繝茨ｿｽE蜈ｨ繝悶Ο繝・・ｽ・ｽ繧堤函謌・
         for (int x = 0; x < data.voxelsPerBlock; x++)
         {
             for (int y = 0; y < data.voxelsPerBlock; y++)
@@ -160,7 +133,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// 繝代ち繝ｼ繝ｳ蜀・・繧｢繧ｯ繝・ぅ繝悶・繧ｯ繧ｻ繝ｫ謨ｰ繧貞叙蠕・
+    /// 繝代ち繝ｼ繝ｳ蜀・・ｽE繧｢繧ｯ繝・・ｽ・ｽ繝厄ｿｽE繧ｯ繧ｻ繝ｫ謨ｰ繧貞叙蠕・
     /// </summary>
     public bool IsVoxelSolid(TerrainGenerationType generationType, int voxelsPerBlock, float blockSize, Vector3Int blockPosition, Vector3Int localPosition)
     {
@@ -168,16 +141,10 @@ public class BlockGenerator : MonoBehaviour
 
         switch (generationType)
         {
-            case TerrainGenerationType.SideScroller:
+            case TerrainGenerationType.PlayPlane:
             {
                 float zPos = (localPosition.z - (voxelsPerBlock - 1) / 2.0f) * voxelWorldSize;
                 return Mathf.Abs(zPos) <= 0.5f;
-            }
-
-            case TerrainGenerationType.TopDown:
-            {
-                float yPos = (localPosition.y - (voxelsPerBlock - 1) / 2.0f) * voxelWorldSize;
-                return Mathf.Abs(yPos) <= 0.5f;
             }
 
             case TerrainGenerationType.Custom:
@@ -210,7 +177,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// 繝代ち繝ｼ繝ｳ縺ｮ蟇・ｺｦ繧定ｨ育ｮ暦ｼ・.0・・.0・・
+    /// 繝代ち繝ｼ繝ｳ縺ｮ蟇・・ｽ・ｽ繧定ｨ育ｮ暦ｼ・.0・ｽE・ｽE.0・ｽE・ｽE
     /// </summary>
     public float CalculatePatternDensity(bool[,,] pattern)
     {
@@ -228,7 +195,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// 繝代ち繝ｼ繝ｳ繧貞庄隕門喧・医ョ繝舌ャ繧ｰ逕ｨ・・
+    /// 繝代ち繝ｼ繝ｳ繧貞庄隕門喧・ｽE・ｽ繝・ヰ繝・げ逕ｨ・ｽE・ｽE
     /// </summary>
     public string VisualizePattern(bool[,,] pattern, int layer = 0)
     {
@@ -250,7 +217,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// 繝代ち繝ｼ繝ｳ繧定､・｣ｽ
+    /// 繝代ち繝ｼ繝ｳ繧定､・・ｽ・ｽ
     /// </summary>
     public bool[,,] ClonePattern(bool[,,] source)
     {
@@ -275,7 +242,7 @@ public class BlockGenerator : MonoBehaviour
     }
     
     /// <summary>
-    /// 繝・ヰ繝・げ諠・ｱ繧貞叙蠕・
+    /// 繝・・ｽ・ｽ繝・・ｽ・ｽ諠・・ｽ・ｽ繧貞叙蠕・
     /// </summary>
     public string GetDebugInfo()
     {
@@ -283,7 +250,7 @@ public class BlockGenerator : MonoBehaviour
     }
 
     /// <summary>
-    /// 謖・ｮ壹＆繧後◆隲也炊蠎ｧ讓吶↓蟇ｾ蠢懊☆繧毅lockData繧貞叙蠕・
+    /// 謖・・ｽ・ｽ縺輔ｌ縺溯ｫ也炊蠎ｧ讓吶↓蟇ｾ蠢懊☆繧毅lockData繧貞叙蠕・
     /// </summary>
     public BlockData GetBlockDataForPosition(Vector3Int blockPosition)
     {
@@ -292,45 +259,90 @@ public class BlockGenerator : MonoBehaviour
             return null;
         }
 
-        // 隲也炊Y蠎ｧ讓吶↓蝓ｺ縺･縺・※繝舌う繧ｪ繝ｼ繝繧貞叙蠕・
-        var biome = terrainManager.TerrainDataManager.GetBiomeForHeight(blockPosition.y);
-        if (biome == null || biome.availableBlocks == null || biome.availableBlocks.Count == 0)
+        BiomeData biome = terrainManager.TerrainDataManager.GetBiomeForHeight(blockPosition.y);
+        if (biome == null || biome.generationRules == null || biome.generationRules.Count == 0)
         {
             return null;
         }
 
-        // 蜷・ヶ繝ｭ繝・け縺ｮ驥阪∩繧定ｨ育ｮ・
-        List<float> weights = new List<float>();
-        float totalWeight = 0f;
-        foreach (var blockDist in biome.availableBlocks)
+        BlockData currentBlockData = null;
+        for (int ruleIndex = 0; ruleIndex < biome.generationRules.Count; ruleIndex++)
         {
-            // AnimationCurve繧定ｫ也炊Y蠎ｧ讓吶〒逶ｴ謗･隧穂ｾ｡
-            float weight = blockDist.distributionCurve.Evaluate(blockPosition.y);
+            TerrainGenerationEntry selectedEntry = SelectEntryForRule(biome.generationRules[ruleIndex], blockPosition, ruleIndex);
+            if (selectedEntry == null || selectedEntry.resultType == TerrainGenerationResultType.NoOp)
+            {
+                continue;
+            }
+
+            if (selectedEntry.resultType == TerrainGenerationResultType.Clear)
+            {
+                currentBlockData = null;
+                continue;
+            }
+
+            if (selectedEntry.resultType == TerrainGenerationResultType.Block)
+            {
+                currentBlockData = selectedEntry.blockData;
+            }
+        }
+
+        return currentBlockData;
+    }
+
+    private TerrainGenerationEntry SelectEntryForRule(TerrainGenerationRule rule, Vector3Int blockPosition, int ruleIndex)
+    {
+        if (rule == null || rule.entries == null || rule.entries.Count == 0)
+        {
+            return null;
+        }
+
+        List<float> weights = new List<float>(rule.entries.Count);
+        float totalWeight = 0f;
+        foreach (TerrainGenerationEntry entry in rule.entries)
+        {
+            float weight = 0f;
+            if (entry != null && (entry.resultType != TerrainGenerationResultType.Block || entry.blockData != null))
+            {
+                weight = entry.EvaluateWeight(blockPosition);
+            }
+
             weights.Add(weight);
             totalWeight += weight;
         }
 
-        // 蜷郁ｨ医・驥阪∩縺・莉･荳九↑繧峨∽ｽ輔ｂ逕滓・縺励↑縺・
-        if (totalWeight <= 0)
+        if (totalWeight <= 0f)
         {
             return null;
         }
 
-        // 蜉驥阪Λ繝ｳ繝繝驕ｸ謚・
-        float randomValue = (float)(random.NextDouble() * totalWeight);
-        for (int i = 0; i < biome.availableBlocks.Count; i++)
+        float randomValue = GetDeterministicRandom01(blockPosition, ruleIndex) * totalWeight;
+        for (int i = 0; i < rule.entries.Count; i++)
         {
             if (randomValue < weights[i])
             {
-                return biome.availableBlocks[i].blockData;
+                return rule.entries[i];
             }
             randomValue -= weights[i];
         }
 
-        // 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ・郁ｨ育ｮ苓ｪ､蟾ｮ縺ｪ縺ｩ縺ｧ縺薙％縺ｾ縺ｧ譚･縺溷ｴ蜷茨ｼ・
-        return biome.availableBlocks[biome.availableBlocks.Count - 1].blockData;
+        return rule.entries[rule.entries.Count - 1];
+    }
+
+    private float GetDeterministicRandom01(Vector3Int blockPosition, int ruleIndex)
+    {
+        unchecked
+        {
+            uint hash = (uint)terrainSeed;
+            hash = (hash * 16777619u) ^ (uint)blockPosition.x;
+            hash = (hash * 16777619u) ^ (uint)blockPosition.y;
+            hash = (hash * 16777619u) ^ (uint)blockPosition.z;
+            hash = (hash * 16777619u) ^ (uint)ruleIndex;
+            hash ^= hash >> 16;
+            hash *= 2246822519u;
+            hash ^= hash >> 13;
+            hash *= 3266489917u;
+            hash ^= hash >> 16;
+            return (hash & 0x00FFFFFFu) / 16777216f;
+        }
     }
 }
-
-
-

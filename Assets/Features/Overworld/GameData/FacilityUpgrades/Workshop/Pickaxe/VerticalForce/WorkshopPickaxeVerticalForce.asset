@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
+  m_Name: WorkshopPickaxeVerticalForce
+  m_EditorClassIdentifier: 
+  upgradeId: workshop.pickaxe.vertical_force
+  facilityType: 0
+  categoryId: pickaxe
+  categoryLabel: "\u30D4\u30C3\u30B1\u30EB\u3000Pickaxe"
+  displayName: Pickaxe Vertical Force
+  description: Improves pickaxe force while digging up or down.
+  initialLevel: 0
+  maxLevel: 30
+  costScaling: 1
+  resourceCosts:
+  - resourceType: 2
+    baseAmount: 2
+  - resourceType: 6
+    baseAmount: 3
+  enhancements:
+  - {fileID: 11400000, guid: 49125d7e79684286a83a3a70d6d57976, type: 2}

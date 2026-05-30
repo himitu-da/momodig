@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70f4ef4259c2889428f27d276d72457f, type: 3}
+  m_Name: 0_Height Limit
+  m_EditorClassIdentifier: 
+  biomeName: Surface Layer
+  biomeType: 0
+  maxHeight: 19
+  minHeight: 10
+  generationRules:
+  - ruleName: Base Blocks
+    entries:
+    - resultType: 0
+      blockData: {fileID: 11400000, guid: 009d270926028a447a7db1d3b2ebc930, type: 2}
+      baseWeight: 1
+      depthCurve:
+        serializedVersion: 2
+        m_Curve:
+        - serializedVersion: 3
+          time: -5
+          value: 1
+          inSlope: 0
+          outSlope: 0
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0
+          outWeight: 0
+        - serializedVersion: 3
+          time: -1
+          value: 1
+          inSlope: 0
+          outSlope: 0
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0
+          outWeight: 0
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      horizontalCurve:
+        serializedVersion: 2
+        m_Curve:
+        - serializedVersion: 3
+          time: 0
+          value: 1
+          inSlope: 0
+          outSlope: 0
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0
+          outWeight: 0.33333334
+        - serializedVersion: 3
+          time: 1
+          value: 1
+          inSlope: 0
+          outSlope: 0
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0.33333334
+          outWeight: 0
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      specialWeightFunction: 0
+      specialFunctionK: 1
+  backgroundTexture: {fileID: 0}

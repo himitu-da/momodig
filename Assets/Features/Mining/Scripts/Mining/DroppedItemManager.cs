@@ -1,12 +1,31 @@
 using UnityEngine;
-using System;
 using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
+using Unity.Profiling;
 
-public class DroppedItemManager : MonoBehaviour, IItemManager
+public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransitionHandler
 {
+    private static readonly ProfilerMarker ProcessQueuedDropSpawnsMarker =
+        new ProfilerMarker("DroppedItemManager.ProcessQueuedDropSpawns");
+    private static readonly ProfilerMarker SpawnQueuedDropMarker =
+        new ProfilerMarker("DroppedItemManager.SpawnQueuedDrop");
+    private static readonly ProfilerMarker SpawnInventoryDropMarker =
+        new ProfilerMarker("DroppedItemManager.SpawnInventoryDrop");
+    private static readonly ProfilerMarker UpdateDroppedItemBrightnessMarker =
+        new ProfilerMarker("DroppedItemManager.UpdateDroppedItemBrightness");
+    private static readonly ProfilerMarker SampleDroppedItemBrightnessMarker =
+        new ProfilerMarker("DroppedItemManager.SampleDroppedItemBrightness");
+
+    [Header("Scene References")]
+    [SerializeField] private TerrainManager terrainManager;
+
     [Header("アイテム管理設定")]
     [SerializeField] private float _wakeUpRadiusMultiplier = 3f; // アイテムの半径に対する起床範囲の倍率
+
+    [Header("Drop Spawn Queue")]
+    [SerializeField] private int maxQueuedDropSpawnsPerFrame = 32;
+    [SerializeField] private float maxQueuedDropSpawnMilliseconds = 2f;
+    [SerializeField] private int dropQueueWarningThreshold = 512;
+    [SerializeField] private bool showDropQueueDebugInfo = false;
     
     // インターフェース実装用プロパティ
     [Header("Voxel Solidification")]
@@ -16,7 +35,49 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
     [SerializeField] private int candidateLookupCount = 8;
     [SerializeField] private int candidateMaxBlockRadius = 8;
 
+    [Header("Anchored Drop Physics")]
+    [SerializeField] private float angularSleepThreshold = 0.25f;
+    [SerializeField] private float minSettlingSeconds = 0.4f;
+    [SerializeField] private float anchoredCandidateLinearSpeed = 0.35f;
+    [SerializeField] private float anchoredCandidateAngularSpeed = 1.0f;
+    [SerializeField] private float settlingAbortLinearSpeed = 1.25f;
+    [SerializeField] private float settlingAbortAngularSpeed = 4.0f;
+    [SerializeField] private float itemSupportMinOverlapRatio = 0.08f;
+    [SerializeField] private float itemSupportProbeDepthRatio = 0.75f;
+    [SerializeField] private float itemSupportMaxPenetrationRatio = 0.65f;
+    [SerializeField] private float itemSupportHorizontalPaddingRatio = 0.25f;
+    [SerializeField] private float upwardWakeHeightRatio = 3f;
+    [SerializeField] private float upwardWakePaddingRatio = 0.5f;
+    [SerializeField] private int maxUpwardWakePerEvent = 64;
+    [SerializeField] private float supportProbeRatio = 0.15f;
+    [SerializeField] private float supportMaxGapRatio = 0.20f;
+    [SerializeField] private float supportMaxPenetrationRatio = 0.05f;
+    [SerializeField] private int maxSupportCells = 8;
+    [SerializeField] private float spawnSleepCooldownSeconds = 0.75f;
+    [SerializeField] private float miningPreWakeCooldownSeconds = 0.75f;
+    [SerializeField] private float forceWakeCooldownSeconds = 1.5f;
+    [SerializeField] private float supportLostWakeCooldownSeconds = 0.75f;
+    [SerializeField] private float pickupWakeCooldownSeconds = 0.25f;
+    [SerializeField] private string dynamicDropLayerName = "DroppedItem";
+    [SerializeField] private string anchoredDropLayerName = "AnchoredDrop";
+    [SerializeField] private string toolLayerName = "Tool";
+    [SerializeField] private bool debugTintAnchoredItems = true;
+    [SerializeField] private bool showAnchoredDebugInfo = false;
+    [SerializeField] private float debugStateLogInterval = 2f;
+
+    [Header("Dropped Item Fluid Physics")]
+    [SerializeField, Min(1), InspectorName("Max Fluid Tick Items Per FixedUpdate")]
+    [Tooltip("1回のFixedUpdateで流体物理を処理するDroppedItem数の上限。処理順はround-robinで分散されます。")]
+    private int maxFluidTickItemsPerFixedUpdate = 432;
+
+    [Header("Dropped Item Visual Brightness")]
+    [SerializeField] private MiningLightManager miningLightManager;
+    [SerializeField, Range(0f, 1f)] private float droppedItemVisualBrightnessOffset = 0.05f;
+    [SerializeField, Min(1)] private int maxBrightnessUpdatesPerFrame = 432;
+    [SerializeField, Range(0f, 0.49f)] private float brightnessCornerLocalInset = 0.02f;
+
     public float WakeUpRadiusMultiplier => _wakeUpRadiusMultiplier;
+    public int ActiveItemCount => activeItems.Count;
     
     private static DroppedItemManager _instance;
     public static DroppedItemManager Instance
@@ -25,7 +86,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         {
             if (_instance == null)
             {
-                _instance = FindFirstObjectByType<DroppedItemManager>();
+                Debug.LogError("DroppedItemManager.Instance is not initialized. Place DroppedItemManager in the scene.");
             }
             return _instance;
         }
@@ -38,38 +99,31 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
 
     // アクティブなアイテムの管理リスト
     private List<DroppedItem> activeItems = new List<DroppedItem>();
+    private readonly List<DroppedItem> fluidTickCandidates = new List<DroppedItem>();
+    private readonly HashSet<DroppedItem> fluidTickCandidateSet = new HashSet<DroppedItem>();
+    private int nextFluidTickCandidateIndex;
 
-    // 各アイテムの状態を管理
-    private struct VoxelCellKey : IEquatable<VoxelCellKey>
+    private enum DropState
     {
-        public Vector3Int blockPosition;
-        public Vector3Int localVoxelPosition;
-
-        public VoxelCellKey(Vector3Int blockPosition, Vector3Int localVoxelPosition)
-        {
-            this.blockPosition = blockPosition;
-            this.localVoxelPosition = localVoxelPosition;
-        }
-
-        public bool Equals(VoxelCellKey other)
-        {
-            return blockPosition == other.blockPosition && localVoxelPosition == other.localVoxelPosition;
-        }
-
-        public override bool Equals(object obj)
-        {
-            return obj is VoxelCellKey other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return (blockPosition.GetHashCode() * 397) ^ localVoxelPosition.GetHashCode();
-            }
-        }
+        Dynamic,
+        Settling,
+        Anchored,
+        Invalidated,
+        Solidified
     }
 
+    private enum WakeReason
+    {
+        Manual,
+        MiningPreWake,
+        Force,
+        SupportLost,
+        Pickup,
+        Pool,
+        Load
+    }
+
+    // 各アイテムの状態を管理
     private struct SolidificationCandidate
     {
         public VoxelCellKey key;
@@ -83,67 +137,190 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         public float startedAt;
     }
 
+    private struct DropSpawnRequest
+    {
+        public Vector3 position;
+        public BlockData blockData;
+        public bool useTexture1;
+        public int voxelX;
+        public int voxelY;
+        public int voxelZ;
+        public int voxelsPerBlock;
+        public float voxelWorldSize;
+        public VoxelTextureExtractor textureExtractor;
+        public MiningInfo miningInfo;
+        public bool applyInitialForce;
+    }
+
     private class ItemState
     {
-        public bool isSleeping = false;
+        public DropState state = DropState.Dynamic;
         public Queue<float> velocityHistory = new Queue<float>();
         public float sleepCooldownTimer = 0f;
-        public float sleepingSince = -1f;
+        public float settlingSince = -1f;
         public float solidificationStartedAt = -1f;
         public bool hasSolidificationReservation = false;
         public VoxelCellKey reservedCell;
+        public readonly List<VoxelCellKey> supportCells = new List<VoxelCellKey>();
+        public int lastInvalidationVersion = -1;
     }
     private Dictionary<DroppedItem, ItemState> itemStates = new Dictionary<DroppedItem, ItemState>();
+    private readonly Queue<DropSpawnRequest> queuedDropSpawns = new Queue<DropSpawnRequest>();
     private Dictionary<VoxelCellKey, SolidificationReservation> solidificationReservations =
         new Dictionary<VoxelCellKey, SolidificationReservation>();
+    private readonly Dictionary<VoxelCellKey, HashSet<DroppedItem>> anchoredBySupportCell =
+        new Dictionary<VoxelCellKey, HashSet<DroppedItem>>();
+    private readonly Queue<DroppedItem> invalidatedQueue = new Queue<DroppedItem>();
+    private readonly HashSet<DroppedItem> invalidatedItems = new HashSet<DroppedItem>();
+    private readonly HashSet<DroppedItem> reusableWakeSet = new HashSet<DroppedItem>();
+    private readonly Dictionary<DroppedItem, float> queuedInitialForceSkipUntil = new Dictionary<DroppedItem, float>();
+    private readonly List<DroppedItem> reusableQueuedForceSkipRemovals = new List<DroppedItem>(128);
+    private readonly List<VoxelCellKey> reusableSupportCells = new List<VoxelCellKey>(8);
+    private readonly List<DroppedItem> upwardWakeList = new List<DroppedItem>(64);
+    private readonly HashSet<DroppedItem> upwardWakeVisited = new HashSet<DroppedItem>();
+    private readonly List<float> reusableCandidateDistances = new List<float>(128);
+    private readonly Vector3[] supportSampleBuffer = new Vector3[5];
+    private readonly Vector3[] brightnessSampleBuffer = new Vector3[DroppedItem.VisualBrightnessCornerCount];
+    private readonly Collider[] overlapBuffer = new Collider[2048];
     private TerrainManager cachedTerrainManager;
+    private int dynamicDropLayer = -1;
+    private int anchoredDropLayer = -1;
+    private int toolLayer = -1;
+    private bool dropQueueThresholdWarningIssued;
+    private bool dropQueueSettingsErrorLogged;
+    private bool missingFluidManagerLogged;
+    private bool missingMiningLightManagerLogged;
+    private bool brightnessSamplingFailureLogged;
 
     // 静止・起床ロジックの定数
-    public int maxWakeUpsPerUpdate = 10; // 1フレームあたりに起床させる最大数
-    private Queue<DroppedItem> wakeUpRequestQueue = new Queue<DroppedItem>();
-    private HashSet<DroppedItem> itemsInWakeUpQueue = new HashSet<DroppedItem>();
-
     private const float SleepCheckInterval = 0.2f; // 0.1秒ごとにチェック
     private const float SleepVelocityThreshold = 0.1f;
-    public int MaxWakeUpPerStep = 12; // 1ステップで起床させる最大数
-    public float WakeUpStepDelay = 0.1f; // 次のステップまでの待機時間
-    public int MaxDownwardChain = 7; // 下方向への連鎖回数の上限
-    private const int VelocityHistorySize = 1;
-    private const int WakeUpCheckCount = 1;
-    private const float SleepCooldownDuration = 5.0f; // 5秒のクールダウン
+    private const int VelocityHistorySize = 3;
+    private const float QueuedInitialForceDuplicateSkipSeconds = 0.25f;
 
     private float sleepCheckTimer = 0f;
     private float solidificationCheckTimer = 0f;
+    private float nextAnchoredDebugLogTime = 0f;
+    private int nextBrightnessItemIndex;
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
+            Debug.LogError("Multiple DroppedItemManager instances exist. Remove the duplicate from the scene.", this);
             Destroy(gameObject);
+            return;
         }
-        else
+
+        Instance = this;
+        cachedTerrainManager = terrainManager;
+        if (terrainManager == null)
         {
-            Instance = this;
+            Debug.LogError("DroppedItemManager: TerrainManager is not assigned.", this);
         }
+
+        ResolveDropLayers();
     }
 
     private Dictionary<Vector3Int, List<DroppedItemData>> itemsByChunk = new Dictionary<Vector3Int, List<DroppedItemData>>();
 
     void Start()
     {
+        ResolveDropLayers();
+        SubscribeTerrainEvents();
         // 永続化データからアイテムをロード
         PrepareItemLoading();
     }
 
     void OnDestroy()
     {
+        UnsubscribeTerrainEvents();
         // シーン終了時にアイテムをセーブ
         SaveItems();
     }
 
+    public void OnBeforeContentSceneUnload(string nextSceneName)
+    {
+        SaveItems();
+        UnsubscribeTerrainEvents();
+    }
+
+    public void OnAfterContentSceneLoad(string previousSceneName)
+    {
+        UnsubscribeTerrainEvents();
+        cachedTerrainManager = null;
+        SubscribeTerrainEvents();
+    }
+
+    private void ResolveDropLayers()
+    {
+        dynamicDropLayer = LayerMask.NameToLayer(dynamicDropLayerName);
+        anchoredDropLayer = LayerMask.NameToLayer(anchoredDropLayerName);
+        toolLayer = LayerMask.NameToLayer(toolLayerName);
+
+        if (dynamicDropLayer < 0)
+        {
+            dynamicDropLayer = LayerMask.NameToLayer("DroppedItem");
+        }
+
+        if (anchoredDropLayer < 0)
+        {
+            anchoredDropLayer = dynamicDropLayer;
+            if (showAnchoredDebugInfo)
+            {
+                Debug.LogWarning("DroppedItemManager: AnchoredDrop layer was not found. Anchored drops will stay on DroppedItem layer.");
+            }
+        }
+
+        ConfigureAnchoredLayerCollisions();
+    }
+
+    private void ConfigureAnchoredLayerCollisions()
+    {
+        if (anchoredDropLayer < 0 || anchoredDropLayer == dynamicDropLayer)
+        {
+            return;
+        }
+
+        if (!showAnchoredDebugInfo)
+        {
+            return;
+        }
+
+        int playerLayer = LayerMask.NameToLayer("Player");
+        if (playerLayer < 0 || dynamicDropLayer < 0 || toolLayer < 0)
+        {
+            Debug.LogWarning("DroppedItemManager: AnchoredDrop collision layers are not fully configured in TagManager.");
+        }
+    }
+
+    private void SubscribeTerrainEvents()
+    {
+        TerrainManager terrainManager = ResolveTerrainManager();
+        if (terrainManager == null || terrainManager.VoxelManager == null)
+        {
+            return;
+        }
+
+        terrainManager.VoxelManager.TerrainCellsChanged -= OnTerrainCellsChanged;
+        terrainManager.VoxelManager.TerrainCellsChanged += OnTerrainCellsChanged;
+    }
+
+    private void UnsubscribeTerrainEvents()
+    {
+        TerrainManager terrainManager = cachedTerrainManager;
+        if (terrainManager != null && terrainManager.VoxelManager != null)
+        {
+            terrainManager.VoxelManager.TerrainCellsChanged -= OnTerrainCellsChanged;
+        }
+    }
+
     void Update()
     {
-        ProcessWakeUpRequests();
+        CleanupExpiredQueuedInitialForceSkips();
+        ProcessQueuedDropSpawns();
+        ProcessInvalidatedQueue(32);
+        UpdateDroppedItemBrightness();
         solidificationCheckTimer += Time.deltaTime;
         if (solidificationCheckTimer >= SleepCheckInterval)
         {
@@ -165,8 +342,14 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             {
                 if (item != null)
                 {
-                    ReleaseSolidificationReservation(item);
-                    itemStates.Remove(item);
+                    queuedInitialForceSkipUntil.Remove(item);
+                    RemoveFluidTickCandidate(item);
+                    if (itemStates.TryGetValue(item, out ItemState removedState))
+                    {
+                        RemoveFromAnchoredIndexes(item, removedState);
+                        ReleaseSolidificationReservation(item);
+                        itemStates.Remove(item);
+                    }
                 }
                 activeItems.RemoveAt(i);
                 continue;
@@ -188,225 +371,1223 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 state.sleepCooldownTimer -= SleepCheckInterval;
             }
 
-            state.velocityHistory.Enqueue(item.rb.linearVelocity.magnitude);
-            if (state.velocityHistory.Count > VelocityHistorySize)
+            UpdateItemMotionState(item, state);
+        }
+
+        LogDropStateCountsIfNeeded();
+    }
+
+    void FixedUpdate()
+    {
+        float fixedDeltaTime = Time.fixedDeltaTime;
+        float currentTime = Time.time;
+        int startingCandidateCount = fluidTickCandidates.Count;
+        if (startingCandidateCount == 0)
+        {
+            nextFluidTickCandidateIndex = 0;
+            return;
+        }
+
+        int fluidTickBudget = Mathf.Min(Mathf.Max(1, maxFluidTickItemsPerFixedUpdate), startingCandidateCount);
+        int scannedCount = 0;
+        int processedCount = 0;
+        NormalizeFluidTickCandidateIndex();
+
+        while (fluidTickCandidates.Count > 0 &&
+            scannedCount < startingCandidateCount &&
+            processedCount < fluidTickBudget)
+        {
+            int currentIndex = nextFluidTickCandidateIndex;
+            DroppedItem item = fluidTickCandidates[currentIndex];
+            scannedCount++;
+
+            if (item == null)
             {
-                state.velocityHistory.Dequeue();
+                RemoveFluidTickCandidateAt(currentIndex, item);
+                continue;
             }
 
-            float averageVelocity = 0f;
-            if (state.velocityHistory.Count > 0)
+            if (!itemStates.TryGetValue(item, out ItemState state) || !ShouldBeFluidTickCandidate(item, state))
             {
-                foreach (float v in state.velocityHistory) averageVelocity += v;
-                averageVelocity /= state.velocityHistory.Count;
+                RemoveFluidTickCandidateAt(currentIndex, item);
+                continue;
             }
 
-            bool atRest = state.velocityHistory.Count == VelocityHistorySize && averageVelocity < SleepVelocityThreshold;
+            item.TickFluidPhysics(fixedDeltaTime, currentTime);
+            processedCount++;
+            nextFluidTickCandidateIndex = currentIndex + 1;
+            NormalizeFluidTickCandidateIndex();
+        }
+    }
 
-            if (atRest && state.sleepCooldownTimer <= 0)
+    private void UpdateDroppedItemBrightness()
+    {
+        if (activeItems.Count == 0)
+        {
+            nextBrightnessItemIndex = 0;
+            return;
+        }
+
+        if (miningLightManager == null)
+        {
+            if (!missingMiningLightManagerLogged)
             {
-                if (!state.isSleeping)
+                missingMiningLightManagerLogged = true;
+                Debug.LogError("DroppedItemManager: MiningLightManager is not configured. Dropped item brightness will use the current material value.", this);
+            }
+
+            return;
+        }
+
+        missingMiningLightManagerLogged = false;
+        using (UpdateDroppedItemBrightnessMarker.Auto())
+        {
+            int startingItemCount = activeItems.Count;
+            int updateBudget = Mathf.Min(Mathf.Max(1, maxBrightnessUpdatesPerFrame), startingItemCount);
+            int scannedCount = 0;
+            int updatedCount = 0;
+            NormalizeBrightnessItemIndex();
+
+            while (activeItems.Count > 0 &&
+                scannedCount < startingItemCount &&
+                updatedCount < updateBudget)
+            {
+                int currentIndex = nextBrightnessItemIndex;
+                DroppedItem item = activeItems[currentIndex];
+                scannedCount++;
+
+                if (item != null && item.gameObject.activeInHierarchy)
                 {
-                    state.isSleeping = true;
-                    state.sleepingSince = Time.time;
-                    state.solidificationStartedAt = -1f;
+                    ApplyDroppedItemBrightness(item);
+                    updatedCount++;
                 }
-            }
-            else if (state.isSleeping)
-            {
-                state.isSleeping = false;
-                state.sleepingSince = -1f;
-                state.solidificationStartedAt = -1f;
-                ReleaseSolidificationReservation(item);
+
+                nextBrightnessItemIndex = currentIndex + 1;
+                NormalizeBrightnessItemIndex();
             }
         }
     }
 
-    void ProcessWakeUpRequests()
+    private void ApplyDroppedItemBrightness(DroppedItem item)
     {
-        int processedCount = 0;
-        while (processedCount < maxWakeUpsPerUpdate && wakeUpRequestQueue.Count > 0)
+        if (item == null)
         {
-            DroppedItem itemToWakeUp = wakeUpRequestQueue.Dequeue();
-            itemsInWakeUpQueue.Remove(itemToWakeUp);
+            return;
+        }
 
-            if (itemToWakeUp != null && itemToWakeUp.gameObject.activeInHierarchy && itemStates.ContainsKey(itemToWakeUp))
+        if (miningLightManager == null)
+        {
+            item.SetVisualBrightness(droppedItemVisualBrightnessOffset);
+            return;
+        }
+
+        using (SampleDroppedItemBrightnessMarker.Auto())
+        {
+            int sampleCount = item.GetVisualBrightnessCornerSamples(
+                brightnessSampleBuffer,
+                brightnessCornerLocalInset);
+
+            if (sampleCount != DroppedItem.VisualBrightnessCornerCount ||
+                !miningLightManager.TrySampleAverageBrightnessAtWorldPositions(
+                    brightnessSampleBuffer,
+                    sampleCount,
+                    out float sampledBrightness))
             {
-                ItemState state = itemStates[itemToWakeUp];
-                if (state.isSleeping)
+                if (!brightnessSamplingFailureLogged)
                 {
-                    state.isSleeping = false;
-                    state.sleepingSince = -1f;
-                    state.solidificationStartedAt = -1f;
-                    ReleaseSolidificationReservation(itemToWakeUp);
-                    state.sleepCooldownTimer = SleepCooldownDuration;
-                    state.velocityHistory.Clear();
-                    processedCount++;
+                    brightnessSamplingFailureLogged = true;
+                    Debug.LogError("DroppedItemManager: failed to sample dropped item brightness. Brightness offset will be used for affected items.", this);
                 }
+
+                item.SetVisualBrightness(droppedItemVisualBrightnessOffset);
+                return;
+            }
+
+            item.SetVisualBrightness(Mathf.Clamp01(sampledBrightness + droppedItemVisualBrightnessOffset));
+        }
+    }
+
+    private void NormalizeBrightnessItemIndex()
+    {
+        if (activeItems.Count == 0)
+        {
+            nextBrightnessItemIndex = 0;
+            return;
+        }
+
+        if (nextBrightnessItemIndex < 0)
+        {
+            nextBrightnessItemIndex = 0;
+        }
+        else if (nextBrightnessItemIndex >= activeItems.Count)
+        {
+            nextBrightnessItemIndex = 0;
+        }
+    }
+
+    private bool ShouldBeFluidTickCandidate(DroppedItem item, ItemState state)
+    {
+        if (item == null || state == null || !item.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        if (state.state != DropState.Dynamic && state.state != DropState.Settling)
+        {
+            return false;
+        }
+
+        return item.ShouldTickFluidPhysics();
+    }
+
+    private void RefreshFluidTickCandidate(DroppedItem item, ItemState state)
+    {
+        if (ShouldBeFluidTickCandidate(item, state))
+        {
+            AddFluidTickCandidate(item);
+        }
+        else
+        {
+            RemoveFluidTickCandidate(item);
+        }
+    }
+
+    private void AddFluidTickCandidate(DroppedItem item)
+    {
+        if (item == null || !fluidTickCandidateSet.Add(item))
+        {
+            return;
+        }
+
+        fluidTickCandidates.Add(item);
+    }
+
+    private void RemoveFluidTickCandidate(DroppedItem item)
+    {
+        if (item == null || !fluidTickCandidateSet.Remove(item))
+        {
+            return;
+        }
+
+        int removedIndex = fluidTickCandidates.IndexOf(item);
+        if (removedIndex < 0)
+        {
+            NormalizeFluidTickCandidateIndex();
+            return;
+        }
+
+        fluidTickCandidates.RemoveAt(removedIndex);
+        if (removedIndex < nextFluidTickCandidateIndex)
+        {
+            nextFluidTickCandidateIndex--;
+        }
+
+        NormalizeFluidTickCandidateIndex();
+    }
+
+    private void RemoveFluidTickCandidateAt(int index, DroppedItem item)
+    {
+        if (item != null)
+        {
+            fluidTickCandidateSet.Remove(item);
+        }
+
+        if (index >= 0 && index < fluidTickCandidates.Count)
+        {
+            fluidTickCandidates.RemoveAt(index);
+            if (index < nextFluidTickCandidateIndex)
+            {
+                nextFluidTickCandidateIndex--;
+            }
+        }
+
+        NormalizeFluidTickCandidateIndex();
+    }
+
+    private void NormalizeFluidTickCandidateIndex()
+    {
+        if (fluidTickCandidates.Count == 0)
+        {
+            nextFluidTickCandidateIndex = 0;
+            return;
+        }
+
+        if (nextFluidTickCandidateIndex < 0)
+        {
+            nextFluidTickCandidateIndex = 0;
+            return;
+        }
+
+        if (nextFluidTickCandidateIndex >= fluidTickCandidates.Count)
+        {
+            nextFluidTickCandidateIndex %= fluidTickCandidates.Count;
+        }
+    }
+
+    private void UpdateItemMotionState(DroppedItem item, ItemState state)
+    {
+        if (state.state == DropState.Anchored || state.state == DropState.Invalidated || state.state == DropState.Solidified)
+        {
+            return;
+        }
+
+        state.velocityHistory.Enqueue(item.rb.linearVelocity.magnitude);
+        if (state.velocityHistory.Count > VelocityHistorySize)
+        {
+            state.velocityHistory.Dequeue();
+        }
+
+        float averageVelocity = 0f;
+        if (state.velocityHistory.Count > 0)
+        {
+            foreach (float v in state.velocityHistory) averageVelocity += v;
+            averageVelocity /= state.velocityHistory.Count;
+        }
+
+        float angularSpeed = item.rb.angularVelocity.magnitude;
+        bool cooldownReady = state.sleepCooldownTimer <= 0;
+        bool linearAtRest = state.velocityHistory.Count == VelocityHistorySize && averageVelocity < SleepVelocityThreshold;
+        bool angularAtRest = angularSpeed < angularSleepThreshold;
+        bool atRest = linearAtRest && angularAtRest && cooldownReady;
+        bool slowEnoughToAnchor = state.velocityHistory.Count == VelocityHistorySize &&
+            averageVelocity < Mathf.Max(SleepVelocityThreshold, anchoredCandidateLinearSpeed) &&
+            angularSpeed < Mathf.Max(angularSleepThreshold, anchoredCandidateAngularSpeed) &&
+            cooldownReady;
+
+        if (state.state == DropState.Dynamic)
+        {
+            if (atRest || (slowEnoughToAnchor && TryFindSupport(item, reusableSupportCells)))
+            {
+                SetSettling(item, state);
+            }
+            return;
+        }
+
+        bool movedTooMuchForSettling =
+            averageVelocity > Mathf.Max(anchoredCandidateLinearSpeed, settlingAbortLinearSpeed) ||
+            angularSpeed > Mathf.Max(anchoredCandidateAngularSpeed, settlingAbortAngularSpeed);
+        if (movedTooMuchForSettling)
+        {
+            SetDynamic(item, state, WakeReason.Manual);
+            return;
+        }
+
+        if (state.state == DropState.Settling &&
+            state.settlingSince >= 0f &&
+            Time.time - state.settlingSince >= minSettlingSeconds &&
+            (atRest || slowEnoughToAnchor) &&
+            TryFindSupport(item, reusableSupportCells))
+        {
+            SetAnchored(item, state, reusableSupportCells);
+        }
+    }
+
+    private void SetSettling(DroppedItem item, ItemState state)
+    {
+        state.state = DropState.Settling;
+        state.settlingSince = Time.time;
+        state.solidificationStartedAt = -1f;
+        item.SetAnchoredPhysicsMode(false);
+        RefreshFluidTickCandidate(item, state);
+    }
+
+    private void SetAnchored(DroppedItem item, ItemState state, List<VoxelCellKey> supportCells)
+    {
+        RemoveFromAnchoredIndexes(item, state);
+        ReleaseSolidificationReservation(item);
+
+        state.state = DropState.Anchored;
+        RemoveFluidTickCandidate(item);
+        state.supportCells.Clear();
+        for (int i = 0; i < supportCells.Count && i < maxSupportCells; i++)
+        {
+            state.supportCells.Add(supportCells[i]);
+        }
+
+        if (item.rb != null)
+        {
+            item.rb.linearVelocity = Vector3.zero;
+            item.rb.angularVelocity = Vector3.zero;
+            item.rb.isKinematic = true;
+        }
+
+        item.SetAnchoredPhysicsMode(true);
+        SetAnchoredDebugTint(item, true);
+        SetItemLayer(item.gameObject, anchoredDropLayer);
+        AddToAnchoredIndexes(item, state);
+    }
+
+    private void SetDynamic(DroppedItem item, ItemState state, WakeReason reason)
+    {
+        RemoveFromAnchoredIndexes(item, state);
+        ReleaseSolidificationReservation(item);
+
+        state.state = DropState.Dynamic;
+        state.settlingSince = -1f;
+        state.solidificationStartedAt = -1f;
+        state.lastInvalidationVersion = -1;
+        state.velocityHistory.Clear();
+
+        if (item.rb != null)
+        {
+            item.rb.isKinematic = false;
+            item.rb.WakeUp();
+        }
+
+        item.SetAnchoredPhysicsMode(false);
+        SetAnchoredDebugTint(item, false);
+        SetItemLayer(item.gameObject, dynamicDropLayer);
+        RefreshFluidTickCandidate(item, state);
+    }
+
+    private void SetInvalidated(DroppedItem item, ItemState state, int terrainVersion)
+    {
+        if (state.state != DropState.Anchored || state.lastInvalidationVersion == terrainVersion)
+        {
+            return;
+        }
+
+        state.state = DropState.Invalidated;
+        RemoveFluidTickCandidate(item);
+        state.lastInvalidationVersion = terrainVersion;
+        if (invalidatedItems.Add(item))
+        {
+            invalidatedQueue.Enqueue(item);
+        }
+    }
+
+    private void SetSolidified(DroppedItem item, ItemState state)
+    {
+        state.state = DropState.Solidified;
+        state.settlingSince = -1f;
+        RemoveFluidTickCandidate(item);
+        RemoveFromAnchoredIndexes(item, state);
+        ReleaseSolidificationReservation(item);
+        item.SetAnchoredPhysicsMode(false);
+        SetAnchoredDebugTint(item, false);
+        SetItemLayer(item.gameObject, dynamicDropLayer);
+    }
+
+    private void WakeItem(DroppedItem item, WakeReason reason)
+    {
+        if (item == null || !itemStates.TryGetValue(item, out ItemState state) || state.state == DropState.Solidified)
+        {
+            return;
+        }
+
+        bool shouldWakeAbove = state.state == DropState.Anchored || state.state == DropState.Invalidated;
+        SetDynamic(item, state, reason);
+        state.sleepCooldownTimer = Mathf.Max(state.sleepCooldownTimer, GetWakeCooldownSeconds(reason));
+        if (shouldWakeAbove)
+        {
+            WakeAnchoredItemsAbove(item, WakeReason.SupportLost);
+        }
+    }
+
+    private float GetWakeCooldownSeconds(WakeReason reason)
+    {
+        switch (reason)
+        {
+            case WakeReason.MiningPreWake:
+                return Mathf.Max(0f, miningPreWakeCooldownSeconds);
+            case WakeReason.Force:
+                return Mathf.Max(0f, forceWakeCooldownSeconds);
+            case WakeReason.SupportLost:
+                return Mathf.Max(0f, supportLostWakeCooldownSeconds);
+            case WakeReason.Pickup:
+                return Mathf.Max(0f, pickupWakeCooldownSeconds);
+            case WakeReason.Pool:
+            case WakeReason.Load:
+                return 0f;
+            default:
+                return Mathf.Max(0f, miningPreWakeCooldownSeconds);
+        }
+    }
+
+    private void LogDropStateCountsIfNeeded()
+    {
+        if (!showAnchoredDebugInfo || Time.time < nextAnchoredDebugLogTime)
+        {
+            return;
+        }
+
+        nextAnchoredDebugLogTime = Time.time + Mathf.Max(0.25f, debugStateLogInterval);
+        int dynamicCount = 0;
+        int settlingCount = 0;
+        int anchoredCount = 0;
+        int invalidatedCount = 0;
+        int solidifiedCount = 0;
+
+        foreach (DroppedItem item in activeItems)
+        {
+            if (item == null || !itemStates.TryGetValue(item, out ItemState state))
+            {
+                continue;
+            }
+
+            switch (state.state)
+            {
+                case DropState.Dynamic:
+                    dynamicCount++;
+                    break;
+                case DropState.Settling:
+                    settlingCount++;
+                    break;
+                case DropState.Anchored:
+                    anchoredCount++;
+                    break;
+                case DropState.Invalidated:
+                    invalidatedCount++;
+                    break;
+                case DropState.Solidified:
+                    solidifiedCount++;
+                    break;
+            }
+        }
+
+        Debug.Log(
+            $"DroppedItemManager states: Dynamic={dynamicCount}, Settling={settlingCount}, Anchored={anchoredCount}, Invalidated={invalidatedCount}, Solidified={solidifiedCount}, SupportKeys={anchoredBySupportCell.Count}, InvalidatedQueue={invalidatedQueue.Count}");
+    }
+
+    private void AddToAnchoredIndexes(DroppedItem item, ItemState state)
+    {
+        foreach (VoxelCellKey key in state.supportCells)
+        {
+            if (!anchoredBySupportCell.TryGetValue(key, out HashSet<DroppedItem> items))
+            {
+                items = new HashSet<DroppedItem>();
+                anchoredBySupportCell[key] = items;
+            }
+            items.Add(item);
+        }
+    }
+
+    private void RemoveFromAnchoredIndexes(DroppedItem item, ItemState state)
+    {
+        if (state.supportCells.Count == 0)
+        {
+            return;
+        }
+
+        foreach (VoxelCellKey key in state.supportCells)
+        {
+            if (anchoredBySupportCell.TryGetValue(key, out HashSet<DroppedItem> items))
+            {
+                items.Remove(item);
+                if (items.Count == 0)
+                {
+                    anchoredBySupportCell.Remove(key);
+                }
+            }
+        }
+
+        state.supportCells.Clear();
+    }
+
+    private void SetItemLayer(GameObject itemObject, int layer)
+    {
+        if (itemObject != null && layer >= 0)
+        {
+            itemObject.layer = layer;
+        }
+    }
+
+    private void SetAnchoredDebugTint(DroppedItem item, bool anchored)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        item.SetTemporaryAnchoredDebugTint(debugTintAnchoredItems && anchored);
+    }
+
+    private void WarnIfOverlapBufferFull(int hitCount, string context)
+    {
+        if (showAnchoredDebugInfo && hitCount >= overlapBuffer.Length)
+        {
+            Debug.LogWarning($"DroppedItemManager: overlap buffer filled in {context}; some drops may be skipped this frame.");
+        }
+    }
+
+    private bool TryFindSupport(DroppedItem item, List<VoxelCellKey> terrainSupportCells)
+    {
+        if (TryFindTerrainSupport(item, terrainSupportCells))
+        {
+            return true;
+        }
+
+        terrainSupportCells.Clear();
+        return TryFindAnchoredItemSupport(item);
+    }
+
+    private bool TryFindTerrainSupport(DroppedItem item, List<VoxelCellKey> supportCells)
+    {
+        supportCells.Clear();
+        TerrainManager terrainManager = ResolveTerrainManager();
+        if (item == null || terrainManager == null || terrainManager.VoxelManager == null)
+        {
+            return false;
+        }
+
+        Bounds bounds = item.ItemBounds;
+        float voxelWorldSize = terrainManager.Settings.blockSize / Mathf.Max(1, terrainManager.Settings.voxelsPerBlock);
+        float maxGap = voxelWorldSize * Mathf.Max(0f, supportMaxGapRatio);
+        float maxPenetration = voxelWorldSize * Mathf.Max(0f, supportMaxPenetrationRatio);
+        float probeDistance = voxelWorldSize * Mathf.Max(0.01f, supportMaxGapRatio + supportProbeRatio);
+        float inset = voxelWorldSize * 0.05f;
+
+        float minX = Mathf.Min(bounds.min.x + inset, bounds.center.x);
+        float maxX = Mathf.Max(bounds.max.x - inset, bounds.center.x);
+        float minZ = Mathf.Min(bounds.min.z + inset, bounds.center.z);
+        float maxZ = Mathf.Max(bounds.max.z - inset, bounds.center.z);
+        float bottomY = bounds.min.y;
+        float sampleY = bottomY - probeDistance;
+
+        supportSampleBuffer[0] = new Vector3(bounds.center.x, sampleY, bounds.center.z);
+        supportSampleBuffer[1] = new Vector3(minX, sampleY, minZ);
+        supportSampleBuffer[2] = new Vector3(minX, sampleY, maxZ);
+        supportSampleBuffer[3] = new Vector3(maxX, sampleY, minZ);
+        supportSampleBuffer[4] = new Vector3(maxX, sampleY, maxZ);
+
+        for (int i = 0; i < supportSampleBuffer.Length && supportCells.Count < maxSupportCells; i++)
+        {
+            if (!terrainManager.VoxelManager.TryGetVoxelCellAtWorldPosition(supportSampleBuffer[i], out VoxelCellKey key) ||
+                !terrainManager.VoxelManager.IsVoxelCellSolid(key) ||
+                supportCells.Contains(key))
+            {
+                continue;
+            }
+
+            Bounds cellBounds = terrainManager.VoxelManager.GetVoxelCellWorldBounds(key);
+            float gap = bottomY - cellBounds.max.y;
+            if (gap >= -maxPenetration && gap <= maxGap)
+            {
+                supportCells.Add(key);
+            }
+        }
+
+        return supportCells.Count > 0;
+    }
+
+    private bool TryFindAnchoredItemSupport(DroppedItem item)
+    {
+        if (item == null)
+        {
+            return false;
+        }
+
+        Bounds bounds = item.ItemBounds;
+        float voxelWorldSize = GetVoxelWorldSize();
+        float maxGap = voxelWorldSize * Mathf.Max(supportMaxGapRatio, itemSupportProbeDepthRatio);
+        float maxPenetration = voxelWorldSize * Mathf.Max(supportMaxPenetrationRatio, itemSupportMaxPenetrationRatio);
+        float horizontalPadding = voxelWorldSize * Mathf.Max(0f, itemSupportHorizontalPaddingRatio);
+        float probeMinY = bounds.min.y - maxGap;
+        float probeMaxY = bounds.min.y + maxPenetration;
+        float probeHeight = Mathf.Max(0.01f, probeMaxY - probeMinY);
+        Vector3 probeCenter = new Vector3(bounds.center.x, (probeMinY + probeMaxY) * 0.5f, bounds.center.z);
+        Vector3 probeHalfExtents = new Vector3(
+            Mathf.Max(0.01f, bounds.extents.x + horizontalPadding),
+            probeHeight * 0.5f,
+            Mathf.Max(0.01f, bounds.extents.z + horizontalPadding));
+
+        int hitCount = Physics.OverlapBoxNonAlloc(probeCenter, probeHalfExtents, overlapBuffer, Quaternion.identity);
+        WarnIfOverlapBufferFull(hitCount, nameof(TryFindAnchoredItemSupport));
+
+        float requiredOverlapArea = Mathf.Max(0.0001f, bounds.size.x * bounds.size.z) * Mathf.Clamp01(itemSupportMinOverlapRatio);
+        float accumulatedOverlapArea = 0f;
+        for (int i = 0; i < hitCount; i++)
+        {
+            DroppedItem supportItem = overlapBuffer[i].GetComponent<DroppedItem>();
+            if (supportItem == null || supportItem == item ||
+                !itemStates.TryGetValue(supportItem, out ItemState supportState) ||
+                supportState.state != DropState.Anchored)
+            {
+                continue;
+            }
+
+            Bounds supportBounds = supportItem.ItemBounds;
+            if (supportBounds.center.y > bounds.center.y)
+            {
+                continue;
+            }
+
+            float gap = bounds.min.y - supportBounds.max.y;
+            if (gap < -maxPenetration || gap > maxGap)
+            {
+                continue;
+            }
+
+            Bounds paddedSupportBounds = supportBounds;
+            paddedSupportBounds.Expand(new Vector3(horizontalPadding * 2f, 0f, horizontalPadding * 2f));
+            accumulatedOverlapArea += GetHorizontalOverlapArea(bounds, paddedSupportBounds);
+            if (accumulatedOverlapArea >= requiredOverlapArea)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasEnoughHorizontalOverlap(Bounds itemBounds, Bounds supportBounds, float minOverlapRatio)
+    {
+        float itemArea = Mathf.Max(0.0001f, itemBounds.size.x * itemBounds.size.z);
+        return GetHorizontalOverlapArea(itemBounds, supportBounds) >= itemArea * Mathf.Clamp01(minOverlapRatio);
+    }
+
+    private float GetHorizontalOverlapArea(Bounds itemBounds, Bounds supportBounds)
+    {
+        float overlapX = Mathf.Min(itemBounds.max.x, supportBounds.max.x) - Mathf.Max(itemBounds.min.x, supportBounds.min.x);
+        float overlapZ = Mathf.Min(itemBounds.max.z, supportBounds.max.z) - Mathf.Max(itemBounds.min.z, supportBounds.min.z);
+        if (overlapX <= 0f || overlapZ <= 0f)
+        {
+            return 0f;
+        }
+
+        return overlapX * overlapZ;
+    }
+
+    private float GetVoxelWorldSize()
+    {
+        TerrainManager terrainManager = ResolveTerrainManager();
+        if (terrainManager == null)
+        {
+            return 0.25f;
+        }
+
+        return terrainManager.Settings.blockSize / Mathf.Max(1, terrainManager.Settings.voxelsPerBlock);
+    }
+
+    private void OnTerrainCellsChanged(TerrainChangeBatch change)
+    {
+        if (change == null || change.removedSolidCells.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < change.removedSolidCells.Count; i++)
+        {
+            VoxelCellKey removedCell = change.removedSolidCells[i];
+            if (!anchoredBySupportCell.TryGetValue(removedCell, out HashSet<DroppedItem> anchoredItems))
+            {
+                continue;
+            }
+
+            foreach (DroppedItem item in anchoredItems)
+            {
+                if (item != null && itemStates.TryGetValue(item, out ItemState state))
+                {
+                    SetInvalidated(item, state, change.version);
+                }
+            }
+        }
+
+        ProcessInvalidatedQueue(int.MaxValue);
+    }
+
+    private void ProcessInvalidatedQueue(int maxCount)
+    {
+        int processed = 0;
+        while (invalidatedQueue.Count > 0 && processed < maxCount)
+        {
+            DroppedItem item = invalidatedQueue.Dequeue();
+            invalidatedItems.Remove(item);
+            processed++;
+
+            if (item == null || !item.gameObject.activeInHierarchy || !itemStates.TryGetValue(item, out ItemState state))
+            {
+                continue;
+            }
+
+            if (state.state != DropState.Invalidated)
+            {
+                continue;
+            }
+
+            if (TryFindSupport(item, reusableSupportCells))
+            {
+                SetAnchored(item, state, reusableSupportCells);
+            }
+            else
+            {
+                WakeItem(item, WakeReason.SupportLost);
             }
         }
     }
 
     public void WakeUpItemsInRadius(Vector3 center, Vector3 size, Quaternion rotation)
     {
-        Collider[] hitColliders = Physics.OverlapBox(center, size / 2, rotation);
-        HashSet<DroppedItem> itemsToWakeUp = new HashSet<DroppedItem>();
+        int hitCount = Physics.OverlapBoxNonAlloc(center, size / 2, overlapBuffer, rotation);
+        WarnIfOverlapBufferFull(hitCount, nameof(WakeUpItemsInRadius));
+        reusableWakeSet.Clear();
 
-        foreach (var hitCollider in hitColliders)
+        for (int i = 0; i < hitCount; i++)
         {
+            Collider hitCollider = overlapBuffer[i];
             DroppedItem item = hitCollider.GetComponent<DroppedItem>();
-            if (item != null && itemStates.ContainsKey(item) && itemStates[item].isSleeping)
+            if (item != null && itemStates.TryGetValue(item, out ItemState state) && state.state != DropState.Dynamic)
             {
-                itemsToWakeUp.Add(item);
+                reusableWakeSet.Add(item);
             }
         }
-        ProcessWakeUpQueueAsync(itemsToWakeUp).Forget();
+        WakeItemsNow(reusableWakeSet, WakeReason.MiningPreWake);
+        reusableWakeSet.Clear();
     }
 
     public void ApplyForceToItemsInRadius(Vector3 center, Vector3 size, Quaternion rotation, MiningInfo info)
     {
         if (info.Force <= 0) return;
 
-        Collider[] hitColliders = Physics.OverlapBox(center, size / 2, rotation);
-        foreach (var hitCollider in hitColliders)
+        int hitCount = Physics.OverlapBoxNonAlloc(center, size / 2, overlapBuffer, rotation);
+        WarnIfOverlapBufferFull(hitCount, nameof(ApplyForceToItemsInRadius));
+        for (int i = 0; i < hitCount; i++)
         {
+            Collider hitCollider = overlapBuffer[i];
             DroppedItem item = hitCollider.GetComponent<DroppedItem>();
             if (item != null && item.rb != null)
             {
-                // アイテムがスリープ状態なら起床させる
-                if (itemStates.TryGetValue(item, out ItemState state) && state.isSleeping)
+                if (queuedInitialForceSkipUntil.TryGetValue(item, out float skipUntil))
                 {
-                    state.isSleeping = false;
-                    state.sleepingSince = -1f;
-                    state.solidificationStartedAt = -1f;
-                    ReleaseSolidificationReservation(item);
-                    state.sleepCooldownTimer = SleepCooldownDuration;
-                    state.velocityHistory.Clear();
+                    if (Time.time <= skipUntil)
+                    {
+                        continue;
+                    }
+
+                    queuedInitialForceSkipUntil.Remove(item);
                 }
 
-                // 力を加える
-                Vector3 velocity = Vector3.zero;
-                switch (info.Type)
+                // アイテムがスリープ状態なら起床させる
+                if (itemStates.TryGetValue(item, out ItemState state) && state.state != DropState.Dynamic)
                 {
-                    case MiningType.Directional:
-                        velocity = info.Direction.normalized * info.Force;
-                        break;
-                    case MiningType.ArcSwing:
-                        Vector3 itemDirection = item.transform.position - info.SourcePoint;
-                        itemDirection.z = 0; // 2D平面で計算
-                        Vector3 tangentDirection;
-                        if (info.IsFacingRight) // 時計回り
-                        {
-                            tangentDirection = new Vector3(itemDirection.y, -itemDirection.x, 0);
-                        }
-                        else // 反時計回り
-                        {
-                            tangentDirection = new Vector3(-itemDirection.y, itemDirection.x, 0);
-                        }
-                        velocity = (tangentDirection.normalized + Vector3.up * 0.3f).normalized * info.Force; // 少し上向きの力を加える
-                        break;
-                    case MiningType.Explosive:
-                        Vector3 directionFromExplosion = (item.transform.position - info.SourcePoint).normalized;
-                        directionFromExplosion = (directionFromExplosion + Vector3.up * 0.5f).normalized;
-                        velocity = directionFromExplosion * info.Force;
-                        break;
+                    WakeItem(item, WakeReason.Force);
                 }
-                item.rb.AddForce(velocity, ForceMode.Impulse);
+
+                item.rb.AddForce(CalculateMiningImpulse(item.transform.position, info), ForceMode.Impulse);
             }
         }
     }
 
     public void WakeUpItemsNearPosition(Vector3 position, float radius)
     {
-        Collider[] hitColliders = Physics.OverlapSphere(position, radius);
-        HashSet<DroppedItem> itemsToWakeUp = new HashSet<DroppedItem>();
+        int hitCount = Physics.OverlapSphereNonAlloc(position, radius, overlapBuffer);
+        WarnIfOverlapBufferFull(hitCount, nameof(WakeUpItemsNearPosition));
+        reusableWakeSet.Clear();
 
-        foreach (var hitCollider in hitColliders)
+        for (int i = 0; i < hitCount; i++)
         {
+            Collider hitCollider = overlapBuffer[i];
             DroppedItem item = hitCollider.GetComponent<DroppedItem>();
-            if (item != null && itemStates.ContainsKey(item) && itemStates[item].isSleeping)
+            if (item != null && itemStates.TryGetValue(item, out ItemState state) && state.state != DropState.Dynamic)
             {
-                itemsToWakeUp.Add(item);
+                reusableWakeSet.Add(item);
             }
         }
-        ProcessWakeUpQueueAsync(itemsToWakeUp).Forget();
+        WakeItemsNow(reusableWakeSet, WakeReason.Pickup);
+        reusableWakeSet.Clear();
     }
 
-    private async UniTask ProcessWakeUpQueueAsync(HashSet<DroppedItem> initialItems)
+    private void WakeItemsNow(HashSet<DroppedItem> items, WakeReason reason)
     {
-        if (initialItems != null && initialItems.Count > 0)
+        if (items == null || items.Count == 0)
         {
-            // キューにはタプル(アイテム, 下方向への連鎖回数)を格納
-            Queue<Tuple<DroppedItem, int>> processingQueue = new Queue<Tuple<DroppedItem, int>>();
-            HashSet<DroppedItem> processedItems = new HashSet<DroppedItem>();
-            
-            // 初期アイテムをキューに追加
-            foreach (var item in initialItems)
+            return;
+        }
+
+        foreach (DroppedItem item in items)
+        {
+            WakeItem(item, reason);
+        }
+    }
+
+    private void WakeAnchoredItemsAbove(DroppedItem root, WakeReason reason)
+    {
+        if (root == null || maxUpwardWakePerEvent <= 0)
+        {
+            return;
+        }
+
+        upwardWakeList.Clear();
+        upwardWakeVisited.Clear();
+        upwardWakeVisited.Add(root);
+        AddAnchoredItemsAbove(root, upwardWakeList, upwardWakeVisited);
+
+        int processed = 0;
+        for (int i = 0; i < upwardWakeList.Count && processed < maxUpwardWakePerEvent; i++)
+        {
+            DroppedItem item = upwardWakeList[i];
+            if (item == null || !itemStates.TryGetValue(item, out ItemState state) ||
+                (state.state != DropState.Anchored && state.state != DropState.Invalidated))
             {
-                if (item != null && itemStates.ContainsKey(item) && itemStates[item].isSleeping && !itemsInWakeUpQueue.Contains(item))
-                {
-                    processingQueue.Enqueue(new Tuple<DroppedItem, int>(item, 0));
-                    processedItems.Add(item); // Coroutine内で重複して処理しないように
-                }
+                continue;
             }
 
-            int processedCountInStep = 0;
+            SetDynamic(item, state, reason);
+            state.sleepCooldownTimer = Mathf.Max(state.sleepCooldownTimer, GetWakeCooldownSeconds(reason));
+            processed++;
+            AddAnchoredItemsAbove(item, upwardWakeList, upwardWakeVisited);
+        }
 
-            while (processingQueue.Count > 0)
+        upwardWakeList.Clear();
+        upwardWakeVisited.Clear();
+    }
+
+    private void AddAnchoredItemsAbove(DroppedItem source, List<DroppedItem> results, HashSet<DroppedItem> visited)
+    {
+        Bounds sourceBounds = source.ItemBounds;
+        float voxelWorldSize = GetVoxelWorldSize();
+        float verticalRange = Mathf.Max(sourceBounds.size.y, voxelWorldSize * Mathf.Max(1f, upwardWakeHeightRatio));
+        float padding = voxelWorldSize * Mathf.Max(0f, upwardWakePaddingRatio);
+        Vector3 center = new Vector3(
+            sourceBounds.center.x,
+            sourceBounds.max.y + verticalRange * 0.5f,
+            sourceBounds.center.z);
+        Vector3 halfExtents = new Vector3(
+            sourceBounds.extents.x + padding,
+            verticalRange * 0.5f,
+            sourceBounds.extents.z + padding);
+
+        int hitCount = Physics.OverlapBoxNonAlloc(center, halfExtents, overlapBuffer, Quaternion.identity);
+        WarnIfOverlapBufferFull(hitCount, nameof(AddAnchoredItemsAbove));
+
+        for (int i = 0; i < hitCount && results.Count < maxUpwardWakePerEvent; i++)
+        {
+            DroppedItem candidate = overlapBuffer[i].GetComponent<DroppedItem>();
+            if (candidate == null || visited.Contains(candidate) ||
+                !itemStates.TryGetValue(candidate, out ItemState candidateState) ||
+                candidateState.state != DropState.Anchored)
             {
-                var queueElement = processingQueue.Dequeue();
-                DroppedItem currentItem = queueElement.Item1;
-                int downwardChainCount = queueElement.Item2;
-
-                // 起床リクエストのキューに追加
-                if (!itemsInWakeUpQueue.Contains(currentItem))
-                {
-                    wakeUpRequestQueue.Enqueue(currentItem);
-                    itemsInWakeUpQueue.Add(currentItem);
-                }
-
-                processedCountInStep++;
-
-                // 周囲のアイテムをチェックしてキューに追加
-                var currentItemCollider = currentItem.GetComponent<Collider>();
-                if (currentItemCollider != null)
-                {
-                    float radius = currentItemCollider.bounds.extents.magnitude;
-                    Collider[] surroundingColliders = Physics.OverlapSphere(currentItem.transform.position, radius * WakeUpRadiusMultiplier);
-                    foreach (var surroundingCollider in surroundingColliders)
-                    {
-                        DroppedItem nearbyItem = surroundingCollider.GetComponent<DroppedItem>();
-                        if (nearbyItem != null && itemStates.ContainsKey(nearbyItem) && itemStates[nearbyItem].isSleeping && !processedItems.Contains(nearbyItem) && !itemsInWakeUpQueue.Contains(nearbyItem))
-                        {
-                            // 上方向か同じ高さの場合
-                            if (nearbyItem.transform.position.y >= currentItem.transform.position.y)
-                            {
-                                // 下方向連鎖カウントをリセットしてキューに追加
-                                processingQueue.Enqueue(new Tuple<DroppedItem, int>(nearbyItem, 0));
-                                processedItems.Add(nearbyItem);
-                            }
-                            // 下方向の場合
-                            else
-                            {
-                                // 下方向連鎖の上限に達していない場合のみ
-                                if (downwardChainCount < MaxDownwardChain)
-                                {
-                                    // カウントを増やしてキューに追加
-                                    processingQueue.Enqueue(new Tuple<DroppedItem, int>(nearbyItem, downwardChainCount + 1));
-                                    processedItems.Add(nearbyItem);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ステップの上限に達したら待機
-                if (processedCountInStep >= MaxWakeUpPerStep)
-                {
-                    processedCountInStep = 0;
-                    await UniTask.Delay(TimeSpan.FromSeconds(WakeUpStepDelay));
-                }
+                continue;
             }
+
+            Bounds candidateBounds = candidate.ItemBounds;
+            if (candidateBounds.center.y < sourceBounds.center.y ||
+                !HasEnoughHorizontalOverlap(candidateBounds, sourceBounds, itemSupportMinOverlapRatio))
+            {
+                continue;
+            }
+
+            visited.Add(candidate);
+            results.Add(candidate);
+        }
+    }
+
+    public void EnqueueDropItem(
+        Vector3 position,
+        BlockData blockData,
+        bool useTexture1,
+        int voxelX,
+        int voxelY,
+        int voxelZ,
+        int voxelsPerBlock,
+        float voxelWorldSize,
+        VoxelTextureExtractor textureExtractor,
+        MiningInfo miningInfo,
+        bool applyInitialForce)
+    {
+        if (blockData == null)
+        {
+            Debug.LogError("DroppedItemManager: BlockData is null. Cannot queue dropped item.", this);
+            return;
+        }
+
+        if (blockData.droppedItemPrefab == null)
+        {
+            Debug.LogError($"DroppedItemManager: BlockData '{blockData.name}' has no droppedItemPrefab assigned.", blockData);
+            return;
+        }
+
+        queuedDropSpawns.Enqueue(new DropSpawnRequest
+        {
+            position = position,
+            blockData = blockData,
+            useTexture1 = useTexture1,
+            voxelX = voxelX,
+            voxelY = voxelY,
+            voxelZ = voxelZ,
+            voxelsPerBlock = voxelsPerBlock,
+            voxelWorldSize = voxelWorldSize,
+            textureExtractor = textureExtractor,
+            miningInfo = miningInfo,
+            applyInitialForce = applyInitialForce
+        });
+
+        if (dropQueueWarningThreshold >= 0 &&
+            queuedDropSpawns.Count > dropQueueWarningThreshold &&
+            !dropQueueThresholdWarningIssued)
+        {
+            dropQueueThresholdWarningIssued = true;
+            Debug.LogWarning(
+                $"DroppedItemManager: queued drop spawn count exceeded threshold. Count={queuedDropSpawns.Count}, Threshold={dropQueueWarningThreshold}",
+                this);
+        }
+    }
+
+    public bool TrySpawnDroppedItemFromVoxelItemData(
+        Vector3 position,
+        VoxelItemData itemData,
+        TerrainDataManager terrainDataManager,
+        Vector3 initialVelocity,
+        Vector3 initialAngularVelocity,
+        out GameObject itemObject)
+    {
+        using (SpawnInventoryDropMarker.Auto())
+        {
+            itemObject = null;
+            const string context = "DroppedItemManager.TrySpawnDroppedItemFromVoxelItemData";
+            if (itemData == null || !itemData.IsValid(context))
+            {
+                return false;
+            }
+
+            if (terrainDataManager == null)
+            {
+                Debug.LogError("DroppedItemManager: TerrainDataManager is not assigned. Cannot spawn inventory drop.", this);
+                return false;
+            }
+
+            BlockData blockData = terrainDataManager.GetBlockDataByName(itemData.blockDataName);
+            if (blockData == null)
+            {
+                Debug.LogError($"DroppedItemManager: BlockData '{itemData.blockDataName}' could not be resolved.", this);
+                return false;
+            }
+
+            if (blockData.droppedItemPrefab == null)
+            {
+                Debug.LogError($"DroppedItemManager: BlockData '{blockData.name}' has no droppedItemPrefab assigned.", blockData);
+                return false;
+            }
+
+            GameObject spawnedItem = GetItem(blockData.droppedItemPrefab);
+            if (spawnedItem == null)
+            {
+                Debug.LogError($"DroppedItemManager: failed to get dropped item instance for '{blockData.name}'.", blockData);
+                return false;
+            }
+
+            spawnedItem.transform.position = position;
+            spawnedItem.transform.rotation = Quaternion.identity;
+
+            if (!VoxelItemVisualUtility.TryApplyAppearance(spawnedItem, itemData, terrainDataManager, context))
+            {
+                ReturnItem(spawnedItem);
+                return false;
+            }
+
+            Rigidbody itemRigidbody = spawnedItem.GetComponent<Rigidbody>();
+            if (itemRigidbody == null)
+            {
+                itemRigidbody = spawnedItem.AddComponent<Rigidbody>();
+            }
+
+            itemRigidbody.mass = Mathf.Max(0.001f, itemData.scale.x * itemData.scale.y * itemData.scale.z * blockData.density);
+            itemRigidbody.isKinematic = false;
+            itemRigidbody.linearVelocity = initialVelocity;
+            itemRigidbody.angularVelocity = initialAngularVelocity;
+            SetDroppedItemConstraints(itemRigidbody);
+
+            if (!spawnedItem.CompareTag("DroppedItem"))
+            {
+                spawnedItem.tag = "DroppedItem";
+            }
+
+            SetItemLayer(spawnedItem, dynamicDropLayer);
+
+            DroppedItem droppedItem = spawnedItem.GetComponent<DroppedItem>();
+            if (droppedItem != null)
+            {
+                droppedItem.ResetSolidificationState();
+                droppedItem.resourceType = itemData.resourceType;
+                droppedItem.blockDataName = itemData.blockDataName;
+                droppedItem.scale = itemData.scale;
+                if (droppedItem.ItemCollider != null)
+                {
+                    droppedItem.ItemCollider.enabled = true;
+                }
+
+                ApplyDroppedItemBrightness(droppedItem);
+                itemRigidbody.WakeUp();
+            }
+
+            itemObject = spawnedItem;
+            return true;
+        }
+    }
+
+    private void ProcessQueuedDropSpawns()
+    {
+        if (queuedDropSpawns.Count == 0)
+        {
+            dropQueueThresholdWarningIssued = false;
+            return;
+        }
+
+        if (!ValidateDropQueueSettings())
+        {
+            return;
+        }
+
+        using (ProcessQueuedDropSpawnsMarker.Auto())
+        {
+            int processedCount = 0;
+            double startedAt = Time.realtimeSinceStartupAsDouble;
+            double budgetSeconds = maxQueuedDropSpawnMilliseconds / 1000.0;
+
+            while (queuedDropSpawns.Count > 0 && processedCount < maxQueuedDropSpawnsPerFrame)
+            {
+                if (processedCount > 0 && Time.realtimeSinceStartupAsDouble - startedAt >= budgetSeconds)
+                {
+                    break;
+                }
+
+                DropSpawnRequest request = queuedDropSpawns.Dequeue();
+                SpawnQueuedDrop(request);
+                processedCount++;
+            }
+
+            if (queuedDropSpawns.Count <= dropQueueWarningThreshold)
+            {
+                dropQueueThresholdWarningIssued = false;
+            }
+
+            if (showDropQueueDebugInfo && processedCount > 0)
+            {
+                Debug.Log(
+                    $"DroppedItemManager drop queue: processed={processedCount}, remaining={queuedDropSpawns.Count}",
+                    this);
+            }
+        }
+    }
+
+    private void CleanupExpiredQueuedInitialForceSkips()
+    {
+        if (queuedInitialForceSkipUntil.Count == 0)
+        {
+            return;
+        }
+
+        reusableQueuedForceSkipRemovals.Clear();
+        float now = Time.time;
+        foreach (KeyValuePair<DroppedItem, float> entry in queuedInitialForceSkipUntil)
+        {
+            if (entry.Key == null || entry.Value < now)
+            {
+                reusableQueuedForceSkipRemovals.Add(entry.Key);
+            }
+        }
+
+        for (int i = 0; i < reusableQueuedForceSkipRemovals.Count; i++)
+        {
+            queuedInitialForceSkipUntil.Remove(reusableQueuedForceSkipRemovals[i]);
+        }
+
+        reusableQueuedForceSkipRemovals.Clear();
+    }
+
+    private bool ValidateDropQueueSettings()
+    {
+        if (maxQueuedDropSpawnsPerFrame <= 0 ||
+            maxQueuedDropSpawnMilliseconds <= 0f ||
+            dropQueueWarningThreshold < 0)
+        {
+            if (!dropQueueSettingsErrorLogged)
+            {
+                dropQueueSettingsErrorLogged = true;
+                Debug.LogError(
+                    $"DroppedItemManager: invalid drop queue settings. maxQueuedDropSpawnsPerFrame={maxQueuedDropSpawnsPerFrame}, maxQueuedDropSpawnMilliseconds={maxQueuedDropSpawnMilliseconds}, dropQueueWarningThreshold={dropQueueWarningThreshold}",
+                    this);
+            }
+
+            return false;
+        }
+
+        dropQueueSettingsErrorLogged = false;
+        return true;
+    }
+
+    private void SpawnQueuedDrop(DropSpawnRequest request)
+    {
+        using (SpawnQueuedDropMarker.Auto())
+        {
+            if (request.blockData == null)
+            {
+                Debug.LogError("DroppedItemManager: queued drop request has null BlockData.", this);
+                return;
+            }
+
+            if (request.blockData.droppedItemPrefab == null)
+            {
+                Debug.LogError($"DroppedItemManager: queued BlockData '{request.blockData.name}' has no droppedItemPrefab assigned.", request.blockData);
+                return;
+            }
+
+            GameObject item = GetItem(request.blockData.droppedItemPrefab);
+            if (item == null)
+            {
+                Debug.LogError($"DroppedItemManager: failed to get dropped item instance for '{request.blockData.name}'.", request.blockData);
+                return;
+            }
+
+            item.transform.position = request.position;
+            item.transform.rotation = Quaternion.identity;
+
+            BlockItemDropper.SetupDroppedItem(
+                item,
+                request.blockData,
+                request.useTexture1,
+                request.voxelX,
+                request.voxelY,
+                request.voxelZ,
+                request.voxelsPerBlock,
+                request.voxelWorldSize,
+                request.textureExtractor);
+
+            DroppedItem droppedItem = item.GetComponent<DroppedItem>();
+            ApplyDroppedItemBrightness(droppedItem);
+            if (request.applyInitialForce)
+            {
+                ApplyMiningForceToItem(droppedItem, request.miningInfo);
+            }
+        }
+    }
+
+    private void ApplyMiningForceToItem(DroppedItem item, MiningInfo info)
+    {
+        if (item == null || item.rb == null || info.Force <= 0f)
+        {
+            return;
+        }
+
+        Vector3 impulse = CalculateMiningImpulse(item.transform.position, info);
+        item.rb.AddForce(impulse, ForceMode.Impulse);
+        queuedInitialForceSkipUntil[item] = Time.time + QueuedInitialForceDuplicateSkipSeconds;
+    }
+
+    private static Vector3 CalculateMiningImpulse(Vector3 itemPosition, MiningInfo info)
+    {
+        switch (info.Type)
+        {
+            case MiningType.Directional:
+                return info.Direction.normalized * info.Force;
+            case MiningType.ArcSwing:
+            {
+                Vector3 itemDirection = itemPosition - info.SourcePoint;
+                itemDirection.z = 0;
+                Vector3 tangentDirection = info.IsFacingRight
+                    ? new Vector3(itemDirection.y, -itemDirection.x, 0)
+                    : new Vector3(-itemDirection.y, itemDirection.x, 0);
+                return (tangentDirection.normalized + Vector3.up * 0.3f).normalized * info.Force;
+            }
+            case MiningType.Explosive:
+            {
+                Vector3 directionFromExplosion = (itemPosition - info.SourcePoint).normalized;
+                directionFromExplosion = (directionFromExplosion + Vector3.up * 0.5f).normalized;
+                return directionFromExplosion * info.Force;
+            }
+            default:
+                Debug.LogError($"DroppedItemManager: Unsupported MiningType '{info.Type}' for queued drop force.");
+                return Vector3.zero;
         }
     }
 
@@ -437,6 +1618,15 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         var droppedItemComponent = itemInstance.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
+            InjectFluidManager(droppedItemComponent);
+            SetItemLayer(itemInstance, dynamicDropLayer);
+            droppedItemComponent.ResetPhysicsForSpawn();
+            SetAnchoredDebugTint(droppedItemComponent, false);
+            if (droppedItemComponent.ItemCollider != null)
+            {
+                droppedItemComponent.ItemCollider.enabled = true;
+            }
+
             // 管理リストに追加
             if (!activeItems.Contains(droppedItemComponent))
             {
@@ -447,12 +1637,15 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             {
                 itemStates.Add(droppedItemComponent, new ItemState());
             }
-            itemStates[droppedItemComponent].sleepCooldownTimer = SleepCooldownDuration; // 初出現時にクールダウンを設定
-            itemStates[droppedItemComponent].isSleeping = false;
-            itemStates[droppedItemComponent].sleepingSince = -1f;
-            itemStates[droppedItemComponent].solidificationStartedAt = -1f;
-            itemStates[droppedItemComponent].hasSolidificationReservation = false;
-            itemStates[droppedItemComponent].velocityHistory.Clear();
+            ItemState state = itemStates[droppedItemComponent];
+            state.state = DropState.Dynamic;
+            state.sleepCooldownTimer = Mathf.Max(0f, spawnSleepCooldownSeconds);
+            state.settlingSince = -1f;
+            state.solidificationStartedAt = -1f;
+            state.hasSolidificationReservation = false;
+            state.supportCells.Clear();
+            state.velocityHistory.Clear();
+            RefreshFluidTickCandidate(droppedItemComponent, state);
         }
 
         return itemInstance;
@@ -463,6 +1656,173 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         return new List<DroppedItem>(activeItems);
     }
 
+    public void CollectActiveItemsNear(
+        Vector3 origin,
+        float radius,
+        List<DroppedItem> results,
+        int maxCount,
+        ISet<DroppedItem> excludedItems = null)
+    {
+        if (results == null)
+        {
+            Debug.LogError("DroppedItemManager: results list is null.", this);
+            return;
+        }
+
+        results.Clear();
+        reusableCandidateDistances.Clear();
+
+        if (maxCount <= 0)
+        {
+            Debug.LogError($"DroppedItemManager: maxCount must be greater than 0. maxCount={maxCount}", this);
+            return;
+        }
+
+        bool useRadius = radius > 0f;
+        float radiusSqr = radius * radius;
+        for (int i = 0; i < activeItems.Count; i++)
+        {
+            DroppedItem item = activeItems[i];
+            if (item == null || item.gameObject == null || !item.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            if (excludedItems != null && excludedItems.Contains(item))
+            {
+                continue;
+            }
+
+            float distanceSqr = (item.transform.position - origin).sqrMagnitude;
+            if (useRadius && distanceSqr > radiusSqr)
+            {
+                continue;
+            }
+
+            InsertNearestCandidate(item, distanceSqr, results, maxCount);
+        }
+
+        reusableCandidateDistances.Clear();
+    }
+
+    public bool CollectActiveItemsNearIncremental(
+        Vector3 origin,
+        float radius,
+        List<DroppedItem> results,
+        List<float> candidateDistances,
+        int maxCount,
+        ISet<DroppedItem> excludedItems,
+        ref int nextIndex,
+        int maxItemsToScan)
+    {
+        if (results == null)
+        {
+            Debug.LogError("DroppedItemManager: results list is null.", this);
+            return true;
+        }
+
+        if (candidateDistances == null)
+        {
+            Debug.LogError("DroppedItemManager: candidateDistances list is null.", this);
+            return true;
+        }
+
+        if (maxCount <= 0)
+        {
+            Debug.LogError($"DroppedItemManager: maxCount must be greater than 0. maxCount={maxCount}", this);
+            return true;
+        }
+
+        if (maxItemsToScan <= 0)
+        {
+            Debug.LogError($"DroppedItemManager: maxItemsToScan must be greater than 0. maxItemsToScan={maxItemsToScan}", this);
+            return true;
+        }
+
+        if (candidateDistances.Count != results.Count)
+        {
+            Debug.LogError(
+                $"DroppedItemManager: candidateDistances count must match results count. Distances={candidateDistances.Count}, Results={results.Count}",
+                this);
+            return true;
+        }
+
+        if (nextIndex < 0)
+        {
+            Debug.LogError($"DroppedItemManager: nextIndex must not be negative. nextIndex={nextIndex}", this);
+            return true;
+        }
+
+        bool useRadius = radius > 0f;
+        float radiusSqr = radius * radius;
+        int scanned = 0;
+        while (nextIndex < activeItems.Count && scanned < maxItemsToScan)
+        {
+            DroppedItem item = activeItems[nextIndex];
+            nextIndex++;
+            scanned++;
+
+            if (item == null || item.gameObject == null || !item.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            if (excludedItems != null && excludedItems.Contains(item))
+            {
+                continue;
+            }
+
+            float distanceSqr = (item.transform.position - origin).sqrMagnitude;
+            if (useRadius && distanceSqr > radiusSqr)
+            {
+                continue;
+            }
+
+            InsertNearestCandidate(item, distanceSqr, results, candidateDistances, maxCount);
+        }
+
+        return nextIndex >= activeItems.Count;
+    }
+
+    private void InsertNearestCandidate(DroppedItem item, float distanceSqr, List<DroppedItem> results, int maxCount)
+    {
+        InsertNearestCandidate(item, distanceSqr, results, reusableCandidateDistances, maxCount);
+    }
+
+    private void InsertNearestCandidate(
+        DroppedItem item,
+        float distanceSqr,
+        List<DroppedItem> results,
+        List<float> candidateDistances,
+        int maxCount)
+    {
+        if (results.Count >= maxCount && distanceSqr >= candidateDistances[candidateDistances.Count - 1])
+        {
+            return;
+        }
+
+        int insertIndex = 0;
+        while (insertIndex < candidateDistances.Count && candidateDistances[insertIndex] <= distanceSqr)
+        {
+            insertIndex++;
+        }
+
+        results.Insert(insertIndex, item);
+        candidateDistances.Insert(insertIndex, distanceSqr);
+
+        if (results.Count > maxCount)
+        {
+            int removeIndex = results.Count - 1;
+            results.RemoveAt(removeIndex);
+            candidateDistances.RemoveAt(removeIndex);
+        }
+    }
+
+    public bool ContainsActiveItem(DroppedItem item)
+    {
+        return item != null && activeItems.Contains(item);
+    }
+
     public void ReturnItem(GameObject itemInstance)
     {
         if (itemInstance == null) return;
@@ -470,8 +1830,18 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         var droppedItemComponent = itemInstance.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
+            queuedInitialForceSkipUntil.Remove(droppedItemComponent);
             // 状態とリストから削除
-            ReleaseSolidificationReservation(droppedItemComponent);
+            if (itemStates.TryGetValue(droppedItemComponent, out ItemState state))
+            {
+                if (state.state == DropState.Anchored || state.state == DropState.Invalidated)
+                {
+                    WakeAnchoredItemsAbove(droppedItemComponent, WakeReason.SupportLost);
+                }
+
+                SetDynamic(droppedItemComponent, state, WakeReason.Pool);
+            }
+            RemoveFluidTickCandidate(droppedItemComponent);
             itemStates.Remove(droppedItemComponent);
             activeItems.Remove(droppedItemComponent);
         }
@@ -522,8 +1892,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 continue;
             }
 
-            if (!state.isSleeping || state.sleepingSince < 0f ||
-                Time.time - state.sleepingSince < solidifyAfterSleepingSeconds)
+            if (!IsStableForSolidification(state))
+            {
+                continue;
+            }
+
+            if (Time.time - state.settlingSince < solidifyAfterSleepingSeconds)
             {
                 continue;
             }
@@ -533,24 +1907,55 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         }
     }
 
-    private int ComputeItemLocalZ(DroppedItem item, TerrainManager terrainManager)
-    {
-        var settings = terrainManager.Settings;
-        int voxelsPerBlock = Mathf.Max(1, settings.voxelsPerBlock);
-        float voxelUnit = settings.blockSize / voxelsPerBlock;
-        float worldZRel = item.transform.position.z - settings.center.z;
-        int localZ = Mathf.RoundToInt(worldZRel / voxelUnit + (voxelsPerBlock - 1) / 2.0f);
-        return Mathf.Clamp(localZ, 0, voxelsPerBlock - 1);
-    }
-
     private TerrainManager ResolveTerrainManager()
     {
         if (cachedTerrainManager == null)
         {
-            cachedTerrainManager = FindFirstObjectByType<TerrainManager>();
+            cachedTerrainManager = terrainManager;
+        }
+
+        if (cachedTerrainManager == null)
+        {
+            Debug.LogError("DroppedItemManager: TerrainManager is not assigned.", this);
         }
 
         return cachedTerrainManager;
+    }
+
+    private FluidManager ResolveFluidManager()
+    {
+        TerrainManager terrainManager = ResolveTerrainManager();
+        return terrainManager != null ? terrainManager.FluidManager : null;
+    }
+
+    private void InjectFluidManager(DroppedItem item)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        FluidManager fluidManager = ResolveFluidManager();
+        if (fluidManager == null)
+        {
+            if (!missingFluidManagerLogged)
+            {
+                missingFluidManagerLogged = true;
+                Debug.LogError("DroppedItemManager: FluidManager is not configured. Dropped item fluid physics will be skipped.", this);
+            }
+
+            return;
+        }
+
+        missingFluidManagerLogged = false;
+        item.SetFluidManager(fluidManager);
+    }
+
+    private bool IsStableForSolidification(ItemState state)
+    {
+        return state != null &&
+               state.settlingSince >= 0f &&
+               (state.state == DropState.Settling || state.state == DropState.Anchored);
     }
 
     private bool TrySolidifyItem(DroppedItem item, TerrainManager terrainManager, ItemState state)
@@ -591,7 +1996,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             }
         }
 
-        if (!terrainManager.VoxelManager.SetVoxelCell(target.key.blockPosition, target.key.localVoxelPosition, blockData, true, useTexture1: true))
+        if (!terrainManager.VoxelManager.SetVoxelCell(target.key.blockPosition, target.key.localVoxelPosition, blockData, true, useTexture1: item.useTexture1))
         {
             ReleaseSolidificationReservation(item);
             return false;
@@ -619,7 +2024,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             solidifiedTime = Time.time
         });
 
-        ReleaseSolidificationReservation(item);
+        SetSolidified(item, state);
         ReturnItem(item.gameObject);
         return true;
     }
@@ -634,8 +2039,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             return false;
         }
 
-        int requiredLocalZ = ComputeItemLocalZ(item, terrainManager);
-        var hits = index.FindNearestCandidates(item.transform.position, candidateLookupCount, candidateMaxBlockRadius, requiredLocalZ);
+        var hits = index.FindNearestCandidates(item.transform.position, candidateLookupCount, candidateMaxBlockRadius);
         if (hits.Count == 0)
         {
             return false;
@@ -772,7 +2176,6 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         {
             if (item == null) continue;
 
-            float sleepElapsedSeconds = 0f;
             float solidificationElapsedSeconds = 0f;
             bool hasSolidificationTarget = item.hasSolidificationTarget;
             Vector3Int solidifiedBlockPosition = item.solidifiedBlockPosition;
@@ -780,11 +2183,6 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
 
             if (itemStates.TryGetValue(item, out ItemState state))
             {
-                if (state.isSleeping && state.sleepingSince >= 0f)
-                {
-                    sleepElapsedSeconds = Mathf.Max(0f, Time.time - state.sleepingSince);
-                }
-
                 if (state.solidificationStartedAt >= 0f)
                 {
                     solidificationElapsedSeconds = Mathf.Max(0f, Time.time - state.solidificationStartedAt);
@@ -808,13 +2206,11 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 uvBase = item.uvBase,
                 uvSize = item.uvSize,
                 useTexture1 = item.useTexture1,
-                isKinematic = false,
                 hasSolidificationData = true,
                 canSolidify = item.canSolidify,
                 hasSolidificationTarget = hasSolidificationTarget,
                 solidifiedBlockPosition = solidifiedBlockPosition,
                 solidifiedLocalVoxelPosition = solidifiedLocalVoxelPosition,
-                sleepElapsedSeconds = sleepElapsedSeconds,
                 solidificationElapsedSeconds = solidificationElapsedSeconds
             };
             persistenceManager.droppedItems.Add(data);
@@ -826,24 +2222,22 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
         var persistenceManager = GameDataPersistenceManager.Instance;
         if (persistenceManager.droppedItems == null || persistenceManager.droppedItems.Count == 0) return;
 
-        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
+        TerrainManager terrainManager = ResolveTerrainManager();
         if (terrainManager == null)
         {
-            Debug.LogError("TerrainManager not found. Cannot prepare item loading.");
+            Debug.LogError("DroppedItemManager: TerrainManager is not assigned. Cannot prepare item loading.", this);
+            return;
+        }
+        if (terrainManager.ChunkManager == null)
+        {
+            Debug.LogError("ChunkManager not found. Cannot prepare item loading.");
             return;
         }
 
         itemsByChunk.Clear();
-        var settings = terrainManager.Settings;
-
         foreach (var itemData in persistenceManager.droppedItems)
         {
-            int blockX = Mathf.RoundToInt(itemData.position.x / settings.blockSize);
-            int blockY = Mathf.RoundToInt(itemData.position.y / settings.blockSize);
-            
-            int chunkX = Mathf.FloorToInt((float)blockX / settings.blocksPerChunk.x);
-            int chunkY = Mathf.FloorToInt((float)blockY / settings.blocksPerChunk.y);
-            Vector3Int chunkPos = new Vector3Int(chunkX, chunkY, 0);
+            Vector3Int chunkPos = terrainManager.ChunkManager.GetChunkPositionFromWorld(itemData.position);
 
             if (!itemsByChunk.ContainsKey(chunkPos))
             {
@@ -859,10 +2253,10 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
     {
         if (!itemsByChunk.TryGetValue(chunkPosition, out var itemsToLoad)) return;
 
-        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
+        TerrainManager terrainManager = ResolveTerrainManager();
         if (terrainManager == null || terrainManager.TerrainDataManager == null)
         {
-            Debug.LogError("TerrainManager or TerrainDataManager not found. Cannot load items.");
+            Debug.LogError("DroppedItemManager: TerrainManager or TerrainDataManager is not assigned. Cannot load items.", this);
             return;
         }
 
@@ -881,6 +2275,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
             item.transform.position = data.position;
             item.transform.rotation = data.rotation;
             item.transform.localScale = data.scale;
+            SetItemLayer(item, dynamicDropLayer);
 
             Rigidbody itemRigidbody = item.GetComponent<Rigidbody>();
             if (itemRigidbody == null)
@@ -921,6 +2316,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 }
 
                 droppedItem.ApplyFaceTextureData(savedFaceData, tex1, tex2);
+                ApplyDroppedItemBrightness(droppedItem);
 
                 if (itemRigidbody != null)
                 {
@@ -928,15 +2324,13 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
                 }
                 if (itemStates.TryGetValue(droppedItem, out var state))
                 {
-                    bool wasSleeping = data.sleepElapsedSeconds > 0f;
-                    state.isSleeping = wasSleeping;
-                    state.sleepingSince = wasSleeping
-                        ? Time.time - Mathf.Max(0f, data.sleepElapsedSeconds)
-                        : -1f;
+                    state.state = DropState.Dynamic;
+                    state.settlingSince = -1f;
                     state.solidificationStartedAt = data.solidificationElapsedSeconds > 0f
                         ? Time.time - data.solidificationElapsedSeconds
                         : -1f;
                     state.hasSolidificationReservation = false;
+                    state.supportCells.Clear();
                 }
             }
 
@@ -952,38 +2346,21 @@ public class DroppedItemManager : MonoBehaviour, IItemManager
     {
         if (itemRigidbody == null) return;
 
-        PlayerController.MoveMode currentMoveMode = GetCurrentMoveMode();
-
-        switch (currentMoveMode)
-        {
-            case PlayerController.MoveMode.SideScroller:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ | 
-                                          RigidbodyConstraints.FreezeRotationX | 
-                                          RigidbodyConstraints.FreezeRotationY;
-                break;
-
-            case PlayerController.MoveMode.TopDown:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionY | 
-                                          RigidbodyConstraints.FreezeRotationX | 
-                                          RigidbodyConstraints.FreezeRotationZ;
-                break;
-
-            default:
-                itemRigidbody.constraints = RigidbodyConstraints.None;
-                break;
-        }
+        itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ |
+                                    RigidbodyConstraints.FreezeRotationX |
+                                    RigidbodyConstraints.FreezeRotationY;
     }
 
-    /// <summary>
-    /// 現在のゲームの移動モードを取得
-    /// </summary>
-    private PlayerController.MoveMode GetCurrentMoveMode()
+#if UNITY_EDITOR
+    private void OnValidate()
     {
-        PlayerController playerController = FindFirstObjectByType<PlayerController>();
-        if (playerController != null)
-        {
-            return playerController.currentMoveMode;
-        }
-        return PlayerController.MoveMode.TopDown;
+        maxQueuedDropSpawnsPerFrame = Mathf.Max(1, maxQueuedDropSpawnsPerFrame);
+        maxQueuedDropSpawnMilliseconds = Mathf.Max(0f, maxQueuedDropSpawnMilliseconds);
+        dropQueueWarningThreshold = Mathf.Max(1, dropQueueWarningThreshold);
+        maxFluidTickItemsPerFixedUpdate = Mathf.Max(1, maxFluidTickItemsPerFixedUpdate);
+        droppedItemVisualBrightnessOffset = Mathf.Clamp01(droppedItemVisualBrightnessOffset);
+        maxBrightnessUpdatesPerFrame = Mathf.Max(1, maxBrightnessUpdatesPerFrame);
+        brightnessCornerLocalInset = Mathf.Clamp(brightnessCornerLocalInset, 0f, 0.49f);
     }
+#endif
 }

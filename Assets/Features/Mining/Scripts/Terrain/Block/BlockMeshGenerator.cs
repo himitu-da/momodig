@@ -6,6 +6,7 @@ public class BlockMeshGenerator
     public struct GenerationResult
     {
         public List<BlockData> submeshBlockData;
+        public Dictionary<Vector3Int, List<int>> vertexIndicesByLocalCell;
         public bool hasGeometry;
     }
 
@@ -32,6 +33,7 @@ public class BlockMeshGenerator
         var colors = new List<Color>();
         var submeshTriangles = new List<List<int>>();
         var submeshBlockData = new List<BlockData>();
+        var vertexIndicesByLocalCell = new Dictionary<Vector3Int, List<int>>();
 
         foreach (var pair in voxelsByBlockData)
         {
@@ -46,22 +48,23 @@ public class BlockMeshGenerator
                 int voxelMaxHealth = Mathf.Max(1, voxelData.maxHealth);
                 float healthPercentage = Mathf.Clamp01((float)voxelData.health / voxelMaxHealth);
                 Color healthColor = Color.Lerp(Color.black, initialColor, healthPercentage);
-                healthColor.a = healthPercentage;
+                healthColor.a = 1f;
 
                 Vector3 pos = new Vector3(x - voxelsPerBlock / 2.0f + 0.5f, y - voxelsPerBlock / 2.0f + 0.5f, z - voxelsPerBlock / 2.0f + 0.5f);
+                Vector3Int localCell = new Vector3Int(x, y, z);
 
                 if (IsVoxelFaceExposed(voxelManager, blockPosition, x + 1, y, z, voxelsPerBlock))
-                    AddFace(pos, Vector3.right, vertices, triangles, uvs, colors, healthColor, false, x, y, z, voxelsPerBlock);
+                    AddFace(pos, Vector3.right, vertices, triangles, uvs, colors, vertexIndicesByLocalCell, localCell, healthColor, false, x, y, z, voxelsPerBlock);
                 if (IsVoxelFaceExposed(voxelManager, blockPosition, x - 1, y, z, voxelsPerBlock))
-                    AddFace(pos, Vector3.left, vertices, triangles, uvs, colors, healthColor, false, x, y, z, voxelsPerBlock);
+                    AddFace(pos, Vector3.left, vertices, triangles, uvs, colors, vertexIndicesByLocalCell, localCell, healthColor, false, x, y, z, voxelsPerBlock);
                 if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y + 1, z, voxelsPerBlock))
-                    AddFace(pos, Vector3.up, vertices, triangles, uvs, colors, healthColor, false, x, y, z, voxelsPerBlock);
+                    AddFace(pos, Vector3.up, vertices, triangles, uvs, colors, vertexIndicesByLocalCell, localCell, healthColor, false, x, y, z, voxelsPerBlock);
                 if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y - 1, z, voxelsPerBlock))
-                    AddFace(pos, Vector3.down, vertices, triangles, uvs, colors, healthColor, false, x, y, z, voxelsPerBlock);
+                    AddFace(pos, Vector3.down, vertices, triangles, uvs, colors, vertexIndicesByLocalCell, localCell, healthColor, false, x, y, z, voxelsPerBlock);
                 if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y, z + 1, voxelsPerBlock))
-                    AddFace(pos, Vector3.forward, vertices, triangles, uvs, colors, healthColor, true, x, y, z, voxelsPerBlock);
+                    AddFace(pos, Vector3.forward, vertices, triangles, uvs, colors, vertexIndicesByLocalCell, localCell, healthColor, true, x, y, z, voxelsPerBlock);
                 if (IsVoxelFaceExposed(voxelManager, blockPosition, x, y, z - 1, voxelsPerBlock))
-                    AddFace(pos, Vector3.back, vertices, triangles, uvs, colors, healthColor, true, x, y, z, voxelsPerBlock);
+                    AddFace(pos, Vector3.back, vertices, triangles, uvs, colors, vertexIndicesByLocalCell, localCell, healthColor, true, x, y, z, voxelsPerBlock);
             }
 
             if (triangles.Count > 0)
@@ -79,7 +82,7 @@ public class BlockMeshGenerator
                 collider.sharedMesh = null;
             }
             block.gameObject.SetActive(false);
-            return new GenerationResult { submeshBlockData = submeshBlockData, hasGeometry = false };
+            return new GenerationResult { submeshBlockData = submeshBlockData, vertexIndicesByLocalCell = vertexIndicesByLocalCell, hasGeometry = false };
         }
 
         mesh.vertices = vertices.ToArray();
@@ -100,7 +103,7 @@ public class BlockMeshGenerator
         collider.sharedMesh = null;
         collider.sharedMesh = mesh;
 
-        return new GenerationResult { submeshBlockData = submeshBlockData, hasGeometry = true };
+        return new GenerationResult { submeshBlockData = submeshBlockData, vertexIndicesByLocalCell = vertexIndicesByLocalCell, hasGeometry = true };
     }
 
     private bool IsVoxelFaceExposed(VoxelManager voxelManager, Vector3Int blockPosition, int x, int y, int z, int voxelsPerBlock)
@@ -114,7 +117,21 @@ public class BlockMeshGenerator
         return neighborVoxel == null || !neighborVoxel.isActive;
     }
 
-    private void AddFace(Vector3 pos, Vector3 normal, List<Vector3> verts, List<int> tris, List<Vector2> uvs, List<Color> colors, Color faceColor, bool reverse, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock)
+    private void AddFace(
+        Vector3 pos,
+        Vector3 normal,
+        List<Vector3> verts,
+        List<int> tris,
+        List<Vector2> uvs,
+        List<Color> colors,
+        Dictionary<Vector3Int, List<int>> vertexIndicesByLocalCell,
+        Vector3Int localCell,
+        Color faceColor,
+        bool reverse,
+        int voxelX,
+        int voxelY,
+        int voxelZ,
+        int voxelsPerBlock)
     {
         int vertCount = verts.Count;
 
@@ -188,6 +205,17 @@ public class BlockMeshGenerator
         colors.Add(faceColor);
         colors.Add(faceColor);
         colors.Add(faceColor);
+
+        if (!vertexIndicesByLocalCell.TryGetValue(localCell, out List<int> vertexIndices))
+        {
+            vertexIndices = new List<int>(24);
+            vertexIndicesByLocalCell.Add(localCell, vertexIndices);
+        }
+
+        vertexIndices.Add(vertCount);
+        vertexIndices.Add(vertCount + 1);
+        vertexIndices.Add(vertCount + 2);
+        vertexIndices.Add(vertCount + 3);
     }
 
     private Vector3 GetVertexOffset(Vector3 normal, int index)

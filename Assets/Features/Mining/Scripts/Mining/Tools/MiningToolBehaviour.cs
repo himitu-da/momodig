@@ -78,6 +78,18 @@ public abstract class MiningToolBehaviour : MonoBehaviour
         this.digger = digger;
     }
 
+    public virtual void SetMiningLightManager(MiningLightManager miningLightManager)
+    {
+    }
+
+    public virtual void SetTerrainManager(TerrainManager terrainManager)
+    {
+    }
+
+    public virtual void SetTorchPlacementManager(TorchPlacementManager torchPlacementManager)
+    {
+    }
+
     /// <summary>
     /// コントローラー側から Tool の Animator を注入します。
     /// </summary>
@@ -95,11 +107,11 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// 照準・向きの更新（プレイヤーの移動/入力から転送される）。
     /// 既定で 8 方向の見た目を更新する RenderForDirection を呼び出します。
     /// </summary>
-    public virtual void UpdateAim(Vector3 direction, PlayerController.MoveMode moveMode)
+    public virtual void UpdateAim(Vector3 direction)
     {
         if (direction.sqrMagnitude > 0.001f)
         {
-            RenderForDirection(direction.normalized, moveMode);
+            RenderForDirection(direction.normalized);
         }
     }
 
@@ -107,7 +119,7 @@ public abstract class MiningToolBehaviour : MonoBehaviour
     /// 8方向の見た目を更新する責務。
     /// すべての MiningToolBehaviour は Main 役割で動ける必要があるため、必ず実装します。
     /// </summary>
-    protected abstract void RenderForDirection(Vector3 direction, PlayerController.MoveMode moveMode);
+    protected abstract void RenderForDirection(Vector3 direction);
 
     /// <summary>
     /// Sub 役割における Use 表示の開始。派生クラスが Use 演出開始時に呼びます。

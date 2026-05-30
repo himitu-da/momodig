@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
+  m_Name: GarageMinecartFollowSpeed
+  m_EditorClassIdentifier: 
+  upgradeId: garage.minecart.follow_speed
+  facilityType: 1
+  categoryId: minecart
+  categoryLabel: "\u30C8\u30ED\u30C3\u30B3\u3000Minecart"
+  displayName: Minecart Follow Speed
+  description: Improves minecart movement while following the player.
+  initialLevel: 0
+  maxLevel: 20
+  costScaling: 1
+  resourceCosts:
+  - resourceType: 5
+    baseAmount: 6
+  - resourceType: 6
+    baseAmount: 6
+  enhancements:
+  - {fileID: 11400000, guid: eaf9054522c14fb0afe971b942a633bd, type: 2}

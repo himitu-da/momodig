@@ -98,6 +98,13 @@ public class Digger : MonoBehaviour
 
     public async UniTask<(HashSet<Block> hitBlocks, int destroyedVoxelCount)> Dig(int damagePerHit, MiningInfo info)
     {
+        if (DroppedItemManager.Instance != null && diggingArea != null)
+        {
+            Vector3 worldCenter = diggingArea.transform.TransformPoint(diggingArea.center);
+            Vector3 expandedSize = diggingArea.size + new Vector3(2, 2, 2);
+            DroppedItemManager.Instance.WakeUpItemsInRadius(worldCenter, expandedSize, diggingArea.transform.rotation);
+        }
+
         var hitBlocks = GetHitBlocks();
         int destroyedVoxelCount = await DigAsyncTask(damagePerHit, info, hitBlocks);
         return (hitBlocks, destroyedVoxelCount);
@@ -138,10 +145,14 @@ public class Digger : MonoBehaviour
         
         Vector3 worldCenter = diggingArea.transform.TransformPoint(diggingArea.center);
 
+        TerrainChangeReason changeReason = info.Type == MiningType.Explosive
+            ? TerrainChangeReason.Explosion
+            : TerrainChangeReason.Digging;
+
         List<UniTask<int>> diggingTasks = new List<UniTask<int>>();
         foreach (var block in hitBlocks)
         {
-            diggingTasks.Add(block.DigVoxels(diggingArea, damagePerHit));
+            diggingTasks.Add(block.DigVoxels(diggingArea, damagePerHit, changeReason, info, true));
         }
 
         // 全ての掘削処理が完了するのを待ち、結果を集計

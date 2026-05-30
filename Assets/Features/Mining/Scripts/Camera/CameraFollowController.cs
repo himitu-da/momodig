@@ -2,30 +2,32 @@ using UnityEngine;
 
 /// <summary>
 /// Miningシーン用のカメラ追従・構図制御クラス。
-/// SideScrollerモードでは移動方向に応じた回転と位置計算を行う。
+/// プレイ面の移動方向に応じた回転と位置計算を行う。
 /// </summary>
-public class CameraFollowController : MonoBehaviour
+public class CameraFollowController : MonoBehaviour, IGameSceneTransitionHandler
 {
     [Header("オブジェクト参照")]
     [SerializeField] private Camera mainCamera;
     [SerializeField] private GameObject playerObject;
+    [SerializeField] private Rigidbody playerRigidbody;
+
+    [Header("Initial Snap")]
+    [SerializeField] private bool disableCameraUntilInitialSnap = true;
 
     [Header("追従設定")]
     [SerializeField] private bool enableFollow = true;
     [SerializeField] private float followSpeed = 5f;
     [SerializeField] private bool useSmoothDamp = false;
 
-    [Header("モード別オフセット（従来追従/TopDown）")]
-    [SerializeField] private Vector3 sideScrollerOffset = new Vector3(0f, 2f, -10f);
-    [SerializeField] private Vector3 topDownOffset = new Vector3(0f, 10f, 0f);
+    [Header("追従オフセット")]
+    [SerializeField] private Vector3 playPlaneOffset = new Vector3(0f, 2f, -10f);
 
     [Header("カメラサイズ設定")]
-    [SerializeField] private float sideScrollerOrthographicSize = 5f;
-    [SerializeField] private float topDownOrthographicSize = 8f;
+    [SerializeField] private float playPlaneOrthographicSize = 5f;
 
-    [Header("SideScroller方向連動カメラ")]
-    [Tooltip("SideScrollerで方向連動カメラを有効にする")]
-    [SerializeField] private bool useDirectionalCameraInSideScroller = true;
+    [Header("プレイ面方向連動カメラ")]
+    [Tooltip("プレイ面で方向連動カメラを有効にする")]
+    [SerializeField] private bool useDirectionalPlayPlaneCamera = true;
 
     [Tooltip("回転後のプレイヤー基準位置（速度0のとき）")]
     [SerializeField] private Vector2 playerBaseViewportOffset = Vector2.zero;
@@ -48,7 +50,7 @@ public class CameraFollowController : MonoBehaviour
     [Tooltip("プレイヤーからカメラまでの距離")]
     [SerializeField] private float cameraDistanceFromPlayer = 10f;
 
-    [Header("SideScroller回転設定")]
+    [Header("プレイ面回転設定")]
     [Tooltip("基準ピッチ角（通常時）")]
     [SerializeField] private float basePitchAngle = 10f;
 
@@ -64,43 +66,99 @@ public class CameraFollowController : MonoBehaviour
     [Tooltip("回転追従の補間速度")]
     [SerializeField] private float rotationSmoothingSpeed = 8f;
 
-    private PlayerController playerController;
-    private Rigidbody playerRigidbody;
     private Vector3 followVelocity = Vector3.zero;
     private Quaternion initialCameraRotation = Quaternion.identity;
-    private PlayerController.MoveMode currentMode;
-    private PlayerController.MoveMode lastMode;
     private Vector2 heldPlanarMoveVector = Vector2.zero;
     private float remainingMoveVectorHoldTime = 0f;
+    private bool referencesAreValid;
+    private Renderer[] sceneRenderers;
+    private bool[] sceneRendererEnabledStates;
+    private Canvas[] sceneCanvases;
+    private bool[] sceneCanvasEnabledStates;
+    private bool isScenePresentationHidden;
+
+    private void Awake()
+    {
+        referencesAreValid = ValidateRequiredReferences();
+        if (!referencesAreValid)
+        {
+            enabled = false;
+            return;
+        }
+
+        initialCameraRotation = mainCamera.transform.rotation;
+
+        if (disableCameraUntilInitialSnap)
+        {
+            mainCamera.enabled = false;
+            if (ShouldHideScenePresentationUntilSnap())
+            {
+                HideScenePresentationUntilInitialSnap();
+            }
+        }
+    }
 
     private void Start()
     {
-        ValidateReferences();
-        if (mainCamera != null)
+        if (!referencesAreValid)
         {
-            initialCameraRotation = mainCamera.transform.rotation;
+            return;
         }
 
-        if (playerObject != null)
+        UpdateCameraSettings();
+
+        if (ShouldWaitForManagedSceneTransitionSnap())
         {
-            playerController = playerObject.GetComponent<PlayerController>();
-            playerRigidbody = playerObject.GetComponent<Rigidbody>();
-            if (playerController != null)
-            {
-                currentMode = playerController.currentMoveMode;
-                lastMode = currentMode;
-                UpdateCameraSettings();
-            }
+            return;
         }
 
-        if (mainCamera == null)
-            Debug.LogWarning("CameraFollowController: MainCamera reference is missing.");
-        if (playerObject == null)
-            Debug.LogWarning("CameraFollowController: Player Object reference is missing.");
-        if (playerController == null && playerObject != null)
-            Debug.LogWarning("CameraFollowController: PlayerController component was not found on Player Object.");
-        if (playerRigidbody == null && playerObject != null)
-            Debug.LogWarning("CameraFollowController: Rigidbody component was not found on Player Object.");
+        SnapToFollowTargetAndEnable();
+    }
+
+    public void OnBeforeContentSceneUnload(string nextSceneName)
+    {
+    }
+
+    public void OnAfterContentSceneLoad(string previousSceneName)
+    {
+        if (!referencesAreValid)
+        {
+            return;
+        }
+
+        if (PassageTransitionContext.HasPendingTransition)
+        {
+            return;
+        }
+
+        SnapToFollowTargetAndEnable();
+    }
+
+    public bool SnapToFollowTarget()
+    {
+        if (!referencesAreValid)
+        {
+            Debug.LogError("CameraFollowController: Cannot snap because required references are not configured.", this);
+            return false;
+        }
+
+        UpdateCameraSettings();
+        ResetCameraSmoothingState();
+        CalculateTargetCameraPose(out Vector3 targetPosition, out Quaternion targetRotation);
+        mainCamera.transform.SetPositionAndRotation(targetPosition, targetRotation);
+        return true;
+    }
+
+    public bool SnapToFollowTargetAndEnable()
+    {
+        if (!SnapToFollowTarget())
+        {
+            return false;
+        }
+
+        RestoreScenePresentation();
+        mainCamera.enabled = true;
+        return true;
     }
 
     /// <summary>
@@ -108,19 +166,12 @@ public class CameraFollowController : MonoBehaviour
     /// </summary>
     private void FixedUpdate()
     {
-        if (!enableFollow || mainCamera == null || playerObject == null || playerController == null)
+        if (!enableFollow || mainCamera == null || playerObject == null)
             return;
 
-        currentMode = playerController.currentMoveMode;
-        if (currentMode != lastMode)
+        if (useDirectionalPlayPlaneCamera)
         {
-            lastMode = currentMode;
-            OnMoveModeChanged();
-        }
-
-        if (currentMode == PlayerController.MoveMode.SideScroller && useDirectionalCameraInSideScroller)
-        {
-            UpdateSideScrollerDirectionalCamera();
+            UpdatePlayPlaneDirectionalCamera();
             return;
         }
 
@@ -130,57 +181,72 @@ public class CameraFollowController : MonoBehaviour
     /// <summary>
     /// 参照の妥当性を確認し、未設定時に警告を出す。
     /// </summary>
-    private void ValidateReferences()
+    private bool ValidateRequiredReferences()
     {
-        if (mainCamera == null)
+        bool isValid = true;
+
+        isValid &= ValidateReference(mainCamera, nameof(mainCamera));
+        isValid &= ValidateReference(playerObject, nameof(playerObject));
+        isValid &= ValidateReference(playerRigidbody, nameof(playerRigidbody));
+
+        return isValid;
+    }
+
+    private bool ValidateReference(UnityEngine.Object reference, string fieldName)
+    {
+        if (reference != null)
         {
-            Debug.LogWarning("CameraFollowController: MainCamera reference is not set. Please assign it in the Inspector.");
+            return true;
         }
 
-        if (playerObject == null)
-        {
-            Debug.LogWarning("CameraFollowController: Player Object reference is not set. Please assign it in the Inspector.");
-        }
+        Debug.LogError($"CameraFollowController: {fieldName} is not configured.", this);
+        return false;
     }
 
     /// <summary>
-    /// TopDown時、または方向連動カメラが無効なときの従来追従処理。
+    /// 方向連動カメラが無効なときの従来追従処理。
     /// </summary>
     private void UpdateCameraPositionLegacy()
     {
-        Vector3 targetOffset = GetCurrentOffset();
-        Vector3 targetPosition = playerObject.transform.position + targetOffset;
-        Vector3 currentPos = mainCamera.transform.position;
-        Vector3 newPosition = currentPos;
-
-        switch (currentMode)
-        {
-            case PlayerController.MoveMode.SideScroller:
-                newPosition.x = targetPosition.x;
-                newPosition.y = targetPosition.y;
-                newPosition.z = targetPosition.z;
-                break;
-
-            case PlayerController.MoveMode.TopDown:
-                newPosition.x = targetPosition.x;
-                newPosition.y = targetPosition.y;
-                newPosition.z = targetPosition.z;
-                break;
-        }
-
-        ApplyPosition(newPosition);
+        CalculateLegacyCameraPose(out Vector3 targetPosition, out _);
+        ApplyPosition(targetPosition);
     }
 
     /// <summary>
-    /// SideScroller向けカメラ制御。
+    /// プレイ面向けカメラ制御。
     /// 1) 移動方向から回転を決定（移動方向の逆向き）
     /// 2) 指定Viewport座標にプレイヤーが来るようカメラ位置を逆算
     /// </summary>
-    private void UpdateSideScrollerDirectionalCamera()
+    private void UpdatePlayPlaneDirectionalCamera()
+    {
+        CalculateDirectionalCameraPose(out Vector3 targetPosition, out Quaternion targetRotation);
+
+        ApplyPosition(targetPosition);
+        ApplyRotation(targetRotation);
+    }
+
+    private void CalculateTargetCameraPose(out Vector3 targetPosition, out Quaternion targetRotation)
+    {
+        if (useDirectionalPlayPlaneCamera)
+        {
+            CalculateDirectionalCameraPose(out targetPosition, out targetRotation);
+            return;
+        }
+
+        CalculateLegacyCameraPose(out targetPosition, out targetRotation);
+    }
+
+    private void CalculateLegacyCameraPose(out Vector3 targetPosition, out Quaternion targetRotation)
+    {
+        targetPosition = playerObject.transform.position + GetCurrentOffset();
+        targetRotation = initialCameraRotation;
+    }
+
+    private void CalculateDirectionalCameraPose(out Vector3 targetPosition, out Quaternion targetRotation)
     {
         Vector3 playerPosition = playerObject.transform.position;
-        Vector2 rawPlanarVelocity = GetSideScrollerPlanarVelocity();
-        Vector2 planarVelocity = GetHeldSideScrollerPlanarVelocity(rawPlanarVelocity);
+        Vector2 rawPlanarVelocity = GetPlayPlaneVelocity();
+        Vector2 planarVelocity = GetHeldPlayPlaneVelocity(rawPlanarVelocity);
         float speed = planarVelocity.magnitude;
 
         Vector2 moveDirection = speed > minimumSpeedForCameraResponse ? planarVelocity / speed : Vector2.zero;
@@ -192,17 +258,14 @@ public class CameraFollowController : MonoBehaviour
         // カメラは移動方向の逆向きへ回転させる。
         float targetPitch = basePitchAngle - (moveDirection.y * maxPitchAngleOffset * speedInfluence);
         float targetYaw = baseYawAngle + (moveDirection.x * maxYawAngleOffset * speedInfluence);
-        Quaternion targetRotation = BuildHorizonLeveledRotation(targetPitch, targetYaw);
+        targetRotation = BuildHorizonLeveledRotation(targetPitch, targetYaw);
 
         float distanceFromPlayer = ResolveCameraDistance();
         Vector3 localPlayerOffset = BuildLocalPlayerOffset(targetPlayerViewportOffset, distanceFromPlayer);
-        Vector3 targetPosition = playerPosition - (targetRotation * localPlayerOffset);
-
-        ApplyPosition(targetPosition);
-        ApplyRotation(targetRotation);
+        targetPosition = playerPosition - (targetRotation * localPlayerOffset);
     }
 
-    private Vector2 GetSideScrollerPlanarVelocity()
+    private Vector2 GetPlayPlaneVelocity()
     {
         if (playerRigidbody == null)
         {
@@ -213,7 +276,7 @@ public class CameraFollowController : MonoBehaviour
         return new Vector2(velocity.x, velocity.y);
     }
 
-    private Vector2 GetHeldSideScrollerPlanarVelocity(Vector2 rawPlanarVelocity)
+    private Vector2 GetHeldPlayPlaneVelocity(Vector2 rawPlanarVelocity)
     {
         float rawSpeed = rawPlanarVelocity.magnitude;
         if (rawSpeed > minimumSpeedForCameraResponse)
@@ -279,7 +342,7 @@ public class CameraFollowController : MonoBehaviour
             return cameraDistanceFromPlayer;
         }
 
-        float fromOffset = Mathf.Abs(sideScrollerOffset.z);
+        float fromOffset = Mathf.Abs(playPlaneOffset.z);
         if (fromOffset > 0.01f)
         {
             return fromOffset;
@@ -332,40 +395,158 @@ public class CameraFollowController : MonoBehaviour
 
     private Vector3 GetCurrentOffset()
     {
-        return currentMode switch
-        {
-            PlayerController.MoveMode.SideScroller => sideScrollerOffset,
-            PlayerController.MoveMode.TopDown => topDownOffset,
-            _ => Vector3.zero
-        };
+        return playPlaneOffset;
     }
 
-    private void OnMoveModeChanged()
+    private void ResetCameraSmoothingState()
     {
-        Debug.Log($"CameraFollowController: Move mode changed to {currentMode}");
         followVelocity = Vector3.zero;
         heldPlanarMoveVector = Vector2.zero;
         remainingMoveVectorHoldTime = 0f;
-        UpdateCameraSettings();
+    }
+
+    private void HideScenePresentationUntilInitialSnap()
+    {
+        if (isScenePresentationHidden)
+        {
+            return;
+        }
+
+        CaptureScenePresentationState();
+        SetScenePresentationEnabled(false);
+        isScenePresentationHidden = true;
+    }
+
+    private void RestoreScenePresentation()
+    {
+        if (!isScenePresentationHidden)
+        {
+            return;
+        }
+
+        RestoreScenePresentationState();
+        isScenePresentationHidden = false;
+    }
+
+    private void CaptureScenePresentationState()
+    {
+        GameObject[] rootObjects = gameObject.scene.GetRootGameObjects();
+        int rendererCount = 0;
+        int canvasCount = 0;
+
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            rendererCount += rootObjects[i].GetComponentsInChildren<Renderer>(true).Length;
+            canvasCount += rootObjects[i].GetComponentsInChildren<Canvas>(true).Length;
+        }
+
+        sceneRenderers = new Renderer[rendererCount];
+        sceneRendererEnabledStates = new bool[rendererCount];
+        sceneCanvases = new Canvas[canvasCount];
+        sceneCanvasEnabledStates = new bool[canvasCount];
+
+        int rendererIndex = 0;
+        int canvasIndex = 0;
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            Renderer[] renderers = rootObjects[i].GetComponentsInChildren<Renderer>(true);
+            for (int j = 0; j < renderers.Length; j++)
+            {
+                sceneRenderers[rendererIndex] = renderers[j];
+                sceneRendererEnabledStates[rendererIndex] = renderers[j] != null && renderers[j].enabled;
+                rendererIndex++;
+            }
+
+            Canvas[] canvases = rootObjects[i].GetComponentsInChildren<Canvas>(true);
+            for (int j = 0; j < canvases.Length; j++)
+            {
+                sceneCanvases[canvasIndex] = canvases[j];
+                sceneCanvasEnabledStates[canvasIndex] = canvases[j] != null && canvases[j].enabled;
+                canvasIndex++;
+            }
+        }
+    }
+
+    private void SetScenePresentationEnabled(bool enabled)
+    {
+        if (sceneRenderers != null)
+        {
+            for (int i = 0; i < sceneRenderers.Length; i++)
+            {
+                if (sceneRenderers[i] != null)
+                {
+                    sceneRenderers[i].enabled = enabled;
+                }
+            }
+        }
+
+        if (sceneCanvases != null)
+        {
+            for (int i = 0; i < sceneCanvases.Length; i++)
+            {
+                if (sceneCanvases[i] != null)
+                {
+                    sceneCanvases[i].enabled = enabled;
+                }
+            }
+        }
+    }
+
+    private void RestoreScenePresentationState()
+    {
+        if (sceneRenderers != null && sceneRendererEnabledStates != null)
+        {
+            int count = Mathf.Min(sceneRenderers.Length, sceneRendererEnabledStates.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (sceneRenderers[i] != null)
+                {
+                    sceneRenderers[i].enabled = sceneRendererEnabledStates[i];
+                }
+            }
+        }
+
+        if (sceneCanvases != null && sceneCanvasEnabledStates != null)
+        {
+            int count = Mathf.Min(sceneCanvases.Length, sceneCanvasEnabledStates.Length);
+            for (int i = 0; i < count; i++)
+            {
+                if (sceneCanvases[i] != null)
+                {
+                    sceneCanvases[i].enabled = sceneCanvasEnabledStates[i];
+                }
+            }
+        }
+
+        sceneRenderers = null;
+        sceneRendererEnabledStates = null;
+        sceneCanvases = null;
+        sceneCanvasEnabledStates = null;
+    }
+
+    private static bool ShouldWaitForManagedSceneTransitionSnap()
+    {
+        GameSceneCoordinator coordinator = GameSceneCoordinator.Instance;
+        return coordinator != null && coordinator.IsTransitioning;
+    }
+
+    private static bool ShouldHideScenePresentationUntilSnap()
+    {
+        return PassageTransitionContext.HasPendingTransition || ShouldWaitForManagedSceneTransitionSnap();
     }
 
     private void UpdateCameraSettings()
     {
         if (mainCamera == null) return;
 
-        float targetSize = currentMode switch
-        {
-            PlayerController.MoveMode.SideScroller => sideScrollerOrthographicSize,
-            PlayerController.MoveMode.TopDown => topDownOrthographicSize,
-            _ => 5f
-        };
+        float targetSize = playPlaneOrthographicSize;
 
         if (mainCamera.orthographic)
         {
             mainCamera.orthographicSize = targetSize;
         }
 
-        if (currentMode == PlayerController.MoveMode.SideScroller && useDirectionalCameraInSideScroller)
+        if (useDirectionalPlayPlaneCamera)
         {
             mainCamera.transform.rotation = BuildHorizonLeveledRotation(basePitchAngle, baseYawAngle);
             return;
@@ -391,18 +572,10 @@ public class CameraFollowController : MonoBehaviour
     }
 
     /// <summary>
-    /// 従来追従で使用するモード別オフセットを設定する。
+    /// 従来追従で使用するオフセットを設定する。
     /// </summary>
-    public void SetOffset(PlayerController.MoveMode mode, Vector3 offset)
+    public void SetOffset(Vector3 offset)
     {
-        switch (mode)
-        {
-            case PlayerController.MoveMode.SideScroller:
-                sideScrollerOffset = offset;
-                break;
-            case PlayerController.MoveMode.TopDown:
-                topDownOffset = offset;
-                break;
-        }
+        playPlaneOffset = offset;
     }
 }

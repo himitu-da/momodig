@@ -6,6 +6,7 @@ Shader "Custom/DroppedItemOutline"
         _OutlineWidth("Outline Width (world)", Range(0.0, 0.1)) = 0.025
         _SurfaceOffset("Surface Offset (world)", Range(0.0, 0.02)) = 0.002
         _OutlineIntensity("Outline Intensity", Range(0.0, 1.0)) = 0.0
+        _MiningBrightness("Mining Brightness", Range(0.0, 1.0)) = 1.0
     }
     SubShader
     {
@@ -47,6 +48,7 @@ Shader "Custom/DroppedItemOutline"
                 half _OutlineWidth;
                 half _SurfaceOffset;
                 half _OutlineIntensity;
+                half _MiningBrightness;
             CBUFFER_END
 
             float GetObjectScale(float3 axisOS)
@@ -99,6 +101,7 @@ Shader "Custom/DroppedItemOutline"
                 clip(edgeMask - 0.01);
 
                 half4 col = _OutlineColor;
+                col.rgb *= saturate(_MiningBrightness);
                 col.a *= _OutlineIntensity * edgeMask;
                 return col;
             }
@@ -138,6 +141,7 @@ Shader "Custom/DroppedItemOutline"
                 half _OutlineWidth;
                 half _SurfaceOffset;
                 half _OutlineIntensity;
+                half _MiningBrightness;
             CBUFFER_END
 
             Varyings vert(Attributes IN)
@@ -159,6 +163,7 @@ Shader "Custom/DroppedItemOutline"
                 clip(_OutlineIntensity - 0.001);
 
                 half4 col = _OutlineColor;
+                col.rgb *= saturate(_MiningBrightness);
                 col.a *= _OutlineIntensity;
                 return col;
             }

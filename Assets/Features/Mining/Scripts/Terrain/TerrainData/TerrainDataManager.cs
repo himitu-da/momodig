@@ -11,6 +11,10 @@ public class TerrainDataManager : ScriptableObject
     public BlockData defaultBlockData;
     public Texture2D defaultBackgroundTexture;
 
+    [Header("Generation Exclusions")]
+    [SerializeField]
+    private List<TerrainExclusionRegionData> terrainExclusionRegions;
+
     [System.Serializable]
     public class BiomeDataMapping
     {
@@ -58,6 +62,49 @@ public class TerrainDataManager : ScriptableObject
         return null; // No suitable biome found
     }
 
+    public bool IsBlockGenerationExcluded(Vector3Int blockPosition)
+    {
+        if (terrainExclusionRegions == null)
+        {
+            return false;
+        }
+
+        foreach (var region in terrainExclusionRegions)
+        {
+            if (region != null && region.ContainsBlock(blockPosition))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void AppendExcludedBlockPositions(List<Vector3Int> results)
+    {
+        if (results == null || terrainExclusionRegions == null)
+        {
+            return;
+        }
+
+        foreach (var region in terrainExclusionRegions)
+        {
+            if (region == null)
+            {
+                continue;
+            }
+
+            Vector3Int min = Vector3Int.Min(region.minBlockPosition, region.maxBlockPosition);
+            Vector3Int max = Vector3Int.Max(region.minBlockPosition, region.maxBlockPosition);
+            for (int x = min.x; x <= max.x; x++)
+            for (int y = min.y; y <= max.y; y++)
+            for (int z = min.z; z <= max.z; z++)
+            {
+                results.Add(new Vector3Int(x, y, z));
+            }
+        }
+    }
+
     public BlockData GetBlockDataByName(string name)
     {
         if (string.IsNullOrEmpty(name))
@@ -77,13 +124,26 @@ public class TerrainDataManager : ScriptableObject
 
         foreach (var mapping in biomeDataMappings)
         {
-            if (mapping.biomeData != null)
+            if (mapping.biomeData == null || mapping.biomeData.generationRules == null)
             {
-                foreach (var blockDist in mapping.biomeData.availableBlocks)
+                continue;
+            }
+
+            foreach (var rule in mapping.biomeData.generationRules)
+            {
+                if (rule == null || rule.entries == null)
                 {
-                    if (blockDist.blockData != null && blockDist.blockData.name == name)
+                    continue;
+                }
+
+                foreach (var entry in rule.entries)
+                {
+                    if (entry != null &&
+                        entry.resultType == TerrainGenerationResultType.Block &&
+                        entry.blockData != null &&
+                        entry.blockData.name == name)
                     {
-                        return blockDist.blockData;
+                        return entry.blockData;
                     }
                 }
             }

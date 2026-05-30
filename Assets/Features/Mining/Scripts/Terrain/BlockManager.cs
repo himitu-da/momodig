@@ -23,10 +23,13 @@ public class BlockManager : MonoBehaviour
     }
 
     private TerrainManager terrainManager;
+    private readonly Dictionary<Vector3Int, BlockInstanceData> blockByPosition =
+        new Dictionary<Vector3Int, BlockInstanceData>();
 
     public void Initialize(TerrainManager manager)
     {
         terrainManager = manager;
+        RebuildBlockIndex();
 
         if (showBlockDebugInfo)
         {
@@ -36,6 +39,12 @@ public class BlockManager : MonoBehaviour
 
     public BlockInstanceData CreateBlock(Vector3Int blockPos, Vector3 worldPos, float blockSize, int voxelsPerBlock, Transform parent)
     {
+        if (blockByPosition.ContainsKey(blockPos))
+        {
+            Debug.LogError($"BlockManager: attempted to create a duplicate block at {blockPos}.", this);
+            return null;
+        }
+
         if (showBlockDebugInfo)
         {
             Debug.Log($"BlockManager: Creating block at {blockPos}");
@@ -56,6 +65,7 @@ public class BlockManager : MonoBehaviour
         block.Initialize(terrainManager.VoxelManager, blockPos, voxelsPerBlock, blockSize);
 
         blocks.Add(blockInstance);
+        blockByPosition.Add(blockPos, blockInstance);
 
         if (GameDataPersistenceManager.Instance.destroyedBlockPositions.Contains(blockPos))
         {
@@ -84,14 +94,7 @@ public class BlockManager : MonoBehaviour
 
     public BlockInstanceData GetBlockAt(Vector3Int position)
     {
-        foreach (var block in blocks)
-        {
-            if (block.position == position)
-            {
-                return block;
-            }
-        }
-        return null;
+        return blockByPosition.TryGetValue(position, out BlockInstanceData block) ? block : null;
     }
 
     public List<BlockInstanceData> GetAllBlocks()
@@ -168,6 +171,7 @@ public class BlockManager : MonoBehaviour
         }
 
         blocks.Clear();
+        blockByPosition.Clear();
     }
 
     public string GetDebugInfo()
@@ -178,5 +182,27 @@ public class BlockManager : MonoBehaviour
     void OnDestroy()
     {
         ClearAllBlocks();
+    }
+
+    private void RebuildBlockIndex()
+    {
+        blockByPosition.Clear();
+        for (int i = 0; i < blocks.Count; i++)
+        {
+            BlockInstanceData block = blocks[i];
+            if (block == null)
+            {
+                Debug.LogError($"BlockManager: blocks contains a null entry at index {i}.", this);
+                continue;
+            }
+
+            if (blockByPosition.ContainsKey(block.position))
+            {
+                Debug.LogError($"BlockManager: duplicate block position in blocks list. position={block.position}, index={i}", this);
+                continue;
+            }
+
+            blockByPosition.Add(block.position, block);
+        }
     }
 }

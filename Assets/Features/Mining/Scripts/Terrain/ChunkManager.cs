@@ -8,6 +8,10 @@ public class ChunkManager : MonoBehaviour
     [Header("Dynamic Generation")]
     [SerializeField] private Transform playerTransform; // プレイヤーのTransform
     [SerializeField] private int renderDistanceInChunks = 5; // チャンクの描画距離
+
+    [Header("Persistence Restoration")]
+    [SerializeField] private TorchPlacementManager torchPlacementManager;
+
     private float chunkUpdateInterval = 0.3f; // チャンクの更新間隔
     private float timeSinceLastChunkUpdate = 0f;
     private Vector3Int currentPlayerChunk;
@@ -17,6 +21,8 @@ public class ChunkManager : MonoBehaviour
 
     private TerrainManager terrainManager;
     private CancellationTokenSource cancellationTokenSource;
+    private bool blockGenerationSettingsErrorLogged;
+    private bool torchPlacementManagerMissingErrorLogged;
 
     public void Initialize(TerrainManager manager)
     {
@@ -70,7 +76,6 @@ public class ChunkManager : MonoBehaviour
             for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
             {
                 Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
-                if (chunkPos.y > 0) continue;
                 sortedChunks.Add(chunkPos);
             }
         }
@@ -88,19 +93,8 @@ public class ChunkManager : MonoBehaviour
         {
             if (!activeChunks.ContainsKey(chunkPos))
             {
-                List<Vector3Int> chunkBlocks = new List<Vector3Int>();
-                for (int bx = 0; bx < terrainManager.Settings.blocksPerChunk.x; bx++)
-                {
-                    for (int by = 0; by < terrainManager.Settings.blocksPerChunk.y; by++)
-                    {
-                        Vector3Int blockPos = new Vector3Int(
-                            chunkPos.x * terrainManager.Settings.blocksPerChunk.x + bx,
-                            chunkPos.y * terrainManager.Settings.blocksPerChunk.y + by,
-                            0
-                        );
-                        chunkBlocks.Add(blockPos);
-                    }
-                }
+                GetOrCreateChunkFromPosition(chunkPos);
+                List<Vector3Int> chunkBlocks = GetBlockPositionsInChunk(chunkPos);
                 
                 chunkBlocks.Sort((a, b) => 
                 {
@@ -136,7 +130,6 @@ public class ChunkManager : MonoBehaviour
             for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
             {
                 Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
-                if (chunkPos.y > 0) continue;
                 if (activeChunks.ContainsKey(chunkPos)) continue;
                 chunksToGenerate.Add(chunkPos);
             }
@@ -153,19 +146,8 @@ public class ChunkManager : MonoBehaviour
         
         foreach (var chunkPos in chunksToGenerate)
         {
-            List<Vector3Int> blocksInChunk = new List<Vector3Int>();
-            for (int bx = 0; bx < terrainManager.Settings.blocksPerChunk.x; bx++)
-            {
-                for (int by = 0; by < terrainManager.Settings.blocksPerChunk.y; by++)
-                {
-                    Vector3Int blockPos = new Vector3Int(
-                        chunkPos.x * terrainManager.Settings.blocksPerChunk.x + bx,
-                        chunkPos.y * terrainManager.Settings.blocksPerChunk.y + by,
-                        0
-                    );
-                    blocksInChunk.Add(blockPos);
-                }
-            }
+            GetOrCreateChunkFromPosition(chunkPos);
+            List<Vector3Int> blocksInChunk = GetBlockPositionsInChunk(chunkPos);
             
             blocksInChunk.Sort((a, b) => 
             {
@@ -190,18 +172,50 @@ public class ChunkManager : MonoBehaviour
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            int blocksToProcess = Mathf.Min(_blockGenerationList.Count, terrainManager.Settings.blocksPerFrame);
-            for (int i = 0; i < blocksToProcess; i++)
+            if (_blockGenerationList.Count > 0 && ValidateBlockGenerationSettings())
             {
-                if (_blockGenerationList.Count > 0)
+                TerrainSettings settings = terrainManager.Settings;
+                int blocksToProcess = Mathf.Min(_blockGenerationList.Count, settings.blocksPerFrame);
+                int processedCount = 0;
+                double startedAt = Time.realtimeSinceStartupAsDouble;
+                double budgetSeconds = settings.blockGenerationBudgetMilliseconds / 1000.0;
+
+                while (_blockGenerationList.Count > 0 && processedCount < blocksToProcess)
                 {
+                    if (processedCount > 0 && Time.realtimeSinceStartupAsDouble - startedAt >= budgetSeconds)
+                    {
+                        break;
+                    }
+
                     Vector3Int blockPos = _blockGenerationList[0];
                     _blockGenerationList.RemoveAt(0);
                     GenerateSingleBlock(blockPos);
+                    processedCount++;
                 }
             }
             await UniTask.Yield(cancellationToken);
         }
+    }
+
+    private bool ValidateBlockGenerationSettings()
+    {
+        TerrainSettings settings = terrainManager.Settings;
+        if (settings.blocksPerFrame <= 0 ||
+            settings.blockGenerationBudgetMilliseconds <= 0f)
+        {
+            if (!blockGenerationSettingsErrorLogged)
+            {
+                blockGenerationSettingsErrorLogged = true;
+                Debug.LogError(
+                    $"ChunkManager: invalid block generation settings. blocksPerFrame={settings.blocksPerFrame}, blockGenerationBudgetMilliseconds={settings.blockGenerationBudgetMilliseconds}",
+                    this);
+            }
+
+            return false;
+        }
+
+        blockGenerationSettingsErrorLogged = false;
+        return true;
     }
 
     private void GenerateSingleBlock(Vector3Int blockPos)
@@ -244,12 +258,12 @@ public class ChunkManager : MonoBehaviour
 
     private Chunk GetOrCreateChunk(Vector3Int blockPos)
     {
-        Vector3Int chunkPos = new Vector3Int(
-            Mathf.FloorToInt((float)blockPos.x / terrainManager.Settings.blocksPerChunk.x),
-            Mathf.FloorToInt((float)blockPos.y / terrainManager.Settings.blocksPerChunk.y),
-            0
-        );
+        Vector3Int chunkPos = GetChunkPositionFromBlock(blockPos);
+        return GetOrCreateChunkFromPosition(chunkPos);
+    }
 
+    private Chunk GetOrCreateChunkFromPosition(Vector3Int chunkPos)
+    {
         if (activeChunks.TryGetValue(chunkPos, out Chunk chunk))
         {
             return chunk;
@@ -261,7 +275,7 @@ public class ChunkManager : MonoBehaviour
         newChunk.Initialize(chunkPos);
         activeChunks.Add(chunkPos, newChunk);
 
-        // このチャンクに対応するドロップアイテムを遅延ロード
+        // このチャンクに対応する復元対象を遅延ロード
         LoadItemsWithDelay(chunkPos).Forget();
 
         return newChunk;
@@ -284,19 +298,72 @@ public class ChunkManager : MonoBehaviour
         _processedBlocks.Clear();
     }
 
-    private Vector3Int GetChunkPositionFromWorld(Vector3 worldPosition)
+    public Vector3Int GetChunkPositionFromWorld(Vector3 worldPosition)
     {
         var settings = terrainManager.Settings;
         
         // ワールド座標を論理ブロック座標に変換
-        int blockX = Mathf.RoundToInt(worldPosition.x / settings.blockSize);
-        int blockY = Mathf.RoundToInt(worldPosition.y / settings.blockSize);
+        int blockX = WorldToBlockCoordinate(worldPosition.x, settings.blockSize);
+        int blockY = WorldToBlockCoordinate(worldPosition.y, settings.blockSize);
 
         // 論理ブロック座標をチャンク座標に変換
-        int chunkX = Mathf.FloorToInt((float)blockX / settings.blocksPerChunk.x);
-        int chunkY = Mathf.FloorToInt((float)blockY / settings.blocksPerChunk.y);
+        return GetChunkPositionFromBlock(new Vector3Int(blockX, blockY, 0));
+    }
 
-        return new Vector3Int(chunkX, chunkY, 0);
+    public Vector3Int GetChunkPositionFromBlock(Vector3Int blockPosition)
+    {
+        var settings = terrainManager.Settings;
+        int chunkX = Mathf.FloorToInt((float)(blockPosition.x + GetHorizontalChunkOriginOffset()) / settings.blocksPerChunk.x);
+        int chunkY = Mathf.FloorToInt((float)blockPosition.y / settings.blocksPerChunk.y);
+
+        return new Vector3Int(chunkX, chunkY, blockPosition.z);
+    }
+
+    public bool IsBlockGenerationSkipped(Vector3Int blockPosition)
+    {
+        return terrainManager.TerrainDataManager != null &&
+               terrainManager.TerrainDataManager.IsBlockGenerationExcluded(blockPosition);
+    }
+
+    private List<Vector3Int> GetBlockPositionsInChunk(Vector3Int chunkPos)
+    {
+        var settings = terrainManager.Settings;
+        Vector3Int startBlock = GetChunkStartBlockPosition(chunkPos);
+        List<Vector3Int> blockPositions = new List<Vector3Int>(settings.blocksPerChunk.x * settings.blocksPerChunk.y);
+
+        for (int bx = 0; bx < settings.blocksPerChunk.x; bx++)
+        {
+            for (int by = 0; by < settings.blocksPerChunk.y; by++)
+            {
+                Vector3Int blockPosition = new Vector3Int(startBlock.x + bx, startBlock.y + by, chunkPos.z);
+                if (!IsBlockGenerationSkipped(blockPosition))
+                {
+                    blockPositions.Add(blockPosition);
+                }
+            }
+        }
+
+        return blockPositions;
+    }
+
+    private Vector3Int GetChunkStartBlockPosition(Vector3Int chunkPos)
+    {
+        var settings = terrainManager.Settings;
+        return new Vector3Int(
+            chunkPos.x * settings.blocksPerChunk.x - GetHorizontalChunkOriginOffset(),
+            chunkPos.y * settings.blocksPerChunk.y,
+            chunkPos.z
+        );
+    }
+
+    private int GetHorizontalChunkOriginOffset()
+    {
+        return terrainManager.Settings.blocksPerChunk.x / 2;
+    }
+
+    private int WorldToBlockCoordinate(float worldAxis, float blockSize)
+    {
+        return Mathf.FloorToInt(worldAxis / blockSize + 0.5f);
     }
 
     private Vector3 GetChunkCenterWorldPosition(Vector3Int chunkPos)
@@ -304,8 +371,9 @@ public class ChunkManager : MonoBehaviour
         var settings = terrainManager.Settings;
         
         // チャンクの開始ブロック座標を計算
-        float startBlockX = chunkPos.x * settings.blocksPerChunk.x;
-        float startBlockY = chunkPos.y * settings.blocksPerChunk.y;
+        Vector3Int startBlock = GetChunkStartBlockPosition(chunkPos);
+        float startBlockX = startBlock.x;
+        float startBlockY = startBlock.y;
 
         // チャンクの中心のブロック座標を計算
         float centerBlockX = startBlockX + (settings.blocksPerChunk.x - 1) / 2f;
@@ -338,6 +406,19 @@ public class ChunkManager : MonoBehaviour
         await UniTask.Delay(System.TimeSpan.FromSeconds(terrainManager.Settings.itemLoadDelay), cancellationToken: cancellationTokenSource.Token);
 
         if (cancellationTokenSource.IsCancellationRequested) return;
+
+        if (torchPlacementManager == null)
+        {
+            if (!torchPlacementManagerMissingErrorLogged)
+            {
+                torchPlacementManagerMissingErrorLogged = true;
+                Debug.LogError("ChunkManager: TorchPlacementManager is not assigned. Cannot load persisted torches.", this);
+            }
+        }
+        else
+        {
+            torchPlacementManager.LoadTorchesInChunk(chunkPos);
+        }
 
         // ドロップアイテムをロード
         if (DroppedItemManager.Instance != null)

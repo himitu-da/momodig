@@ -4,6 +4,22 @@ public static class BlockItemDropper
 {
     public static void DropItem(Vector3 position, BlockData voxelBlockData, bool useTexture1, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock, float voxelWorldSize, VoxelTextureExtractor textureExtractor)
     {
+        DropItem(position, voxelBlockData, useTexture1, voxelX, voxelY, voxelZ, voxelsPerBlock, voxelWorldSize, textureExtractor, default, false);
+    }
+
+    public static void DropItem(
+        Vector3 position,
+        BlockData voxelBlockData,
+        bool useTexture1,
+        int voxelX,
+        int voxelY,
+        int voxelZ,
+        int voxelsPerBlock,
+        float voxelWorldSize,
+        VoxelTextureExtractor textureExtractor,
+        MiningInfo miningInfo,
+        bool applyInitialForce)
+    {
         if (DroppedItemManager.Instance == null)
         {
             Debug.LogError("DroppedItemManager.Instance is null. Please ensure a DroppedItemManager exists in the scene.");
@@ -22,16 +38,21 @@ public static class BlockItemDropper
             return;
         }
 
-        GameObject item = DroppedItemManager.Instance.GetItem(voxelBlockData.droppedItemPrefab);
-        if (item == null) return;
-
-        item.transform.position = position;
-        item.transform.rotation = Quaternion.identity;
-
-        SetupDroppedItem(item, voxelBlockData, useTexture1, voxelX, voxelY, voxelZ, voxelsPerBlock, voxelWorldSize, textureExtractor);
+        DroppedItemManager.Instance.EnqueueDropItem(
+            position,
+            voxelBlockData,
+            useTexture1,
+            voxelX,
+            voxelY,
+            voxelZ,
+            voxelsPerBlock,
+            voxelWorldSize,
+            textureExtractor,
+            miningInfo,
+            applyInitialForce);
     }
 
-    private static void SetupDroppedItem(GameObject item, BlockData data, bool useTexture1, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock, float voxelWorldSize, VoxelTextureExtractor textureExtractor)
+    internal static void SetupDroppedItem(GameObject item, BlockData data, bool useTexture1, int voxelX, int voxelY, int voxelZ, int voxelsPerBlock, float voxelWorldSize, VoxelTextureExtractor textureExtractor)
     {
         if (data.autoScale)
         {
@@ -64,11 +85,15 @@ public static class BlockItemDropper
         DroppedItem droppedItemComponent = item.GetComponent<DroppedItem>();
         if (droppedItemComponent != null)
         {
+            if (!droppedItemComponent.enabled)
+            {
+                droppedItemComponent.enabled = true;
+            }
+
             droppedItemComponent.ResetSolidificationState();
             droppedItemComponent.resourceType = data.resourceType;
             droppedItemComponent.blockDataName = data.name;
             droppedItemComponent.scale = item.transform.localScale;
-            droppedItemComponent.enabled = !data.disableRotation;
         }
 
         if (!item.CompareTag("DroppedItem"))
@@ -101,31 +126,9 @@ public static class BlockItemDropper
     {
         if (itemRigidbody == null) return;
 
-        PlayerController.MoveMode currentMoveMode = GetCurrentMoveMode();
-
-        switch (currentMoveMode)
-        {
-            case PlayerController.MoveMode.SideScroller:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ |
-                                            RigidbodyConstraints.FreezeRotationX |
-                                            RigidbodyConstraints.FreezeRotationY;
-                break;
-
-            case PlayerController.MoveMode.TopDown:
-                itemRigidbody.constraints = RigidbodyConstraints.FreezePositionY |
-                                            RigidbodyConstraints.FreezeRotationX |
-                                            RigidbodyConstraints.FreezeRotationZ;
-                break;
-
-            default:
-                itemRigidbody.constraints = RigidbodyConstraints.None;
-                break;
-        }
+        itemRigidbody.constraints = RigidbodyConstraints.FreezePositionZ |
+                                    RigidbodyConstraints.FreezeRotationX |
+                                    RigidbodyConstraints.FreezeRotationY;
     }
 
-    private static PlayerController.MoveMode GetCurrentMoveMode()
-    {
-        PlayerController playerController = Object.FindFirstObjectByType<PlayerController>();
-        return playerController != null ? playerController.currentMoveMode : PlayerController.MoveMode.TopDown;
-    }
 }

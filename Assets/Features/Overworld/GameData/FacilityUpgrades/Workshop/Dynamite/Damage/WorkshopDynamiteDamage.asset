@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
+  m_Name: WorkshopDynamiteDamage
+  m_EditorClassIdentifier: 
+  upgradeId: workshop.dynamite.damage
+  facilityType: 0
+  categoryId: dynamite
+  categoryLabel: "\u30C0\u30A4\u30CA\u30DE\u30A4\u30C8\u3000Dynamite"
+  displayName: Dynamite Damage
+  description: Improves dynamite damage per blast.
+  initialLevel: 0
+  maxLevel: 30
+  costScaling: 1
+  resourceCosts:
+  - resourceType: 1
+    baseAmount: 10
+  - resourceType: 2
+    baseAmount: 5
+  - resourceType: 10
+    baseAmount: 5
+  enhancements:
+  - {fileID: 11400000, guid: a06f9e7b2c8e4f47bf4e87e8c2f75d29, type: 2}

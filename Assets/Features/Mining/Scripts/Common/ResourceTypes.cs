@@ -6,18 +6,18 @@ using UnityEngine;
 /// </summary>
 public enum ResourceType
 {
-    Soil,
-    Stone,
-    Iron,
-    Gold,
-    Diamond,
-    Copper,
-    Tin,
-    Nickel,
-    Silicon,
-    Cobalt,
-    Titanium,
-    DragonGem
+    Soil = 0,
+    Stone = 1,
+    Iron = 2,
+    Gold = 3,
+    Diamond = 4,
+    Copper = 5,
+    Tin = 6,
+    Nickel = 7,
+    Silicon = 8,
+    Cobalt = 9,
+    Titanium = 10,
+    DragonGem = 11
 }
 
 /// <summary>

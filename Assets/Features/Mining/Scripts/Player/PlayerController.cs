@@ -1,4 +1,4 @@
-﻿using TMPro;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem; // Input Systemを使うために必要
@@ -13,28 +13,12 @@ using UnityEditor; // Serializable用
 public class PlayerController : MonoBehaviour
 {
 
-    public enum MoveMode
-    {
-        SideScroller,
-        TopDown
-    }
-
     [Header("移動設定")]
     [SerializeField] private float moveSpeed = 5f; // 移動速度
     [SerializeField] private float acceleration = 0.1f; // 加速のスムーズさ
     [SerializeField] private float deceleration = 0.2f; // 減速のスムーズさ
     [SerializeField] private float fallSpeedMultiplier = 0.5f; // 最大落下速度の倍率
     [SerializeField] private float fallAcceleration = 1f; // 落下加速度
-    [SerializeField] private MoveMode _currentMoveMode;
-    public MoveMode currentMoveMode
-    {
-        get => _currentMoveMode;
-        set
-        {
-            _currentMoveMode = value;
-            UpdateConstraints();
-        }
-    }
 
     [Header("UI設定")]
     [SerializeField] private TextMeshProUGUI scoreText; // スコア表示用のText
@@ -58,7 +42,7 @@ public class PlayerController : MonoBehaviour
     /// マウスのスクリーン座標をワールド座標に変換する
     /// </summary>
     /// <param name="screenPosition">スクリーン座標</param>
-    /// <param name="distance">カメラからの距離（SideScrollerモードで使用）</param>
+    /// <param name="distance">カメラからの距離（プレイ面で使用）</param>
     /// <returns>ワールド座標</returns>
     public Vector3 ScreenToWorldPoint(Vector2 screenPosition, float distance = 10f)
     {
@@ -76,7 +60,7 @@ public class PlayerController : MonoBehaviour
     /// <summary>
     /// 現在のマウス位置をワールド座標で取得
     /// </summary>
-    /// <param name="distance">カメラからの距離（SideScrollerモードで使用）</param>
+    /// <param name="distance">カメラからの距離（プレイ面で使用）</param>
     /// <returns>マウス位置のワールド座標</returns>
     public Vector3 GetMouseWorldPosition(float distance = 10f)
     {
@@ -87,12 +71,12 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float itemPickupRetryInterval = 0.5f; // 回収リトライ間隔（秒）
 
     [Header("流体抵抗設定")]
-    [SerializeField, InspectorName("流体シミュレーション"), Tooltip("同じシーンの FluidManager を割り当てます。未設定なら TerrainManager から自動取得を試みます。")] private FluidManager fluidManager;
+    [SerializeField, InspectorName("流体シミュレーション"), Tooltip("同じシーンの FluidManager を割り当てます。")] private FluidManager fluidManager;
     [SerializeField, InspectorName("抵抗判定に使う Collider"), Tooltip("プレイヤーのどの範囲で水量を測るかに使う Collider です。通常は PlayerCollider を指定します。")] private Collider fluidResistanceCollider;
     [SerializeField, InspectorName("流体抵抗を有効にする"), Tooltip("オフにすると、水による移動抵抗を無効にします。")] private bool enableFluidResistance = true;
     [SerializeField, InspectorName("横方向サンプル数"), Tooltip("Collider 内を横方向に何点読むかです。大きいほど正確ですが少し重くなります。")] private int fluidHorizontalSampleCount = 2;
     [SerializeField, InspectorName("縦方向サンプル数"), Tooltip("Collider 内を高さ方向に何点読むかです。水位差に対する精度に効きます。")] private int fluidVerticalSampleCount = 3;
-    [SerializeField, InspectorName("奥行きサンプル数"), Tooltip("Collider 内を奥行き方向に何点読むかです。SideScroller では 1 でも構いません。")] private int fluidDepthSampleCount = 1;
+    [SerializeField, InspectorName("奥行きサンプル数"), Tooltip("Collider 内を奥行き方向に何点読むかです。プレイ面では 1 でも構いません。")] private int fluidDepthSampleCount = 1;
     [SerializeField, InspectorName("サンプルの内側オフセット"), Tooltip("Collider の端から少し内側を読む量です。境界の誤判定を減らします。")] private float fluidSampleInset = 0.05f;
     [SerializeField, InspectorName("抵抗の強さ"), Tooltip("水に浸かったときにどれくらい移動が重くなるかの基本倍率です。")] private float fluidResistanceStrength = 0.85f;
     [SerializeField, InspectorName("最低移動速度倍率"), Tooltip("最大まで抵抗が効いたときでも残す移動速度の割合です。"), Range(0.05f, 1f)] private float minimumFluidMoveSpeedMultiplier = 0.35f;
@@ -103,16 +87,19 @@ public class PlayerController : MonoBehaviour
     private Rigidbody rb;
     private InputSystem_Actions controls; // 自動生成されたクラス
     private Vector2 moveInput;
-    public Vector2 MoveInput => moveInput; // PassageControllerから入力を取得するため
+    public Vector2 MoveInput => moveInput; // MiningPassageControllerから入力を取得するため
     private Vector2 mousePosition; // マウスのスクリーン座標
     private float currentFallSpeed = 0f; // 現在の落下速度
     public Vector3 lastMoveDirection = Vector3.forward; // 最後に移動した方向
     public bool IsFacingRight { get; private set; } = true; // 現在の向きを保持 (true: 右, false: 左)
     private Vector3 currentVelocity; // SmoothDamp用の現在速度
     private PlayerVisualsController playerVisualsController; // ビジュアル担当
+    private bool controlLocked;
+    private bool itemPickupLocked;
     
-    // PassageControllerからの制御用
+    // MiningPassageControllerからの制御用
     public bool IsInPassage { get; set; } = false;
+    public bool IsControlLocked => controlLocked;
     
     // 接触中のアイテム管理用
     private List<GameObject> contactItems = new List<GameObject>(); // 接触中のアイテムリスト
@@ -121,10 +108,13 @@ public class PlayerController : MonoBehaviour
     // MinecartPlayerInteractionSystemへの参照
     [SerializeField] private MinecartPlayerInteractionSystem minecartInteraction;
 
+    [Header("Scene References")]
+    [SerializeField] private DroppedItemManager droppedItemManager;
+    [SerializeField] private MiningLogSystem miningLogSystem;
+
     // MiningToolsControllerへの参照
     private MiningToolsController miningToolsController;
     private PlayerInventory playerInventory;
-    private MiningLogSystem miningLogSystem;
 
     // スクリプトがロードされたときに一度だけ呼ばれる
     void Awake()
@@ -136,28 +126,12 @@ public class PlayerController : MonoBehaviour
             rb.useGravity = false; // Rigidbodyの重力を無効にする
         }
 
-        if (fluidManager == null)
-        {
-            TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
-            if (terrainManager != null)
-            {
-                fluidManager = terrainManager.FluidManager;
-            }
-        }
+        ValidateSceneReferences();
 
         ResolveFluidResistanceCollider();        
-        // プレイヤーの初期向きをX正方向に設定
-        if (currentMoveMode == MoveMode.SideScroller)
-        {
-            transform.rotation = Quaternion.identity; // X正方向を向く
-            lastMoveDirection = Vector3.right; // X正方向
-            IsFacingRight = true;
-        }
-        else // TopDown
-        {
-            transform.rotation = Quaternion.identity; // Z正方向を向く
-            lastMoveDirection = Vector3.forward; // Z正方向
-        }
+        transform.rotation = Quaternion.identity;
+        lastMoveDirection = Vector3.right;
+        IsFacingRight = true;
 
         controls = new InputSystem_Actions();
 
@@ -175,52 +149,12 @@ public class PlayerController : MonoBehaviour
     // "SubMine" アクションの登録
     controls.Player.SubMine.performed += OnSubMine;
 
-        // Textコンポーネントを探して、それをscoreTextに追加
-        if (scoreText == null)
-        {
-            var scoreTextObject = GameObject.Find("ScoreText");
-            if (scoreTextObject != null)
-            {
-                scoreText = scoreTextObject.GetComponent<TextMeshProUGUI>();
-            }
-        }
         UpdateScoreText();
-
-        // depthTextを探して設定
-        if (depthText == null)
-        {
-            var depthTextObject = GameObject.Find("DepthText");
-            if (depthTextObject != null)
-            {
-                depthText = depthTextObject.GetComponent<TextMeshProUGUI>();
-            }
-        }
-
-        // inventoryTextを探して設定
-        if (inventoryText == null)
-        {
-            var inventoryTextObject = GameObject.Find("InventoryText");
-            if (inventoryTextObject != null)
-            {
-                inventoryText = inventoryTextObject.GetComponent<TextMeshProUGUI>();
-            }
-        }
-
-        // inventoryCapacityTextを探して設定
-        if (inventoryCapacityText == null)
-        {
-            var inventoryCapacityTextObject = GameObject.Find("InventoryCapacityText");
-            if (inventoryCapacityTextObject != null)
-            {
-                inventoryCapacityText = inventoryCapacityTextObject.GetComponent<TextMeshProUGUI>();
-            }
-        }
         
         // 依存関係の初期化（インターフェース経由）
         playerInventory = new PlayerInventory();
         inventory = playerInventory;
-        itemManager = DroppedItemManager.Instance;
-        miningLogSystem = FindFirstObjectByType<MiningLogSystem>();
+        itemManager = droppedItemManager;
         
         // インベントリイベントの購読
         if (inventory != null)
@@ -246,6 +180,39 @@ public class PlayerController : MonoBehaviour
         if (miningToolsController == null)
         {
             Debug.LogError("MiningToolsControllerが見つかりません。Playerの子オブジェクトにアタッチしてください。");
+        }
+    }
+
+    private void ValidateSceneReferences()
+    {
+        if (fluidManager == null)
+        {
+            Debug.LogError("PlayerController: FluidManager is not assigned.", this);
+        }
+
+        if (depthText == null)
+        {
+            Debug.LogError("PlayerController: DepthText is not assigned.", this);
+        }
+
+        if (inventoryText == null)
+        {
+            Debug.LogError("PlayerController: InventoryText is not assigned.", this);
+        }
+
+        if (inventoryCapacityText == null)
+        {
+            Debug.LogError("PlayerController: InventoryCapacityText is not assigned.", this);
+        }
+
+        if (droppedItemManager == null)
+        {
+            Debug.LogError("PlayerController: DroppedItemManager is not assigned.", this);
+        }
+
+        if (miningLogSystem == null)
+        {
+            Debug.LogError("PlayerController: MiningLogSystem is not assigned.", this);
         }
     }
 
@@ -323,45 +290,42 @@ public class PlayerController : MonoBehaviour
     // 物理演算の更新タイミングで呼ばれる
     void FixedUpdate()
     {
+        if (controlLocked)
+        {
+            ResetMotion();
+            if (playerVisualsController != null)
+            {
+                playerVisualsController.UpdateMovementAnimation(Vector3.zero);
+            }
+            return;
+        }
+
         Vector3 moveDirection;
         Vector3 targetVelocity;
 
-        switch (currentMoveMode)
-        {
-            case MoveMode.SideScroller:
-                moveDirection = new Vector3(moveInput.x, moveInput.y, 0f);
+        moveDirection = new Vector3(moveInput.x, moveInput.y, 0f);
 
-                if (moveInput == Vector2.zero)
-                {
-                    // 無操作時は徐々に落下速度を上げる
-                    currentFallSpeed += fallAcceleration * Time.fixedDeltaTime;
-                    float maxFallSpeed = moveSpeed * fallSpeedMultiplier;
-                    currentFallSpeed = Mathf.Min(currentFallSpeed, maxFallSpeed);
-                    targetVelocity = new Vector3(0, -currentFallSpeed, 0);
-                }
-                else
-                {
-                    currentFallSpeed = 0f; // 操作中は落下速度をリセット
-                    if (moveInput.x != 0 && moveInput.y == 0)
-                    {
-                        // 左右のみの入力の場合は落下しない
-                        targetVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed;
-                    }
-                    else
-                    {
-                        // それ以外の入力（上下含む）
-                        targetVelocity = moveDirection.normalized * moveSpeed;
-                    }
-                }
-                break;
-            case MoveMode.TopDown:
-                moveDirection = new Vector3(moveInput.x, 0f, moveInput.y);
+        if (moveInput == Vector2.zero)
+        {
+            // 無操作時は徐々に落下速度を上げる
+            currentFallSpeed += fallAcceleration * Time.fixedDeltaTime;
+            float maxFallSpeed = moveSpeed * fallSpeedMultiplier;
+            currentFallSpeed = Mathf.Min(currentFallSpeed, maxFallSpeed);
+            targetVelocity = new Vector3(0, -currentFallSpeed, 0);
+        }
+        else
+        {
+            currentFallSpeed = 0f; // 操作中は落下速度をリセット
+            if (moveInput.x != 0 && moveInput.y == 0)
+            {
+                // 左右のみの入力の場合は落下しない
+                targetVelocity = new Vector3(moveInput.x, 0, 0).normalized * moveSpeed;
+            }
+            else
+            {
+                // それ以外の入力（上下含む）
                 targetVelocity = moveDirection.normalized * moveSpeed;
-                break;
-            default:
-                moveDirection = Vector3.zero;
-                targetVelocity = Vector3.zero;
-                break;
+            }
         }
 
         // 慣性を適用する時間を決定
@@ -375,25 +339,18 @@ public class PlayerController : MonoBehaviour
         }
 
         // SmoothDampを使用して速度を滑らかに変化させる
-        // Passageに入っている間は移動を無効化
-        if (IsInPassage)
+        // Passage中も通常移動は維持し、採掘だけMiningPassageController側で止める
+        Vector3 nextVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
+        if (fluidResistance > 0f)
         {
-            rb.linearVelocity = Vector3.zero;
-        }
-        else
-        {
-            Vector3 nextVelocity = Vector3.SmoothDamp(rb.linearVelocity, targetVelocity, ref currentVelocity, smoothTime);
-            if (fluidResistance > 0f)
-            {
-                float dragFactor = 1f - Mathf.Exp(-fluidDrag * fluidResistance * Time.fixedDeltaTime);
-                nextVelocity = Vector3.Lerp(nextVelocity, targetVelocity, dragFactor);
-            }
-
-            rb.linearVelocity = nextVelocity;
+            float dragFactor = 1f - Mathf.Exp(-fluidDrag * fluidResistance * Time.fixedDeltaTime);
+            nextVelocity = Vector3.Lerp(nextVelocity, targetVelocity, dragFactor);
         }
 
-        // SideScrollerモードで左右の入力があった場合、向きを更新
-        if (currentMoveMode == MoveMode.SideScroller && moveInput.x != 0)
+        rb.linearVelocity = nextVelocity;
+
+        // 左右の入力があった場合、向きを更新
+        if (moveInput.x != 0)
         {
             IsFacingRight = moveInput.x > 0;
         }
@@ -405,22 +362,14 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // 入力がない（停止中）の扱い
-            if (currentMoveMode == MoveMode.SideScroller)
-            {
-                // 横スクでは停止中でも向きフラグに基づいて水平方向をlastMoveDirectionに反映
-                lastMoveDirection = new Vector3(IsFacingRight ? 1f : -1f, 0f, 0f);
-            }
-            else
-            {
-                // TopDownでは停止中は直前の向きを維持（何もしない）
-            }
+            // 停止中でも向きフラグに基づいて水平方向をlastMoveDirectionに反映
+            lastMoveDirection = new Vector3(IsFacingRight ? 1f : -1f, 0f, 0f);
         }
 
         // MiningToolsControllerに回転処理を委譲
         if (miningToolsController != null)
         {
-            miningToolsController.UpdateRotation(lastMoveDirection, currentMoveMode);
+            miningToolsController.UpdateRotation(lastMoveDirection);
         }
 
         // PlayerVisualsControllerに移動アニメーションの更新を委譲
@@ -432,6 +381,11 @@ public class PlayerController : MonoBehaviour
 
     private void OnMainMine(InputAction.CallbackContext context)
     {
+        if (controlLocked)
+        {
+            return;
+        }
+
         // UI要素上をクリックした場合は、採掘処理を行わない
         if (IsPointerOverNonMineableUI())
         {
@@ -450,6 +404,11 @@ public class PlayerController : MonoBehaviour
 
     private void OnSubMine(InputAction.CallbackContext context)
     {
+        if (controlLocked)
+        {
+            return;
+        }
+
         // UI要素上をクリックした場合は、採掘処理を行わない
         if (IsPointerOverNonMineableUI())
         {
@@ -497,6 +456,11 @@ public class PlayerController : MonoBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        if (itemPickupLocked)
+        {
+            return;
+        }
+
         // 衝突したオブジェクトが "DroppedItem" タグを持っているか確認
         if (collision.gameObject.CompareTag("DroppedItem"))
         {
@@ -571,6 +535,11 @@ public class PlayerController : MonoBehaviour
     /// </summary>
     private void TryPickupItem(GameObject itemObject)
     {
+        if (itemPickupLocked)
+        {
+            return;
+        }
+
         // 周辺アイテムを起床させる（インターフェース経由）
         if (itemManager != null)
         {
@@ -584,12 +553,23 @@ public class PlayerController : MonoBehaviour
 
         // 資源情報を取得
         DroppedItem itemComponent = itemObject.GetComponent<DroppedItem>();
-        ResourceType resourceType = itemComponent != null ? itemComponent.resourceType : ResourceType.Stone;
+        if (itemComponent == null)
+        {
+            Debug.LogError("PlayerController: DroppedItem component is missing on pickup target.");
+            return;
+        }
+
+        if (!VoxelItemData.TryCreateFromDroppedItem(itemComponent, out VoxelItemData voxelItemData))
+        {
+            return;
+        }
+
+        ResourceType resourceType = voxelItemData.resourceType;
 
         // プレイヤーインベントリに追加を試行（インターフェース経由）
-        if (inventory.CanAddResource(resourceType))
+        if (inventory.CanAddItem(voxelItemData))
         {
-            if (inventory.AddResource(resourceType))
+            if (inventory.AddItem(voxelItemData))
             {
                 // アイテムをプールに返却（インターフェース経由）
                 itemManager.ReturnItem(itemObject);
@@ -792,17 +772,7 @@ public class PlayerController : MonoBehaviour
         // すべての物理的な回転を凍結
         rb.freezeRotation = true;
 
-        // MoveModeに応じてRigidbodyのConstraintsを設定
-        if (_currentMoveMode == MoveMode.SideScroller)
-        {
-            // Z位置を固定
-            rb.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
-        }
-        else // TopDown
-        {
-            // Y位置を固定
-            rb.constraints = RigidbodyConstraints.FreezePositionY | RigidbodyConstraints.FreezeRotation;
-        }
+        rb.constraints = RigidbodyConstraints.FreezePositionZ | RigidbodyConstraints.FreezeRotation;
     }
     
     /// <summary>
@@ -813,6 +783,47 @@ public class PlayerController : MonoBehaviour
         // 総数変更時にUIを更新
         UpdateInventoryUI();
         UpdateInventoryCapacityUI();
+    }
+
+    public void SetControlLocked(bool locked)
+    {
+        controlLocked = locked;
+        moveInput = Vector2.zero;
+        if (locked)
+        {
+            ResetMotion();
+        }
+    }
+
+    public void SetItemPickupLocked(bool locked)
+    {
+        itemPickupLocked = locked;
+        if (locked)
+        {
+            contactItems.Clear();
+            pickupRetryCancellationTokenSource?.Cancel();
+            pickupRetryCancellationTokenSource?.Dispose();
+            pickupRetryCancellationTokenSource = null;
+        }
+    }
+
+    public void ResetMotion()
+    {
+        currentFallSpeed = 0f;
+        currentVelocity = Vector3.zero;
+        if (rb == null)
+        {
+            return;
+        }
+
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+    }
+
+    public void TeleportTo(Vector3 position)
+    {
+        transform.position = position;
+        ResetMotion();
     }
 
     /// <summary>

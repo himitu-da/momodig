@@ -14,8 +14,14 @@ public class DroppedItem : MonoBehaviour
     };
 
     public Rigidbody rb { get; private set; }
+    public Collider ItemCollider => obstacleCollider;
+    public Bounds ItemBounds => obstacleCollider != null ? obstacleCollider.bounds : new Bounds(transform.position, transform.localScale);
     public ResourceType resourceType = ResourceType.Stone;
     private static Mesh droppedItemMeshTemplate;
+    private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    private static readonly int ColorId = Shader.PropertyToID("_Color");
+    private static readonly int MiningBrightnessId = Shader.PropertyToID("_MiningBrightness");
+    public const int VisualBrightnessCornerCount = 8;
 
     [Header("Solidification")]
     public bool canSolidify = true;
@@ -47,9 +53,14 @@ public class DroppedItem : MonoBehaviour
     private Mesh instanceMesh;
     private FluidManager fluidManager;
     private Collider obstacleCollider;
+    private MaterialPropertyBlock debugPropertyBlock;
     private Vector3 lastFluidNotifyPosition;
     private bool hasFluidNotifyPosition;
     private float nextFluidNotifyTime;
+    private bool anchoredPhysicsMode;
+    private bool missingFluidManagerLogged;
+    private float currentVisualBrightness = 1f;
+    public float VisualBrightness => currentVisualBrightness;
 
     // --- For Persistence ---
     public Vector3 scale;
@@ -71,16 +82,25 @@ public class DroppedItem : MonoBehaviour
     {
         meshFilter = GetComponent<MeshFilter>();
         meshRenderer = GetComponent<MeshRenderer>();
+        debugPropertyBlock = new MaterialPropertyBlock();
         EnsureDroppedItemMesh();
         rb = GetComponent<Rigidbody>();
         obstacleCollider = GetComponent<Collider>();
-        ResolveFluidManager();
         lastFluidNotifyPosition = GetFluidObstacleCenter();
         hasFluidNotifyPosition = true;
     }
 
     void OnEnable()
     {
+        anchoredPhysicsMode = false;
+        SetTemporaryAnchoredDebugTint(false);
+        RefreshFluidObstacleTracking(true);
+    }
+
+    public void ResetPhysicsForSpawn()
+    {
+        anchoredPhysicsMode = false;
+        SetTemporaryAnchoredDebugTint(false);
         if (rb != null)
         {
             rb.isKinematic = false;
@@ -106,10 +126,130 @@ public class DroppedItem : MonoBehaviour
         RefreshFluidObstacleTracking(true);
     }
 
-    void FixedUpdate()
+    public bool ShouldTickFluidPhysics()
     {
-        ApplyFluidResistance();
-        RefreshFluidObstacleTracking(false);
+        return !anchoredPhysicsMode &&
+            enableFluidResistance &&
+            rb != null &&
+            !rb.isKinematic;
+    }
+
+    public void TickFluidPhysics(float fixedDeltaTime, float currentTime)
+    {
+        if (!ShouldTickFluidPhysics())
+        {
+            return;
+        }
+
+        ApplyFluidResistance(fixedDeltaTime);
+        RefreshFluidObstacleTracking(false, currentTime);
+    }
+
+    public void SetFluidManager(FluidManager assignedFluidManager)
+    {
+        if (assignedFluidManager == null)
+        {
+            if (!missingFluidManagerLogged)
+            {
+                missingFluidManagerLogged = true;
+                Debug.LogError("DroppedItem: FluidManager is not configured.", this);
+            }
+
+            fluidManager = null;
+            return;
+        }
+
+        fluidManager = assignedFluidManager;
+        missingFluidManagerLogged = false;
+    }
+
+    public void SetAnchoredPhysicsMode(bool anchored)
+    {
+        anchoredPhysicsMode = anchored;
+        if (anchored)
+        {
+            RefreshFluidObstacleTracking(true);
+        }
+        else
+        {
+            lastFluidNotifyPosition = GetFluidObstacleCenter();
+            hasFluidNotifyPosition = true;
+            nextFluidNotifyTime = 0f;
+            RefreshFluidObstacleTracking(true);
+        }
+    }
+
+    public void SetTemporaryAnchoredDebugTint(bool anchored)
+    {
+        if (meshRenderer == null)
+        {
+            return;
+        }
+
+        if (debugPropertyBlock == null)
+        {
+            debugPropertyBlock = new MaterialPropertyBlock();
+        }
+
+        Color tint = anchored ? new Color(0.25f, 1f, 1f, 1f) : Color.white;
+        meshRenderer.GetPropertyBlock(debugPropertyBlock);
+        debugPropertyBlock.SetColor(BaseColorId, tint);
+        debugPropertyBlock.SetColor(ColorId, tint);
+        meshRenderer.SetPropertyBlock(debugPropertyBlock);
+    }
+
+    public void SetVisualBrightness(float brightness)
+    {
+        if (meshRenderer == null)
+        {
+            return;
+        }
+
+        if (debugPropertyBlock == null)
+        {
+            debugPropertyBlock = new MaterialPropertyBlock();
+        }
+
+        currentVisualBrightness = Mathf.Clamp01(brightness);
+        meshRenderer.GetPropertyBlock(debugPropertyBlock);
+        debugPropertyBlock.SetFloat(MiningBrightnessId, currentVisualBrightness);
+        meshRenderer.SetPropertyBlock(debugPropertyBlock);
+    }
+
+    public int GetVisualBrightnessCornerSamples(Vector3[] samples, float localInset)
+    {
+        if (samples == null)
+        {
+            Debug.LogError("DroppedItem: visual brightness sample buffer is null.", this);
+            return 0;
+        }
+
+        if (samples.Length < VisualBrightnessCornerCount)
+        {
+            Debug.LogError(
+                $"DroppedItem: visual brightness sample buffer is too small. Length={samples.Length}, Required={VisualBrightnessCornerCount}",
+                this);
+            return 0;
+        }
+
+        float extent = Mathf.Clamp(0.5f - Mathf.Max(0f, localInset), 0.001f, 0.5f);
+        int index = 0;
+        for (int x = -1; x <= 1; x += 2)
+        {
+            for (int y = -1; y <= 1; y += 2)
+            {
+                for (int z = -1; z <= 1; z += 2)
+                {
+                    samples[index] = transform.TransformPoint(new Vector3(
+                        x * extent,
+                        y * extent,
+                        z * extent));
+                    index++;
+                }
+            }
+        }
+
+        return index;
     }
 
     void OnDestroy()
@@ -122,30 +262,16 @@ public class DroppedItem : MonoBehaviour
         }
     }
 
-    private void ResolveFluidManager()
-    {
-        if (fluidManager != null)
-        {
-            return;
-        }
-
-        TerrainManager terrainManager = FindFirstObjectByType<TerrainManager>();
-        if (terrainManager != null)
-        {
-            fluidManager = terrainManager.FluidManager;
-        }
-    }
-
-    private void ApplyFluidResistance()
+    private void ApplyFluidResistance(float fixedDeltaTime)
     {
         if (!enableFluidResistance || rb == null || rb.isKinematic)
         {
             return;
         }
 
-        ResolveFluidManager();
         if (fluidManager == null)
         {
+            LogMissingFluidManager();
             return;
         }
 
@@ -164,8 +290,8 @@ public class DroppedItem : MonoBehaviour
         
         float resistanceFactor = Mathf.Clamp01(displacedFluidMass / effectiveMass);
 
-        float linearDamping = 1f - Mathf.Exp(-fluidLinearResistanceStrength * resistanceFactor * Time.fixedDeltaTime);
-        float angularDamping = 1f - Mathf.Exp(-fluidAngularResistanceStrength * resistanceFactor * Time.fixedDeltaTime);
+        float linearDamping = 1f - Mathf.Exp(-fluidLinearResistanceStrength * resistanceFactor * fixedDeltaTime);
+        float angularDamping = 1f - Mathf.Exp(-fluidAngularResistanceStrength * resistanceFactor * fixedDeltaTime);
 
         rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, linearDamping);
         rb.angularVelocity = Vector3.Lerp(rb.angularVelocity, Vector3.zero, angularDamping);
@@ -173,7 +299,11 @@ public class DroppedItem : MonoBehaviour
 
     private void RefreshFluidObstacleTracking(bool force)
     {
-        ResolveFluidManager();
+        RefreshFluidObstacleTracking(force, Time.time);
+    }
+
+    private void RefreshFluidObstacleTracking(bool force, float currentTime)
+    {
         if (fluidManager == null)
         {
             return;
@@ -191,7 +321,7 @@ public class DroppedItem : MonoBehaviour
                 return;
             }
 
-            if (Time.time < nextFluidNotifyTime)
+            if (currentTime < nextFluidNotifyTime)
             {
                 return;
             }
@@ -206,7 +336,18 @@ public class DroppedItem : MonoBehaviour
         fluidManager.MarkDirtyAroundWorldPosition(currentPosition, dirtyRadius);
         lastFluidNotifyPosition = currentPosition;
         hasFluidNotifyPosition = true;
-        nextFluidNotifyTime = Time.time + FluidNotifyInterval;
+        nextFluidNotifyTime = currentTime + FluidNotifyInterval;
+    }
+
+    private void LogMissingFluidManager()
+    {
+        if (missingFluidManagerLogged)
+        {
+            return;
+        }
+
+        missingFluidManagerLogged = true;
+        Debug.LogError("DroppedItem: FluidManager is not configured.", this);
     }
 
     private float GetFluidSubmersionRatio()
@@ -387,6 +528,7 @@ public class DroppedItem : MonoBehaviour
         material.renderQueue = RenderQueue.Geometry;
         material.color = Color.white;
         material.mainTexture = sourceTexture;
+        SetVisualBrightness(currentVisualBrightness);
     }
 
     private Texture2D ResolveSourceTexture(Texture2D texture1, Texture2D texture2)

@@ -7,6 +7,8 @@ using System.Collections.Generic;
 /// </summary>
 public class StorageManager : MonoBehaviour
 {
+    [SerializeField] private GameDataPersistenceManager persistenceManager;
+
     // シングルトンインスタンス
     private static StorageManager _instance;
     public static StorageManager Instance
@@ -15,13 +17,9 @@ public class StorageManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                _instance = FindFirstObjectByType<StorageManager>();
-                if (_instance == null)
-                {
-                    GameObject go = new GameObject("StorageManager");
-                    _instance = go.AddComponent<StorageManager>();
-                }
+                Debug.LogError("StorageManager.Instance is not initialized. Place StorageManager in the active scene.");
             }
+
             return _instance;
         }
     }
@@ -33,21 +31,30 @@ public class StorageManager : MonoBehaviour
     {
         if (_instance != null && _instance != this)
         {
-            Destroy(gameObject);
-            return;
+            if (_instance.gameObject.scene == gameObject.scene)
+            {
+                Debug.LogError("Multiple StorageManager instances exist in the same scene. Remove the duplicate from the scene.", this);
+                Destroy(gameObject);
+                return;
+            }
         }
+
         _instance = this;
         
-        // GameDataPersistenceManagerからリソースをロード
-        storedResources = new Dictionary<ResourceType, int>(GameDataPersistenceManager.Instance.storedResources);
-
-        // 全てのリソースタイプを0で初期化（もし永続化データになければ）
-        foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
+        persistenceManager = ResolvePersistenceManager();
+        if (persistenceManager != null && persistenceManager.storedResources != null)
         {
-            if (!storedResources.ContainsKey(type))
-            {
-                storedResources[type] = 0;
-            }
+            storedResources = new Dictionary<ResourceType, int>(persistenceManager.storedResources);
+        }
+
+        NormalizeStoredResources();
+    }
+
+    void OnDestroy()
+    {
+        if (_instance == this)
+        {
+            _instance = null;
         }
     }
 
@@ -61,14 +68,19 @@ public class StorageManager : MonoBehaviour
 
         foreach (var resource in resourcesToAdd)
         {
-            if (storedResources.ContainsKey(resource.Key))
+            if (!CanAddResource(resource.Key, resource.Value))
             {
-                storedResources[resource.Key] += resource.Value;
+                return;
             }
+        }
+
+        foreach (var resource in resourcesToAdd)
+        {
+            storedResources[resource.Key] += resource.Value;
         }
         
         // 永続化データも更新
-        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+        PersistStoredResources();
 
         // 現在の貯蔵量を表示
         string storageInfo = "[StorageManager] 現在の貯蔵量: ";
@@ -89,15 +101,13 @@ public class StorageManager : MonoBehaviour
     /// <param name="amount">追加する量</param>
     public void AddResource(ResourceType type, int amount)
     {
-        if (storedResources.ContainsKey(type))
+        if (!CanAddResource(type, amount))
         {
-            storedResources[type] += amount;
+            return;
         }
-        else
-        {
-            storedResources[type] = amount;
-        }
-        GameDataPersistenceManager.Instance.storedResources = new Dictionary<ResourceType, int>(storedResources);
+
+        storedResources[type] += amount;
+        PersistStoredResources();
 
         // 現在の貯蔵量を表示
         string storageInfo = "[StorageManager] 現在の貯蔵量: ";
@@ -116,6 +126,46 @@ public class StorageManager : MonoBehaviour
     /// </summary>
     /// <param name="type">リソースタイプ</param>
     /// <returns>貯蔵量</returns>
+    public bool CanSpendResources(Dictionary<ResourceType, int> resourcesToSpend)
+    {
+        if (!ValidateSpendRequest(resourcesToSpend))
+        {
+            return false;
+        }
+
+        foreach (KeyValuePair<ResourceType, int> resource in resourcesToSpend)
+        {
+            if (!storedResources.ContainsKey(resource.Key))
+            {
+                Debug.LogError($"StorageManager: resource '{resource.Key}' is not initialized.");
+                return false;
+            }
+
+            if (storedResources[resource.Key] < resource.Value)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public bool TrySpendResources(Dictionary<ResourceType, int> resourcesToSpend)
+    {
+        if (!CanSpendResources(resourcesToSpend))
+        {
+            return false;
+        }
+
+        foreach (KeyValuePair<ResourceType, int> resource in resourcesToSpend)
+        {
+            storedResources[resource.Key] -= resource.Value;
+        }
+
+        PersistStoredResources();
+        return true;
+    }
+
     public int GetResourceAmount(ResourceType type)
     {
         if (storedResources.ContainsKey(type))
@@ -132,5 +182,101 @@ public class StorageManager : MonoBehaviour
     public Dictionary<ResourceType, int> GetAllStoredResources()
     {
         return new Dictionary<ResourceType, int>(storedResources);
+    }
+
+    private bool ValidateSpendRequest(Dictionary<ResourceType, int> resourcesToSpend)
+    {
+        if (storedResources == null)
+        {
+            Debug.LogError("StorageManager: storedResources is not initialized.");
+            return false;
+        }
+
+        if (resourcesToSpend == null || resourcesToSpend.Count == 0)
+        {
+            Debug.LogError("StorageManager: resourcesToSpend is not configured.");
+            return false;
+        }
+
+        foreach (KeyValuePair<ResourceType, int> resource in resourcesToSpend)
+        {
+            if (resource.Value <= 0)
+            {
+                Debug.LogError($"StorageManager: spend amount for '{resource.Key}' must be greater than zero.");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void NormalizeStoredResources()
+    {
+        foreach (ResourceType type in System.Enum.GetValues(typeof(ResourceType)))
+        {
+            if (!storedResources.ContainsKey(type))
+            {
+                storedResources[type] = 0;
+                continue;
+            }
+
+            if (storedResources[type] < 0)
+            {
+                Debug.LogError($"StorageManager: stored amount for '{type}' was negative and has been clamped to zero.");
+                storedResources[type] = 0;
+            }
+        }
+
+        PersistStoredResources();
+    }
+
+    private GameDataPersistenceManager ResolvePersistenceManager()
+    {
+        if (persistenceManager != null)
+        {
+            return persistenceManager;
+        }
+
+        persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager == null)
+        {
+            Debug.LogError("StorageManager: GameDataPersistenceManager is not assigned.", this);
+        }
+
+        return persistenceManager;
+    }
+
+    private void PersistStoredResources()
+    {
+        GameDataPersistenceManager resolvedPersistenceManager = ResolvePersistenceManager();
+        if (resolvedPersistenceManager == null)
+        {
+            return;
+        }
+
+        resolvedPersistenceManager.storedResources = new Dictionary<ResourceType, int>(storedResources);
+    }
+
+    private bool CanAddResource(ResourceType type, int amount)
+    {
+        if (storedResources == null)
+        {
+            Debug.LogError("StorageManager: storedResources is not initialized.");
+            return false;
+        }
+
+        if (!storedResources.ContainsKey(type))
+        {
+            Debug.LogError($"StorageManager: resource '{type}' is not initialized.");
+            return false;
+        }
+
+        if (amount <= 0)
+        {
+            Debug.LogError($"StorageManager: add amount for '{type}' must be greater than zero. Use TrySpendResources for spending.");
+            return false;
+        }
+
+        return true;
     }
 }

@@ -6,6 +6,7 @@ public class MiningToolsController : MonoBehaviour
     [Header("掘削ツール設定")]
     [SerializeField] private List<MiningTool> usableMiningTools;
     [SerializeField] private ToolInventory toolInventory;
+    [SerializeField] private FacilityUpgradeCatalog facilityUpgradeCatalog;
     [SerializeField] private MiningTool _mainMiningTool;
     [SerializeField] private MiningTool _subMiningTool; // サブ用ツール
 
@@ -15,6 +16,15 @@ public class MiningToolsController : MonoBehaviour
 
     [Header("ツールの装着先(未指定なら自身)")]
     [SerializeField] private Transform toolMount;
+
+    [Header("Light")]
+    [SerializeField] private MiningLightManager miningLightManager;
+
+    [Header("Terrain")]
+    [SerializeField] private TerrainManager terrainManager;
+
+    [Header("Placement")]
+    [SerializeField] private TorchPlacementManager torchPlacementManager;
 
     // Behaviour 駆動用キャッシュと参照
     private readonly Dictionary<MiningTool, MiningToolBehaviour> _mainBehaviourCache = new Dictionary<MiningTool, MiningToolBehaviour>();
@@ -38,7 +48,7 @@ public class MiningToolsController : MonoBehaviour
 
     private void OnEnable()
     {
-        GameDataPersistenceManager.OnPurchasedItemsChanged += ApplyEnhancements;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged += ApplyEnhancements;
         if (hasAwakened)
         {
             SubscribeToToolInventory();
@@ -47,7 +57,7 @@ public class MiningToolsController : MonoBehaviour
 
     private void OnDisable()
     {
-        GameDataPersistenceManager.OnPurchasedItemsChanged -= ApplyEnhancements;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged -= ApplyEnhancements;
         UnsubscribeFromToolInventory();
     }
 
@@ -235,7 +245,7 @@ public class MiningToolsController : MonoBehaviour
     /// <summary>
     /// ツールの向き・照準更新（Behaviour に転送）
     /// </summary>
-    public void UpdateRotation(Vector3 direction, PlayerController.MoveMode moveMode)
+    public void UpdateRotation(Vector3 direction)
     {
         if (direction.sqrMagnitude > 0.001f)
         {
@@ -246,7 +256,7 @@ public class MiningToolsController : MonoBehaviour
         if (_mainBehaviour != null)
         {
             // 照準の更新は常に行う
-            _mainBehaviour.UpdateAim(direction, moveMode);
+            _mainBehaviour.UpdateAim(direction);
 
             // ツール自体の回転は PickaxeToolBehaviour 側で制御するため、ここからは削除
             // if (!_mainBehaviour.IsMining)
@@ -262,28 +272,17 @@ public class MiningToolsController : MonoBehaviour
         if (_subBehaviour != null)
         {
             // サブツールも照準更新は常に行う
-            _subBehaviour.UpdateAim(direction, moveMode);
+            _subBehaviour.UpdateAim(direction);
         }
     }
 
     /// <summary>
     /// ツールホルダー自体の向きを更新する
     /// </summary>
-    private void UpdateToolRotation(Vector3 direction, PlayerController.MoveMode moveMode)
+    private void UpdateToolRotation(Vector3 direction)
     {
-        Quaternion targetRotation;
-        if (moveMode == PlayerController.MoveMode.TopDown)
-        {
-            // TopDownモードの回転計算
-            float angle = Mathf.Atan2(-direction.z, direction.x) * Mathf.Rad2Deg;
-            targetRotation = Quaternion.AngleAxis(angle, Vector3.up);
-        }
-        else // SideScroller
-        {
-            // SideScrollerモードの回転計算
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-            targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
-        }
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        Quaternion targetRotation = Quaternion.AngleAxis(angle, Vector3.forward);
 
         // このオブジェクト（MiningTools）の向きを更新
         transform.rotation = targetRotation;
@@ -431,6 +430,9 @@ public class MiningToolsController : MonoBehaviour
         if (behaviour != null)
         {
             behaviour.gameObject.name = tool.name; // ツール名を設定
+            behaviour.SetMiningLightManager(miningLightManager);
+            behaviour.SetTerrainManager(terrainManager);
+            behaviour.SetTorchPlacementManager(torchPlacementManager);
             behaviour.gameObject.SetActive(false);
             cache[tool] = behaviour;
         }
@@ -455,6 +457,9 @@ public class MiningToolsController : MonoBehaviour
         {
             _mainBehaviour.SetToolAnimator(_mainBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _mainBehaviour.SetDigger(_mainDigger);  // MainDiggerを渡す
+            _mainBehaviour.SetMiningLightManager(miningLightManager);
+            _mainBehaviour.SetTerrainManager(terrainManager);
+            _mainBehaviour.SetTorchPlacementManager(torchPlacementManager);
             _mainBehaviour.SetRole(ToolActionRole.Main);
             _mainBehaviour.gameObject.SetActive(true);
             _mainBehaviour.OnEquip(user);
@@ -485,6 +490,9 @@ public class MiningToolsController : MonoBehaviour
         {
             _subBehaviour.SetToolAnimator(_subBehaviour.GetComponent<Animator>()); // ToolのAnimatorを注入
             _subBehaviour.SetDigger(_subDigger);  // SubDiggerを渡す
+            _subBehaviour.SetMiningLightManager(miningLightManager);
+            _subBehaviour.SetTerrainManager(terrainManager);
+            _subBehaviour.SetTorchPlacementManager(torchPlacementManager);
             _subBehaviour.SetRole(ToolActionRole.Sub);
             _subBehaviour.gameObject.SetActive(true);
             _subBehaviour.OnEquip(user);
@@ -512,6 +520,11 @@ public class MiningToolsController : MonoBehaviour
 
     public void ApplyEnhancements()
     {
+        if (!ValidateFacilityUpgradeCatalog())
+        {
+            return;
+        }
+
         List<MiningTool> enhancementTargets = GetEnhancementTargetTools();
         if (enhancementTargets.Count == 0) return;
 
@@ -524,16 +537,20 @@ public class MiningToolsController : MonoBehaviour
             }
         }
 
-        var purchasedItems = GameDataPersistenceManager.Instance.purchaseditems;
-        foreach (var item in purchasedItems)
+        GameDataPersistenceManager persistence = GameDataPersistenceManager.Instance;
+        IReadOnlyList<FacilityUpgradeDefinition> upgrades = facilityUpgradeCatalog.Upgrades;
+        for (int upgradeIndex = 0; upgradeIndex < upgrades.Count; upgradeIndex++)
         {
-            ItemData itemData = item.Key;
-            int level = item.Value;
+            FacilityUpgradeDefinition upgrade = upgrades[upgradeIndex];
+            int level = persistence.GetFacilityUpgradeLevel(upgrade.UpgradeId, upgrade.InitialLevel);
+            int effectLevel = upgrade.GetEffectLevel(level);
 
-            if (level == 0) continue;
+            if (effectLevel == 0) continue;
 
-            foreach (var enhancement in itemData.enhancements)
+            IReadOnlyList<Enhancement> enhancements = upgrade.Enhancements;
+            for (int enhancementIndex = 0; enhancementIndex < enhancements.Count; enhancementIndex++)
             {
+                Enhancement enhancement = enhancements[enhancementIndex];
                 // どのツールのステータスを強化するかを判断する必要がある
                 // ここでは、全ツールに対して適用を試みる
                 foreach (var tool in enhancementTargets)
@@ -541,11 +558,22 @@ public class MiningToolsController : MonoBehaviour
                     // Enhancementに設定されたTargetCategoryと現在のtool名が一致する場合のみ適用
                     if (enhancement.TargetCategory == tool.name && tool.miningModule != null)
                     {
-                        ApplyEnhancementToModule(tool.miningModule, enhancement, level);
+                        ApplyEnhancementToModule(tool.miningModule, enhancement, effectLevel);
                     }
                 }
             }
         }
+    }
+
+    private bool ValidateFacilityUpgradeCatalog()
+    {
+        if (facilityUpgradeCatalog == null)
+        {
+            Debug.LogError("MiningToolsController: facilityUpgradeCatalog is not configured.", this);
+            return false;
+        }
+
+        return facilityUpgradeCatalog.ValidateConfiguration(this);
     }
 
     private void ResetMiningModuleStats(MiningModule module)
@@ -617,10 +645,15 @@ public class MiningToolsController : MonoBehaviour
         }
 
 
-        if (targetStat != null)
+        if (targetStat == null)
         {
-            ApplyModifier(targetStat, enhancement, level);
+            Debug.LogError(
+                $"MiningToolsController: enhancement '{enhancement.name}' targets unsupported stat '{enhancement.TargetStatName}'.",
+                this);
+            return;
         }
+
+        ApplyModifier(targetStat, enhancement, level);
     }
 
     private void ApplyModifier(Stat stat, Enhancement enhancement, int level)

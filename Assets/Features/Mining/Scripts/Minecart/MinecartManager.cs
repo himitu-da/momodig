@@ -1,20 +1,25 @@
 using UnityEngine;
 using System.Collections.Generic;
 using TMPro;
+using Unity.Profiling;
 
 // トロッコ管理クラス
 public class MinecartManager : MonoBehaviour
 {
+    private static readonly ProfilerMarker UpdateCapacityUIMarker = new ProfilerMarker("MinecartManager.UpdateCapacityUI");
+
     [Header("プレイヤー設定")]
     public Transform playerTransform; // プレイヤーのTransform
 
     [Header("トロッコ設定")]
     public GameObject minecartPrefab; // トロッコのプレハブ
+    [SerializeField] private FacilityUpgradeCatalog facilityUpgradeCatalog;
     public Stat CartCapacity = new Stat { BaseValue = 500 };
 
     [Header("UI設定")]
     public GameObject minecartCapacityUIPrefab; // UIプレハブ
     public Transform worldCanvasTransform; // UIを配置するCanvas
+    [SerializeField] private Camera uiWorldCamera; // カート位置をUI座標へ変換するCamera
     public Vector3 uiOffset; // UIのオフセット
     [Header("トロッコ移動設定")]
     public Vector3 groundStationPosition = Vector3.zero; // 地上の停留点
@@ -38,12 +43,12 @@ public class MinecartManager : MonoBehaviour
 
     private void OnEnable()
     {
-        GameDataPersistenceManager.OnPurchasedItemsChanged += ApplyEnhancements;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged += ApplyEnhancements;
     }
 
     private void OnDisable()
     {
-        GameDataPersistenceManager.OnPurchasedItemsChanged -= ApplyEnhancements;
+        GameDataPersistenceManager.OnFacilityUpgradesChanged -= ApplyEnhancements;
     }
 
     void Start()
@@ -54,16 +59,6 @@ public class MinecartManager : MonoBehaviour
         {
             addnewcart();
         }
-        // updatevalue(0, ResourceType.Stone, 10); // デバッグ用の初期リソース追加
-        // 内容を確認
-        foreach (Minecart cart in minecarts)
-        {
-            foreach (KeyValuePair<ResourceType, int> element in cart.resources)
-            {
-                Debug.Log($"Key={element.Key}, Amount={element.Value}");
-            }
-        }
-
         // 軌跡記録の初期化
         if (playerTransform != null)
         {
@@ -86,15 +81,9 @@ public class MinecartManager : MonoBehaviour
 
             Minecart newMinecart = new Minecart(newMinecartObject);
 
-            // UIの生成
-            if (minecartCapacityUIPrefab != null && worldCanvasTransform != null)
+            if (TryCreateCapacityUI(newMinecart))
             {
-                GameObject uiObject = Instantiate(minecartCapacityUIPrefab, worldCanvasTransform);
-                newMinecart.capacityText = uiObject.GetComponent<TextMeshProUGUI>();
-            }
-            else
-            {
-                Debug.LogWarning("UIプレハブまたはCanvasが設定されていません。");
+                UpdateCapacityUI(newMinecart);
             }
 
             minecarts.Add(newMinecart);
@@ -105,17 +94,31 @@ public class MinecartManager : MonoBehaviour
         }
     }
 
-    // キューの先頭トロッコの指定資源をvalueだけ追加
-    public void updatevalue(int minecartnum, ResourceType type, int value)
+    public bool AddItemToFrontCart(VoxelItemData itemData)
     {
-        // 常に現在の利用トロッコ（キューの先頭）を対象とする
-        int currentCart = 0; // 先頭のトロッコを使用
-        minecarts[currentCart].resources[type] += value;
-        // 容量チェック
+        if (itemData == null || !itemData.IsValid("MinecartManager.AddItemToFrontCart"))
+        {
+            return false;
+        }
+
+        if (minecarts == null || minecarts.Count == 0)
+        {
+            Debug.LogError("MinecartManager: no minecart is available.");
+            return false;
+        }
+
+        int currentCart = 0;
+        if (!minecarts[currentCart].AddItem(itemData, CartCapacity.IntValue))
+        {
+            return false;
+        }
+
         if (minecarts[currentCart].CurrentLoad >= CartCapacity.IntValue)
         {
             SendCartToHome(currentCart);
         }
+
+        return true;
     }
 
     // トロッコを地上(0,0,0)に送り、キューを進める
@@ -220,20 +223,7 @@ public class MinecartManager : MonoBehaviour
         // トロッコの状態とUIを更新
         foreach (Minecart cart in minecarts)
         {
-            // UIの更新
-            if (cart.capacityText != null)
-            {
-                if (cart.gameObject.activeSelf)
-                {
-                    cart.capacityText.gameObject.SetActive(true);
-                    cart.capacityText.transform.position = cart.gameObject.transform.position + uiOffset;
-                    cart.capacityText.text = $"{cart.CurrentLoad} / {CartCapacity.IntValue}";
-                }
-                else
-                {
-                    cart.capacityText.gameObject.SetActive(false);
-                }
-            }
+            UpdateCapacityUI(cart);
 
             switch (cart.state)
             {
@@ -244,12 +234,22 @@ public class MinecartManager : MonoBehaviour
                         cart.state = MinecartState.Unloading; // 状態を荷降ろし中に変更
                         cart.time = unloadTime.Value; // 荷降ろしタイマーを設定
 
-                        // 中身をStorageManagerに移す
                         if (StorageManager.Instance != null)
                         {
-                            StorageManager.Instance.AddResources(cart.resources);
+                            if (!cart.TryDrainItems(out List<VoxelItemData> unloadedItems))
+                            {
+                                Debug.LogError("MinecartManager: failed to unload minecart because it contains invalid voxel item data.");
+                            }
+                            else if (unloadedItems.Count > 0 &&
+                                     VoxelItemData.TryAggregateResourceCounts(unloadedItems, out Dictionary<ResourceType, int> resourceCounts, "MinecartManager.Unload"))
+                            {
+                                StorageManager.Instance.AddResources(resourceCounts);
+                            }
+                            else if (unloadedItems.Count > 0)
+                            {
+                                Debug.LogError("MinecartManager: failed to unload minecart because it contains invalid voxel item data.");
+                            }
                         }
-                        cart.ClearResources();
                     }
                     break;
 
@@ -283,8 +283,165 @@ public class MinecartManager : MonoBehaviour
         }
     }
 
+    private bool TryCreateCapacityUI(Minecart minecart)
+    {
+        if (minecart == null)
+        {
+            Debug.LogError("MinecartManager: cannot create capacity UI because minecart is null.", this);
+            return false;
+        }
+
+        if (minecartCapacityUIPrefab == null)
+        {
+            Debug.LogError("MinecartManager: minecartCapacityUIPrefab is not configured.", this);
+            return false;
+        }
+
+        if (!TryGetConfiguredCanvas(out Canvas canvas, out _))
+        {
+            return false;
+        }
+
+        GameObject uiObject = Instantiate(minecartCapacityUIPrefab, worldCanvasTransform);
+        TextMeshProUGUI capacityText = uiObject.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (capacityText == null)
+        {
+            Debug.LogError(
+                $"MinecartManager: minecartCapacityUIPrefab '{minecartCapacityUIPrefab.name}' does not contain a TextMeshProUGUI.",
+                this);
+            Destroy(uiObject);
+            return false;
+        }
+
+        if (canvas.renderMode != RenderMode.WorldSpace && uiWorldCamera == null)
+        {
+            Debug.LogError("MinecartManager: uiWorldCamera is not configured for screen-space minecart capacity UI.", this);
+            Destroy(uiObject);
+            return false;
+        }
+
+        minecart.capacityText = capacityText;
+        return true;
+    }
+
+    private void UpdateCapacityUI(Minecart cart)
+    {
+        using (UpdateCapacityUIMarker.Auto())
+        {
+            if (cart == null || cart.capacityText == null)
+            {
+                return;
+            }
+
+            if (cart.gameObject == null)
+            {
+                Debug.LogError("MinecartManager: minecart gameObject is null while updating capacity UI.", this);
+                cart.capacityText.gameObject.SetActive(false);
+                return;
+            }
+
+            if (!cart.gameObject.activeSelf)
+            {
+                cart.capacityText.gameObject.SetActive(false);
+                return;
+            }
+
+            if (!TryGetConfiguredCanvas(out Canvas canvas, out RectTransform canvasRect))
+            {
+                cart.capacityText.gameObject.SetActive(false);
+                return;
+            }
+
+            Vector3 worldPosition = cart.gameObject.transform.position + uiOffset;
+            if (!TrySetCapacityUIPosition(cart.capacityText.rectTransform, canvas, canvasRect, worldPosition))
+            {
+                cart.capacityText.gameObject.SetActive(false);
+                return;
+            }
+
+            cart.capacityText.gameObject.SetActive(true);
+            cart.capacityText.SetText("{0} / {1}", cart.CurrentLoad, CartCapacity.IntValue);
+        }
+    }
+
+    private bool TryGetConfiguredCanvas(out Canvas canvas, out RectTransform canvasRect)
+    {
+        canvas = null;
+        canvasRect = null;
+
+        if (worldCanvasTransform == null)
+        {
+            Debug.LogError("MinecartManager: worldCanvasTransform is not configured.", this);
+            return false;
+        }
+
+        canvas = worldCanvasTransform.GetComponentInParent<Canvas>();
+        if (canvas == null)
+        {
+            Debug.LogError("MinecartManager: worldCanvasTransform must be assigned under a Canvas.", this);
+            return false;
+        }
+
+        canvasRect = canvas.transform as RectTransform;
+        if (canvasRect == null)
+        {
+            Debug.LogError("MinecartManager: configured Canvas does not have a RectTransform.", this);
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool TrySetCapacityUIPosition(RectTransform uiRect, Canvas canvas, RectTransform canvasRect, Vector3 worldPosition)
+    {
+        if (uiRect == null)
+        {
+            Debug.LogError("MinecartManager: capacity UI RectTransform is null.", this);
+            return false;
+        }
+
+        if (canvas.renderMode == RenderMode.WorldSpace)
+        {
+            uiRect.position = worldPosition;
+            if (uiWorldCamera != null)
+            {
+                uiRect.rotation = uiWorldCamera.transform.rotation;
+            }
+
+            return true;
+        }
+
+        if (uiWorldCamera == null)
+        {
+            Debug.LogError("MinecartManager: uiWorldCamera is not configured.", this);
+            return false;
+        }
+
+        Vector3 viewportPosition = uiWorldCamera.WorldToViewportPoint(worldPosition);
+        if (viewportPosition.z <= 0f)
+        {
+            return false;
+        }
+
+        Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(uiWorldCamera, worldPosition);
+        Camera canvasCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screenPoint, canvasCamera, out Vector2 localPoint))
+        {
+            return false;
+        }
+
+        uiRect.SetParent(worldCanvasTransform, false);
+        uiRect.anchoredPosition = localPoint;
+        return true;
+    }
+
     public void ApplyEnhancements()
     {
+        if (!ValidateFacilityUpgradeCatalog())
+        {
+            return;
+        }
+
         // Statの補正値をリセット
         CartCapacity.RemoveAllModifiers();
         followMoveSpeed.RemoveAllModifiers();
@@ -292,30 +449,50 @@ public class MinecartManager : MonoBehaviour
         unloadTime.RemoveAllModifiers();
         cartunit.RemoveAllModifiers();
 
-        var purchasedItems = GameDataPersistenceManager.Instance.purchaseditems;
-        foreach (var item in purchasedItems)
+        GameDataPersistenceManager persistence = GameDataPersistenceManager.Instance;
+        IReadOnlyList<FacilityUpgradeDefinition> upgrades = facilityUpgradeCatalog.Upgrades;
+        for (int upgradeIndex = 0; upgradeIndex < upgrades.Count; upgradeIndex++)
         {
-            ItemData itemData = item.Key;
-            int level = item.Value;
+            FacilityUpgradeDefinition upgrade = upgrades[upgradeIndex];
+            int level = persistence.GetFacilityUpgradeLevel(upgrade.UpgradeId, upgrade.InitialLevel);
+            int effectLevel = upgrade.GetEffectLevel(level);
 
-            if (level == 0) continue; // レベル0のアイテムは効果なし
+            if (effectLevel == 0) continue; // レベル0のアイテムは効果なし
 
-            foreach (var enhancement in itemData.enhancements)
+            IReadOnlyList<Enhancement> enhancements = upgrade.Enhancements;
+            for (int enhancementIndex = 0; enhancementIndex < enhancements.Count; enhancementIndex++)
             {
+                Enhancement enhancement = enhancements[enhancementIndex];
                 // カテゴリが "Minecart" の場合のみ適用
                 if (enhancement.TargetCategory == "Minecart")
                 {
                     Stat targetStat = GetStatByName(enhancement.TargetStatName);
-                    if (targetStat != null)
+                    if (targetStat == null)
                     {
-                        ApplyModifier(targetStat, enhancement, level);
+                        Debug.LogError(
+                            $"MinecartManager: enhancement '{enhancement.name}' targets unsupported stat '{enhancement.TargetStatName}'.",
+                            this);
+                        continue;
                     }
+
+                    ApplyModifier(targetStat, enhancement, effectLevel);
                 }
             }
         }
 
         // トロッコ数が変わった可能性があるので更新
         UpdateCartCount();
+    }
+
+    private bool ValidateFacilityUpgradeCatalog()
+    {
+        if (facilityUpgradeCatalog == null)
+        {
+            Debug.LogError("MinecartManager: facilityUpgradeCatalog is not configured.", this);
+            return false;
+        }
+
+        return facilityUpgradeCatalog.ValidateConfiguration(this);
     }
 
     private Stat GetStatByName(string statName)
