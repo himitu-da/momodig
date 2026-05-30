@@ -1218,8 +1218,8 @@ MonoBehaviour:
   surfaceBlockTexture: {fileID: 2800000, guid: 6ce98367fac1d644b8bac6062642b1ec, type: 3}
   fillBlockTexture: {fileID: 2800000, guid: 61a6e08a908b9934eb53aa0af194bf2e, type: 3}
   pixelsPerUnit: 100
-  columns: 15
-  rows: 3
+  columns: 50
+  rows: 10
   blockSize: 1
   centerX: 0
   surfaceY: -0.5
