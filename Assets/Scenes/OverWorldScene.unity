@@ -2002,12 +2002,6 @@ MonoBehaviour:
   - renderer: {fileID: 330000003}
     layer: 4001
     offset: 0
-  - renderer: {fileID: 0}
-    layer: 4250
-    offset: 0
-  - renderer: {fileID: 0}
-    layer: 4250
-    offset: 0
   - renderer: {fileID: 310000012}
     layer: 4200
     offset: 0
@@ -2748,6 +2742,134 @@ MonoBehaviour:
   catalog: {fileID: 11400000, guid: 0b417d25e2424442af50b15005146422, type: 2}
   storageManager: {fileID: 930000103}
   persistenceManager: {fileID: 0}
+--- !u!1 &940000000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 940000001}
+  - component: {fileID: 940000002}
+  m_Layer: 0
+  m_Name: OverworldBackground
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &940000001
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 940000000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &940000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 940000000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b20a1e7361840bd8b3272d34d5215cf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  backgroundSprites:
+  - {fileID: 21300000, guid: f7e033d2bce36ec4cb96d80024f7addb, type: 3}
+  - {fileID: 21300000, guid: 1f6d8723059dc45469f85d7fd578341e, type: 3}
+  - {fileID: 21300000, guid: 5fe5f607ff78bf44bab67a050052fcdb, type: 3}
+  - {fileID: 21300000, guid: 5fe1a83ab8024d146a21669bfc8c1f78, type: 3}
+  - {fileID: 21300000, guid: b5f5f81bd98c5224b877ec393d3f1a42, type: 3}
+  - {fileID: 21300000, guid: 4bd4dedbd23553f4c967305703244314, type: 3}
+  tilePrefab: {fileID: 930000000, guid: 9c39bfddc6b84388b899280a0447a761, type: 3}
+  tileMaterial: {fileID: 2100000, guid: 6bd31a34c12b47ec8461d3ce143a2b3e, type: 2}
+  columns: 25
+  rows: 25
+  tileSize: {x: 2, y: 2}
+  center: {x: 0, y: 0}
+  worldZ: 1
+  backgroundSeed: 101
+  decorationRules:
+  - ruleName: 
+    enabled: 1
+    sprite: {fileID: 21300000, guid: 3683e624a8d1d91449544f266f506fb0, type: 3}
+    spawnProbability: 0.05
+    size: {x: 2, y: 2}
+    offset: {x: 0, y: 0}
+    sortingOrderOffset: 0
+  - ruleName: 
+    enabled: 1
+    sprite: {fileID: 21300000, guid: be8ed68f884c4b2419b1d986d0bc0c3b, type: 3}
+    spawnProbability: 0.05
+    size: {x: 2, y: 2}
+    offset: {x: 0, y: 0}
+    sortingOrderOffset: 0
+  - ruleName: 
+    enabled: 1
+    sprite: {fileID: 21300000, guid: a65e6352d255b5b4c8c120349e88e2fc, type: 3}
+    spawnProbability: 0.05
+    size: {x: 2, y: 2}
+    offset: {x: 0, y: 0}
+    sortingOrderOffset: 0
+  - ruleName: 
+    enabled: 1
+    sprite: {fileID: 21300000, guid: 327c22342059caa41be5489665c8b998, type: 3}
+    spawnProbability: 0.05
+    size: {x: 2, y: 2}
+    offset: {x: 0, y: 0}
+    sortingOrderOffset: 0
+  - ruleName: 
+    enabled: 1
+    sprite: {fileID: 21300000, guid: 26b64c4a11969b742b4e523d67c81cdd, type: 3}
+    spawnProbability: 0.03
+    size: {x: 2, y: 2}
+    offset: {x: 0, y: 0}
+    sortingOrderOffset: 1
+  - ruleName: 
+    enabled: 1
+    sprite: {fileID: 21300000, guid: 44088543b923f834a98fe7a914f2aea3, type: 3}
+    spawnProbability: 0.03
+    size: {x: 2, y: 2}
+    offset: {x: 0, y: 0}
+    sortingOrderOffset: 1
+  - ruleName: 
+    enabled: 1
+    sprite: {fileID: 21300000, guid: 8beddf49fe116934d8a09e5ee293fa80, type: 3}
+    spawnProbability: 0.03
+    size: {x: 2, y: 2}
+    offset: {x: 0, y: 0}
+    sortingOrderOffset: 1
+  - ruleName: 
+    enabled: 1
+    sprite: {fileID: 21300000, guid: 15aaf2cac82de5e42b28f0c6ed8d74ce, type: 3}
+    spawnProbability: 0.03
+    size: {x: 2, y: 2}
+    offset: {x: 0, y: 0}
+    sortingOrderOffset: 1
+  decorationSeed: 202
+  decorationColumns: 25
+  decorationRows: 25
+  decorationCellSize: {x: 2, y: 2}
+  decorationCenter: {x: 0, y: 0}
+  decorationWorldZ: 0.9
+  renderQueueLayer: 4000
+  renderQueueOffset: 0
+  sortingOrder: -30
+  decorationRenderQueueLayer: 4001
+  decorationRenderQueueOffset: 0
+  decorationSortingOrder: -10
 --- !u!1 &1067940501
 GameObject:
   m_ObjectHideFlags: 0
@@ -4115,3 +4237,4 @@ SceneRoots:
   - {fileID: 10728495}
   - {fileID: 900000201}
   - {fileID: 930000101}
+  - {fileID: 940000001}
