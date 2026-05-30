@@ -324,13 +324,24 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
 
     private void CompletePassage()
     {
+        if (GameSceneCoordinator.Instance != null && GameSceneCoordinator.Instance.IsTransitioning)
+        {
+            return;
+        }
+
         if (!TryBeginPassageTransition())
         {
             return;
         }
 
         PrepareForSceneTransition();
-        changeScene.OnClickToChangeScene(destinationSceneName, destinationEntryPointId);
+        if (!changeScene.TryChangeScene(destinationSceneName, destinationEntryPointId))
+        {
+            CancelSceneTransitionPreparation();
+            PassageTransitionContext.Clear();
+            return;
+        }
+
         enabled = false;
     }
 
@@ -684,5 +695,11 @@ public class OverworldPassageController : MonoBehaviour, IGameSceneTransitionHan
     {
         isSceneTransitioning = true;
         RestorePlayerCollision();
+    }
+
+    private void CancelSceneTransitionPreparation()
+    {
+        isSceneTransitioning = false;
+        DeactivatePassage();
     }
 }

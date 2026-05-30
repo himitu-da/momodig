@@ -330,15 +330,26 @@ public class MiningPassageController : MonoBehaviour, IGameSceneTransitionHandle
 
     private void CompletePassage()
     {
+        if (GameSceneCoordinator.Instance != null && GameSceneCoordinator.Instance.IsTransitioning)
+        {
+            return;
+        }
+
         if (!TryBeginPassageTransition())
         {
             return;
         }
 
+        PrepareForSceneTransition();
+        if (!changeScene.TryChangeScene(destinationSceneName, destinationEntryPointId))
+        {
+            CancelSceneTransitionPreparation();
+            PassageTransitionContext.Clear();
+            return;
+        }
+
         TransferAllItemsToStorage();
         hasTransferredItems = true;
-        PrepareForSceneTransition();
-        changeScene.OnClickToChangeScene(destinationSceneName, destinationEntryPointId);
         enabled = false;
     }
 
@@ -700,6 +711,12 @@ public class MiningPassageController : MonoBehaviour, IGameSceneTransitionHandle
     {
         isSceneTransitioning = true;
         RestorePlayerCollision();
+    }
+
+    private void CancelSceneTransitionPreparation()
+    {
+        isSceneTransitioning = false;
+        DeactivatePassage();
     }
 
     private void TransferAllItemsToStorage()

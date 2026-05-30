@@ -108,36 +108,40 @@ public class GameSceneCoordinator : MonoBehaviour
 
     public void SwitchToScene(string sceneName, string entryPointId)
     {
-        if (!CanSwitchToScene(sceneName))
-        {
-            Debug.LogWarning($"GameSceneCoordinator: Scene '{sceneName}' is not a managed content scene.");
-            return;
-        }
-
-        if (transitionCoroutine != null)
-        {
-            Debug.LogWarning($"GameSceneCoordinator: Ignored scene switch to '{sceneName}' because another transition is running.");
-            return;
-        }
-
-        transitionCoroutine = StartCoroutine(SwitchToSceneRoutine(sceneName, entryPointId));
+        TryStartSceneSwitch(sceneName, entryPointId);
     }
 
     public void SwitchToScene(string sceneName, string entryPointId, Vector3 destinationPlayerPosition)
     {
+        TryStartSceneSwitch(sceneName, entryPointId, true, destinationPlayerPosition);
+    }
+
+    public bool TryStartSceneSwitch(string sceneName, string entryPointId)
+    {
+        return TryStartSceneSwitch(sceneName, entryPointId, false, Vector3.zero);
+    }
+
+    public bool TryStartSceneSwitch(string sceneName, string entryPointId, Vector3 destinationPlayerPosition)
+    {
+        return TryStartSceneSwitch(sceneName, entryPointId, true, destinationPlayerPosition);
+    }
+
+    private bool TryStartSceneSwitch(string sceneName, string entryPointId, bool hasDestinationPlayerPosition, Vector3 destinationPlayerPosition)
+    {
         if (!CanSwitchToScene(sceneName))
         {
             Debug.LogWarning($"GameSceneCoordinator: Scene '{sceneName}' is not a managed content scene.");
-            return;
+            return false;
         }
 
         if (transitionCoroutine != null)
         {
             Debug.LogWarning($"GameSceneCoordinator: Ignored scene switch to '{sceneName}' because another transition is running.");
-            return;
+            return false;
         }
 
-        transitionCoroutine = StartCoroutine(SwitchToSceneRoutine(sceneName, entryPointId, true, destinationPlayerPosition));
+        transitionCoroutine = StartCoroutine(SwitchToSceneRoutine(sceneName, entryPointId, hasDestinationPlayerPosition, destinationPlayerPosition));
+        return true;
     }
 
     public static bool TrySwitchToScene(string sceneName)
@@ -152,8 +156,7 @@ public class GameSceneCoordinator : MonoBehaviour
             return false;
         }
 
-        Instance.SwitchToScene(sceneName, entryPointId);
-        return true;
+        return Instance.TryStartSceneSwitch(sceneName, entryPointId);
     }
 
     public static bool TrySwitchToScene(string sceneName, string entryPointId, Vector3 destinationPlayerPosition)
@@ -163,8 +166,7 @@ public class GameSceneCoordinator : MonoBehaviour
             return false;
         }
 
-        Instance.SwitchToScene(sceneName, entryPointId, destinationPlayerPosition);
-        return true;
+        return Instance.TryStartSceneSwitch(sceneName, entryPointId, destinationPlayerPosition);
     }
 
     private IEnumerator SwitchToSceneRoutine(string targetSceneName, string entryPointId)
