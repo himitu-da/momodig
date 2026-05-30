@@ -38,34 +38,40 @@ public class PlayerRespawnController : MonoBehaviour
 
     private bool isRespawning;
 
+    public event Action<bool> RespawnStateChanged;
+
     public bool IsRespawning => isRespawning;
 
-    public void RequestRespawn()
+    public bool RequestRespawn()
     {
         if (isRespawning)
         {
-            return;
+            return false;
         }
 
+        SetRespawning(true);
         RespawnAsync(destroyCancellationToken).Forget();
+        return true;
     }
 
     private async UniTask RespawnAsync(System.Threading.CancellationToken cancellationToken)
     {
         using (RespawnMarker.Auto())
         {
-            if (!ValidateReferences())
-            {
-                return;
-            }
-
-            isRespawning = true;
-            playerController.SetControlLocked(true);
-            playerController.SetItemPickupLocked(true);
-            SetPlayerCollisionEnabled(false);
+            bool playerStateLocked = false;
 
             try
             {
+                if (!ValidateReferences())
+                {
+                    return;
+                }
+
+                playerStateLocked = true;
+                playerController.SetControlLocked(true);
+                playerController.SetItemPickupLocked(true);
+                SetPlayerCollisionEnabled(false);
+
                 if (!await ReleaseInventoryItemsAsync(cancellationToken))
                 {
                     return;
@@ -93,13 +99,28 @@ public class PlayerRespawnController : MonoBehaviour
             }
             finally
             {
-                SetPlayerAlpha(1f);
-                SetPlayerCollisionEnabled(true);
-                playerController.SetItemPickupLocked(false);
-                playerController.SetControlLocked(false);
-                isRespawning = false;
+                if (playerStateLocked)
+                {
+                    SetPlayerAlpha(1f);
+                    SetPlayerCollisionEnabled(true);
+                    playerController.SetItemPickupLocked(false);
+                    playerController.SetControlLocked(false);
+                }
+
+                SetRespawning(false);
             }
         }
+    }
+
+    private void SetRespawning(bool value)
+    {
+        if (isRespawning == value)
+        {
+            return;
+        }
+
+        isRespawning = value;
+        RespawnStateChanged?.Invoke(isRespawning);
     }
 
     private async UniTask<bool> ReleaseInventoryItemsAsync(System.Threading.CancellationToken cancellationToken)
