@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Unity.Profiling;
 
 /// <summary>
 /// タイトルシーンの背景を管理するコントローラー。
@@ -7,6 +8,11 @@ using System.Collections.Generic;
 /// </summary>
 public class TitleBackgroundController : MonoBehaviour
 {
+    private static readonly ProfilerMarker GenerateTilesMarker =
+        new ProfilerMarker("TitleBackgroundController.GenerateTiles");
+    private static readonly ProfilerMarker CreateSpriteMarker =
+        new ProfilerMarker("TitleBackgroundController.CreateSprite");
+
     [Header("Tile Settings")]
     [Tooltip("背景に使用するブロックデータのリスト")]
     public List<BlockData> blockDataList;
@@ -37,7 +43,9 @@ public class TitleBackgroundController : MonoBehaviour
         public Vector3 initialPosition;
     }
 
-    private List<TileInfo> tiles = new List<TileInfo>();
+    private readonly List<TileInfo> tiles = new List<TileInfo>();
+    private readonly Dictionary<Texture2D, Sprite> spriteCache = new Dictionary<Texture2D, Sprite>();
+    private readonly List<Sprite> generatedSprites = new List<Sprite>();
     private float rightBoundary;
     private float wrapWidth;
 
@@ -57,9 +65,15 @@ public class TitleBackgroundController : MonoBehaviour
             return;
         }
 
-        if (blockDataList == null || blockDataList.Count == 0)
+        if (tilePrefab.GetComponent<SpriteRenderer>() == null)
         {
-            Debug.LogError("Block Data List is not assigned or empty.");
+            Debug.LogError("TitleBackgroundController: tilePrefab must have a SpriteRenderer.", this);
+            enabled = false;
+            return;
+        }
+
+        if (!ValidateBlockDataList())
+        {
             enabled = false;
             return;
         }
@@ -81,25 +95,42 @@ public class TitleBackgroundController : MonoBehaviour
         AnimateTiles();
     }
 
+    private void OnDestroy()
+    {
+        for (int i = 0; i < generatedSprites.Count; i++)
+        {
+            if (generatedSprites[i] != null)
+            {
+                Destroy(generatedSprites[i]);
+            }
+        }
+
+        generatedSprites.Clear();
+        spriteCache.Clear();
+    }
+
     /// <summary>
     /// 画面を埋めるようにタイルを生成する
     /// </summary>
     void GenerateTiles()
     {
-        // カメラのビューポートからワールド座標での表示範囲を取得
-        float screenAspect = (float)Screen.width / Screen.height;
-        float cameraHeight = titleCamera.orthographicSize * 2;
-        Vector2 cameraSize = new Vector2(cameraHeight * screenAspect, cameraHeight);
-
-        // 画面を覆うのに必要なタイルの数を計算 (余裕を持たせる)
-        int tilesX = Mathf.CeilToInt(cameraSize.x / tileSize.x) + 2;
-        int tilesY = Mathf.CeilToInt(cameraSize.y / tileSize.y) + 2;
-
-        for (int y = -tilesY / 2; y <= tilesY / 2; y++)
+        using (GenerateTilesMarker.Auto())
         {
-            for (int x = -tilesX / 2; x <= tilesX / 2; x++)
+            // カメラのビューポートからワールド座標での表示範囲を取得
+            float screenAspect = (float)Screen.width / Screen.height;
+            float cameraHeight = titleCamera.orthographicSize * 2;
+            Vector2 cameraSize = new Vector2(cameraHeight * screenAspect, cameraHeight);
+
+            // 画面を覆うのに必要なタイルの数を計算 (余裕を持たせる)
+            int tilesX = Mathf.CeilToInt(cameraSize.x / tileSize.x) + 2;
+            int tilesY = Mathf.CeilToInt(cameraSize.y / tileSize.y) + 2;
+
+            for (int y = -tilesY / 2; y <= tilesY / 2; y++)
             {
-                CreateTile(x, y);
+                for (int x = -tilesX / 2; x <= tilesX / 2; x++)
+                {
+                    CreateTile(x, y);
+                }
             }
         }
     }
@@ -121,12 +152,8 @@ public class TitleBackgroundController : MonoBehaviour
             BlockData randomBlockData = blockDataList[Random.Range(0, blockDataList.Count)];
             if (randomBlockData.textures != null && randomBlockData.textures.Count > 0)
             {
-                // テクスチャからスプライトを作成して設定
                 Texture2D texture = randomBlockData.textures[Random.Range(0, randomBlockData.textures.Count)];
-                Rect rect = new Rect(0, 0, texture.width, texture.height);
-                Vector2 pivot = new Vector2(0.5f, 0.5f);
-                // Pixels Per Unitをテクスチャの幅に設定し、スプライトが1x1ユニットになるようにする
-                renderer.sprite = Sprite.Create(texture, rect, pivot, texture.width);
+                renderer.sprite = GetOrCreateSprite(texture);
             }
         }
 
@@ -160,6 +187,61 @@ public class TitleBackgroundController : MonoBehaviour
             {
                 tile.transform.position -= new Vector3(wrapWidth, 0, 0);
             }
+        }
+    }
+
+    private bool ValidateBlockDataList()
+    {
+        if (blockDataList == null || blockDataList.Count == 0)
+        {
+            Debug.LogError("Block Data List is not assigned or empty.", this);
+            return false;
+        }
+
+        for (int i = 0; i < blockDataList.Count; i++)
+        {
+            BlockData blockData = blockDataList[i];
+            if (blockData == null)
+            {
+                Debug.LogError($"TitleBackgroundController: blockDataList[{i}] is not assigned.", this);
+                return false;
+            }
+
+            if (blockData.textures == null || blockData.textures.Count == 0)
+            {
+                Debug.LogError($"TitleBackgroundController: BlockData '{blockData.name}' has no textures.", this);
+                return false;
+            }
+
+            for (int j = 0; j < blockData.textures.Count; j++)
+            {
+                if (blockData.textures[j] == null)
+                {
+                    Debug.LogError($"TitleBackgroundController: BlockData '{blockData.name}' has an empty texture at index {j}.", this);
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private Sprite GetOrCreateSprite(Texture2D texture)
+    {
+        if (spriteCache.TryGetValue(texture, out Sprite cachedSprite))
+        {
+            return cachedSprite;
+        }
+
+        using (CreateSpriteMarker.Auto())
+        {
+            Rect rect = new Rect(0, 0, texture.width, texture.height);
+            Vector2 pivot = new Vector2(0.5f, 0.5f);
+            Sprite sprite = Sprite.Create(texture, rect, pivot, texture.width, 0u, SpriteMeshType.FullRect);
+            sprite.name = $"{texture.name}_TitleBackgroundSprite";
+            spriteCache.Add(texture, sprite);
+            generatedSprites.Add(sprite);
+            return sprite;
         }
     }
 }
