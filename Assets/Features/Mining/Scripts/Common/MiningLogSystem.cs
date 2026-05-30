@@ -129,6 +129,7 @@ public class MiningLogSystem : MonoBehaviour
         while (logField.childCount > MaxLogCount)
         {
             Transform oldestLog = logField.GetChild(logField.childCount - 1);
+            oldestLog.SetParent(null, false);
             Destroy(oldestLog.gameObject);
         }
     }
