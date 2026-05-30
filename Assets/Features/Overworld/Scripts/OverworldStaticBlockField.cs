@@ -7,6 +7,7 @@ public class OverworldStaticBlockField : MonoBehaviour
     [SerializeField] private Texture2D surfaceBlockTexture;
     [SerializeField] private Texture2D fillBlockTexture;
     [SerializeField] private float pixelsPerUnit = 100f;
+    [SerializeField, Range(0f, 0.49f)] private float spriteOuterTrimRatio;
 
     [Header("Layout")]
     [SerializeField] private int columns = 16;
@@ -14,7 +15,6 @@ public class OverworldStaticBlockField : MonoBehaviour
     [SerializeField] private float blockSize = 1f;
     [SerializeField] private float centerX = 0f;
     [SerializeField] private float surfaceY = -2.6f;
-    [SerializeField] private int sortingOrder = -5;
 
     [Header("Rendering")]
     [SerializeField] private Material blockMaterial;
@@ -25,7 +25,6 @@ public class OverworldStaticBlockField : MonoBehaviour
     [SerializeField] private float colliderDepth = 2f;
 
     private readonly List<GameObject> generatedBlocks = new List<GameObject>();
-    private Material runtimeBlockMaterial;
 
     private void Awake()
     {
@@ -38,29 +37,9 @@ public class OverworldStaticBlockField : MonoBehaviour
         BuildField();
     }
 
-    private void OnDestroy()
-    {
-        if (runtimeBlockMaterial != null)
-        {
-            Destroy(runtimeBlockMaterial);
-            runtimeBlockMaterial = null;
-        }
-    }
-
     private void BuildField()
     {
         ClearGeneratedBlocks();
-
-        if (runtimeBlockMaterial != null)
-        {
-            Destroy(runtimeBlockMaterial);
-        }
-
-        runtimeBlockMaterial = new Material(blockMaterial)
-        {
-            name = $"{blockMaterial.name}_{name}"
-        };
-        runtimeBlockMaterial.renderQueue = RenderQueue.Geometry;
 
         float startX = centerX - ((columns - 1) * blockSize * 0.5f);
         Sprite surfaceBlockSprite = CreateSprite(surfaceBlockTexture);
@@ -83,10 +62,9 @@ public class OverworldStaticBlockField : MonoBehaviour
 
                 SpriteRenderer renderer = block.AddComponent<SpriteRenderer>();
                 renderer.sprite = sprite;
-                renderer.sharedMaterial = runtimeBlockMaterial;
+                renderer.sharedMaterial = blockMaterial;
                 renderer.drawMode = SpriteDrawMode.Sliced;
                 renderer.size = new Vector2(blockSize, blockSize);
-                renderer.sortingOrder = sortingOrder - row;
             }
         }
 
@@ -125,9 +103,18 @@ public class OverworldStaticBlockField : MonoBehaviour
 
     private Sprite CreateSprite(Texture2D texture)
     {
+        float trimX = texture.width * spriteOuterTrimRatio;
+        float trimY = texture.height * spriteOuterTrimRatio;
+        Rect spriteRect = new Rect(
+            trimX,
+            trimY,
+            texture.width - trimX * 2f,
+            texture.height - trimY * 2f
+        );
+
         return Sprite.Create(
             texture,
-            new Rect(0f, 0f, texture.width, texture.height),
+            spriteRect,
             new Vector2(0.5f, 0.5f),
             pixelsPerUnit
         );
@@ -176,6 +163,12 @@ public class OverworldStaticBlockField : MonoBehaviour
         if (pixelsPerUnit <= 0f)
         {
             Debug.LogError("OverworldStaticBlockField: pixelsPerUnit must be greater than 0.", this);
+            isValid = false;
+        }
+
+        if (spriteOuterTrimRatio < 0f || spriteOuterTrimRatio >= 0.5f)
+        {
+            Debug.LogError("OverworldStaticBlockField: spriteOuterTrimRatio must be 0 or greater and less than 0.5.", this);
             isValid = false;
         }
 
