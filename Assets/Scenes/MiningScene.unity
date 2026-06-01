@@ -3774,6 +3774,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2071865105}
   - component: {fileID: 2071865104}
+  - component: {fileID: 2071865106}
   m_Layer: 0
   m_Name: TerrainManager
   m_TagString: Untagged
@@ -3815,6 +3816,25 @@ MonoBehaviour:
   droppedItemManager: {fileID: 1375720077}
   showDebugInfo: 0
   voxelCountText: {fileID: 514904028}
+--- !u!114 &2071865106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2071865103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a3f0b513f9345d0a4f8dca2a196a7e1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  terrainManager: {fileID: 2071865104}
+  chunkManager: {fileID: 2014132665}
+  droppedItemManager: {fileID: 1375720077}
+  torchPlacementManager: {fileID: 1199508974}
+  fluidManager: {fileID: 1961065937}
+  miningLightManager: {fileID: 1199508971}
+  logPhaseTransitions: 1
 --- !u!4 &2071865105
 Transform:
   m_ObjectHideFlags: 0
