@@ -6,7 +6,11 @@ public readonly struct MiningRestoreContext
         DroppedItemManager droppedItemManager,
         TorchPlacementManager torchPlacementManager,
         FluidManager fluidManager,
-        MiningLightManager miningLightManager)
+        MiningLightManager miningLightManager,
+        PlayerController playerController,
+        MinecartManager minecartManager,
+        FairyCarrierManager fairyCarrierManager,
+        CameraFollowController cameraFollowController)
     {
         TerrainManager = terrainManager;
         ChunkManager = chunkManager;
@@ -14,6 +18,10 @@ public readonly struct MiningRestoreContext
         TorchPlacementManager = torchPlacementManager;
         FluidManager = fluidManager;
         MiningLightManager = miningLightManager;
+        PlayerController = playerController;
+        MinecartManager = minecartManager;
+        FairyCarrierManager = fairyCarrierManager;
+        CameraFollowController = cameraFollowController;
     }
 
     public TerrainManager TerrainManager { get; }
@@ -22,4 +30,8 @@ public readonly struct MiningRestoreContext
     public TorchPlacementManager TorchPlacementManager { get; }
     public FluidManager FluidManager { get; }
     public MiningLightManager MiningLightManager { get; }
+    public PlayerController PlayerController { get; }
+    public MinecartManager MinecartManager { get; }
+    public FairyCarrierManager FairyCarrierManager { get; }
+    public CameraFollowController CameraFollowController { get; }
 }
