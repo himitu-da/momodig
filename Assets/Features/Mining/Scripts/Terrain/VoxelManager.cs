@@ -389,6 +389,7 @@ public class VoxelManager : MonoBehaviour
         if (voxel == null || voxel.voxelType == VoxelType.Unbreakable) return false;
 
         voxel.isActive = false;
+        voxel.health = 0;
         voxel.lastModifiedTime = Time.time;
         PersistOverrideIfNeeded(voxel);
         terrainManager?.FluidManager?.NotifySolidVoxelRemoved(voxel.worldPosition);

@@ -658,6 +658,7 @@ public class GameDataPersistenceManager : MonoBehaviour
                     for (int j = 0; j < blockRecord.cells.Count; j++)
                     {
                         VoxelCellData cellData = blockRecord.cells[j];
+                        cellData = RepairLegacyNegativeVoxelOverrideHealth(blockRecord.blockPosition, cellData);
                         cells[cellData.localVoxelPosition] = cellData;
                     }
                 }
@@ -697,6 +698,21 @@ public class GameDataPersistenceManager : MonoBehaviour
         torchPlacements = CopyTorchPlacements(saveData.torchPlacements);
         EnsureRuntimeCollections();
         NotifyFacilityUpgradesChanged();
+    }
+
+    private VoxelCellData RepairLegacyNegativeVoxelOverrideHealth(Vector3Int blockPosition, VoxelCellData cellData)
+    {
+        if (cellData.health >= 0)
+        {
+            return cellData;
+        }
+
+        int oldHealth = cellData.health;
+        cellData.health = 0;
+        Debug.LogWarning(
+            $"GameDataPersistenceManager: repaired legacy negative voxel override health. block={blockPosition}, local={cellData.localVoxelPosition}, oldHealth={oldHealth}, maxHealth={cellData.maxHealth}.",
+            this);
+        return cellData;
     }
 
     private void EnsureRuntimeCollections()
