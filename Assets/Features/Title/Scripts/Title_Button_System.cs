@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using TMPro;
+
 public class Title_Button_System : MonoBehaviour
 {
     /*
@@ -74,6 +76,16 @@ public class Title_Button_System : MonoBehaviour
     }
     */
     public ChangeScene changescene;
+    [SerializeField] private TextMeshProUGUI resetConfirmText;
+    [SerializeField, Min(1)] private int resetRequiredPressCount = 10;
+
+    private int resetRemainingPressCount;
+    private bool hasCompletedReset;
+
+    private void Awake()
+    {
+        HideResetConfirmText();
+    }
 
     public void SelectStartKey(){
         changescene.OnClickToChangeScene("OverWorldScene");
@@ -84,6 +96,34 @@ public class Title_Button_System : MonoBehaviour
     }
     public void SelectResetSaveKey()
     {
+        if (resetConfirmText == null)
+        {
+            Debug.LogError("Title_Button_System: resetConfirmText is not assigned.", this);
+            return;
+        }
+
+        if (hasCompletedReset)
+        {
+            hasCompletedReset = false;
+            resetRemainingPressCount = 0;
+            HideResetConfirmText();
+            return;
+        }
+
+        if (resetRemainingPressCount <= 0)
+        {
+            resetRemainingPressCount = resetRequiredPressCount;
+            UpdateResetConfirmText();
+            return;
+        }
+
+        if (resetRemainingPressCount > 1)
+        {
+            resetRemainingPressCount--;
+            UpdateResetConfirmText();
+            return;
+        }
+
         GameDataPersistenceManager persistenceManager = GameDataPersistenceManager.Instance;
         if (persistenceManager == null)
         {
@@ -94,8 +134,40 @@ public class Title_Button_System : MonoBehaviour
         if (!persistenceManager.DeleteSaveAndResetRuntimeState())
         {
             Debug.LogError("Title_Button_System: Failed to delete save data.", this);
+            return;
         }
+
+        hasCompletedReset = true;
+        resetRemainingPressCount = 0;
+        resetConfirmText.SetText("リセットしました");
     }
+
+    private void UpdateResetConfirmText()
+    {
+        if (resetConfirmText == null)
+        {
+            return;
+        }
+
+        if (resetRemainingPressCount <= 1)
+        {
+            resetConfirmText.SetText("次押したらリセットされます");
+            return;
+        }
+
+        resetConfirmText.SetText("あと{0}回押すとリセット", resetRemainingPressCount);
+    }
+
+    private void HideResetConfirmText()
+    {
+        if (resetConfirmText == null)
+        {
+            return;
+        }
+
+        resetConfirmText.SetText(string.Empty);
+    }
+
     public void SelectFinishKey(){
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
