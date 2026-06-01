@@ -7,6 +7,7 @@ public readonly struct MiningRestoreContext
         TorchPlacementManager torchPlacementManager,
         FluidManager fluidManager,
         MiningLightManager miningLightManager,
+        MiningTerrainBrightnessApplier terrainBrightnessApplier,
         PlayerController playerController,
         MinecartManager minecartManager,
         FairyCarrierManager fairyCarrierManager,
@@ -18,6 +19,7 @@ public readonly struct MiningRestoreContext
         TorchPlacementManager = torchPlacementManager;
         FluidManager = fluidManager;
         MiningLightManager = miningLightManager;
+        TerrainBrightnessApplier = terrainBrightnessApplier;
         PlayerController = playerController;
         MinecartManager = minecartManager;
         FairyCarrierManager = fairyCarrierManager;
@@ -30,6 +32,7 @@ public readonly struct MiningRestoreContext
     public TorchPlacementManager TorchPlacementManager { get; }
     public FluidManager FluidManager { get; }
     public MiningLightManager MiningLightManager { get; }
+    public MiningTerrainBrightnessApplier TerrainBrightnessApplier { get; }
     public PlayerController PlayerController { get; }
     public MinecartManager MinecartManager { get; }
     public FairyCarrierManager FairyCarrierManager { get; }

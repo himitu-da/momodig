@@ -3834,6 +3834,7 @@ MonoBehaviour:
   torchPlacementManager: {fileID: 1199508974}
   fluidManager: {fileID: 1961065937}
   miningLightManager: {fileID: 1199508971}
+  terrainBrightnessApplier: {fileID: 1199508970}
   playerController: {fileID: 672003892}
   minecartManager: {fileID: 1324682791}
   fairyCarrierManager: {fileID: 3700000003}

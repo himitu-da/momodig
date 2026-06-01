@@ -524,6 +524,35 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
     }
 
+    public void RefreshActiveItemsAfterRestore()
+    {
+        fluidTickCandidates.Clear();
+        fluidTickCandidateSet.Clear();
+        nextFluidTickCandidateIndex = 0;
+        nextBrightnessItemIndex = 0;
+
+        for (int i = activeItems.Count - 1; i >= 0; i--)
+        {
+            DroppedItem item = activeItems[i];
+            if (item == null || !item.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            ApplyDroppedItemBrightness(item);
+            if (!itemStates.TryGetValue(item, out ItemState state))
+            {
+                Debug.LogError("DroppedItemManager: active item is missing ItemState during post-restore refresh.", this);
+                continue;
+            }
+
+            RefreshFluidTickCandidate(item, state);
+        }
+
+        NormalizeBrightnessItemIndex();
+        NormalizeFluidTickCandidateIndex();
+    }
+
     private bool ShouldBeFluidTickCandidate(DroppedItem item, ItemState state)
     {
         if (item == null || state == null || !item.gameObject.activeInHierarchy)

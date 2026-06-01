@@ -156,6 +156,22 @@ public class FluidManager : MonoBehaviour
         tickTimer = 0f;
     }
 
+    public void QueuePostRestoreActiveCells()
+    {
+        dynamicObstacleCache.Clear();
+        if (cells.Count == 0)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<Vector3Int, FluidCellState> pair in cells)
+        {
+            QueueCellNeighborhood(pair.Key, 1);
+        }
+
+        MarkSimulationChanged();
+    }
+
     public void ClearFluid()
     {
         if (cells.Count == 0 && queuedCells.Count == 0)

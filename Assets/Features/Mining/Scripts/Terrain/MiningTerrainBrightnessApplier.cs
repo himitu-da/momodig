@@ -146,6 +146,17 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
         QueueChangedBlocks(change.addedSolidCells);
     }
 
+    public void QueueAllActiveBlocksForPostRestoreRefresh()
+    {
+        if (!ValidateConfiguration())
+        {
+            Debug.LogError("MiningTerrainBrightnessApplier: cannot queue post-restore brightness refresh because configuration is invalid.", this);
+            return;
+        }
+
+        QueueAllActiveBlocksForRefresh();
+    }
+
     private void QueueChangedBlocks(List<VoxelCellKey> changedCells)
     {
         for (int i = 0; i < changedCells.Count; i++)

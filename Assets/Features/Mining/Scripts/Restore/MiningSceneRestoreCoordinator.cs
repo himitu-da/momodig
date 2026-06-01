@@ -31,6 +31,8 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         new ProfilerMarker("MiningSceneRestoreCoordinator.PlayerRestore");
     private static readonly ProfilerMarker PlayerChunkRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.PlayerChunkRestore");
+    private static readonly ProfilerMarker PostRestoreRecalculationMarker =
+        new ProfilerMarker("MiningSceneRestoreCoordinator.PostRestoreRecalculation");
     private static readonly ProfilerMarker PostRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.PostRestore");
     private static readonly ProfilerMarker CompletedMarker =
@@ -43,6 +45,7 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
     [SerializeField] private TorchPlacementManager torchPlacementManager;
     [SerializeField] private FluidManager fluidManager;
     [SerializeField] private MiningLightManager miningLightManager;
+    [SerializeField] private MiningTerrainBrightnessApplier terrainBrightnessApplier;
     [SerializeField] private PlayerController playerController;
     [SerializeField] private MinecartManager minecartManager;
     [SerializeField] private FairyCarrierManager fairyCarrierManager;
@@ -319,6 +322,7 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         ValidateRequiredReference(torchPlacementManager, nameof(torchPlacementManager), ref isValid);
         ValidateRequiredReference(fluidManager, nameof(fluidManager), ref isValid);
         ValidateRequiredReference(miningLightManager, nameof(miningLightManager), ref isValid);
+        ValidateRequiredReference(terrainBrightnessApplier, nameof(terrainBrightnessApplier), ref isValid);
         ValidateRequiredReference(playerController, nameof(playerController), ref isValid);
         ValidateRequiredReference(minecartManager, nameof(minecartManager), ref isValid);
         ValidateRequiredReference(fairyCarrierManager, nameof(fairyCarrierManager), ref isValid);
@@ -337,6 +341,7 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
             torchPlacementManager,
             fluidManager,
             miningLightManager,
+            terrainBrightnessApplier,
             playerController,
             minecartManager,
             fairyCarrierManager,
@@ -434,15 +439,34 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
 
         hasCompletedInitialChunkRestore = true;
         RestorePlayerChunkDependentsIfReady(PlayerChunkPosition);
+        RunPhase(MiningRestorePhase.PlayerRestore, PlayerRestoreMarker);
+        RunPostRestorePhase();
         playerController.SetItemPickupLocked(false);
         playerController.SetControlLocked(false);
         minecartManager.ResumeMovementAfterRestore();
         fairyCarrierManager.ResumeAfterRestore();
         fluidManager.ResumeSimulationAfterRestore();
-        RunPhase(MiningRestorePhase.PlayerRestore, PlayerRestoreMarker);
-        RunPhase(MiningRestorePhase.PostRestore, PostRestoreMarker);
         RunPhase(MiningRestorePhase.Completed, CompletedMarker);
         IsCompleted = true;
+    }
+
+    private void RunPostRestorePhase()
+    {
+        using (PostRestoreMarker.Auto())
+        {
+            SetCurrentPhase(MiningRestorePhase.PostRestore);
+            using (PostRestoreRecalculationMarker.Auto())
+            {
+                miningLightManager.MarkLightSourcesDirty();
+                terrainBrightnessApplier.QueueAllActiveBlocksForPostRestoreRefresh();
+                droppedItemManager.RefreshActiveItemsAfterRestore();
+                fluidManager.QueuePostRestoreActiveCells();
+                if (!cameraFollowController.SnapToFollowTargetAndEnable())
+                {
+                    Debug.LogError("MiningSceneRestoreCoordinator: failed to snap camera during post-restore recalculation.", this);
+                }
+            }
+        }
     }
 
     private void PauseFluidSimulationForRestore()
