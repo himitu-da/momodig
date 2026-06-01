@@ -34,6 +34,7 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
 
     public MiningRestorePhase CurrentPhase { get; private set; } = MiningRestorePhase.Validate;
     public bool HasValidContext { get; private set; }
+    public bool HasValidationErrors { get; private set; }
     public bool IsCompleted { get; private set; }
     public MiningRestoreContext Context { get; private set; }
 
@@ -61,7 +62,11 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
 
         using (StartupMarker.Auto())
         {
-            RunPhase(MiningRestorePhase.Validate, ValidateMarker);
+            if (!RunValidatePhase())
+            {
+                return;
+            }
+
             RunPhase(MiningRestorePhase.TerrainBaseline, TerrainBaselineMarker);
             RunPhase(MiningRestorePhase.TerrainInitialization, TerrainInitializationMarker);
             RunPhase(MiningRestorePhase.ChunkRestore, ChunkRestoreMarker);
@@ -69,6 +74,26 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
             RunPhase(MiningRestorePhase.PostRestore, PostRestoreMarker);
             RunPhase(MiningRestorePhase.Completed, CompletedMarker);
             IsCompleted = true;
+        }
+    }
+
+    private bool RunValidatePhase()
+    {
+        using (ValidateMarker.Auto())
+        {
+            SetCurrentPhase(MiningRestorePhase.Validate);
+
+            GameDataPersistenceManager persistenceManager = GameDataPersistenceManager.Instance;
+            bool isValid = MiningRestoreDataValidator.Validate(Context, persistenceManager, this);
+            HasValidationErrors = !isValid;
+            if (!isValid)
+            {
+                Debug.LogError("MiningSceneRestoreCoordinator: restore data validation failed. Restore coordinator is stopped.", this);
+                enabled = false;
+                return false;
+            }
+
+            return true;
         }
     }
 
@@ -115,11 +140,16 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
     {
         using (marker.Auto())
         {
-            CurrentPhase = phase;
-            if (logPhaseTransitions)
-            {
-                Debug.Log($"MiningSceneRestoreCoordinator: {phase}", this);
-            }
+            SetCurrentPhase(phase);
+        }
+    }
+
+    private void SetCurrentPhase(MiningRestorePhase phase)
+    {
+        CurrentPhase = phase;
+        if (logPhaseTransitions)
+        {
+            Debug.Log($"MiningSceneRestoreCoordinator: {phase}", this);
         }
     }
 }
