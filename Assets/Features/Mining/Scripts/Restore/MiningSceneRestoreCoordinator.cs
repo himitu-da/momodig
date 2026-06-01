@@ -547,10 +547,6 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
                 terrainBrightnessApplier.QueueAllActiveBlocksForPostRestoreRefresh();
                 droppedItemManager.RefreshActiveItemsAfterRestore();
                 fluidManager.QueuePostRestoreActiveCells();
-                if (!cameraFollowController.SnapToFollowTargetAndEnable())
-                {
-                    Debug.LogError("MiningSceneRestoreCoordinator: failed to snap camera during post-restore recalculation.", this);
-                }
             }
         }
     }
