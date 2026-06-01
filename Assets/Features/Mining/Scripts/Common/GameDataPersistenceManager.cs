@@ -1,11 +1,15 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System;
+using System.IO;
+using System.Text;
+using Unity.Profiling;
 
 [System.Serializable]
 public class ToolSlotPersistenceData
 {
     public string slotId;
+    public string toolId;
     public MiningTool tool;
 }
 
@@ -29,6 +33,14 @@ public class TorchPlacementData
 /// </summary>
 public class GameDataPersistenceManager : MonoBehaviour
 {
+    private const int CurrentSaveVersion = 1;
+    private const string SaveFileName = "momodig_save_v1.json";
+
+    private static readonly ProfilerMarker LoadFromDiskMarker =
+        new ProfilerMarker("GameDataPersistenceManager.LoadFromDisk");
+    private static readonly ProfilerMarker SaveToDiskMarker =
+        new ProfilerMarker("GameDataPersistenceManager.SaveToDisk");
+
     // シングルトンインスタンス
     private static GameDataPersistenceManager _instance;
     public static GameDataPersistenceManager Instance
@@ -78,6 +90,20 @@ public class GameDataPersistenceManager : MonoBehaviour
 
     [Header("Torch Placement Data")]
     public List<TorchPlacementData> torchPlacements = new List<TorchPlacementData>();
+
+    [Header("Disk Save")]
+    [SerializeField] private bool loadSaveOnAwake = true;
+    [SerializeField] private bool enableAutosave = true;
+    [SerializeField, Min(1f)] private float autosaveIntervalSeconds = 30f;
+    [SerializeField] private bool saveOnApplicationPause = true;
+    [SerializeField] private bool saveOnApplicationQuit = true;
+
+    private float nextAutosaveTime;
+
+    public bool HasLoadedSaveFromDisk { get; private set; }
+    public bool LastLoadHadSaveFile { get; private set; }
+    public bool CanWriteSaveFile => !LastLoadHadSaveFile || HasLoadedSaveFromDisk;
+    public string SaveFilePath => Path.Combine(Application.persistentDataPath, SaveFileName);
     
     public int GetFacilityUpgradeLevel(string upgradeId, int defaultLevel)
     {
@@ -177,10 +203,12 @@ public class GameDataPersistenceManager : MonoBehaviour
 
     void Awake()
     {
+        bool copiedFromPreviousInstance = false;
         if (_instance != null && _instance != this)
         {
             GameDataPersistenceManager previousInstance = _instance;
             CopyRuntimeStateFrom(previousInstance);
+            copiedFromPreviousInstance = true;
 
             if (previousInstance.gameObject == gameObject)
             {
@@ -194,6 +222,52 @@ public class GameDataPersistenceManager : MonoBehaviour
 
         _instance = this;
         DontDestroyOnLoad(gameObject);
+        EnsureRuntimeCollections();
+
+        if (!copiedFromPreviousInstance && loadSaveOnAwake)
+        {
+            LoadFromDisk();
+        }
+
+        ScheduleNextAutosave();
+    }
+
+    private void Update()
+    {
+        if (!enableAutosave)
+        {
+            return;
+        }
+
+        if (Time.unscaledTime < nextAutosaveTime)
+        {
+            return;
+        }
+
+        SaveToDisk();
+        ScheduleNextAutosave();
+    }
+
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus && saveOnApplicationPause)
+        {
+            SaveToDisk();
+            ScheduleNextAutosave();
+        }
+    }
+
+    private void OnApplicationQuit()
+    {
+        if (saveOnApplicationQuit)
+        {
+            SaveToDisk();
+        }
+    }
+
+    private void ScheduleNextAutosave()
+    {
+        nextAutosaveTime = Time.unscaledTime + Mathf.Max(1f, autosaveIntervalSeconds);
     }
 
     private void CopyRuntimeStateFrom(GameDataPersistenceManager source)
@@ -226,6 +300,421 @@ public class GameDataPersistenceManager : MonoBehaviour
         mainToolSlotId = source.mainToolSlotId;
         subToolSlotId = source.subToolSlotId;
         torchPlacements = CopyTorchPlacements(source.torchPlacements);
+        HasLoadedSaveFromDisk = source.HasLoadedSaveFromDisk;
+        LastLoadHadSaveFile = source.LastLoadHadSaveFile;
+    }
+
+    public bool LoadFromDisk()
+    {
+        using (LoadFromDiskMarker.Auto())
+        {
+            string path = SaveFilePath;
+            LastLoadHadSaveFile = File.Exists(path);
+            if (!LastLoadHadSaveFile)
+            {
+                HasLoadedSaveFromDisk = false;
+                EnsureRuntimeCollections();
+                return false;
+            }
+
+            try
+            {
+                string json = File.ReadAllText(path, new UTF8Encoding(false));
+                GameDataSaveFile saveFile = JsonUtility.FromJson<GameDataSaveFile>(json);
+                if (saveFile == null || saveFile.data == null)
+                {
+                    Debug.LogError($"GameDataPersistenceManager: Save file is invalid. path={path}", this);
+                    return false;
+                }
+
+                if (saveFile.version != CurrentSaveVersion)
+                {
+                    Debug.LogError(
+                        $"GameDataPersistenceManager: Unsupported save version. version={saveFile.version}, expected={CurrentSaveVersion}",
+                        this);
+                    return false;
+                }
+
+                ApplySaveData(saveFile.data);
+                HasLoadedSaveFromDisk = true;
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"GameDataPersistenceManager: Failed to load save file. path={path}\n{exception}", this);
+                return false;
+            }
+        }
+    }
+
+    public bool SaveToDisk()
+    {
+        using (SaveToDiskMarker.Auto())
+        {
+            string path = SaveFilePath;
+            if (!CanWriteSaveFile)
+            {
+                Debug.LogError(
+                    $"GameDataPersistenceManager: Refused to overwrite save file because the existing save was not loaded successfully. path={path}",
+                    this);
+                return false;
+            }
+
+            if (!HasPersistentProgress())
+            {
+                return DeleteSaveFiles();
+            }
+
+            string directory = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(directory))
+            {
+                Debug.LogError($"GameDataPersistenceManager: Save directory is invalid. path={path}", this);
+                return false;
+            }
+
+            string tempPath = Path.Combine(directory, $"{SaveFileName}.tmp");
+            string backupPath = Path.Combine(directory, $"{SaveFileName}.bak");
+
+            try
+            {
+                Directory.CreateDirectory(directory);
+                GameDataSaveFile saveFile = new GameDataSaveFile
+                {
+                    version = CurrentSaveVersion,
+                    savedAtUtc = DateTime.UtcNow.ToString("O"),
+                    data = CaptureSaveData()
+                };
+
+                string json = JsonUtility.ToJson(saveFile, true);
+                File.WriteAllText(tempPath, json, new UTF8Encoding(false));
+
+                if (File.Exists(path))
+                {
+                    File.Replace(tempPath, path, backupPath, true);
+                }
+                else
+                {
+                    File.Move(tempPath, path);
+                }
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"GameDataPersistenceManager: Failed to save game data. path={path}\n{exception}", this);
+                return false;
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+        }
+    }
+
+    public bool DeleteSaveAndResetRuntimeState()
+    {
+        bool deleted = DeleteSaveFiles();
+        ResetRuntimeState();
+        return deleted;
+    }
+
+    public void ResetRuntimeState()
+    {
+        terrainSeed = 0;
+        hasInitializedSeed = false;
+        destroyedBlockPositions = new HashSet<Vector3Int>();
+        partiallyDestroyedBlocks = new Dictionary<Vector3Int, HashSet<Vector3Int>>();
+        storedResources = new Dictionary<ResourceType, int>();
+        droppedItems = new List<DroppedItemData>();
+        voxelCellOverrides = new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>();
+        solidifiedVoxelHistory = new List<SolidifiedVoxelRecord>();
+        facilityUpgradeProgress = new List<FacilityUpgradeProgressRecord>();
+        hasToolInventoryData = false;
+        toolSlots = new List<ToolSlotPersistenceData>();
+        mainToolSlotId = string.Empty;
+        subToolSlotId = string.Empty;
+        torchPlacements = new List<TorchPlacementData>();
+        HasLoadedSaveFromDisk = false;
+        LastLoadHadSaveFile = false;
+        ScheduleNextAutosave();
+        NotifyFacilityUpgradesChanged();
+    }
+
+    private bool DeleteSaveFiles()
+    {
+        string path = SaveFilePath;
+        string directory = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(directory))
+        {
+            Debug.LogError($"GameDataPersistenceManager: Save directory is invalid. path={path}", this);
+            return false;
+        }
+
+        string tempPath = Path.Combine(directory, $"{SaveFileName}.tmp");
+        string backupPath = Path.Combine(directory, $"{SaveFileName}.bak");
+        bool succeeded = true;
+        succeeded &= DeleteFileIfExists(path);
+        succeeded &= DeleteFileIfExists(tempPath);
+        succeeded &= DeleteFileIfExists(backupPath);
+        return succeeded;
+    }
+
+    private bool DeleteFileIfExists(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+
+            return true;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError($"GameDataPersistenceManager: Failed to delete save file. path={path}\n{exception}", this);
+            return false;
+        }
+    }
+
+    private bool HasPersistentProgress()
+    {
+        EnsureRuntimeCollections();
+        if (hasInitializedSeed ||
+            destroyedBlockPositions.Count > 0 ||
+            partiallyDestroyedBlocks.Count > 0 ||
+            droppedItems.Count > 0 ||
+            voxelCellOverrides.Count > 0 ||
+            solidifiedVoxelHistory.Count > 0 ||
+            facilityUpgradeProgress.Count > 0 ||
+            hasToolInventoryData ||
+            torchPlacements.Count > 0)
+        {
+            return true;
+        }
+
+        foreach (KeyValuePair<ResourceType, int> entry in storedResources)
+        {
+            if (entry.Value != 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private GameDataSaveData CaptureSaveData()
+    {
+        EnsureRuntimeCollections();
+
+        GameDataSaveData saveData = new GameDataSaveData
+        {
+            terrainSeed = terrainSeed,
+            hasInitializedSeed = hasInitializedSeed,
+            hasToolInventoryData = hasToolInventoryData,
+            mainToolSlotId = mainToolSlotId,
+            subToolSlotId = subToolSlotId
+        };
+
+        saveData.destroyedBlockPositions.AddRange(destroyedBlockPositions);
+
+        foreach (KeyValuePair<Vector3Int, HashSet<Vector3Int>> entry in partiallyDestroyedBlocks)
+        {
+            PartiallyDestroyedBlockSaveRecord record = new PartiallyDestroyedBlockSaveRecord
+            {
+                blockPosition = entry.Key
+            };
+            if (entry.Value != null)
+            {
+                record.localVoxelPositions.AddRange(entry.Value);
+            }
+
+            saveData.partiallyDestroyedBlocks.Add(record);
+        }
+
+        foreach (KeyValuePair<ResourceType, int> entry in storedResources)
+        {
+            saveData.storedResources.Add(new ResourceAmountSaveRecord
+            {
+                resourceType = entry.Key,
+                amount = entry.Value
+            });
+        }
+
+        saveData.droppedItems.AddRange(droppedItems);
+
+        foreach (KeyValuePair<Vector3Int, Dictionary<Vector3Int, VoxelCellData>> blockEntry in voxelCellOverrides)
+        {
+            VoxelCellOverrideBlockSaveRecord blockRecord = new VoxelCellOverrideBlockSaveRecord
+            {
+                blockPosition = blockEntry.Key
+            };
+            if (blockEntry.Value != null)
+            {
+                foreach (KeyValuePair<Vector3Int, VoxelCellData> cellEntry in blockEntry.Value)
+                {
+                    blockRecord.cells.Add(cellEntry.Value);
+                }
+            }
+
+            saveData.voxelCellOverrides.Add(blockRecord);
+        }
+
+        saveData.solidifiedVoxelHistory.AddRange(solidifiedVoxelHistory);
+        saveData.facilityUpgradeProgress = CopyFacilityUpgradeProgress(facilityUpgradeProgress);
+
+        for (int i = 0; i < toolSlots.Count; i++)
+        {
+            ToolSlotPersistenceData slot = toolSlots[i];
+            if (slot == null)
+            {
+                Debug.LogError($"GameDataPersistenceManager: toolSlots contains a null record at index {i}.", this);
+                continue;
+            }
+
+            saveData.toolSlots.Add(new ToolSlotSaveRecord
+            {
+                slotId = slot.slotId,
+                toolId = !string.IsNullOrEmpty(slot.toolId) ? slot.toolId : GetToolId(slot.tool)
+            });
+        }
+
+        saveData.torchPlacements = CopyTorchPlacements(torchPlacements);
+        return saveData;
+    }
+
+    private void ApplySaveData(GameDataSaveData saveData)
+    {
+        if (saveData == null)
+        {
+            Debug.LogError("GameDataPersistenceManager: saveData is not configured.", this);
+            return;
+        }
+
+        terrainSeed = saveData.terrainSeed;
+        hasInitializedSeed = saveData.hasInitializedSeed;
+
+        destroyedBlockPositions = saveData.destroyedBlockPositions != null
+            ? new HashSet<Vector3Int>(saveData.destroyedBlockPositions)
+            : new HashSet<Vector3Int>();
+
+        partiallyDestroyedBlocks = new Dictionary<Vector3Int, HashSet<Vector3Int>>();
+        if (saveData.partiallyDestroyedBlocks != null)
+        {
+            for (int i = 0; i < saveData.partiallyDestroyedBlocks.Count; i++)
+            {
+                PartiallyDestroyedBlockSaveRecord record = saveData.partiallyDestroyedBlocks[i];
+                if (record == null)
+                {
+                    Debug.LogError($"GameDataPersistenceManager: partiallyDestroyedBlocks contains a null record at index {i}.", this);
+                    continue;
+                }
+
+                partiallyDestroyedBlocks[record.blockPosition] = record.localVoxelPositions != null
+                    ? new HashSet<Vector3Int>(record.localVoxelPositions)
+                    : new HashSet<Vector3Int>();
+            }
+        }
+
+        storedResources = new Dictionary<ResourceType, int>();
+        if (saveData.storedResources != null)
+        {
+            for (int i = 0; i < saveData.storedResources.Count; i++)
+            {
+                ResourceAmountSaveRecord record = saveData.storedResources[i];
+                if (record == null)
+                {
+                    Debug.LogError($"GameDataPersistenceManager: storedResources contains a null record at index {i}.", this);
+                    continue;
+                }
+
+                storedResources[record.resourceType] = record.amount;
+            }
+        }
+
+        droppedItems = saveData.droppedItems != null
+            ? new List<DroppedItemData>(saveData.droppedItems)
+            : new List<DroppedItemData>();
+
+        voxelCellOverrides = new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>();
+        if (saveData.voxelCellOverrides != null)
+        {
+            for (int i = 0; i < saveData.voxelCellOverrides.Count; i++)
+            {
+                VoxelCellOverrideBlockSaveRecord blockRecord = saveData.voxelCellOverrides[i];
+                if (blockRecord == null)
+                {
+                    Debug.LogError($"GameDataPersistenceManager: voxelCellOverrides contains a null record at index {i}.", this);
+                    continue;
+                }
+
+                Dictionary<Vector3Int, VoxelCellData> cells = new Dictionary<Vector3Int, VoxelCellData>();
+                if (blockRecord.cells != null)
+                {
+                    for (int j = 0; j < blockRecord.cells.Count; j++)
+                    {
+                        VoxelCellData cellData = blockRecord.cells[j];
+                        cells[cellData.localVoxelPosition] = cellData;
+                    }
+                }
+
+                voxelCellOverrides[blockRecord.blockPosition] = cells;
+            }
+        }
+
+        solidifiedVoxelHistory = saveData.solidifiedVoxelHistory != null
+            ? new List<SolidifiedVoxelRecord>(saveData.solidifiedVoxelHistory)
+            : new List<SolidifiedVoxelRecord>();
+        facilityUpgradeProgress = CopyFacilityUpgradeProgress(saveData.facilityUpgradeProgress);
+        hasToolInventoryData = saveData.hasToolInventoryData;
+        toolSlots = new List<ToolSlotPersistenceData>();
+        if (saveData.toolSlots != null)
+        {
+            for (int i = 0; i < saveData.toolSlots.Count; i++)
+            {
+                ToolSlotSaveRecord slot = saveData.toolSlots[i];
+                if (slot == null)
+                {
+                    Debug.LogError($"GameDataPersistenceManager: toolSlots contains a null save record at index {i}.", this);
+                    continue;
+                }
+
+                toolSlots.Add(new ToolSlotPersistenceData
+                {
+                    slotId = slot.slotId,
+                    toolId = slot.toolId,
+                    tool = null
+                });
+            }
+        }
+
+        mainToolSlotId = saveData.mainToolSlotId;
+        subToolSlotId = saveData.subToolSlotId;
+        torchPlacements = CopyTorchPlacements(saveData.torchPlacements);
+        EnsureRuntimeCollections();
+        NotifyFacilityUpgradesChanged();
+    }
+
+    private void EnsureRuntimeCollections()
+    {
+        destroyedBlockPositions ??= new HashSet<Vector3Int>();
+        partiallyDestroyedBlocks ??= new Dictionary<Vector3Int, HashSet<Vector3Int>>();
+        storedResources ??= new Dictionary<ResourceType, int>();
+        droppedItems ??= new List<DroppedItemData>();
+        voxelCellOverrides ??= new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>();
+        solidifiedVoxelHistory ??= new List<SolidifiedVoxelRecord>();
+        facilityUpgradeProgress ??= new List<FacilityUpgradeProgressRecord>();
+        toolSlots ??= new List<ToolSlotPersistenceData>();
+        torchPlacements ??= new List<TorchPlacementData>();
+    }
+
+    public static string GetToolId(MiningTool tool)
+    {
+        return tool != null ? tool.name : string.Empty;
     }
 
     private Dictionary<Vector3Int, HashSet<Vector3Int>> CopyPartiallyDestroyedBlocks(
@@ -313,6 +802,7 @@ public class GameDataPersistenceManager : MonoBehaviour
             copy.Add(new ToolSlotPersistenceData
             {
                 slotId = record.slotId,
+                toolId = !string.IsNullOrEmpty(record.toolId) ? record.toolId : GetToolId(record.tool),
                 tool = record.tool
             });
         }
