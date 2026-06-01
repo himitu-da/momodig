@@ -31,6 +31,8 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         new ProfilerMarker("MiningSceneRestoreCoordinator.PlayerRestore");
     private static readonly ProfilerMarker PlayerChunkRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.PlayerChunkRestore");
+    private static readonly ProfilerMarker PlayerGameplayUnlockMarker =
+        new ProfilerMarker("MiningSceneRestoreCoordinator.PlayerGameplayUnlock");
     private static readonly ProfilerMarker PostRestoreRecalculationMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.PostRestoreRecalculation");
     private static readonly ProfilerMarker PostRestoreMarker =
@@ -66,6 +68,9 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
     public bool IsPlayerChunkRestored => HasPlayerChunkPosition && restoredChunks.Contains(PlayerChunkPosition);
     public int InitialChunkCount => initialChunks.Count;
     public int RestoredInitialChunkCount => restoredInitialChunks.Count;
+    public int PlayerGameplayUnlockChunkCount => playerGameplayUnlockChunks.Count;
+    public int RestoredPlayerGameplayUnlockChunkCount => restoredPlayerGameplayUnlockChunks.Count;
+    public bool IsPlayerGameplayUnlocked { get; private set; }
     public bool IsInitialChunkRestoreComplete { get; private set; }
 
     private bool hasRunValidatePhase;
@@ -74,10 +79,13 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
     private bool hasCompletedInitialChunkRestore;
     private bool hasPreparedInitialGameplayLock;
     private bool hasRestoredPlayerChunkDependents;
+    private bool hasReleasedPlayerGameplayForRestore;
     private readonly HashSet<Vector3Int> generatedChunks = new HashSet<Vector3Int>();
     private readonly HashSet<Vector3Int> restoredChunks = new HashSet<Vector3Int>();
     private readonly HashSet<Vector3Int> initialChunks = new HashSet<Vector3Int>();
     private readonly HashSet<Vector3Int> restoredInitialChunks = new HashSet<Vector3Int>();
+    private readonly HashSet<Vector3Int> playerGameplayUnlockChunks = new HashSet<Vector3Int>();
+    private readonly HashSet<Vector3Int> restoredPlayerGameplayUnlockChunks = new HashSet<Vector3Int>();
 
     private void Awake()
     {
@@ -134,12 +142,16 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
             restoredChunks.Clear();
             initialChunks.Clear();
             restoredInitialChunks.Clear();
+            playerGameplayUnlockChunks.Clear();
+            restoredPlayerGameplayUnlockChunks.Clear();
             HasPlayerChunkPosition = false;
             PlayerChunkPosition = default;
+            IsPlayerGameplayUnlocked = false;
             IsInitialChunkRestoreComplete = false;
             hasCompletedInitialChunkRestore = false;
             hasPreparedInitialGameplayLock = false;
             hasRestoredPlayerChunkDependents = false;
+            hasReleasedPlayerGameplayForRestore = false;
             IsCompleted = false;
         }
     }
@@ -166,9 +178,11 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
                 initialChunks.Add(chunkPositions[i]);
             }
 
+            BuildPlayerGameplayUnlockChunks();
             PauseFluidSimulationForRestore();
             torchPlacementManager.PreparePersistedTorchLoading();
             droppedItemManager.PreparePersistedItemLoading();
+            UpdatePlayerGameplayUnlockCompletion();
             UpdateInitialChunkRestoreCompletion();
         }
     }
@@ -191,7 +205,13 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
             if (initialChunks.Contains(chunkPosition))
             {
                 restoredInitialChunks.Add(chunkPosition);
+                if (playerGameplayUnlockChunks.Contains(chunkPosition))
+                {
+                    restoredPlayerGameplayUnlockChunks.Add(chunkPosition);
+                }
+
                 RestorePlayerChunkDependentsIfReady(chunkPosition);
+                UpdatePlayerGameplayUnlockCompletion();
                 UpdateInitialChunkRestoreCompletion();
             }
         }
@@ -407,6 +427,73 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         fairyCarrierManager.PauseForRestore();
     }
 
+    private void BuildPlayerGameplayUnlockChunks()
+    {
+        playerGameplayUnlockChunks.Clear();
+        restoredPlayerGameplayUnlockChunks.Clear();
+
+        if (!HasPlayerChunkPosition)
+        {
+            Debug.LogError("MiningSceneRestoreCoordinator: player chunk position is not available. Player gameplay unlock chunks cannot be built.", this);
+            return;
+        }
+
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                Vector3Int chunkPosition = new Vector3Int(
+                    PlayerChunkPosition.x + x,
+                    PlayerChunkPosition.y + y,
+                    PlayerChunkPosition.z);
+                playerGameplayUnlockChunks.Add(chunkPosition);
+                if (restoredChunks.Contains(chunkPosition))
+                {
+                    restoredPlayerGameplayUnlockChunks.Add(chunkPosition);
+                }
+
+                if (!initialChunks.Contains(chunkPosition))
+                {
+                    Debug.LogError(
+                        $"MiningSceneRestoreCoordinator: initial chunk list does not include required player gameplay unlock chunk {chunkPosition}.",
+                        this);
+                }
+            }
+        }
+    }
+
+    private void UpdatePlayerGameplayUnlockCompletion()
+    {
+        if (IsPlayerGameplayUnlocked)
+        {
+            return;
+        }
+
+        if (playerGameplayUnlockChunks.Count == 0 ||
+            restoredPlayerGameplayUnlockChunks.Count < playerGameplayUnlockChunks.Count)
+        {
+            return;
+        }
+
+        IsPlayerGameplayUnlocked = true;
+        ReleasePlayerGameplayForRestore();
+    }
+
+    private void ReleasePlayerGameplayForRestore()
+    {
+        if (hasReleasedPlayerGameplayForRestore)
+        {
+            return;
+        }
+
+        using (PlayerGameplayUnlockMarker.Auto())
+        {
+            hasReleasedPlayerGameplayForRestore = true;
+            playerController.SetItemPickupLocked(false);
+            playerController.SetControlLocked(false);
+        }
+    }
+
     private void RestorePlayerChunkDependentsIfReady(Vector3Int restoredChunkPosition)
     {
         if (hasRestoredPlayerChunkDependents ||
@@ -441,8 +528,7 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         RestorePlayerChunkDependentsIfReady(PlayerChunkPosition);
         RunPhase(MiningRestorePhase.PlayerRestore, PlayerRestoreMarker);
         RunPostRestorePhase();
-        playerController.SetItemPickupLocked(false);
-        playerController.SetControlLocked(false);
+        UpdatePlayerGameplayUnlockCompletion();
         minecartManager.ResumeMovementAfterRestore();
         fairyCarrierManager.ResumeAfterRestore();
         fluidManager.ResumeSimulationAfterRestore();
