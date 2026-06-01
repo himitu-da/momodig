@@ -21,6 +21,8 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         new ProfilerMarker("MiningSceneRestoreCoordinator.ChunkRestored");
     private static readonly ProfilerMarker InitialChunkRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.InitialChunkRestore");
+    private static readonly ProfilerMarker FluidRestorePauseMarker =
+        new ProfilerMarker("MiningSceneRestoreCoordinator.FluidRestorePause");
     private static readonly ProfilerMarker TorchRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.TorchRestore");
     private static readonly ProfilerMarker DroppedItemRestoreMarker =
@@ -147,6 +149,7 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
                 initialChunks.Add(chunkPositions[i]);
             }
 
+            PauseFluidSimulationForRestore();
             torchPlacementManager.PreparePersistedTorchLoading();
             droppedItemManager.PreparePersistedItemLoading();
             UpdateInitialChunkRestoreCompletion();
@@ -370,9 +373,18 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         }
 
         hasCompletedInitialChunkRestore = true;
+        fluidManager.ResumeSimulationAfterRestore();
         RunPhase(MiningRestorePhase.PlayerRestore, PlayerRestoreMarker);
         RunPhase(MiningRestorePhase.PostRestore, PostRestoreMarker);
         RunPhase(MiningRestorePhase.Completed, CompletedMarker);
         IsCompleted = true;
+    }
+
+    private void PauseFluidSimulationForRestore()
+    {
+        using (FluidRestorePauseMarker.Auto())
+        {
+            fluidManager.PauseSimulationForRestore();
+        }
     }
 }

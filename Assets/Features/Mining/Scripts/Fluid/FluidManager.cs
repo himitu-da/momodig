@@ -76,6 +76,7 @@ public class FluidManager : MonoBehaviour
     public float InternalCellCapacityLiters => Mathf.Pow(InternalVoxelSize * metersPerUnit, 3f) * 1000f;
     public float RenderCellCapacityLiters => InternalCellCapacityLiters * Mathf.Pow(RenderToInternalRatio, 3f);
     public int Version { get; private set; }
+    public bool IsSimulationPausedForRestore { get; private set; }
 
     public void Initialize(TerrainManager manager)
     {
@@ -130,12 +131,29 @@ public class FluidManager : MonoBehaviour
 
     void Update()
     {
+        if (IsSimulationPausedForRestore)
+        {
+            return;
+        }
+
         tickTimer += Time.deltaTime;
         while (tickTimer >= simulationTickInterval)
         {
             tickTimer -= simulationTickInterval;
             StepSimulation(simulationTickInterval);
         }
+    }
+
+    public void PauseSimulationForRestore()
+    {
+        IsSimulationPausedForRestore = true;
+        tickTimer = 0f;
+    }
+
+    public void ResumeSimulationAfterRestore()
+    {
+        IsSimulationPausedForRestore = false;
+        tickTimer = 0f;
     }
 
     public void ClearFluid()
