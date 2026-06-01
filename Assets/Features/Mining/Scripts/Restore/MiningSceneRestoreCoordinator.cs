@@ -21,6 +21,8 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         new ProfilerMarker("MiningSceneRestoreCoordinator.ChunkRestored");
     private static readonly ProfilerMarker InitialChunkRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.InitialChunkRestore");
+    private static readonly ProfilerMarker DroppedItemRestoreMarker =
+        new ProfilerMarker("MiningSceneRestoreCoordinator.DroppedItemRestore");
     private static readonly ProfilerMarker PlayerRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.PlayerRestore");
     private static readonly ProfilerMarker PostRestoreMarker =
@@ -143,6 +145,7 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
                 initialChunks.Add(chunkPositions[i]);
             }
 
+            droppedItemManager.PreparePersistedItemLoading();
             UpdateInitialChunkRestoreCompletion();
         }
     }
@@ -160,11 +163,20 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         using (ChunkRestoredMarker.Auto())
         {
             restoredChunks.Add(chunkPosition);
+            RestoreDroppedItemsInChunk(chunkPosition);
             if (initialChunks.Contains(chunkPosition))
             {
                 restoredInitialChunks.Add(chunkPosition);
                 UpdateInitialChunkRestoreCompletion();
             }
+        }
+    }
+
+    private void RestoreDroppedItemsInChunk(Vector3Int chunkPosition)
+    {
+        using (DroppedItemRestoreMarker.Auto())
+        {
+            droppedItemManager.LoadItemsInChunk(chunkPosition);
         }
     }
 

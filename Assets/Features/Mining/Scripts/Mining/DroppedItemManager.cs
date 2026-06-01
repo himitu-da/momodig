@@ -191,6 +191,7 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     private bool missingFluidManagerLogged;
     private bool missingMiningLightManagerLogged;
     private bool brightnessSamplingFailureLogged;
+    private bool preparedPersistedItemLoading;
 
     // 静止・起床ロジックの定数
     private const float SleepCheckInterval = 0.2f; // 0.1秒ごとにチェック
@@ -228,8 +229,6 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
     {
         ResolveDropLayers();
         SubscribeTerrainEvents();
-        // 永続化データからアイテムをロード
-        PrepareItemLoading();
     }
 
     void OnDestroy()
@@ -2217,10 +2216,19 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
     }
 
-    private void PrepareItemLoading()
+    public void PreparePersistedItemLoading()
     {
+        if (preparedPersistedItemLoading)
+        {
+            return;
+        }
+
         var persistenceManager = GameDataPersistenceManager.Instance;
-        if (persistenceManager.droppedItems == null || persistenceManager.droppedItems.Count == 0) return;
+        if (persistenceManager.droppedItems == null || persistenceManager.droppedItems.Count == 0)
+        {
+            preparedPersistedItemLoading = true;
+            return;
+        }
 
         TerrainManager terrainManager = ResolveTerrainManager();
         if (terrainManager == null)
@@ -2247,10 +2255,12 @@ public class DroppedItemManager : MonoBehaviour, IItemManager, IGameSceneTransit
         }
         
         persistenceManager.droppedItems.Clear();
+        preparedPersistedItemLoading = true;
     }
 
     public void LoadItemsInChunk(Vector3Int chunkPosition)
     {
+        PreparePersistedItemLoading();
         if (!itemsByChunk.TryGetValue(chunkPosition, out var itemsToLoad)) return;
 
         TerrainManager terrainManager = ResolveTerrainManager();

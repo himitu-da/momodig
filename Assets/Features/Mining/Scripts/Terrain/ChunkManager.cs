@@ -526,10 +526,6 @@ public class ChunkManager : MonoBehaviour
             torchPlacementManager.LoadTorchesInChunk(chunkPos);
         }
 
-        // ドロップアイテムをロード
-        if (DroppedItemManager.Instance != null)
-        {
-            DroppedItemManager.Instance.LoadItemsInChunk(chunkPos);
-        }
+        // Dropped items are restored by MiningSceneRestoreCoordinator after chunk restoration.
     }
 }
