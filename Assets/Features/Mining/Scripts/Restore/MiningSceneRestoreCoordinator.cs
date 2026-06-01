@@ -33,8 +33,10 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         new ProfilerMarker("MiningSceneRestoreCoordinator.PlayerChunkRestore");
     private static readonly ProfilerMarker PlayerGameplayUnlockMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.PlayerGameplayUnlock");
-    private static readonly ProfilerMarker PostRestoreRecalculationMarker =
-        new ProfilerMarker("MiningSceneRestoreCoordinator.PostRestoreRecalculation");
+    private static readonly ProfilerMarker ChunkRuntimeActivationMarker =
+        new ProfilerMarker("MiningSceneRestoreCoordinator.ChunkRuntimeActivation");
+    private static readonly ProfilerMarker CameraRestoreMarker =
+        new ProfilerMarker("MiningSceneRestoreCoordinator.CameraRestore");
     private static readonly ProfilerMarker PostRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.PostRestore");
     private static readonly ProfilerMarker CompletedMarker =
@@ -80,12 +82,15 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
     private bool hasPreparedInitialGameplayLock;
     private bool hasRestoredPlayerChunkDependents;
     private bool hasReleasedPlayerGameplayForRestore;
+    private bool hasStartedChunkRuntimeActivation;
+    private bool hasStartedCameraAfterCriticalRestore;
     private readonly HashSet<Vector3Int> generatedChunks = new HashSet<Vector3Int>();
     private readonly HashSet<Vector3Int> restoredChunks = new HashSet<Vector3Int>();
     private readonly HashSet<Vector3Int> initialChunks = new HashSet<Vector3Int>();
     private readonly HashSet<Vector3Int> restoredInitialChunks = new HashSet<Vector3Int>();
     private readonly HashSet<Vector3Int> playerGameplayUnlockChunks = new HashSet<Vector3Int>();
     private readonly HashSet<Vector3Int> restoredPlayerGameplayUnlockChunks = new HashSet<Vector3Int>();
+    private readonly HashSet<Vector3Int> runtimeActivatedChunks = new HashSet<Vector3Int>();
 
     private void Awake()
     {
@@ -152,6 +157,9 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
             hasPreparedInitialGameplayLock = false;
             hasRestoredPlayerChunkDependents = false;
             hasReleasedPlayerGameplayForRestore = false;
+            hasStartedChunkRuntimeActivation = false;
+            hasStartedCameraAfterCriticalRestore = false;
+            runtimeActivatedChunks.Clear();
             IsCompleted = false;
         }
     }
@@ -211,9 +219,11 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
                 }
 
                 RestorePlayerChunkDependentsIfReady(chunkPosition);
-                UpdatePlayerGameplayUnlockCompletion();
                 UpdateInitialChunkRestoreCompletion();
+                UpdatePlayerGameplayUnlockCompletion();
             }
+
+            ActivateRestoredChunkRuntimeIfStarted(chunkPosition);
         }
     }
 
@@ -476,6 +486,7 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         }
 
         IsPlayerGameplayUnlocked = true;
+        StartChunkRuntimeAfterCriticalChunksRestored();
         ReleasePlayerGameplayForRestore();
     }
 
@@ -510,10 +521,6 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
             playerController.ResetMotion();
             minecartManager.ResetPathToPlayer();
             fairyCarrierManager.ResetHomePositionAfterRestore();
-            if (!cameraFollowController.SnapToFollowTargetAndEnable())
-            {
-                Debug.LogError("MiningSceneRestoreCoordinator: failed to snap camera after player chunk restore.", this);
-            }
         }
     }
 
@@ -529,9 +536,6 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         RunPhase(MiningRestorePhase.PlayerRestore, PlayerRestoreMarker);
         RunPostRestorePhase();
         UpdatePlayerGameplayUnlockCompletion();
-        minecartManager.ResumeMovementAfterRestore();
-        fairyCarrierManager.ResumeAfterRestore();
-        fluidManager.ResumeSimulationAfterRestore();
         RunPhase(MiningRestorePhase.Completed, CompletedMarker);
         IsCompleted = true;
     }
@@ -541,12 +545,74 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         using (PostRestoreMarker.Auto())
         {
             SetCurrentPhase(MiningRestorePhase.PostRestore);
-            using (PostRestoreRecalculationMarker.Auto())
+            StartChunkRuntimeAfterCriticalChunksRestored();
+        }
+    }
+
+    private void StartChunkRuntimeAfterCriticalChunksRestored()
+    {
+        if (hasStartedChunkRuntimeActivation)
+        {
+            return;
+        }
+
+        using (ChunkRuntimeActivationMarker.Auto())
+        {
+            hasStartedChunkRuntimeActivation = true;
+            RestorePlayerChunkDependentsIfReady(PlayerChunkPosition);
+            StartCameraAfterCriticalChunksRestored();
+            miningLightManager.MarkLightSourcesDirty();
+            foreach (Vector3Int chunkPosition in restoredChunks)
             {
-                miningLightManager.MarkLightSourcesDirty();
-                terrainBrightnessApplier.QueueAllActiveBlocksForPostRestoreRefresh();
-                droppedItemManager.RefreshActiveItemsAfterRestore();
-                fluidManager.QueuePostRestoreActiveCells();
+                ActivateRestoredChunkRuntime(chunkPosition);
+            }
+
+            droppedItemManager.RefreshActiveItemsAfterRestore();
+            fluidManager.QueueRuntimeActiveCells();
+            fluidManager.ResumeSimulationAfterRestore();
+            minecartManager.ResumeMovementAfterRestore();
+            fairyCarrierManager.ResumeAfterRestore();
+        }
+    }
+
+    private void ActivateRestoredChunkRuntimeIfStarted(Vector3Int chunkPosition)
+    {
+        if (!hasStartedChunkRuntimeActivation)
+        {
+            return;
+        }
+
+        using (ChunkRuntimeActivationMarker.Auto())
+        {
+            ActivateRestoredChunkRuntime(chunkPosition);
+        }
+    }
+
+    private void ActivateRestoredChunkRuntime(Vector3Int chunkPosition)
+    {
+        if (!runtimeActivatedChunks.Add(chunkPosition))
+        {
+            return;
+        }
+
+        miningLightManager.MarkLightSourcesDirty();
+        terrainBrightnessApplier.QueueChunkBlocksForRuntimeRefresh(chunkPosition);
+        fluidManager.QueueRuntimeActiveCellsInWorldBounds(chunkManager.GetChunkWorldBounds(chunkPosition));
+    }
+
+    private void StartCameraAfterCriticalChunksRestored()
+    {
+        if (hasStartedCameraAfterCriticalRestore)
+        {
+            return;
+        }
+
+        using (CameraRestoreMarker.Auto())
+        {
+            hasStartedCameraAfterCriticalRestore = true;
+            if (!cameraFollowController.SnapToFollowTargetAndEnable())
+            {
+                Debug.LogError("MiningSceneRestoreCoordinator: failed to snap camera after critical chunk restore.", this);
             }
         }
     }

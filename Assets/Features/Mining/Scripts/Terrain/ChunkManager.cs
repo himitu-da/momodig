@@ -17,6 +17,7 @@ public class ChunkManager : MonoBehaviour
 
     [Header("Persistence Restoration")]
     [SerializeField] private MiningSceneRestoreCoordinator restoreCoordinator;
+    [SerializeField, Min(0)] private int initialRestoreRadiusInChunks = 1;
 
     private float chunkUpdateInterval = 0.3f; // チャンクの更新間隔
     private float timeSinceLastChunkUpdate = 0f;
@@ -82,16 +83,7 @@ public class ChunkManager : MonoBehaviour
         currentPlayerChunk = playerChunkPos;
         Vector3 playerWorldPos = playerTransform.position;
 
-        List<Vector3Int> sortedChunks = new List<Vector3Int>();
-        
-        for (int x = -renderDistanceInChunks; x <= renderDistanceInChunks; x++)
-        {
-            for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
-            {
-                Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
-                sortedChunks.Add(chunkPos);
-            }
-        }
+        List<Vector3Int> sortedChunks = BuildChunkPositionsAround(currentPlayerChunk, renderDistanceInChunks);
         
         sortedChunks.Sort((a, b) => 
         {
@@ -102,7 +94,8 @@ public class ChunkManager : MonoBehaviour
             return distA.CompareTo(distB);
         });
 
-        restoreCoordinator.BeginInitialChunkRestore(playerChunkPos, sortedChunks);
+        List<Vector3Int> initialRestoreChunks = BuildChunkPositionsAround(playerChunkPos, initialRestoreRadiusInChunks);
+        restoreCoordinator.BeginInitialChunkRestore(playerChunkPos, initialRestoreChunks);
 
         foreach (var chunkPos in sortedChunks)
         {
@@ -145,14 +138,12 @@ public class ChunkManager : MonoBehaviour
         currentPlayerChunk = newPlayerChunkPos;
         Vector3 playerWorldPos = playerTransform.position;
 
-        List<Vector3Int> chunksToGenerate = new List<Vector3Int>();
-        for (int x = -renderDistanceInChunks; x <= renderDistanceInChunks; x++)
+        List<Vector3Int> chunksToGenerate = BuildChunkPositionsAround(currentPlayerChunk, renderDistanceInChunks);
+        for (int i = chunksToGenerate.Count - 1; i >= 0; i--)
         {
-            for (int y = -renderDistanceInChunks; y <= renderDistanceInChunks; y++)
+            if (activeChunks.ContainsKey(chunksToGenerate[i]))
             {
-                Vector3Int chunkPos = new Vector3Int(currentPlayerChunk.x + x, currentPlayerChunk.y + y, 0);
-                if (activeChunks.ContainsKey(chunkPos)) continue;
-                chunksToGenerate.Add(chunkPos);
+                chunksToGenerate.RemoveAt(i);
             }
         }
         
@@ -426,7 +417,23 @@ public class ChunkManager : MonoBehaviour
                terrainManager.TerrainDataManager.IsBlockGenerationExcluded(blockPosition);
     }
 
-    private List<Vector3Int> GetBlockPositionsInChunk(Vector3Int chunkPos)
+    private List<Vector3Int> BuildChunkPositionsAround(Vector3Int centerChunk, int radiusInChunks)
+    {
+        int radius = Mathf.Max(0, radiusInChunks);
+        int sideLength = radius * 2 + 1;
+        List<Vector3Int> chunkPositions = new List<Vector3Int>(sideLength * sideLength);
+        for (int x = -radius; x <= radius; x++)
+        {
+            for (int y = -radius; y <= radius; y++)
+            {
+                chunkPositions.Add(new Vector3Int(centerChunk.x + x, centerChunk.y + y, centerChunk.z));
+            }
+        }
+
+        return chunkPositions;
+    }
+
+    public List<Vector3Int> GetBlockPositionsInChunk(Vector3Int chunkPos)
     {
         var settings = terrainManager.Settings;
         Vector3Int startBlock = GetChunkStartBlockPosition(chunkPos);
@@ -445,6 +452,23 @@ public class ChunkManager : MonoBehaviour
         }
 
         return blockPositions;
+    }
+
+    public Bounds GetChunkWorldBounds(Vector3Int chunkPos)
+    {
+        var settings = terrainManager.Settings;
+        Vector3Int startBlock = GetChunkStartBlockPosition(chunkPos);
+        float blockSize = settings.blockSize;
+        Vector3 size = new Vector3(
+            settings.blocksPerChunk.x * blockSize,
+            settings.blocksPerChunk.y * blockSize,
+            blockSize);
+        Vector3 min = new Vector3(
+            (startBlock.x - 0.5f) * blockSize,
+            (startBlock.y - 0.5f) * blockSize,
+            settings.center.z + (chunkPos.z - 0.5f) * blockSize);
+
+        return new Bounds(min + size * 0.5f, size);
     }
 
     private Vector3Int GetChunkStartBlockPosition(Vector3Int chunkPos)

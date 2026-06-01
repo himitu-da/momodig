@@ -157,6 +157,36 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
         QueueAllActiveBlocksForRefresh();
     }
 
+    public void QueueChunkBlocksForRuntimeRefresh(Vector3Int chunkPosition)
+    {
+        if (!ValidateConfiguration())
+        {
+            Debug.LogError("MiningTerrainBrightnessApplier: cannot queue chunk runtime brightness refresh because configuration is invalid.", this);
+            return;
+        }
+
+        if (terrainManager.ChunkManager == null)
+        {
+            Debug.LogError("MiningTerrainBrightnessApplier: TerrainManager.ChunkManager is not assigned.", this);
+            return;
+        }
+
+        List<Vector3Int> blockPositions = terrainManager.ChunkManager.GetBlockPositionsInChunk(chunkPosition);
+        for (int i = 0; i < blockPositions.Count; i++)
+        {
+            BlockManager.BlockInstanceData blockInstance = terrainManager.BlockManager.GetBlockAt(blockPositions[i]);
+            if (blockInstance != null && blockInstance.block != null && blockInstance.block.gameObject.activeInHierarchy)
+            {
+                QueueBlockRefresh(blockInstance.block);
+            }
+        }
+    }
+
+    public void QueueChunkBlocksForPostRestoreRefresh(Vector3Int chunkPosition)
+    {
+        QueueChunkBlocksForRuntimeRefresh(chunkPosition);
+    }
+
     private void QueueChangedBlocks(List<VoxelCellKey> changedCells)
     {
         for (int i = 0; i < changedCells.Count; i++)

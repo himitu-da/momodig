@@ -26,10 +26,10 @@ MiningScene の復元は、Persistence データから採掘場の状態を戻�
    初期 chunk 群の復元完了後、player 系の復元完了フェーズとして記録する。
 
 6. `PostRestore`
-   保存しない派生状態をまとめて再計算する。
+   3x3 復元完了時に開始済みのランタイム処理があることを確認する。ここで追加の一括スナップや半径5完了待ちは行わない。
 
 7. `Completed`
-   初期 chunk 群全体の復元が完了し、minecart / fairy / fluid を再開できる状態。
+   初期 chunk 群である 3x3 の復元が完了し、通常のチャンク生成ライフサイクルへ移行できる状態。
 
 ## プレイヤー操作ロック
 
@@ -57,12 +57,18 @@ MiningScene の復元は、Persistence データから採掘場の状態を戻�
 - `(x - 1, y - 1)` から `(x + 1, y + 1)` まで
 - z は `PlayerChunkPosition.z` と同じ
 
-この 9 chunk が `NotifyChunkRestored` で全て restored になった時点で、Coordinator は次を実行する。
+この 9 chunk が `NotifyChunkRestored` で全て restored になった時点で、Coordinator は次を開始する。
 
+- camera snap / camera presentation restore
+- light source dirty
+- chunk 単位の terrain brightness refresh
+- dropped item brightness / fluid tick candidate refresh
+- fluid active cell queue
+- fluid simulation resume
 - `playerController.SetItemPickupLocked(false)`
 - `playerController.SetControlLocked(false)`
 
-これにより、プレイヤーは周辺 3x3 の地形・松明・ドロップ復元が終わった時点で操作可能になる。
+これにより、プレイヤーは周辺 3x3 の地形・松明・ドロップ復元が終わり、カメラ・明るさ・液体演算が動き始めた時点で操作可能になる。
 
 ## プレイヤー周辺の復元
 
@@ -71,35 +77,38 @@ MiningScene の復元は、Persistence データから採掘場の状態を戻�
 - player motion reset
 - minecart path reset
 - fairy home reset
-- camera snap
 
-これは操作解除より早く起きる可能性がある。操作解除は必ず 3x3 chunk restored 完了を待つ。
+camera snap と scene presentation restore は操作解除より早く実行しない。必ず 3x3 chunk restored 完了を待つ。
 
-## 初期 chunk 群完了後に再開するもの
+## 初期 chunk 群と半径5の関係
 
-次の処理は、プレイヤー操作解除より後でもよく、初期 chunk 群全体の復元完了まで待つ。
+初期 chunk 群はプレイヤーを中心とする 3x3 chunk とする。
 
-- minecart movement resume
-- fairy AI resume
-- fluid simulation resume
-- `Completed` への遷移
+プレイヤーを含む半径5 chunk は、初期復元の完了条件には含めない。これは通常ゲーム進行中に生成される新規地形エリアと同じ扱いで、ChunkManager の生成キューに残ったまま並列して生成を継続する。
 
-理由は、これらが動き出すと周辺外の未復元状態や派生計算に影響しやすいためである。
+3x3 完了後に半径5内の追加 chunk が restored になった場合、その chunk は特別な後処理完了待ちをせず、通常の chunk 完了通知として次に参加する。
+
+- persisted torch loading
+- persisted dropped item loading
+- light source dirty
+- chunk 単位の terrain brightness refresh
+- chunk 範囲内の active fluid cell queue
+
+半径5全体の生成完了は、プレイヤー操作解除・カメラ開始・明るさ開始・液体演算開始の条件にしない。
 
 ## PostRestore 再計算
 
-初期 chunk 群全体の復元完了時に、保存しない派生状態をまとめて再計算または再キューする。
+3x3 復元完了時に、保存しない派生状態をランタイム処理へ参加させる。
 
 対象:
 
 - light source dirty
-- terrain brightness refresh
+- chunk 単位の terrain brightness refresh
 - dropped item brightness refresh
 - dropped item fluid tick candidate refresh
 - fluid active cells dirty queue
-- camera snap
 
-この処理は、各 Manager が起動直後に独自タイミングで過剰に再計算することを減らし、Profiler で復元コストを追いやすくするために Coordinator からまとめて呼ぶ。
+この処理は 3x3 の完了時点で開始し、その後に復元された chunk は chunk ごとに同じ通常ライフサイクルへ参加する。半径5全体の生成完了を待って一括再計算する形にはしない。
 
 ## 現在移動済みの復元責務
 
@@ -112,7 +121,7 @@ Coordinator 配下へ寄せているもの:
 - persisted torch loading
 - fluid simulation pause / resume
 - player gameplay unlock timing
-- post-restore recalculation
+- chunk runtime activation
 
 まだ専用 persistence record がないもの:
 

@@ -156,7 +156,7 @@ public class FluidManager : MonoBehaviour
         tickTimer = 0f;
     }
 
-    public void QueuePostRestoreActiveCells()
+    public void QueueRuntimeActiveCells()
     {
         dynamicObstacleCache.Clear();
         if (cells.Count == 0)
@@ -170,6 +170,37 @@ public class FluidManager : MonoBehaviour
         }
 
         MarkSimulationChanged();
+    }
+
+    public void QueueRuntimeActiveCellsInWorldBounds(Bounds worldBounds)
+    {
+        dynamicObstacleCache.Clear();
+        if (cells.Count == 0)
+        {
+            return;
+        }
+
+        bool queuedAny = false;
+        foreach (KeyValuePair<Vector3Int, FluidCellState> pair in cells)
+        {
+            if (!worldBounds.Contains(InternalCellToWorldCenter(pair.Key)))
+            {
+                continue;
+            }
+
+            QueueCellNeighborhood(pair.Key, 1);
+            queuedAny = true;
+        }
+
+        if (queuedAny)
+        {
+            MarkSimulationChanged();
+        }
+    }
+
+    public void QueuePostRestoreActiveCells()
+    {
+        QueueRuntimeActiveCells();
     }
 
     public void ClearFluid()

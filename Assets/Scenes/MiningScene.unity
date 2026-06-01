@@ -3688,6 +3688,7 @@ MonoBehaviour:
   playerTransform: {fileID: 672003891}
   renderDistanceInChunks: 5
   restoreCoordinator: {fileID: 2071865106}
+  initialRestoreRadiusInChunks: 1
 --- !u!1 &2027667581
 GameObject:
   m_ObjectHideFlags: 0
