@@ -360,6 +360,11 @@ public class GameDataPersistenceManager : MonoBehaviour
                 return false;
             }
 
+            if (!HasPersistentProgress())
+            {
+                return DeleteSaveFiles();
+            }
+
             string directory = Path.GetDirectoryName(path);
             if (string.IsNullOrEmpty(directory))
             {
@@ -407,6 +412,99 @@ public class GameDataPersistenceManager : MonoBehaviour
                 }
             }
         }
+    }
+
+    public bool DeleteSaveAndResetRuntimeState()
+    {
+        bool deleted = DeleteSaveFiles();
+        ResetRuntimeState();
+        return deleted;
+    }
+
+    public void ResetRuntimeState()
+    {
+        terrainSeed = 0;
+        hasInitializedSeed = false;
+        destroyedBlockPositions = new HashSet<Vector3Int>();
+        partiallyDestroyedBlocks = new Dictionary<Vector3Int, HashSet<Vector3Int>>();
+        storedResources = new Dictionary<ResourceType, int>();
+        droppedItems = new List<DroppedItemData>();
+        voxelCellOverrides = new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>();
+        solidifiedVoxelHistory = new List<SolidifiedVoxelRecord>();
+        facilityUpgradeProgress = new List<FacilityUpgradeProgressRecord>();
+        hasToolInventoryData = false;
+        toolSlots = new List<ToolSlotPersistenceData>();
+        mainToolSlotId = string.Empty;
+        subToolSlotId = string.Empty;
+        torchPlacements = new List<TorchPlacementData>();
+        HasLoadedSaveFromDisk = false;
+        LastLoadHadSaveFile = false;
+        ScheduleNextAutosave();
+        NotifyFacilityUpgradesChanged();
+    }
+
+    private bool DeleteSaveFiles()
+    {
+        string path = SaveFilePath;
+        string directory = Path.GetDirectoryName(path);
+        if (string.IsNullOrEmpty(directory))
+        {
+            Debug.LogError($"GameDataPersistenceManager: Save directory is invalid. path={path}", this);
+            return false;
+        }
+
+        string tempPath = Path.Combine(directory, $"{SaveFileName}.tmp");
+        string backupPath = Path.Combine(directory, $"{SaveFileName}.bak");
+        bool succeeded = true;
+        succeeded &= DeleteFileIfExists(path);
+        succeeded &= DeleteFileIfExists(tempPath);
+        succeeded &= DeleteFileIfExists(backupPath);
+        return succeeded;
+    }
+
+    private bool DeleteFileIfExists(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+
+            return true;
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError($"GameDataPersistenceManager: Failed to delete save file. path={path}\n{exception}", this);
+            return false;
+        }
+    }
+
+    private bool HasPersistentProgress()
+    {
+        EnsureRuntimeCollections();
+        if (hasInitializedSeed ||
+            destroyedBlockPositions.Count > 0 ||
+            partiallyDestroyedBlocks.Count > 0 ||
+            droppedItems.Count > 0 ||
+            voxelCellOverrides.Count > 0 ||
+            solidifiedVoxelHistory.Count > 0 ||
+            facilityUpgradeProgress.Count > 0 ||
+            hasToolInventoryData ||
+            torchPlacements.Count > 0)
+        {
+            return true;
+        }
+
+        foreach (KeyValuePair<ResourceType, int> entry in storedResources)
+        {
+            if (entry.Value != 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private GameDataSaveData CaptureSaveData()

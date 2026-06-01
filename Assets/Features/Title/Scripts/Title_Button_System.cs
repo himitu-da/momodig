@@ -82,6 +82,20 @@ public class Title_Button_System : MonoBehaviour
     {
         Application.OpenURL("https://senju.dendaikyo.com/game/momodig-trial-info/");
     }
+    public void SelectResetSaveKey()
+    {
+        GameDataPersistenceManager persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager == null)
+        {
+            Debug.LogError("Title_Button_System: GameDataPersistenceManager is not initialized.", this);
+            return;
+        }
+
+        if (!persistenceManager.DeleteSaveAndResetRuntimeState())
+        {
+            Debug.LogError("Title_Button_System: Failed to delete save data.", this);
+        }
+    }
     public void SelectFinishKey(){
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
