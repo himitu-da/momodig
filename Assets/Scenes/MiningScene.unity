@@ -1981,7 +1981,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MiningTerrainBrightnessApplier
   terrainManager: {fileID: 2071865104}
   lightManager: {fileID: 1199508971}
-  maxBrightnessCellsPerFrame: 512
+  maxBrightnessCellsPerFrame: 1024
 --- !u!114 &1199508971
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2043,7 +2043,6 @@ MonoBehaviour:
   lightTransmission:
     BaseValue: 0.3
   placementOffset: {x: 0, y: 0, z: 0}
-  restorePersistedTorchesOnEnable: 1
 --- !u!1 &1227563691
 GameObject:
   m_ObjectHideFlags: 0
@@ -3688,7 +3687,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerTransform: {fileID: 672003891}
   renderDistanceInChunks: 5
-  torchPlacementManager: {fileID: 1199508974}
+  restoreCoordinator: {fileID: 2071865106}
+  initialRestoreRadiusInChunks: 1
 --- !u!1 &2027667581
 GameObject:
   m_ObjectHideFlags: 0
@@ -3774,6 +3774,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2071865105}
   - component: {fileID: 2071865104}
+  - component: {fileID: 2071865106}
   m_Layer: 0
   m_Name: TerrainManager
   m_TagString: Untagged
@@ -3807,6 +3808,7 @@ MonoBehaviour:
     blockGenerationBudgetMilliseconds: 4
     itemLoadDelay: 0.35
   playerTransform: {fileID: 672003891}
+  restoreCoordinator: {fileID: 2071865106}
   chunkManager: {fileID: 2014132665}
   blockManager: {fileID: 413879696}
   blockGenerator: {fileID: 1392432598}
@@ -3835,6 +3837,30 @@ Transform:
   - {fileID: 1392432597}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2071865106
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2071865103}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a3f0b513f9345d0a4f8dca2a196a7e1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  terrainManager: {fileID: 2071865104}
+  chunkManager: {fileID: 2014132665}
+  droppedItemManager: {fileID: 1375720077}
+  torchPlacementManager: {fileID: 1199508974}
+  fluidManager: {fileID: 1961065937}
+  miningLightManager: {fileID: 1199508971}
+  terrainBrightnessApplier: {fileID: 1199508970}
+  playerController: {fileID: 672003892}
+  minecartManager: {fileID: 1324682791}
+  fairyCarrierManager: {fileID: 3700000003}
+  cameraFollowController: {fileID: 330585548}
+  logPhaseTransitions: 1
 --- !u!1 &2086124475
 GameObject:
   m_ObjectHideFlags: 0

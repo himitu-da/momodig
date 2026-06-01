@@ -61,18 +61,15 @@ public class MiningToolsController : MonoBehaviour
         UnsubscribeFromToolInventory();
     }
 
-    private void ResolveToolInventory()
+    private bool ValidateToolInventory()
     {
         if (toolInventory != null)
         {
-            return;
+            return true;
         }
 
-        toolInventory = GetComponent<ToolInventory>();
-        if (toolInventory == null)
-        {
-            toolInventory = gameObject.AddComponent<ToolInventory>();
-        }
+        Debug.LogError("MiningToolsController: ToolInventory is not assigned. Configure it in the Inspector.", this);
+        return false;
     }
 
     private void InitializeToolInventoryFromLegacySettings()
@@ -159,7 +156,12 @@ public class MiningToolsController : MonoBehaviour
 
     private void Awake()
     {
-        ResolveToolInventory();
+        if (!ValidateToolInventory())
+        {
+            enabled = false;
+            return;
+        }
+
         InitializeToolInventoryFromLegacySettings();
 
         ApplyEnhancements(); // 初期化時に適用

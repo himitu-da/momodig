@@ -64,11 +64,11 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
         using (ApplyBrightnessMarker.Auto())
         {
             int remainingCellBudget = Mathf.Max(1, maxBrightnessCellsPerFrame);
-            ApplyQueuedBlockRefreshes(ref remainingCellBudget);
-
+            int appliedDirtyCells = ApplyDirtyBrightnessCells(remainingCellBudget);
+            remainingCellBudget -= appliedDirtyCells;
             if (remainingCellBudget > 0)
             {
-                ApplyDirtyBrightnessCells(remainingCellBudget);
+                ApplyQueuedBlockRefreshes(ref remainingCellBudget);
             }
         }
     }
@@ -99,11 +99,11 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
             {
                 Vector3Int localCell = activeBlockRefresh.localCells[activeBlockRefresh.nextLocalCellIndex];
                 VoxelCellKey key = new VoxelCellKey(activeBlockRefresh.block.BlockPosition, localCell);
-                float brightness = lightManager.TryGetBrightness(key, out float resolvedBrightness)
-                    ? resolvedBrightness
-                    : 0f;
+                if (lightManager.TryGetBrightness(key, out float resolvedBrightness))
+                {
+                    activeBlockRefresh.block.ApplyBrightness(key, resolvedBrightness);
+                }
 
-                activeBlockRefresh.block.ApplyBrightness(key, brightness);
                 activeBlockRefresh.nextLocalCellIndex++;
                 remainingCellBudget--;
             }
@@ -115,7 +115,7 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
         }
     }
 
-    private void ApplyDirtyBrightnessCells(int maxCells)
+    private int ApplyDirtyBrightnessCells(int maxCells)
     {
         int drained = lightManager.DrainDirtyBrightnessCells(dirtyBrightnessCells, maxCells);
         for (int i = 0; i < drained; i++)
@@ -133,6 +133,8 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
 
             blockInstance.block.ApplyBrightness(key, brightness);
         }
+
+        return drained;
     }
 
     private void HandleTerrainCellsChanged(TerrainChangeBatch change)
@@ -144,6 +146,47 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
 
         QueueChangedBlocks(change.removedSolidCells);
         QueueChangedBlocks(change.addedSolidCells);
+    }
+
+    public void QueueAllActiveBlocksForPostRestoreRefresh()
+    {
+        if (!ValidateConfiguration())
+        {
+            Debug.LogError("MiningTerrainBrightnessApplier: cannot queue post-restore brightness refresh because configuration is invalid.", this);
+            return;
+        }
+
+        QueueAllActiveBlocksForRefresh();
+    }
+
+    public void QueueChunkBlocksForRuntimeRefresh(Vector3Int chunkPosition)
+    {
+        if (!ValidateConfiguration())
+        {
+            Debug.LogError("MiningTerrainBrightnessApplier: cannot queue chunk runtime brightness refresh because configuration is invalid.", this);
+            return;
+        }
+
+        if (terrainManager.ChunkManager == null)
+        {
+            Debug.LogError("MiningTerrainBrightnessApplier: TerrainManager.ChunkManager is not assigned.", this);
+            return;
+        }
+
+        List<Vector3Int> blockPositions = terrainManager.ChunkManager.GetBlockPositionsInChunk(chunkPosition);
+        for (int i = 0; i < blockPositions.Count; i++)
+        {
+            BlockManager.BlockInstanceData blockInstance = terrainManager.BlockManager.GetBlockAt(blockPositions[i]);
+            if (blockInstance != null && blockInstance.block != null && blockInstance.block.gameObject.activeInHierarchy)
+            {
+                QueueBlockRefresh(blockInstance.block);
+            }
+        }
+    }
+
+    public void QueueChunkBlocksForPostRestoreRefresh(Vector3Int chunkPosition)
+    {
+        QueueChunkBlocksForRuntimeRefresh(chunkPosition);
     }
 
     private void QueueChangedBlocks(List<VoxelCellKey> changedCells)

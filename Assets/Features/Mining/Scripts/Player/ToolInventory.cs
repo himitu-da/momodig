@@ -139,7 +139,7 @@ public class ToolInventory : MonoBehaviour
 
         string oldMainSlotId = mainSlotId;
         string oldSubSlotId = subSlotId;
-        bool loadedFromPersistence = TryLoadFromGameData();
+        bool loadedFromPersistence = TryLoadFromGameData(tools);
         bool slotsChanged = loadedFromPersistence || EnsureSlotIds();
         bool slotsWereEmpty = slots.Count == 0;
 
@@ -316,7 +316,7 @@ public class ToolInventory : MonoBehaviour
         return tools;
     }
 
-    private bool TryLoadFromGameData()
+    private bool TryLoadFromGameData(IList<MiningTool> availableTools)
     {
         if (!persistToGameData)
         {
@@ -341,7 +341,8 @@ public class ToolInventory : MonoBehaviour
                     continue;
                 }
 
-                slots.Add(new ToolSlot(savedSlot.slotId, savedSlot.tool));
+                MiningTool resolvedTool = ResolvePersistedTool(savedSlot, availableTools);
+                slots.Add(new ToolSlot(savedSlot.slotId, resolvedTool));
             }
         }
 
@@ -386,9 +387,59 @@ public class ToolInventory : MonoBehaviour
             persistence.toolSlots.Add(new ToolSlotPersistenceData
             {
                 slotId = slot.SlotId,
+                toolId = GameDataPersistenceManager.GetToolId(slot.Tool),
                 tool = slot.Tool
             });
         }
+    }
+
+    private MiningTool ResolvePersistedTool(ToolSlotPersistenceData savedSlot, IList<MiningTool> availableTools)
+    {
+        if (savedSlot.tool != null)
+        {
+            return savedSlot.tool;
+        }
+
+        if (string.IsNullOrWhiteSpace(savedSlot.toolId))
+        {
+            return null;
+        }
+
+        MiningTool resolvedTool = FindToolById(savedSlot.toolId, availableTools);
+        if (resolvedTool == null)
+        {
+            Debug.LogError($"ToolInventory: persisted toolId '{savedSlot.toolId}' could not be resolved from configured tools.", this);
+        }
+
+        return resolvedTool;
+    }
+
+    private static MiningTool FindToolById(string toolId, IList<MiningTool> availableTools)
+    {
+        if (string.IsNullOrWhiteSpace(toolId) || availableTools == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < availableTools.Count; i++)
+        {
+            MiningTool tool = availableTools[i];
+            if (tool != null && tool.name == toolId)
+            {
+                return tool;
+            }
+        }
+
+        for (int i = 0; i < availableTools.Count; i++)
+        {
+            MiningTool tool = availableTools[i];
+            if (tool != null && tool.ToolName == toolId)
+            {
+                return tool;
+            }
+        }
+
+        return null;
     }
 
     private bool AppendMissingTools(IList<MiningTool> tools)
