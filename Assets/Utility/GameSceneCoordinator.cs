@@ -13,6 +13,8 @@ public class GameSceneCoordinator : MonoBehaviour
         new ProfilerMarker("GameSceneCoordinator.LoadTargetScene");
     private static readonly ProfilerMarker PrepareTargetSceneMarker =
         new ProfilerMarker("GameSceneCoordinator.PrepareTargetScene");
+    private static readonly ProfilerMarker SaveBeforeSceneSwitchMarker =
+        new ProfilerMarker("GameSceneCoordinator.SaveBeforeSceneSwitch");
     private static readonly ProfilerMarker StartPreviousSceneUnloadMarker =
         new ProfilerMarker("GameSceneCoordinator.StartPreviousSceneUnload");
     private static readonly ProfilerMarker RevealAndUnloadMarker =
@@ -183,6 +185,7 @@ public class GameSceneCoordinator : MonoBehaviour
         }
 
         bool shouldPlayTransitionOverlay = !string.IsNullOrEmpty(previousContentSceneName);
+        SavePersistenceBeforeSceneSwitch();
         if (shouldPlayTransitionOverlay)
         {
             if (transitionOverlay == null)
@@ -264,6 +267,21 @@ public class GameSceneCoordinator : MonoBehaviour
         yield return RevealAndUnloadRoutine(shouldPlayTransitionOverlay, unloadOperations);
 
         transitionCoroutine = null;
+    }
+
+    private void SavePersistenceBeforeSceneSwitch()
+    {
+        using (SaveBeforeSceneSwitchMarker.Auto())
+        {
+            GameDataPersistenceManager persistenceManager = GameDataPersistenceManager.Instance;
+            if (persistenceManager == null)
+            {
+                Debug.LogError("GameSceneCoordinator: GameDataPersistenceManager is not initialized.", this);
+                return;
+            }
+
+            persistenceManager.SaveToDisk();
+        }
     }
 
     private List<AsyncOperation> StartPreviousSceneUnload(List<Scene> scenesToUnload, string targetSceneName)

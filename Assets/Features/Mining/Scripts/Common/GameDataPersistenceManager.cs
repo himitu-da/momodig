@@ -93,9 +93,16 @@ public class GameDataPersistenceManager : MonoBehaviour
 
     [Header("Disk Save")]
     [SerializeField] private bool loadSaveOnAwake = true;
+    [SerializeField] private bool enableAutosave = true;
+    [SerializeField, Min(1f)] private float autosaveIntervalSeconds = 30f;
+    [SerializeField] private bool saveOnApplicationPause = true;
+    [SerializeField] private bool saveOnApplicationQuit = true;
+
+    private float nextAutosaveTime;
 
     public bool HasLoadedSaveFromDisk { get; private set; }
     public bool LastLoadHadSaveFile { get; private set; }
+    public bool CanWriteSaveFile => !LastLoadHadSaveFile || HasLoadedSaveFromDisk;
     public string SaveFilePath => Path.Combine(Application.persistentDataPath, SaveFileName);
     
     public int GetFacilityUpgradeLevel(string upgradeId, int defaultLevel)
@@ -221,6 +228,46 @@ public class GameDataPersistenceManager : MonoBehaviour
         {
             LoadFromDisk();
         }
+
+        ScheduleNextAutosave();
+    }
+
+    private void Update()
+    {
+        if (!enableAutosave)
+        {
+            return;
+        }
+
+        if (Time.unscaledTime < nextAutosaveTime)
+        {
+            return;
+        }
+
+        SaveToDisk();
+        ScheduleNextAutosave();
+    }
+
+    private void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus && saveOnApplicationPause)
+        {
+            SaveToDisk();
+            ScheduleNextAutosave();
+        }
+    }
+
+    private void OnApplicationQuit()
+    {
+        if (saveOnApplicationQuit)
+        {
+            SaveToDisk();
+        }
+    }
+
+    private void ScheduleNextAutosave()
+    {
+        nextAutosaveTime = Time.unscaledTime + Mathf.Max(1f, autosaveIntervalSeconds);
     }
 
     private void CopyRuntimeStateFrom(GameDataPersistenceManager source)
@@ -265,6 +312,7 @@ public class GameDataPersistenceManager : MonoBehaviour
             LastLoadHadSaveFile = File.Exists(path);
             if (!LastLoadHadSaveFile)
             {
+                HasLoadedSaveFromDisk = false;
                 EnsureRuntimeCollections();
                 return false;
             }
@@ -304,6 +352,14 @@ public class GameDataPersistenceManager : MonoBehaviour
         using (SaveToDiskMarker.Auto())
         {
             string path = SaveFilePath;
+            if (!CanWriteSaveFile)
+            {
+                Debug.LogError(
+                    $"GameDataPersistenceManager: Refused to overwrite save file because the existing save was not loaded successfully. path={path}",
+                    this);
+                return false;
+            }
+
             string directory = Path.GetDirectoryName(path);
             if (string.IsNullOrEmpty(directory))
             {
