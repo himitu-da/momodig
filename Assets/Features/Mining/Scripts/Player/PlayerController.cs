@@ -788,11 +788,26 @@ public class PlayerController : MonoBehaviour
     public void SetControlLocked(bool locked)
     {
         controlLocked = locked;
-        moveInput = Vector2.zero;
         if (locked)
         {
+            moveInput = Vector2.zero;
             ResetMotion();
+            return;
         }
+
+        RefreshMoveInputFromCurrentAction();
+    }
+
+    private void RefreshMoveInputFromCurrentAction()
+    {
+        if (controls == null)
+        {
+            Debug.LogError($"{nameof(PlayerController)} controls are not initialized.", this);
+            moveInput = Vector2.zero;
+            return;
+        }
+
+        moveInput = controls.Player.Move.ReadValue<Vector2>();
     }
 
     public void SetItemPickupLocked(bool locked)

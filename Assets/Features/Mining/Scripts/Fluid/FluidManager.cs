@@ -76,6 +76,7 @@ public class FluidManager : MonoBehaviour
     public float InternalCellCapacityLiters => Mathf.Pow(InternalVoxelSize * metersPerUnit, 3f) * 1000f;
     public float RenderCellCapacityLiters => InternalCellCapacityLiters * Mathf.Pow(RenderToInternalRatio, 3f);
     public int Version { get; private set; }
+    public bool IsSimulationPausedForRestore { get; private set; }
 
     public void Initialize(TerrainManager manager)
     {
@@ -130,12 +131,76 @@ public class FluidManager : MonoBehaviour
 
     void Update()
     {
+        if (IsSimulationPausedForRestore)
+        {
+            return;
+        }
+
         tickTimer += Time.deltaTime;
         while (tickTimer >= simulationTickInterval)
         {
             tickTimer -= simulationTickInterval;
             StepSimulation(simulationTickInterval);
         }
+    }
+
+    public void PauseSimulationForRestore()
+    {
+        IsSimulationPausedForRestore = true;
+        tickTimer = 0f;
+    }
+
+    public void ResumeSimulationAfterRestore()
+    {
+        IsSimulationPausedForRestore = false;
+        tickTimer = 0f;
+    }
+
+    public void QueueRuntimeActiveCells()
+    {
+        dynamicObstacleCache.Clear();
+        if (cells.Count == 0)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<Vector3Int, FluidCellState> pair in cells)
+        {
+            QueueCellNeighborhood(pair.Key, 1);
+        }
+
+        MarkSimulationChanged();
+    }
+
+    public void QueueRuntimeActiveCellsInWorldBounds(Bounds worldBounds)
+    {
+        dynamicObstacleCache.Clear();
+        if (cells.Count == 0)
+        {
+            return;
+        }
+
+        bool queuedAny = false;
+        foreach (KeyValuePair<Vector3Int, FluidCellState> pair in cells)
+        {
+            if (!worldBounds.Contains(InternalCellToWorldCenter(pair.Key)))
+            {
+                continue;
+            }
+
+            QueueCellNeighborhood(pair.Key, 1);
+            queuedAny = true;
+        }
+
+        if (queuedAny)
+        {
+            MarkSimulationChanged();
+        }
+    }
+
+    public void QueuePostRestoreActiveCells()
+    {
+        QueueRuntimeActiveCells();
     }
 
     public void ClearFluid()

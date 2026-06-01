@@ -86,6 +86,7 @@ public class FairyCarrierManager : MonoBehaviour
     private readonly HashSet<DroppedItem> reservedItems = new HashSet<DroppedItem>();
     private readonly List<FairyCarrier> fairies = new List<FairyCarrier>();
     private bool isUnlocked;
+    private bool isPausedForRestore;
     private MiningPassagePathfinder pathfinder;
     private int targetFairyCount;
     private int targetSearchSlotsRemaining;
@@ -126,6 +127,11 @@ public class FairyCarrierManager : MonoBehaviour
         using (UpdateMarker.Auto())
         {
             if (!isUnlocked)
+            {
+                return;
+            }
+
+            if (isPausedForRestore)
             {
                 return;
             }
@@ -181,6 +187,62 @@ public class FairyCarrierManager : MonoBehaviour
             }
 
             LogFairySearchWorkIfNeeded();
+        }
+    }
+
+    public void PauseForRestore()
+    {
+        isPausedForRestore = true;
+        ClearActiveSearchesForRestore();
+    }
+
+    public void ResumeAfterRestore()
+    {
+        isPausedForRestore = false;
+    }
+
+    public void ResetHomePositionAfterRestore()
+    {
+        if (homePoint == null)
+        {
+            Debug.LogError("FairyCarrierManager: homePoint is not configured.", this);
+            return;
+        }
+
+        for (int i = 0; i < fairies.Count; i++)
+        {
+            FairyCarrier fairy = fairies[i];
+            if (fairy == null || fairy.Instance == null)
+            {
+                continue;
+            }
+
+            fairy.Instance.transform.position = homePoint.position;
+            fairy.State = FairyState.IdleAtHome;
+            fairy.NextSearchTime = Time.time + searchInterval;
+            fairy.SearchWaitStartedAt = -1f;
+            ClearTargetReservation(fairy);
+            ClearCarriedItem(fairy);
+            ClearActivePath(fairy);
+            ClearTargetSearch(fairy);
+        }
+    }
+
+    private void ClearActiveSearchesForRestore()
+    {
+        reservedItems.Clear();
+        for (int i = 0; i < fairies.Count; i++)
+        {
+            FairyCarrier fairy = fairies[i];
+            if (fairy == null)
+            {
+                continue;
+            }
+
+            fairy.TargetItem = null;
+            ClearCarriedItem(fairy);
+            ClearActivePath(fairy);
+            ClearTargetSearch(fairy);
         }
     }
 

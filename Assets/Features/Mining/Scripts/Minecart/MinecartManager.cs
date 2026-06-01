@@ -40,6 +40,7 @@ public class MinecartManager : MonoBehaviour
 
     [Header("トロッコ状態")]
     public bool digable = true;
+    public bool IsMovementPausedForRestore { get; private set; }
 
     private void OnEnable()
     {
@@ -78,6 +79,7 @@ public class MinecartManager : MonoBehaviour
                 movement = newMinecartObject.AddComponent<MinecartMovement>();
             }
             movement.moveSpeed = followMoveSpeed.Value;
+            movement.SetMovementPaused(IsMovementPausedForRestore);
 
             Minecart newMinecart = new Minecart(newMinecartObject);
 
@@ -144,6 +146,11 @@ public class MinecartManager : MonoBehaviour
     // トロッコの位置を更新する
     public void UpdateMinecartPositions()
     {
+        if (IsMovementPausedForRestore)
+        {
+            return;
+        }
+
         if (pathPoints.Count == 0) return;
 
         for (int i = 0; i < minecarts.Count; i++)
@@ -172,6 +179,11 @@ public class MinecartManager : MonoBehaviour
     // 実装: プレイヤー位置を軌跡に取り込み、軌跡ベースの追従ロジックへ委譲
     public void UpdateMinecartPositions(Vector3 playerPosition, Vector3 playerLastMoveDirection, float offset)
     {
+        if (IsMovementPausedForRestore)
+        {
+            return;
+        }
+
         // 軌跡初期化または追記
         if (pathPoints.Count == 0)
         {
@@ -195,6 +207,17 @@ public class MinecartManager : MonoBehaviour
 
     void Update()
     {
+        if (IsMovementPausedForRestore)
+        {
+            digable = false;
+            for (int i = 0; i < minecarts.Count; i++)
+            {
+                UpdateCapacityUI(minecarts[i]);
+            }
+
+            return;
+        }
+
         // プレイヤーの軌跡を記録
         if (playerTransform != null)
         {
@@ -433,6 +456,58 @@ public class MinecartManager : MonoBehaviour
         uiRect.SetParent(worldCanvasTransform, false);
         uiRect.anchoredPosition = localPoint;
         return true;
+    }
+
+    public void PauseMovementForRestore()
+    {
+        IsMovementPausedForRestore = true;
+        digable = false;
+        SetMinecartMovementPaused(true);
+    }
+
+    public void ResumeMovementAfterRestore()
+    {
+        IsMovementPausedForRestore = false;
+        ResetPathToPlayer();
+        SetMinecartMovementPaused(false);
+    }
+
+    public void ResetPathToPlayer()
+    {
+        pathPoints.Clear();
+        if (playerTransform == null)
+        {
+            Debug.LogError("MinecartManager: playerTransform is not configured.", this);
+            return;
+        }
+
+        pathPoints.Add(playerTransform.position);
+        for (int i = 0; i < minecarts.Count; i++)
+        {
+            Minecart cart = minecarts[i];
+            if (cart == null || cart.movement == null)
+            {
+                continue;
+            }
+
+            cart.movement.targetPosition = cart.gameObject != null
+                ? cart.gameObject.transform.position
+                : playerTransform.position;
+        }
+    }
+
+    private void SetMinecartMovementPaused(bool paused)
+    {
+        for (int i = 0; i < minecarts.Count; i++)
+        {
+            Minecart cart = minecarts[i];
+            if (cart == null || cart.movement == null)
+            {
+                continue;
+            }
+
+            cart.movement.SetMovementPaused(paused);
+        }
     }
 
     public void ApplyEnhancements()
