@@ -59,6 +59,7 @@ public class TerrainManager : MonoBehaviour
     public Transform playerTransform; // プレイヤーのTransform
     
     [Header("Hierarchical Managers")]
+    [SerializeField] private MiningSceneRestoreCoordinator restoreCoordinator;
     [SerializeField] private ChunkManager chunkManager;
     [SerializeField] private BlockManager blockManager;
     [SerializeField] private BlockGenerator blockGenerator;
@@ -95,22 +96,24 @@ public class TerrainManager : MonoBehaviour
             return;
         }
 
-        if (!persistenceManager.hasInitializedSeed)
+        if (restoreCoordinator == null)
         {
-            if (settings.useRandomSeed)
-            {
-                persistenceManager.terrainSeed = Random.Range(int.MinValue, int.MaxValue);
-            }
-            else
-            {
-                persistenceManager.terrainSeed = settings.seed;
-            }
-            persistenceManager.hasInitializedSeed = true;
+            Debug.LogError("TerrainManager: MiningSceneRestoreCoordinator is not assigned.", this);
+            return;
+        }
+
+        if (!restoreCoordinator.EnsureTerrainBaselineReadyForTerrainInitialization(persistenceManager))
+        {
+            Debug.LogError("TerrainManager: terrain baseline is not ready. Hierarchical system initialization is stopped.", this);
+            return;
         }
         
-        settings.seed = persistenceManager.terrainSeed;
-        
         InitializeHierarchicalSystem();
+    }
+
+    public void ApplyTerrainBaselineSeed(int seed)
+    {
+        settings.seed = seed;
     }
 
     void Update()

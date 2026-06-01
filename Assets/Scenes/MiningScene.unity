@@ -3808,6 +3808,7 @@ MonoBehaviour:
     blockGenerationBudgetMilliseconds: 4
     itemLoadDelay: 0.35
   playerTransform: {fileID: 672003891}
+  restoreCoordinator: {fileID: 2071865106}
   chunkManager: {fileID: 2014132665}
   blockManager: {fileID: 413879696}
   blockGenerator: {fileID: 1392432598}

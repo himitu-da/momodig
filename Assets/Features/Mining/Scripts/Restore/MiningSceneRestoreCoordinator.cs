@@ -35,22 +35,16 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
     public MiningRestorePhase CurrentPhase { get; private set; } = MiningRestorePhase.Validate;
     public bool HasValidContext { get; private set; }
     public bool HasValidationErrors { get; private set; }
+    public bool HasTerrainBaseline { get; private set; }
     public bool IsCompleted { get; private set; }
     public MiningRestoreContext Context { get; private set; }
 
+    private bool hasRunValidatePhase;
+    private bool hasRunTerrainBaselinePhase;
+
     private void Awake()
     {
-        using (ValidateMarker.Auto())
-        {
-            if (!TryCreateContext(out MiningRestoreContext context))
-            {
-                enabled = false;
-                return;
-            }
-
-            Context = context;
-            HasValidContext = true;
-        }
+        EnsureContext();
     }
 
     private void Start()
@@ -62,12 +56,17 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
 
         using (StartupMarker.Auto())
         {
-            if (!RunValidatePhase())
+            GameDataPersistenceManager persistenceManager = GameDataPersistenceManager.Instance;
+            if (!RunValidatePhase(persistenceManager))
             {
                 return;
             }
 
-            RunPhase(MiningRestorePhase.TerrainBaseline, TerrainBaselineMarker);
+            if (!RunTerrainBaselinePhase(persistenceManager))
+            {
+                return;
+            }
+
             RunPhase(MiningRestorePhase.TerrainInitialization, TerrainInitializationMarker);
             RunPhase(MiningRestorePhase.ChunkRestore, ChunkRestoreMarker);
             RunPhase(MiningRestorePhase.PlayerRestore, PlayerRestoreMarker);
@@ -77,14 +76,34 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         }
     }
 
-    private bool RunValidatePhase()
+    public bool EnsureTerrainBaselineReadyForTerrainInitialization(GameDataPersistenceManager persistenceManager)
     {
+        if (!EnsureContext())
+        {
+            return false;
+        }
+
+        if (!RunValidatePhase(persistenceManager))
+        {
+            return false;
+        }
+
+        return RunTerrainBaselinePhase(persistenceManager);
+    }
+
+    private bool RunValidatePhase(GameDataPersistenceManager persistenceManager)
+    {
+        if (hasRunValidatePhase)
+        {
+            return !HasValidationErrors;
+        }
+
         using (ValidateMarker.Auto())
         {
             SetCurrentPhase(MiningRestorePhase.Validate);
 
-            GameDataPersistenceManager persistenceManager = GameDataPersistenceManager.Instance;
             bool isValid = MiningRestoreDataValidator.Validate(Context, persistenceManager, this);
+            hasRunValidatePhase = true;
             HasValidationErrors = !isValid;
             if (!isValid)
             {
@@ -93,6 +112,68 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
                 return false;
             }
 
+            return true;
+        }
+    }
+
+    private bool RunTerrainBaselinePhase(GameDataPersistenceManager persistenceManager)
+    {
+        if (hasRunTerrainBaselinePhase)
+        {
+            return HasTerrainBaseline;
+        }
+
+        using (TerrainBaselineMarker.Auto())
+        {
+            SetCurrentPhase(MiningRestorePhase.TerrainBaseline);
+
+            if (persistenceManager == null)
+            {
+                Debug.LogError("MiningSceneRestoreCoordinator: GameDataPersistenceManager is not initialized. Terrain baseline cannot be restored.", this);
+                enabled = false;
+                return false;
+            }
+
+            TerrainSettings settings = terrainManager.Settings;
+            if (settings == null)
+            {
+                Debug.LogError("MiningSceneRestoreCoordinator: TerrainSettings is not configured. Terrain baseline cannot be restored.", this);
+                enabled = false;
+                return false;
+            }
+
+            if (!persistenceManager.hasInitializedSeed)
+            {
+                persistenceManager.terrainSeed = settings.useRandomSeed
+                    ? Random.Range(int.MinValue, int.MaxValue)
+                    : settings.seed;
+                persistenceManager.hasInitializedSeed = true;
+            }
+
+            terrainManager.ApplyTerrainBaselineSeed(persistenceManager.terrainSeed);
+            HasTerrainBaseline = true;
+            hasRunTerrainBaselinePhase = true;
+            return true;
+        }
+    }
+
+    private bool EnsureContext()
+    {
+        if (HasValidContext)
+        {
+            return true;
+        }
+
+        using (ValidateMarker.Auto())
+        {
+            if (!TryCreateContext(out MiningRestoreContext context))
+            {
+                enabled = false;
+                return false;
+            }
+
+            Context = context;
+            HasValidContext = true;
             return true;
         }
     }
