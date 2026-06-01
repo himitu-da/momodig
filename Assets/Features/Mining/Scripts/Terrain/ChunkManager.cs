@@ -17,7 +17,6 @@ public class ChunkManager : MonoBehaviour
 
     [Header("Persistence Restoration")]
     [SerializeField] private MiningSceneRestoreCoordinator restoreCoordinator;
-    [SerializeField] private TorchPlacementManager torchPlacementManager;
 
     private float chunkUpdateInterval = 0.3f; // チャンクの更新間隔
     private float timeSinceLastChunkUpdate = 0f;
@@ -31,7 +30,6 @@ public class ChunkManager : MonoBehaviour
     private TerrainManager terrainManager;
     private CancellationTokenSource cancellationTokenSource;
     private bool blockGenerationSettingsErrorLogged;
-    private bool torchPlacementManagerMissingErrorLogged;
     private bool restoreCoordinatorMissingErrorLogged;
 
     public void Initialize(TerrainManager manager)
@@ -311,9 +309,6 @@ public class ChunkManager : MonoBehaviour
         activeChunks.Add(chunkPos, newChunk);
         restoreCoordinator.NotifyChunkGenerated(chunkPos);
 
-        // このチャンクに対応する復元対象を遅延ロード
-        LoadItemsWithDelay(chunkPos).Forget();
-
         return newChunk;
     }
 
@@ -502,30 +497,5 @@ public class ChunkManager : MonoBehaviour
         float worldY = blockPos.y * settings.blockSize;
 
         return new Vector3(worldX, worldY, settings.center.z);
-    }
-
-    private async UniTask LoadItemsWithDelay(Vector3Int chunkPos)
-    {
-        if (terrainManager == null) return;
-        
-        // 指定された時間だけ待機
-        await UniTask.Delay(System.TimeSpan.FromSeconds(terrainManager.Settings.itemLoadDelay), cancellationToken: cancellationTokenSource.Token);
-
-        if (cancellationTokenSource.IsCancellationRequested) return;
-
-        if (torchPlacementManager == null)
-        {
-            if (!torchPlacementManagerMissingErrorLogged)
-            {
-                torchPlacementManagerMissingErrorLogged = true;
-                Debug.LogError("ChunkManager: TorchPlacementManager is not assigned. Cannot load persisted torches.", this);
-            }
-        }
-        else
-        {
-            torchPlacementManager.LoadTorchesInChunk(chunkPos);
-        }
-
-        // Dropped items are restored by MiningSceneRestoreCoordinator after chunk restoration.
     }
 }

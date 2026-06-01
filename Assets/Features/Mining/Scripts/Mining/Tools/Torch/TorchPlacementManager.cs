@@ -23,7 +23,6 @@ public class TorchPlacementManager : MonoBehaviour
 
     [Header("Placement")]
     [SerializeField] private Vector3 placementOffset = Vector3.zero;
-    [SerializeField] private bool restorePersistedTorchesOnEnable = true;
 
     private readonly Dictionary<VoxelCellKey, TorchPlacedObject> torchesByPlacementAnchor =
         new Dictionary<VoxelCellKey, TorchPlacedObject>();
@@ -121,13 +120,6 @@ public class TorchPlacementManager : MonoBehaviour
         GameDataPersistenceManager.OnFacilityUpgradesChanged += ApplyEnhancements;
         ApplyEnhancements();
         SubscribeTerrainChanges();
-
-        if (!restorePersistedTorchesOnEnable || preparedPersistedTorchLoading)
-        {
-            return;
-        }
-
-        PreparePersistedTorchLoading();
     }
 
     private void OnDisable()
@@ -234,11 +226,6 @@ public class TorchPlacementManager : MonoBehaviour
 
     public void LoadTorchesInChunk(Vector3Int chunkPosition)
     {
-        if (!restorePersistedTorchesOnEnable)
-        {
-            return;
-        }
-
         if (!preparedPersistedTorchLoading)
         {
             PreparePersistedTorchLoading();
@@ -302,7 +289,7 @@ public class TorchPlacementManager : MonoBehaviour
         }
     }
 
-    private void PreparePersistedTorchLoading()
+    public void PreparePersistedTorchLoading()
     {
         using (RestoreTorchesMarker.Auto())
         {
