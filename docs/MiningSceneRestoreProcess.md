@@ -110,6 +110,8 @@ camera snap と scene presentation restore は操作解除より早く実行し�
 
 この処理は 3x3 の完了時点で開始し、その後に復元された chunk は chunk ごとに同じ通常ライフサイクルへ参加する。半径5全体の生成完了を待って一括再計算する形にはしない。
 
+明るさ計算と表示反映の詳細は `docs/MiningBrightnessSystem.md` にまとめる。
+
 ## 現在移動済みの復元責務
 
 Coordinator 配下へ寄せているもの:

@@ -64,11 +64,11 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
         using (ApplyBrightnessMarker.Auto())
         {
             int remainingCellBudget = Mathf.Max(1, maxBrightnessCellsPerFrame);
-            ApplyQueuedBlockRefreshes(ref remainingCellBudget);
-
+            int appliedDirtyCells = ApplyDirtyBrightnessCells(remainingCellBudget);
+            remainingCellBudget -= appliedDirtyCells;
             if (remainingCellBudget > 0)
             {
-                ApplyDirtyBrightnessCells(remainingCellBudget);
+                ApplyQueuedBlockRefreshes(ref remainingCellBudget);
             }
         }
     }
@@ -99,11 +99,11 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
             {
                 Vector3Int localCell = activeBlockRefresh.localCells[activeBlockRefresh.nextLocalCellIndex];
                 VoxelCellKey key = new VoxelCellKey(activeBlockRefresh.block.BlockPosition, localCell);
-                float brightness = lightManager.TryGetBrightness(key, out float resolvedBrightness)
-                    ? resolvedBrightness
-                    : 0f;
+                if (lightManager.TryGetBrightness(key, out float resolvedBrightness))
+                {
+                    activeBlockRefresh.block.ApplyBrightness(key, resolvedBrightness);
+                }
 
-                activeBlockRefresh.block.ApplyBrightness(key, brightness);
                 activeBlockRefresh.nextLocalCellIndex++;
                 remainingCellBudget--;
             }
@@ -115,7 +115,7 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
         }
     }
 
-    private void ApplyDirtyBrightnessCells(int maxCells)
+    private int ApplyDirtyBrightnessCells(int maxCells)
     {
         int drained = lightManager.DrainDirtyBrightnessCells(dirtyBrightnessCells, maxCells);
         for (int i = 0; i < drained; i++)
@@ -133,6 +133,8 @@ public class MiningTerrainBrightnessApplier : MonoBehaviour
 
             blockInstance.block.ApplyBrightness(key, brightness);
         }
+
+        return drained;
     }
 
     private void HandleTerrainCellsChanged(TerrainChangeBatch change)
