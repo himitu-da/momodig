@@ -3688,6 +3688,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerTransform: {fileID: 672003891}
   renderDistanceInChunks: 5
+  restoreCoordinator: {fileID: 2071865106}
   torchPlacementManager: {fileID: 1199508974}
 --- !u!1 &2027667581
 GameObject:

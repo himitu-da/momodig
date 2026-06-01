@@ -1,15 +1,22 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Unity.Profiling;
 using Cysharp.Threading.Tasks;
 using System.Threading;
 
 public class ChunkManager : MonoBehaviour
 {
+    private static readonly ProfilerMarker RegisterChunkGenerationMarker =
+        new ProfilerMarker("ChunkManager.RegisterChunkGeneration");
+    private static readonly ProfilerMarker MarkBlockGenerationProcessedMarker =
+        new ProfilerMarker("ChunkManager.MarkBlockGenerationProcessed");
+
     [Header("Dynamic Generation")]
     [SerializeField] private Transform playerTransform; // プレイヤーのTransform
     [SerializeField] private int renderDistanceInChunks = 5; // チャンクの描画距離
 
     [Header("Persistence Restoration")]
+    [SerializeField] private MiningSceneRestoreCoordinator restoreCoordinator;
     [SerializeField] private TorchPlacementManager torchPlacementManager;
 
     private float chunkUpdateInterval = 0.3f; // チャンクの更新間隔
@@ -18,11 +25,14 @@ public class ChunkManager : MonoBehaviour
     private Dictionary<Vector3Int, Chunk> activeChunks = new Dictionary<Vector3Int, Chunk>();
     private readonly List<Vector3Int> _blockGenerationList = new List<Vector3Int>();
     private readonly HashSet<Vector3Int> _processedBlocks = new HashSet<Vector3Int>(); // 生成済み or キュー済みのブロック
+    private readonly Dictionary<Vector3Int, int> pendingBlockCountsByChunk = new Dictionary<Vector3Int, int>();
+    private readonly HashSet<Vector3Int> restoredChunks = new HashSet<Vector3Int>();
 
     private TerrainManager terrainManager;
     private CancellationTokenSource cancellationTokenSource;
     private bool blockGenerationSettingsErrorLogged;
     private bool torchPlacementManagerMissingErrorLogged;
+    private bool restoreCoordinatorMissingErrorLogged;
 
     public void Initialize(TerrainManager manager)
     {
@@ -57,6 +67,11 @@ public class ChunkManager : MonoBehaviour
 
     public void GenerateTerrain()
     {
+        if (!ValidateRestoreCoordinator())
+        {
+            return;
+        }
+
         terrainManager.BlockGenerator.ResetRandom(terrainManager.Settings.seed);
         if (terrainManager.showDebugInfo)
         {
@@ -89,12 +104,15 @@ public class ChunkManager : MonoBehaviour
             return distA.CompareTo(distB);
         });
 
+        restoreCoordinator.BeginInitialChunkRestore(playerChunkPos, sortedChunks);
+
         foreach (var chunkPos in sortedChunks)
         {
             if (!activeChunks.ContainsKey(chunkPos))
             {
                 GetOrCreateChunkFromPosition(chunkPos);
                 List<Vector3Int> chunkBlocks = GetBlockPositionsInChunk(chunkPos);
+                RegisterChunkGeneration(chunkPos, chunkBlocks.Count);
                 
                 chunkBlocks.Sort((a, b) => 
                 {
@@ -118,6 +136,11 @@ public class ChunkManager : MonoBehaviour
 
     private void UpdateChunks()
     {
+        if (!ValidateRestoreCoordinator())
+        {
+            return;
+        }
+
         Vector3Int newPlayerChunkPos = GetChunkPositionFromWorld(playerTransform.position);
         if (newPlayerChunkPos == currentPlayerChunk && activeChunks.Count > 0) return;
         
@@ -148,6 +171,7 @@ public class ChunkManager : MonoBehaviour
         {
             GetOrCreateChunkFromPosition(chunkPos);
             List<Vector3Int> blocksInChunk = GetBlockPositionsInChunk(chunkPos);
+            RegisterChunkGeneration(chunkPos, blocksInChunk.Count);
             
             blocksInChunk.Sort((a, b) => 
             {
@@ -190,6 +214,7 @@ public class ChunkManager : MonoBehaviour
                     Vector3Int blockPos = _blockGenerationList[0];
                     _blockGenerationList.RemoveAt(0);
                     GenerateSingleBlock(blockPos);
+                    MarkBlockGenerationProcessed(blockPos);
                     processedCount++;
                 }
             }
@@ -221,6 +246,11 @@ public class ChunkManager : MonoBehaviour
     private void GenerateSingleBlock(Vector3Int blockPos)
     {
         Chunk chunk = GetOrCreateChunk(blockPos);
+        if (chunk == null)
+        {
+            return;
+        }
+
         Vector3 worldPos = GetBlockWorldPosition(blockPos);
 
         // 論理座標に基づいて、生成すべきブロックのデータを取得
@@ -264,6 +294,11 @@ public class ChunkManager : MonoBehaviour
 
     private Chunk GetOrCreateChunkFromPosition(Vector3Int chunkPos)
     {
+        if (!ValidateRestoreCoordinator())
+        {
+            return null;
+        }
+
         if (activeChunks.TryGetValue(chunkPos, out Chunk chunk))
         {
             return chunk;
@@ -274,6 +309,7 @@ public class ChunkManager : MonoBehaviour
         Chunk newChunk = chunkObj.AddComponent<Chunk>();
         newChunk.Initialize(chunkPos);
         activeChunks.Add(chunkPos, newChunk);
+        restoreCoordinator.NotifyChunkGenerated(chunkPos);
 
         // このチャンクに対応する復元対象を遅延ロード
         LoadItemsWithDelay(chunkPos).Forget();
@@ -283,6 +319,11 @@ public class ChunkManager : MonoBehaviour
 
     public void ClearChunks()
     {
+        if (!ValidateRestoreCoordinator())
+        {
+            return;
+        }
+
         cancellationTokenSource?.Cancel();
         cancellationTokenSource?.Dispose();
         cancellationTokenSource = new CancellationTokenSource();
@@ -296,6 +337,71 @@ public class ChunkManager : MonoBehaviour
         activeChunks.Clear();
         _blockGenerationList.Clear();
         _processedBlocks.Clear();
+        pendingBlockCountsByChunk.Clear();
+        restoredChunks.Clear();
+        restoreCoordinator.ResetChunkRestoreTracking();
+    }
+
+    private void RegisterChunkGeneration(Vector3Int chunkPos, int blockCount)
+    {
+        using (RegisterChunkGenerationMarker.Auto())
+        {
+            restoredChunks.Remove(chunkPos);
+            pendingBlockCountsByChunk[chunkPos] = blockCount;
+            if (blockCount == 0)
+            {
+                MarkChunkRestored(chunkPos);
+            }
+        }
+    }
+
+    private void MarkBlockGenerationProcessed(Vector3Int blockPos)
+    {
+        using (MarkBlockGenerationProcessedMarker.Auto())
+        {
+            Vector3Int chunkPos = GetChunkPositionFromBlock(blockPos);
+            if (!pendingBlockCountsByChunk.TryGetValue(chunkPos, out int remainingBlocks))
+            {
+                return;
+            }
+
+            remainingBlocks--;
+            if (remainingBlocks > 0)
+            {
+                pendingBlockCountsByChunk[chunkPos] = remainingBlocks;
+                return;
+            }
+
+            pendingBlockCountsByChunk.Remove(chunkPos);
+            MarkChunkRestored(chunkPos);
+        }
+    }
+
+    private void MarkChunkRestored(Vector3Int chunkPos)
+    {
+        if (!restoredChunks.Add(chunkPos))
+        {
+            return;
+        }
+
+        restoreCoordinator.NotifyChunkRestored(chunkPos);
+    }
+
+    private bool ValidateRestoreCoordinator()
+    {
+        if (restoreCoordinator != null)
+        {
+            restoreCoordinatorMissingErrorLogged = false;
+            return true;
+        }
+
+        if (!restoreCoordinatorMissingErrorLogged)
+        {
+            restoreCoordinatorMissingErrorLogged = true;
+            Debug.LogError("ChunkManager: MiningSceneRestoreCoordinator is not assigned.", this);
+        }
+
+        return false;
     }
 
     public Vector3Int GetChunkPositionFromWorld(Vector3 worldPosition)

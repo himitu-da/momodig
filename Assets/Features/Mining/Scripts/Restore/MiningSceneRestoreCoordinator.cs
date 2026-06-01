@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Profiling;
 using UnityEngine;
 
@@ -14,6 +15,12 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         new ProfilerMarker("MiningSceneRestoreCoordinator.TerrainInitialization");
     private static readonly ProfilerMarker ChunkRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.ChunkRestore");
+    private static readonly ProfilerMarker ChunkGeneratedMarker =
+        new ProfilerMarker("MiningSceneRestoreCoordinator.ChunkGenerated");
+    private static readonly ProfilerMarker ChunkRestoredMarker =
+        new ProfilerMarker("MiningSceneRestoreCoordinator.ChunkRestored");
+    private static readonly ProfilerMarker InitialChunkRestoreMarker =
+        new ProfilerMarker("MiningSceneRestoreCoordinator.InitialChunkRestore");
     private static readonly ProfilerMarker PlayerRestoreMarker =
         new ProfilerMarker("MiningSceneRestoreCoordinator.PlayerRestore");
     private static readonly ProfilerMarker PostRestoreMarker =
@@ -38,9 +45,22 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
     public bool HasTerrainBaseline { get; private set; }
     public bool IsCompleted { get; private set; }
     public MiningRestoreContext Context { get; private set; }
+    public bool HasPlayerChunkPosition { get; private set; }
+    public Vector3Int PlayerChunkPosition { get; private set; }
+    public bool IsPlayerChunkGenerated => HasPlayerChunkPosition && generatedChunks.Contains(PlayerChunkPosition);
+    public bool IsPlayerChunkRestored => HasPlayerChunkPosition && restoredChunks.Contains(PlayerChunkPosition);
+    public int InitialChunkCount => initialChunks.Count;
+    public int RestoredInitialChunkCount => restoredInitialChunks.Count;
+    public bool IsInitialChunkRestoreComplete { get; private set; }
 
     private bool hasRunValidatePhase;
     private bool hasRunTerrainBaselinePhase;
+    private bool hasRunTerrainInitializationPhase;
+    private bool hasCompletedInitialChunkRestore;
+    private readonly HashSet<Vector3Int> generatedChunks = new HashSet<Vector3Int>();
+    private readonly HashSet<Vector3Int> restoredChunks = new HashSet<Vector3Int>();
+    private readonly HashSet<Vector3Int> initialChunks = new HashSet<Vector3Int>();
+    private readonly HashSet<Vector3Int> restoredInitialChunks = new HashSet<Vector3Int>();
 
     private void Awake()
     {
@@ -67,12 +87,7 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
                 return;
             }
 
-            RunPhase(MiningRestorePhase.TerrainInitialization, TerrainInitializationMarker);
-            RunPhase(MiningRestorePhase.ChunkRestore, ChunkRestoreMarker);
-            RunPhase(MiningRestorePhase.PlayerRestore, PlayerRestoreMarker);
-            RunPhase(MiningRestorePhase.PostRestore, PostRestoreMarker);
-            RunPhase(MiningRestorePhase.Completed, CompletedMarker);
-            IsCompleted = true;
+            RunTerrainInitializationPhase();
         }
     }
 
@@ -89,6 +104,68 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         }
 
         return RunTerrainBaselinePhase(persistenceManager);
+    }
+
+    public void ResetChunkRestoreTracking()
+    {
+        using (InitialChunkRestoreMarker.Auto())
+        {
+            generatedChunks.Clear();
+            restoredChunks.Clear();
+            initialChunks.Clear();
+            restoredInitialChunks.Clear();
+            HasPlayerChunkPosition = false;
+            PlayerChunkPosition = default;
+            IsInitialChunkRestoreComplete = false;
+            hasCompletedInitialChunkRestore = false;
+            IsCompleted = false;
+        }
+    }
+
+    public void BeginInitialChunkRestore(Vector3Int playerChunkPosition, IReadOnlyList<Vector3Int> chunkPositions)
+    {
+        using (InitialChunkRestoreMarker.Auto())
+        {
+            ResetChunkRestoreTracking();
+            RunTerrainInitializationPhase();
+            SetCurrentPhase(MiningRestorePhase.ChunkRestore);
+            HasPlayerChunkPosition = true;
+            PlayerChunkPosition = playerChunkPosition;
+
+            if (chunkPositions == null)
+            {
+                Debug.LogError("MiningSceneRestoreCoordinator: initial chunk list is not configured.", this);
+                return;
+            }
+
+            for (int i = 0; i < chunkPositions.Count; i++)
+            {
+                initialChunks.Add(chunkPositions[i]);
+            }
+
+            UpdateInitialChunkRestoreCompletion();
+        }
+    }
+
+    public void NotifyChunkGenerated(Vector3Int chunkPosition)
+    {
+        using (ChunkGeneratedMarker.Auto())
+        {
+            generatedChunks.Add(chunkPosition);
+        }
+    }
+
+    public void NotifyChunkRestored(Vector3Int chunkPosition)
+    {
+        using (ChunkRestoredMarker.Auto())
+        {
+            restoredChunks.Add(chunkPosition);
+            if (initialChunks.Contains(chunkPosition))
+            {
+                restoredInitialChunks.Add(chunkPosition);
+                UpdateInitialChunkRestoreCompletion();
+            }
+        }
     }
 
     private bool RunValidatePhase(GameDataPersistenceManager persistenceManager)
@@ -114,6 +191,17 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
 
             return true;
         }
+    }
+
+    private void RunTerrainInitializationPhase()
+    {
+        if (hasRunTerrainInitializationPhase)
+        {
+            return;
+        }
+
+        hasRunTerrainInitializationPhase = true;
+        RunPhase(MiningRestorePhase.TerrainInitialization, TerrainInitializationMarker);
     }
 
     private bool RunTerrainBaselinePhase(GameDataPersistenceManager persistenceManager)
@@ -232,5 +320,35 @@ public sealed class MiningSceneRestoreCoordinator : MonoBehaviour
         {
             Debug.Log($"MiningSceneRestoreCoordinator: {phase}", this);
         }
+    }
+
+    private void UpdateInitialChunkRestoreCompletion()
+    {
+        if (IsInitialChunkRestoreComplete)
+        {
+            return;
+        }
+
+        if (initialChunks.Count == 0 || restoredInitialChunks.Count < initialChunks.Count)
+        {
+            return;
+        }
+
+        IsInitialChunkRestoreComplete = true;
+        CompleteInitialChunkRestore();
+    }
+
+    private void CompleteInitialChunkRestore()
+    {
+        if (hasCompletedInitialChunkRestore)
+        {
+            return;
+        }
+
+        hasCompletedInitialChunkRestore = true;
+        RunPhase(MiningRestorePhase.PlayerRestore, PlayerRestoreMarker);
+        RunPhase(MiningRestorePhase.PostRestore, PostRestoreMarker);
+        RunPhase(MiningRestorePhase.Completed, CompletedMarker);
+        IsCompleted = true;
     }
 }
