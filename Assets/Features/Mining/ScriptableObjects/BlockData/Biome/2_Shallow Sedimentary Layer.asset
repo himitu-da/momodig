@@ -285,6 +285,59 @@ MonoBehaviour:
       specialWeightFunction: 0
       specialFunctionK: 1
     - resultType: 0
+      blockData: {fileID: 11400000, guid: ca59c018180eeac43875f641c7f89c96, type: 2}
+      baseWeight: 1
+      depthCurve:
+        serializedVersion: 2
+        m_Curve:
+        - serializedVersion: 3
+          time: -100
+          value: 0.15
+          inSlope: -0.00001670996
+          outSlope: -0.00001670996
+          tangentMode: 0
+          weightedMode: 0
+          inWeight: 0
+          outWeight: 0.5238093
+        - serializedVersion: 3
+          time: -11
+          value: 0.03
+          inSlope: -0.0013483147
+          outSlope: -0.0013483147
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0.33333334
+          outWeight: 0
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      horizontalCurve:
+        serializedVersion: 2
+        m_Curve:
+        - serializedVersion: 3
+          time: 0
+          value: 1
+          inSlope: 0
+          outSlope: 0
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0
+          outWeight: 0
+        - serializedVersion: 3
+          time: 1
+          value: 1
+          inSlope: 0
+          outSlope: 0
+          tangentMode: 34
+          weightedMode: 0
+          inWeight: 0
+          outWeight: 0
+        m_PreInfinity: 2
+        m_PostInfinity: 2
+        m_RotationOrder: 4
+      specialWeightFunction: 0
+      specialFunctionK: 1
+    - resultType: 0
       blockData: {fileID: 11400000, guid: dc1facb2895014144b7a8f87018ef898, type: 2}
       baseWeight: 1
       depthCurve:

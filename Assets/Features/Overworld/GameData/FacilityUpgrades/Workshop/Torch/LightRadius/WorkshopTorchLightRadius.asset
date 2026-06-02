@@ -26,5 +26,7 @@ MonoBehaviour:
     baseAmount: 3
   - resourceType: 9
     baseAmount: 3
+  - resourceType: 12
+    baseAmount: 3
   enhancements:
   - {fileID: 11400000, guid: 48a181f9547f48ac801259801dfe1993, type: 2}

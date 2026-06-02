@@ -17,7 +17,8 @@ public enum ResourceType
     Silicon = 8,
     Cobalt = 9,
     Titanium = 10,
-    DragonGem = 11
+    DragonGem = 11,
+    Coal = 12
 }
 
 /// <summary>
@@ -58,6 +59,8 @@ public static class ResourceTypeUtility
                 return new Color(0.6f, 0.6f, 0.65f); // 銀灰色の金属色
             case ResourceType.DragonGem:
                 return Color.white; // 虹色表現はシェーダー等で別途対応
+            case ResourceType.Coal:
+                return new Color(0.08f, 0.08f, 0.08f);
             default: 
                 return Color.white;
         }
@@ -84,6 +87,7 @@ public static class ResourceTypeUtility
             case ResourceType.Cobalt: return "コバルト";
             case ResourceType.Titanium: return "チタン";
             case ResourceType.DragonGem: return "龍珠";
+            case ResourceType.Coal: return "石炭";
             default: return resourceType.ToString();
         }
     }
@@ -109,6 +113,7 @@ public static class ResourceTypeUtility
             case ResourceType.Cobalt: return 15;
             case ResourceType.Titanium: return 25;
             case ResourceType.DragonGem: return 200;
+            case ResourceType.Coal: return 2;
             default: return 1;
         }
     }
