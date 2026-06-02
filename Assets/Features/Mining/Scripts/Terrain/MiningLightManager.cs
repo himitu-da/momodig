@@ -1,9 +1,12 @@
 using System.Collections.Generic;
+using System.Globalization;
 using Unity.Profiling;
 using UnityEngine;
 
 public class MiningLightManager : MonoBehaviour
 {
+    private const int LightingCacheVersion = 1;
+
     private static readonly ProfilerMarker RestartPropagationMarker = new ProfilerMarker("MiningLightManager.RestartPropagation");
     private static readonly ProfilerMarker PropagationStepMarker = new ProfilerMarker("MiningLightManager.PropagationStep");
     private static readonly ProfilerMarker BurstLightUpdateMarker = new ProfilerMarker("MiningLightManager.BurstLightUpdate");
@@ -134,6 +137,7 @@ public class MiningLightManager : MonoBehaviour
     private bool hasCalculated;
     private bool invalidSourceLogged;
     private bool noPropagationSourceLogged;
+    private bool lightingCacheNeedsPublish;
 
     private readonly struct LightSourceCell
     {
@@ -141,17 +145,20 @@ public class MiningLightManager : MonoBehaviour
         public readonly string sourceName;
         public readonly MiningLightProfile profile;
         public readonly VoxelCellKey key;
+        public readonly bool includeInLightingCache;
 
         public LightSourceCell(
             object sourceKey,
             string sourceName,
             MiningLightProfile profile,
-            VoxelCellKey key)
+            VoxelCellKey key,
+            bool includeInLightingCache)
         {
             this.sourceKey = sourceKey;
             this.sourceName = sourceName;
             this.profile = profile;
             this.key = key;
+            this.includeInLightingCache = includeInLightingCache;
         }
     }
 
@@ -745,6 +752,8 @@ public class MiningLightManager : MonoBehaviour
         {
             ProcessPropagationStep();
         }
+
+        PublishLightingCacheIfStable();
     }
 
     private void UpdateBurstLightSources()
@@ -877,7 +886,7 @@ public class MiningLightManager : MonoBehaviour
                 continue;
             }
 
-            buffer.Add(new LightSourceCell(source, source.name, profile, sourceCell));
+            buffer.Add(new LightSourceCell(source, source.name, profile, sourceCell, source.IncludeInLightingCache));
         }
 
         for (int i = temporaryLightSources.Count - 1; i >= 0; i--)
@@ -905,7 +914,7 @@ public class MiningLightManager : MonoBehaviour
                 continue;
             }
 
-            buffer.Add(new LightSourceCell(source, source.sourceName, source.profile, sourceCell));
+            buffer.Add(new LightSourceCell(source, source.sourceName, source.profile, sourceCell, false));
         }
 
         if (foundInvalidSource)
@@ -985,6 +994,11 @@ public class MiningLightManager : MonoBehaviour
                 if (!restartForTerrain && !HasLightSourceChanged(lightSource))
                 {
                     EnsureActiveLightStateQueued(state);
+                    continue;
+                }
+
+                if (TryHydrateLightStateFromCache(lightSource, state))
+                {
                     continue;
                 }
 
@@ -1881,6 +1895,7 @@ public class MiningLightManager : MonoBehaviour
             {
                 RemoveDisplayChildIndex(state, key, existing);
                 state.displayBrightness.Remove(key);
+                lightingCacheNeedsPublish = true;
                 RecomposeBrightnessCell(key);
             }
             return;
@@ -1904,6 +1919,7 @@ public class MiningLightManager : MonoBehaviour
             hasPredecessor,
             predecessor,
             state.nextDisplayRevision++);
+        lightingCacheNeedsPublish = true;
         RecomposeBrightnessCell(key);
     }
 
@@ -2082,6 +2098,7 @@ public class MiningLightManager : MonoBehaviour
         lightStates.Remove(sourceKey);
         activeLightStateSet.Remove(state);
         activeLightStates.Remove(state);
+        lightingCacheNeedsPublish = true;
         for (int i = 0; i < reusableCellBuffer.Count; i++)
         {
             RecomposeBrightnessCell(reusableCellBuffer[i]);
@@ -2352,6 +2369,346 @@ public class MiningLightManager : MonoBehaviour
                 state.activeRuns[j]?.ClearCellStateCaches();
             }
         }
+    }
+
+    private bool TryHydrateLightStateFromCache(LightSourceCell sourceCell, LightRuntimeState state)
+    {
+        if (!sourceCell.includeInLightingCache)
+        {
+            return false;
+        }
+
+        if (state == null)
+        {
+            Debug.LogError("MiningLightManager: light runtime state is null while hydrating lighting cache.", this);
+            return false;
+        }
+
+        if (!TryGetValidLightingCache(out MiningLightingCacheData cache))
+        {
+            return false;
+        }
+
+        string sourceSignature = BuildSourceSignature(sourceCell.key, sourceCell.profile);
+        if (!TryFindSourceCacheRecord(cache, sourceSignature, out MiningLightingSourceCacheRecord sourceRecord))
+        {
+            return false;
+        }
+
+        if (sourceRecord.cells == null || sourceRecord.cells.Count == 0)
+        {
+            Debug.LogError($"MiningLightManager: lighting cache source '{sourceSignature}' has no cells.", this);
+            return false;
+        }
+
+        ClearSourceDisplayState(state);
+        state.sourceName = sourceCell.sourceName;
+        state.profile = sourceCell.profile;
+        state.latestFullSourceSequence = 0;
+        state.nextRunSequence = 1;
+        state.nextDisplayRevision = 0;
+        state.activeRuns.Clear();
+        activeLightStateSet.Remove(state);
+        activeLightStates.Remove(state);
+
+        reusableCellBuffer.Clear();
+        int maxRevision = -1;
+        for (int i = 0; i < sourceRecord.cells.Count; i++)
+        {
+            MiningLightingCellCacheRecord cell = sourceRecord.cells[i];
+            if (cell == null)
+            {
+                Debug.LogError($"MiningLightManager: lighting cache source '{sourceSignature}' contains a null cell at index {i}.", this);
+                continue;
+            }
+
+            if (cell.brightness <= 0f)
+            {
+                continue;
+            }
+
+            VoxelCellKey key = new VoxelCellKey(cell.blockPosition, cell.localVoxelPosition);
+            if (state.displayBrightness.ContainsKey(key))
+            {
+                Debug.LogError(
+                    $"MiningLightManager: lighting cache source '{sourceSignature}' contains duplicate cell {key.blockPosition}/{key.localVoxelPosition}.",
+                    this);
+                continue;
+            }
+
+            VoxelCellKey predecessor = new VoxelCellKey(
+                cell.predecessorBlockPosition,
+                cell.predecessorLocalVoxelPosition);
+            int revision = Mathf.Max(0, cell.revision);
+            UpdateDisplayChildIndex(
+                state,
+                key,
+                false,
+                default,
+                cell.hasPredecessor,
+                predecessor);
+            state.displayBrightness[key] = new SourceCellDisplay(
+                0,
+                Mathf.Clamp01(cell.brightness),
+                Mathf.Max(0, cell.distanceFromSourceCells),
+                cell.hasPredecessor,
+                predecessor,
+                revision);
+            reusableCellBuffer.Add(key);
+            maxRevision = Mathf.Max(maxRevision, revision);
+        }
+
+        if (state.displayBrightness.Count == 0)
+        {
+            Debug.LogError($"MiningLightManager: lighting cache source '{sourceSignature}' did not restore any valid cells.", this);
+            reusableCellBuffer.Clear();
+            return false;
+        }
+
+        state.nextDisplayRevision = maxRevision + 1;
+        for (int i = 0; i < reusableCellBuffer.Count; i++)
+        {
+            RecomposeBrightnessCell(reusableCellBuffer[i]);
+        }
+
+        reusableCellBuffer.Clear();
+        return true;
+    }
+
+    private bool TryGetValidLightingCache(out MiningLightingCacheData cache)
+    {
+        cache = null;
+        GameDataPersistenceManager persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager == null)
+        {
+            return false;
+        }
+
+        MiningLightingCacheData candidate = persistenceManager.miningLightingCache;
+        if (candidate == null)
+        {
+            return false;
+        }
+
+        if (candidate.cacheVersion != LightingCacheVersion)
+        {
+            return false;
+        }
+
+        if (candidate.terrainStateHash != persistenceManager.CalculateLightingTerrainStateHash())
+        {
+            return false;
+        }
+
+        if (candidate.sourceCaches == null)
+        {
+            Debug.LogError("MiningLightManager: lighting cache source list is null.", this);
+            return false;
+        }
+
+        cache = candidate;
+        return true;
+    }
+
+    private bool TryFindSourceCacheRecord(
+        MiningLightingCacheData cache,
+        string sourceSignature,
+        out MiningLightingSourceCacheRecord sourceRecord)
+    {
+        sourceRecord = null;
+        if (cache == null || cache.sourceCaches == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < cache.sourceCaches.Count; i++)
+        {
+            MiningLightingSourceCacheRecord candidate = cache.sourceCaches[i];
+            if (candidate == null)
+            {
+                Debug.LogError($"MiningLightManager: lighting cache contains a null source record at index {i}.", this);
+                continue;
+            }
+
+            if (candidate.sourceSignature == sourceSignature)
+            {
+                sourceRecord = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void ClearSourceDisplayState(LightRuntimeState state)
+    {
+        if (state == null)
+        {
+            Debug.LogError("MiningLightManager: light runtime state is null while clearing source display state.", this);
+            return;
+        }
+
+        reusableCellBuffer.Clear();
+        foreach (KeyValuePair<VoxelCellKey, SourceCellDisplay> pair in state.displayBrightness)
+        {
+            reusableCellBuffer.Add(pair.Key);
+        }
+
+        state.displayBrightness.Clear();
+        state.displayChildrenByCell.Clear();
+        for (int i = 0; i < reusableCellBuffer.Count; i++)
+        {
+            RecomposeBrightnessCell(reusableCellBuffer[i]);
+        }
+
+        reusableCellBuffer.Clear();
+    }
+
+    private void PublishLightingCacheIfStable()
+    {
+        if (!lightingCacheNeedsPublish ||
+            !hasCalculated ||
+            activeLightStates.Count > 0 ||
+            pendingTerrainRepairRequests.Count > 0)
+        {
+            return;
+        }
+
+        GameDataPersistenceManager persistenceManager = GameDataPersistenceManager.Instance;
+        if (persistenceManager == null)
+        {
+            return;
+        }
+
+        MiningLightingCacheData cache = CaptureLightingCache(persistenceManager);
+        persistenceManager.miningLightingCache = cache.sourceCaches.Count > 0 ? cache : null;
+        lightingCacheNeedsPublish = false;
+    }
+
+    private MiningLightingCacheData CaptureLightingCache(GameDataPersistenceManager persistenceManager)
+    {
+        MiningLightingCacheData cache = new MiningLightingCacheData
+        {
+            cacheVersion = LightingCacheVersion,
+            terrainStateHash = persistenceManager.CalculateLightingTerrainStateHash()
+        };
+
+        foreach (KeyValuePair<object, LightRuntimeState> pair in lightStates)
+        {
+            MiningLightSource source = pair.Key as MiningLightSource;
+            if (source == null || !source.IncludeInLightingCache)
+            {
+                continue;
+            }
+
+            LightRuntimeState state = pair.Value;
+            if (state == null || state.profile == null || state.displayBrightness.Count == 0)
+            {
+                continue;
+            }
+
+            if (!lastLightSourceCells.TryGetValue(pair.Key, out VoxelCellKey sourceCell))
+            {
+                continue;
+            }
+
+            cache.sourceCaches.Add(CreateSourceCacheRecord(sourceCell, state));
+        }
+
+        return cache;
+    }
+
+    private MiningLightingSourceCacheRecord CreateSourceCacheRecord(
+        VoxelCellKey sourceCell,
+        LightRuntimeState state)
+    {
+        MiningLightingSourceCacheRecord record = new MiningLightingSourceCacheRecord
+        {
+            sourceSignature = BuildSourceSignature(sourceCell, state.profile),
+            sourceBlockPosition = sourceCell.blockPosition,
+            sourceLocalVoxelPosition = sourceCell.localVoxelPosition,
+            profileSignature = BuildProfileSignature(state.profile)
+        };
+
+        reusableCellBuffer.Clear();
+        foreach (KeyValuePair<VoxelCellKey, SourceCellDisplay> pair in state.displayBrightness)
+        {
+            reusableCellBuffer.Add(pair.Key);
+        }
+
+        reusableCellBuffer.Sort(CompareVoxelCellKey);
+        for (int i = 0; i < reusableCellBuffer.Count; i++)
+        {
+            VoxelCellKey key = reusableCellBuffer[i];
+            SourceCellDisplay display = state.displayBrightness[key];
+            VoxelCellKey predecessor = display.hasPredecessor
+                ? display.predecessor
+                : default;
+            record.cells.Add(new MiningLightingCellCacheRecord
+            {
+                blockPosition = key.blockPosition,
+                localVoxelPosition = key.localVoxelPosition,
+                brightness = display.brightness,
+                distanceFromSourceCells = display.distanceFromSourceCells,
+                hasPredecessor = display.hasPredecessor,
+                predecessorBlockPosition = predecessor.blockPosition,
+                predecessorLocalVoxelPosition = predecessor.localVoxelPosition,
+                revision = display.revision
+            });
+        }
+
+        reusableCellBuffer.Clear();
+        return record;
+    }
+
+    private static string BuildSourceSignature(VoxelCellKey sourceCell, MiningLightProfile profile)
+    {
+        return $"{sourceCell.blockPosition.x},{sourceCell.blockPosition.y},{sourceCell.blockPosition.z}:" +
+               $"{sourceCell.localVoxelPosition.x},{sourceCell.localVoxelPosition.y},{sourceCell.localVoxelPosition.z}|" +
+               BuildProfileSignature(profile);
+    }
+
+    private static string BuildProfileSignature(MiningLightProfile profile)
+    {
+        if (profile == null)
+        {
+            return string.Empty;
+        }
+
+        return $"{profile.name}|" +
+               $"{FormatFloat(profile.Brightness)}|" +
+               $"{(int)profile.PropagationNeighborhood}|" +
+               $"{profile.SourceRadiusCells}|" +
+               $"{profile.FalloffStartDistanceCells}|" +
+               $"{FormatFloat(profile.AirCellTransmission)}|" +
+               $"{FormatFloat(profile.SolidCellTransmission)}|" +
+               $"{FormatFloat(profile.MinBrightness)}|" +
+               $"{profile.MaxPropagationCellsPerLightPerFrame}|" +
+               $"{profile.MaxPropagationCellsPerRunPerFrame}";
+    }
+
+    private static string FormatFloat(float value)
+    {
+        return value.ToString("R", CultureInfo.InvariantCulture);
+    }
+
+    private static int CompareVoxelCellKey(VoxelCellKey left, VoxelCellKey right)
+    {
+        int block = CompareVector3Int(left.blockPosition, right.blockPosition);
+        if (block != 0) return block;
+
+        return CompareVector3Int(left.localVoxelPosition, right.localVoxelPosition);
+    }
+
+    private static int CompareVector3Int(Vector3Int left, Vector3Int right)
+    {
+        int x = left.x.CompareTo(right.x);
+        if (x != 0) return x;
+
+        int y = left.y.CompareTo(right.y);
+        if (y != 0) return y;
+
+        return left.z.CompareTo(right.z);
     }
 
     private void ClearLightState()

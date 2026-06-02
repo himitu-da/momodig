@@ -6,9 +6,11 @@ public class MiningLightSource : MonoBehaviour
     [SerializeField] private MiningLightManager lightManager;
     [SerializeField] private MiningLightProfile profile;
     [SerializeField] private Transform sourceTransform;
+    [SerializeField] private bool includeInLightingCache;
 
     public MiningLightProfile Profile => profile;
     public Transform SourceTransform => sourceTransform;
+    public bool IncludeInLightingCache => includeInLightingCache;
 
     private void OnEnable()
     {
@@ -31,7 +33,8 @@ public class MiningLightSource : MonoBehaviour
     public void Configure(
         MiningLightManager assignedLightManager,
         MiningLightProfile assignedProfile,
-        Transform assignedSourceTransform)
+        Transform assignedSourceTransform,
+        bool cacheablePermanentSource = false)
     {
         if (assignedLightManager == null)
         {
@@ -59,6 +62,7 @@ public class MiningLightSource : MonoBehaviour
         lightManager = assignedLightManager;
         profile = assignedProfile;
         sourceTransform = assignedSourceTransform;
+        includeInLightingCache = cacheablePermanentSource;
 
         if (isActiveAndEnabled)
         {
