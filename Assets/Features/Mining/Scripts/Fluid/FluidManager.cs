@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEngine;
 
 public enum FluidGravityAxis
@@ -26,6 +27,39 @@ public class FluidManager : MonoBehaviour
 {
     private const float MinLitersEpsilon = 0.0001f;
     private const int MaxFillSearchDepth = 32;
+
+    private static readonly ProfilerMarker UpdateMarker =
+        new ProfilerMarker("FluidManager.Update");
+    private static readonly ProfilerMarker StepSimulationMarker =
+        new ProfilerMarker("FluidManager.StepSimulation");
+    private static readonly ProfilerMarker BuildProcessingBufferMarker =
+        new ProfilerMarker("FluidManager.BuildProcessingBuffer");
+    private static readonly ProfilerMarker SortProcessingBufferMarker =
+        new ProfilerMarker("FluidManager.SortProcessingBuffer");
+    private static readonly ProfilerMarker ProcessCellsMarker =
+        new ProfilerMarker("FluidManager.ProcessCells");
+    private static readonly ProfilerMarker CopyQueuedCellsForBudgetMarker =
+        new ProfilerMarker("FluidManager.CopyQueuedCellsForBudget");
+    private static readonly ProfilerMarker ApplyPendingImpulsesMarker =
+        new ProfilerMarker("FluidManager.ApplyPendingImpulses");
+    private static readonly ProfilerMarker SimulateCellMarker =
+        new ProfilerMarker("FluidManager.SimulateCell");
+    private static readonly ProfilerMarker ApplyVelocityTransferMarker =
+        new ProfilerMarker("FluidManager.ApplyVelocityTransfer");
+    private static readonly ProfilerMarker ApplyGravityTransferMarker =
+        new ProfilerMarker("FluidManager.ApplyGravityTransfer");
+    private static readonly ProfilerMarker ApplyLateralTransferMarker =
+        new ProfilerMarker("FluidManager.ApplyLateralTransfer");
+    private static readonly ProfilerMarker TransferLitersMarker =
+        new ProfilerMarker("FluidManager.TransferLiters");
+    private static readonly ProfilerMarker CanFluidMoveIntoCellMarker =
+        new ProfilerMarker("FluidManager.CanFluidMoveIntoCell");
+    private static readonly ProfilerMarker IsDynamicObstacleAtCellMarker =
+        new ProfilerMarker("FluidManager.IsDynamicObstacleAtCell");
+    private static readonly ProfilerMarker IsTerrainSolidAtCellMarker =
+        new ProfilerMarker("FluidManager.IsTerrainSolidAtCell");
+    private static readonly ProfilerMarker QueueCellNeighborhoodMarker =
+        new ProfilerMarker("FluidManager.QueueCellNeighborhood");
 
     [Header("参照設定")]
     [SerializeField, InspectorName("地形マネージャー"), Tooltip("この流体系が参照する TerrainManager です。通常は同じシーンのものを割り当てます。")] private TerrainManager terrainManager;
@@ -136,6 +170,7 @@ public class FluidManager : MonoBehaviour
             return;
         }
 
+        using var updateScope = UpdateMarker.Auto();
         tickTimer += Time.deltaTime;
         while (tickTimer >= simulationTickInterval)
         {
@@ -431,6 +466,7 @@ public class FluidManager : MonoBehaviour
 
     private void StepSimulation(float deltaTime)
     {
+        using var stepScope = StepSimulationMarker.Auto();
         dynamicObstacleCache.Clear();
 
         bool changed = ApplyPendingImpulses();
@@ -446,23 +482,32 @@ public class FluidManager : MonoBehaviour
 
         processingBuffer.Clear();
 
-        int stepBudget = queuedCells.Count <= fullSolveCellThreshold ? queuedCells.Count : maxCellsPerStep;
-        int processCount = Mathf.Min(queuedCells.Count, Mathf.Max(16, stepBudget));
-        if (processCount >= queuedCells.Count)
+        using (BuildProcessingBufferMarker.Auto())
         {
-            processingBuffer.AddRange(queuedCells);
-            queuedCells.Clear();
-        }
-        else
-        {
-            CopyQueuedCellsForBudget(processCount);
+            int stepBudget = queuedCells.Count <= fullSolveCellThreshold ? queuedCells.Count : maxCellsPerStep;
+            int processCount = Mathf.Min(queuedCells.Count, Mathf.Max(16, stepBudget));
+            if (processCount >= queuedCells.Count)
+            {
+                processingBuffer.AddRange(queuedCells);
+                queuedCells.Clear();
+            }
+            else
+            {
+                CopyQueuedCellsForBudget(processCount);
+            }
         }
 
-        processingBuffer.Sort(CompareCellsByGravity);
-
-        for (int i = 0; i < processingBuffer.Count; i++)
+        using (SortProcessingBufferMarker.Auto())
         {
-            changed |= SimulateCell(processingBuffer[i], deltaTime);
+            processingBuffer.Sort(CompareCellsByGravity);
+        }
+
+        using (ProcessCellsMarker.Auto())
+        {
+            for (int i = 0; i < processingBuffer.Count; i++)
+            {
+                changed |= SimulateCell(processingBuffer[i], deltaTime);
+            }
         }
 
         if (changed)
@@ -473,6 +518,7 @@ public class FluidManager : MonoBehaviour
 
     private void CopyQueuedCellsForBudget(int processCount)
     {
+        using var copyScope = CopyQueuedCellsForBudgetMarker.Auto();
         foreach (Vector3Int cell in queuedCells)
         {
             processingBuffer.Add(cell);
@@ -490,6 +536,7 @@ public class FluidManager : MonoBehaviour
 
     private bool ApplyPendingImpulses()
     {
+        using var impulseScope = ApplyPendingImpulsesMarker.Auto();
         bool changed = false;
         while (pendingImpulses.Count > 0)
         {
@@ -578,6 +625,7 @@ public class FluidManager : MonoBehaviour
 
     private bool SimulateCell(Vector3Int cellPosition, float deltaTime)
     {
+        using var simulateScope = SimulateCellMarker.Auto();
         if (!cells.TryGetValue(cellPosition, out FluidCellState cell))
         {
             return false;
@@ -608,6 +656,7 @@ public class FluidManager : MonoBehaviour
 
     private bool ApplyVelocityTransfer(Vector3Int sourcePos, FluidCellState source, float deltaTime)
     {
+        using var velocityScope = ApplyVelocityTransferMarker.Auto();
         if (source.Velocity.sqrMagnitude < 0.0001f)
         {
             return false;
@@ -684,6 +733,7 @@ public class FluidManager : MonoBehaviour
 
     private bool ApplyGravityTransfer(Vector3Int sourcePos, FluidCellState source, float deltaTime)
     {
+        using var gravityScope = ApplyGravityTransferMarker.Auto();
         float rate = Mathf.Max(0.1f, source.Definition.downwardCellVolumesPerSecond) / Mathf.Max(0.01f, source.Definition.viscosity);
         float calculatedTransfer = InternalCellCapacityLiters * rate * flowRateMultiplier * deltaTime;
         // 1回のTickで伝播できる最大量を制限し、一瞬で水が抜け落ちる現象を防止
@@ -729,6 +779,7 @@ public class FluidManager : MonoBehaviour
 
     private bool ApplyLateralTransfer(Vector3Int sourcePos, FluidCellState source, float deltaTime)
     {
+        using var lateralScope = ApplyLateralTransferMarker.Auto();
         if (HasDownwardCapacity(sourcePos, source.Definition))
         {
             return false;
@@ -825,6 +876,7 @@ public class FluidManager : MonoBehaviour
         out FluidCellState target,
         out float moved)
     {
+        using var transferScope = TransferLitersMarker.Auto();
         target = null;
         moved = 0f;
 
@@ -997,6 +1049,7 @@ public class FluidManager : MonoBehaviour
 
     private bool CanFluidMoveIntoCell(Vector3Int cellPosition, FluidDefinition definition)
     {
+        using var canMoveScope = CanFluidMoveIntoCellMarker.Auto();
         if (definition == null)
         {
             return false;
@@ -1025,6 +1078,7 @@ public class FluidManager : MonoBehaviour
 
     private bool IsDynamicObstacleAtCell(Vector3Int cellPosition)
     {
+        using var dynamicObstacleScope = IsDynamicObstacleAtCellMarker.Auto();
         if (dynamicObstacleLayers.value == 0)
         {
             return false;
@@ -1044,6 +1098,7 @@ public class FluidManager : MonoBehaviour
 
     private bool IsTerrainSolidAtCell(Vector3Int cellPosition)
     {
+        using var terrainSolidScope = IsTerrainSolidAtCellMarker.Auto();
         if (terrainManager == null)
         {
             Debug.LogError("FluidManager: TerrainManager is not assigned.", this);
@@ -1199,6 +1254,7 @@ public class FluidManager : MonoBehaviour
 
     private void QueueCellNeighborhood(Vector3Int center, int radius)
     {
+        using var queueScope = QueueCellNeighborhoodMarker.Auto();
         for (int x = -radius; x <= radius; x++)
         {
             for (int y = -radius; y <= radius; y++)

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -7,6 +8,25 @@ using UnityEngine.Rendering;
 public class FluidMeshRenderer : MonoBehaviour
 {
     private const float MinFillRatio = 0.01f;
+
+    private static readonly ProfilerMarker LateUpdateMarker =
+        new ProfilerMarker("FluidMeshRenderer.LateUpdate");
+    private static readonly ProfilerMarker RebuildMeshMarker =
+        new ProfilerMarker("FluidMeshRenderer.RebuildMesh");
+    private static readonly ProfilerMarker GetSnapshotsMarker =
+        new ProfilerMarker("FluidMeshRenderer.GetSnapshots");
+    private static readonly ProfilerMarker BuildAggregatesMarker =
+        new ProfilerMarker("FluidMeshRenderer.BuildAggregates");
+    private static readonly ProfilerMarker AllocateBuffersMarker =
+        new ProfilerMarker("FluidMeshRenderer.AllocateBuffers");
+    private static readonly ProfilerMarker AppendRenderCellsMarker =
+        new ProfilerMarker("FluidMeshRenderer.AppendRenderCells");
+    private static readonly ProfilerMarker AppendRenderCellMarker =
+        new ProfilerMarker("FluidMeshRenderer.AppendRenderCell");
+    private static readonly ProfilerMarker MeshApplyMarker =
+        new ProfilerMarker("FluidMeshRenderer.MeshApply");
+    private static readonly ProfilerMarker MeshRecalculateMarker =
+        new ProfilerMarker("FluidMeshRenderer.MeshRecalculate");
 
     [Header("References")]
     [SerializeField] private FluidManager fluidManager;
@@ -55,6 +75,7 @@ public class FluidMeshRenderer : MonoBehaviour
 
     void LateUpdate()
     {
+        using var lateUpdateScope = LateUpdateMarker.Auto();
         if (meshRenderer != null && meshRenderer.sharedMaterial == null)
         {
             EnsureMaterial();
@@ -80,6 +101,7 @@ public class FluidMeshRenderer : MonoBehaviour
     [ContextMenu("Rebuild Fluid Mesh")]
     public void RebuildMesh()
     {
+        using var rebuildScope = RebuildMeshMarker.Auto();
         if (fluidManager == null || mesh == null)
         {
             return;
@@ -88,32 +110,52 @@ public class FluidMeshRenderer : MonoBehaviour
         lastRebuildTime = Time.unscaledTime;
         lastVersion = fluidManager.Version;
 
-        fluidManager.GetFluidCellSnapshots(snapshots);
-        BuildAggregates();
-
-        List<Vector3> vertices = new List<Vector3>();
-        List<int> triangles = new List<int>();
-        List<Color> colors = new List<Color>();
-
-        foreach (var pair in aggregates)
+        using (GetSnapshotsMarker.Auto())
         {
-            Vector3Int renderCell = pair.Key;
-            RenderCellAggregate aggregate = pair.Value;
-            float fillRatio = GetDisplayFillRatio(aggregate.Liters);
-            if (fillRatio <= 0f || aggregate.Definition == null)
-            {
-                continue;
-            }
-
-            AppendRenderCell(renderCell, fillRatio, aggregate.Definition.tint, vertices, triangles, colors);
+            fluidManager.GetFluidCellSnapshots(snapshots);
         }
 
-        mesh.Clear();
-        mesh.SetVertices(vertices);
-        mesh.SetTriangles(triangles, 0);
-        mesh.SetColors(colors);
-        mesh.RecalculateNormals();
-        mesh.RecalculateBounds();
+        BuildAggregates();
+
+        List<Vector3> vertices;
+        List<int> triangles;
+        List<Color> colors;
+        using (AllocateBuffersMarker.Auto())
+        {
+            vertices = new List<Vector3>();
+            triangles = new List<int>();
+            colors = new List<Color>();
+        }
+
+        using (AppendRenderCellsMarker.Auto())
+        {
+            foreach (var pair in aggregates)
+            {
+                Vector3Int renderCell = pair.Key;
+                RenderCellAggregate aggregate = pair.Value;
+                float fillRatio = GetDisplayFillRatio(aggregate.Liters);
+                if (fillRatio <= 0f || aggregate.Definition == null)
+                {
+                    continue;
+                }
+
+                AppendRenderCell(renderCell, fillRatio, aggregate.Definition.tint, vertices, triangles, colors);
+            }
+        }
+
+        using (MeshApplyMarker.Auto())
+        {
+            mesh.Clear();
+            mesh.SetVertices(vertices);
+            mesh.SetTriangles(triangles, 0);
+            mesh.SetColors(colors);
+        }
+
+        using (MeshRecalculateMarker.Auto())
+        {
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+        }
 
         if (showDebugLogs)
         {
@@ -123,6 +165,7 @@ public class FluidMeshRenderer : MonoBehaviour
 
     private void BuildAggregates()
     {
+        using var aggregateScope = BuildAggregatesMarker.Auto();
         aggregates.Clear();
 
         foreach (FluidCellSnapshot snapshot in snapshots)
@@ -152,6 +195,7 @@ public class FluidMeshRenderer : MonoBehaviour
         List<int> triangles,
         List<Color> colors)
     {
+        using var appendScope = AppendRenderCellMarker.Auto();
         Vector3 min = fluidManager.GetRenderCellWorldMin(renderCell);
         Vector3 max = min + Vector3.one * fluidManager.RenderVoxelSize;
         int verticalAxis = GetVerticalAxisIndex();
