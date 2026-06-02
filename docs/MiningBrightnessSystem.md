@@ -83,3 +83,17 @@ block refresh 経路では、`TryGetBrightness == false` の cell を `0f` で�
 
 半径5全体の生成完了は、brightness propagation や brightness 反映開始の条件にしない。
 
+## lighting cache persistence
+
+MiningScene の明るさはロード高速化のために `GameDataPersistenceManager` へ cache として保存する。
+
+この cache は正規データではない。正規データは terrain seed、破壊済み block / voxel override、固化 voxel、松明配置、光源 profile、光計算アルゴリズムであり、brightness cache はそれらから導かれる派生結果である。
+
+保存対象は `MiningLightSource.IncludeInLightingCache == true` の恒久光源だけとする。松明は配置時に cache 対象として構成される。一時光源、burst light、移動する光源は保存対象にしない。
+
+cache には terrain state hash と cache version を持たせる。ロード時は現在の persistence 状態から再計算した terrain state hash と一致する場合だけ使用する。光源ごとの cache は source cell と profile signature が一致する場合だけ復元する。
+
+cache hit した光源は `MiningLightManager` の source display brightness を復元し、FullSource propagation を省略する。復元した brightness は既存の dirty brightness cell 経路で Block へ反映する。
+
+復元中に一部 chunk が未ロードでも、未ロード chunk の cache record を即時削除しない。cache から hydrate しただけの状態では保存 cache を再発行せず、実際の propagation 結果が落ち着いたタイミングでのみ cache を更新する。
+

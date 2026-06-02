@@ -91,6 +91,9 @@ public class GameDataPersistenceManager : MonoBehaviour
     [Header("Torch Placement Data")]
     public List<TorchPlacementData> torchPlacements = new List<TorchPlacementData>();
 
+    [Header("Mining Lighting Cache")]
+    public MiningLightingCacheData miningLightingCache;
+
     [Header("Disk Save")]
     [SerializeField] private bool loadSaveOnAwake = true;
     [SerializeField] private bool enableAutosave = true;
@@ -437,6 +440,7 @@ public class GameDataPersistenceManager : MonoBehaviour
         mainToolSlotId = string.Empty;
         subToolSlotId = string.Empty;
         torchPlacements = new List<TorchPlacementData>();
+        miningLightingCache = null;
         HasLoadedSaveFromDisk = false;
         LastLoadHadSaveFile = false;
         ScheduleNextAutosave();
@@ -584,6 +588,7 @@ public class GameDataPersistenceManager : MonoBehaviour
         }
 
         saveData.torchPlacements = CopyTorchPlacements(torchPlacements);
+        saveData.miningLightingCache = CopyMiningLightingCache(miningLightingCache);
         return saveData;
     }
 
@@ -696,6 +701,7 @@ public class GameDataPersistenceManager : MonoBehaviour
         mainToolSlotId = saveData.mainToolSlotId;
         subToolSlotId = saveData.subToolSlotId;
         torchPlacements = CopyTorchPlacements(saveData.torchPlacements);
+        miningLightingCache = CopyMiningLightingCache(saveData.miningLightingCache);
         EnsureRuntimeCollections();
         NotifyFacilityUpgradesChanged();
     }
@@ -726,6 +732,84 @@ public class GameDataPersistenceManager : MonoBehaviour
         facilityUpgradeProgress ??= new List<FacilityUpgradeProgressRecord>();
         toolSlots ??= new List<ToolSlotPersistenceData>();
         torchPlacements ??= new List<TorchPlacementData>();
+    }
+
+    public int CalculateLightingTerrainStateHash()
+    {
+        EnsureRuntimeCollections();
+
+        int hash = 17;
+        AddHashValue(ref hash, terrainSeed);
+        AddHashValue(ref hash, hasInitializedSeed ? 1 : 0);
+
+        List<Vector3Int> destroyedBlocks = new List<Vector3Int>(destroyedBlockPositions);
+        destroyedBlocks.Sort(CompareVector3Int);
+        AddHashValue(ref hash, destroyedBlocks.Count);
+        for (int i = 0; i < destroyedBlocks.Count; i++)
+        {
+            AddVectorHash(ref hash, destroyedBlocks[i]);
+        }
+
+        List<Vector3Int> partialBlockKeys = new List<Vector3Int>(partiallyDestroyedBlocks.Keys);
+        partialBlockKeys.Sort(CompareVector3Int);
+        AddHashValue(ref hash, partialBlockKeys.Count);
+        for (int i = 0; i < partialBlockKeys.Count; i++)
+        {
+            Vector3Int blockPosition = partialBlockKeys[i];
+            AddVectorHash(ref hash, blockPosition);
+
+            HashSet<Vector3Int> localCells = partiallyDestroyedBlocks[blockPosition];
+            List<Vector3Int> sortedLocalCells = localCells != null
+                ? new List<Vector3Int>(localCells)
+                : new List<Vector3Int>();
+            sortedLocalCells.Sort(CompareVector3Int);
+            AddHashValue(ref hash, sortedLocalCells.Count);
+            for (int j = 0; j < sortedLocalCells.Count; j++)
+            {
+                AddVectorHash(ref hash, sortedLocalCells[j]);
+            }
+        }
+
+        List<Vector3Int> overrideBlockKeys = new List<Vector3Int>(voxelCellOverrides.Keys);
+        overrideBlockKeys.Sort(CompareVector3Int);
+        AddHashValue(ref hash, overrideBlockKeys.Count);
+        for (int i = 0; i < overrideBlockKeys.Count; i++)
+        {
+            Vector3Int blockPosition = overrideBlockKeys[i];
+            AddVectorHash(ref hash, blockPosition);
+
+            Dictionary<Vector3Int, VoxelCellData> cellOverrides = voxelCellOverrides[blockPosition];
+            List<Vector3Int> localKeys = cellOverrides != null
+                ? new List<Vector3Int>(cellOverrides.Keys)
+                : new List<Vector3Int>();
+            localKeys.Sort(CompareVector3Int);
+            AddHashValue(ref hash, localKeys.Count);
+            for (int j = 0; j < localKeys.Count; j++)
+            {
+                Vector3Int localPosition = localKeys[j];
+                VoxelCellData cellData = cellOverrides[localPosition];
+                AddVectorHash(ref hash, localPosition);
+                AddStableStringHash(ref hash, cellData.blockDataName);
+                AddHashValue(ref hash, (int)cellData.resourceType);
+                AddHashValue(ref hash, cellData.health);
+                AddHashValue(ref hash, cellData.maxHealth);
+                AddHashValue(ref hash, cellData.isActive ? 1 : 0);
+                AddHashValue(ref hash, cellData.useTexture1 ? 1 : 0);
+            }
+        }
+
+        List<SolidifiedVoxelRecord> solidifiedRecords = new List<SolidifiedVoxelRecord>(solidifiedVoxelHistory);
+        solidifiedRecords.Sort(CompareSolidifiedVoxelRecord);
+        AddHashValue(ref hash, solidifiedRecords.Count);
+        for (int i = 0; i < solidifiedRecords.Count; i++)
+        {
+            SolidifiedVoxelRecord record = solidifiedRecords[i];
+            AddVectorHash(ref hash, record.blockPosition);
+            AddVectorHash(ref hash, record.localVoxelPosition);
+            AddStableStringHash(ref hash, record.blockDataName);
+        }
+
+        return hash;
     }
 
     public static string GetToolId(MiningTool tool)
@@ -851,5 +935,123 @@ public class GameDataPersistenceManager : MonoBehaviour
         }
 
         return copy;
+    }
+
+    private MiningLightingCacheData CopyMiningLightingCache(MiningLightingCacheData source)
+    {
+        if (source == null)
+        {
+            return null;
+        }
+
+        MiningLightingCacheData copy = new MiningLightingCacheData
+        {
+            cacheVersion = source.cacheVersion,
+            terrainStateHash = source.terrainStateHash
+        };
+
+        if (source.sourceCaches == null)
+        {
+            return copy;
+        }
+
+        for (int i = 0; i < source.sourceCaches.Count; i++)
+        {
+            MiningLightingSourceCacheRecord sourceRecord = source.sourceCaches[i];
+            if (sourceRecord == null)
+            {
+                Debug.LogError($"GameDataPersistenceManager: miningLightingCache.sourceCaches contains a null record at index {i}.", this);
+                continue;
+            }
+
+            MiningLightingSourceCacheRecord sourceCopy = new MiningLightingSourceCacheRecord
+            {
+                sourceSignature = sourceRecord.sourceSignature,
+                sourceBlockPosition = sourceRecord.sourceBlockPosition,
+                sourceLocalVoxelPosition = sourceRecord.sourceLocalVoxelPosition,
+                profileSignature = sourceRecord.profileSignature
+            };
+
+            if (sourceRecord.cells != null)
+            {
+                for (int j = 0; j < sourceRecord.cells.Count; j++)
+                {
+                    MiningLightingCellCacheRecord cell = sourceRecord.cells[j];
+                    if (cell == null)
+                    {
+                        Debug.LogError($"GameDataPersistenceManager: miningLightingCache source '{sourceRecord.sourceSignature}' contains a null cell at index {j}.", this);
+                        continue;
+                    }
+
+                    sourceCopy.cells.Add(new MiningLightingCellCacheRecord
+                    {
+                        blockPosition = cell.blockPosition,
+                        localVoxelPosition = cell.localVoxelPosition,
+                        brightness = cell.brightness,
+                        distanceFromSourceCells = cell.distanceFromSourceCells,
+                        hasPredecessor = cell.hasPredecessor,
+                        predecessorBlockPosition = cell.predecessorBlockPosition,
+                        predecessorLocalVoxelPosition = cell.predecessorLocalVoxelPosition,
+                        revision = cell.revision
+                    });
+                }
+            }
+
+            copy.sourceCaches.Add(sourceCopy);
+        }
+
+        return copy;
+    }
+
+    private static int CompareVector3Int(Vector3Int left, Vector3Int right)
+    {
+        int x = left.x.CompareTo(right.x);
+        if (x != 0) return x;
+
+        int y = left.y.CompareTo(right.y);
+        if (y != 0) return y;
+
+        return left.z.CompareTo(right.z);
+    }
+
+    private static int CompareSolidifiedVoxelRecord(SolidifiedVoxelRecord left, SolidifiedVoxelRecord right)
+    {
+        int block = CompareVector3Int(left.blockPosition, right.blockPosition);
+        if (block != 0) return block;
+
+        int local = CompareVector3Int(left.localVoxelPosition, right.localVoxelPosition);
+        if (local != 0) return local;
+
+        return string.CompareOrdinal(left.blockDataName, right.blockDataName);
+    }
+
+    private static void AddVectorHash(ref int hash, Vector3Int value)
+    {
+        AddHashValue(ref hash, value.x);
+        AddHashValue(ref hash, value.y);
+        AddHashValue(ref hash, value.z);
+    }
+
+    private static void AddStableStringHash(ref int hash, string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            AddHashValue(ref hash, 0);
+            return;
+        }
+
+        AddHashValue(ref hash, value.Length);
+        for (int i = 0; i < value.Length; i++)
+        {
+            AddHashValue(ref hash, value[i]);
+        }
+    }
+
+    private static void AddHashValue(ref int hash, int value)
+    {
+        unchecked
+        {
+            hash = (hash * 31) + value;
+        }
     }
 }

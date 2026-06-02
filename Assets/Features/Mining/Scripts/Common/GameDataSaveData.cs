@@ -30,6 +30,7 @@ public class GameDataSaveData
     public string mainToolSlotId = "";
     public string subToolSlotId = "";
     public List<TorchPlacementData> torchPlacements = new List<TorchPlacementData>();
+    public MiningLightingCacheData miningLightingCache;
 }
 
 [Serializable]
@@ -58,4 +59,36 @@ public class ToolSlotSaveRecord
 {
     public string slotId = "";
     public string toolId = "";
+}
+
+[Serializable]
+public class MiningLightingCacheData
+{
+    public int cacheVersion;
+    public int terrainStateHash;
+    public List<MiningLightingSourceCacheRecord> sourceCaches =
+        new List<MiningLightingSourceCacheRecord>();
+}
+
+[Serializable]
+public class MiningLightingSourceCacheRecord
+{
+    public string sourceSignature = "";
+    public Vector3Int sourceBlockPosition;
+    public Vector3Int sourceLocalVoxelPosition;
+    public string profileSignature = "";
+    public List<MiningLightingCellCacheRecord> cells = new List<MiningLightingCellCacheRecord>();
+}
+
+[Serializable]
+public class MiningLightingCellCacheRecord
+{
+    public Vector3Int blockPosition;
+    public Vector3Int localVoxelPosition;
+    public float brightness;
+    public int distanceFromSourceCells;
+    public bool hasPredecessor;
+    public Vector3Int predecessorBlockPosition;
+    public Vector3Int predecessorLocalVoxelPosition;
+    public int revision;
 }

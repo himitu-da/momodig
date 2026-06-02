@@ -20,7 +20,7 @@ public class TorchPlacedObject : MonoBehaviour
         }
 
         PlacementAnchor = placementAnchor;
-        lightSource.Configure(miningLightManager, lightProfile, sourceTransform);
+        lightSource.Configure(miningLightManager, lightProfile, sourceTransform, true);
         return true;
     }
 
