@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Profiling;
 using UnityEngine;
@@ -58,8 +59,12 @@ public class FluidManager : MonoBehaviour
         new ProfilerMarker("FluidManager.IsDynamicObstacleAtCell");
     private static readonly ProfilerMarker IsTerrainSolidAtCellMarker =
         new ProfilerMarker("FluidManager.IsTerrainSolidAtCell");
+    private static readonly ProfilerMarker IsTerrainSolidAtCellUncachedMarker =
+        new ProfilerMarker("FluidManager.IsTerrainSolidAtCellUncached");
     private static readonly ProfilerMarker QueueCellNeighborhoodMarker =
         new ProfilerMarker("FluidManager.QueueCellNeighborhood");
+    private static readonly Comparison<LateralCandidate> CompareLateralCandidateByFill =
+        CompareLateralCandidatesByFill;
 
     [Header("参照設定")]
     [SerializeField, InspectorName("地形マネージャー"), Tooltip("この流体系が参照する TerrainManager です。通常は同じシーンのものを割り当てます。")] private TerrainManager terrainManager;
@@ -93,7 +98,9 @@ public class FluidManager : MonoBehaviour
     private readonly HashSet<Vector3Int> queuedCells = new HashSet<Vector3Int>();
     private readonly List<Vector3Int> processingBuffer = new List<Vector3Int>();
     private readonly Dictionary<Vector3Int, bool> dynamicObstacleCache = new Dictionary<Vector3Int, bool>();
+    private readonly Dictionary<Vector3Int, bool> terrainSolidCache = new Dictionary<Vector3Int, bool>();
     private readonly Queue<FluidImpulse> pendingImpulses = new Queue<FluidImpulse>();
+    private readonly List<LateralCandidate> lateralCandidateBuffer = new List<LateralCandidate>();
 
     private float tickTimer;
 
@@ -194,6 +201,7 @@ public class FluidManager : MonoBehaviour
     public void QueueRuntimeActiveCells()
     {
         dynamicObstacleCache.Clear();
+        terrainSolidCache.Clear();
         if (cells.Count == 0)
         {
             return;
@@ -210,6 +218,7 @@ public class FluidManager : MonoBehaviour
     public void QueueRuntimeActiveCellsInWorldBounds(Bounds worldBounds)
     {
         dynamicObstacleCache.Clear();
+        terrainSolidCache.Clear();
         if (cells.Count == 0)
         {
             return;
@@ -250,6 +259,7 @@ public class FluidManager : MonoBehaviour
         processingBuffer.Clear();
         pendingImpulses.Clear();
         dynamicObstacleCache.Clear();
+        terrainSolidCache.Clear();
         MarkSimulationChanged();
     }
 
@@ -398,12 +408,16 @@ public class FluidManager : MonoBehaviour
 
     public void NotifySolidVoxelRemoved(Vector3 worldPosition)
     {
-        QueueCellNeighborhood(WorldToInternalCell(worldPosition), 2);
+        Vector3Int center = WorldToInternalCell(worldPosition);
+        InvalidateTerrainSolidCacheNeighborhood(center, 2);
+        QueueCellNeighborhood(center, 2);
     }
 
     public void MarkDirtyAroundWorldPosition(Vector3 worldPosition, int radius = 1)
     {
-        QueueCellNeighborhood(WorldToInternalCell(worldPosition), radius);
+        Vector3Int center = WorldToInternalCell(worldPosition);
+        InvalidateTerrainSolidCacheNeighborhood(center, radius);
+        QueueCellNeighborhood(center, radius);
     }
 
     public void QueueExplosion(Vector3 center, Vector3 size, float force)
@@ -468,6 +482,7 @@ public class FluidManager : MonoBehaviour
     {
         using var stepScope = StepSimulationMarker.Auto();
         dynamicObstacleCache.Clear();
+        terrainSolidCache.Clear();
 
         bool changed = ApplyPendingImpulses();
 
@@ -791,7 +806,8 @@ public class FluidManager : MonoBehaviour
             return false;
         }
 
-        List<LateralCandidate> candidates = new List<LateralCandidate>(lateralDirections.Length);
+        lateralCandidateBuffer.Clear();
+        List<LateralCandidate> candidates = lateralCandidateBuffer;
         float capacity = InternalCellCapacityLiters;
 
         foreach (Vector3Int direction in lateralDirections)
@@ -826,7 +842,7 @@ public class FluidManager : MonoBehaviour
             return false;
         }
 
-        candidates.Sort((a, b) => a.TargetFill.CompareTo(b.TargetFill));
+        candidates.Sort(CompareLateralCandidateByFill);
 
         bool changed = false;
         float rate = Mathf.Max(0f, source.Definition.lateralCellVolumesPerSecond) / Mathf.Max(0.01f, source.Definition.viscosity);
@@ -1017,34 +1033,54 @@ public class FluidManager : MonoBehaviour
         }
     }
 
+    private static readonly Vector3Int[] FillDirectionsNegX =
+    {
+        Vector3Int.left,
+        Vector3Int.up, Vector3Int.down,
+        new Vector3Int(0, 0, 1), new Vector3Int(0, 0, -1),
+        Vector3Int.right
+    };
+    private static readonly Vector3Int[] FillDirectionsNegZ =
+    {
+        new Vector3Int(0, 0, -1),
+        Vector3Int.right, Vector3Int.left,
+        Vector3Int.up, Vector3Int.down,
+        new Vector3Int(0, 0, 1)
+    };
+    private static readonly Vector3Int[] FillDirectionsNegY =
+    {
+        Vector3Int.down,
+        Vector3Int.right, Vector3Int.left,
+        new Vector3Int(0, 0, 1), new Vector3Int(0, 0, -1),
+        Vector3Int.up
+    };
+
     private Vector3Int[] GetPreferredFillDirections()
     {
-        Vector3Int down = GetDownDirection();
-        Vector3Int up = -down;
-        Vector3Int[] laterals = GetLateralDirections();
-
-        Vector3Int[] order = new Vector3Int[2 + laterals.Length];
-        order[0] = down;
-        for (int i = 0; i < laterals.Length; i++)
+        switch (gravityAxis)
         {
-            order[i + 1] = laterals[i];
+            case FluidGravityAxis.NegativeX:
+                return FillDirectionsNegX;
+            case FluidGravityAxis.NegativeZ:
+                return FillDirectionsNegZ;
+            default:
+                return FillDirectionsNegY;
         }
-
-        order[order.Length - 1] = up;
-        return order;
     }
+
+    private static readonly Vector3Int[] AllNeighborDirections =
+    {
+        Vector3Int.right,
+        Vector3Int.left,
+        Vector3Int.up,
+        Vector3Int.down,
+        new Vector3Int(0, 0, 1),
+        new Vector3Int(0, 0, -1)
+    };
 
     private Vector3Int[] GetAllNeighborDirections()
     {
-        return new[]
-        {
-            Vector3Int.right,
-            Vector3Int.left,
-            Vector3Int.up,
-            Vector3Int.down,
-            new Vector3Int(0, 0, 1),
-            new Vector3Int(0, 0, -1)
-        };
+        return AllNeighborDirections;
     }
 
     private bool CanFluidMoveIntoCell(Vector3Int cellPosition, FluidDefinition definition)
@@ -1099,6 +1135,19 @@ public class FluidManager : MonoBehaviour
     private bool IsTerrainSolidAtCell(Vector3Int cellPosition)
     {
         using var terrainSolidScope = IsTerrainSolidAtCellMarker.Auto();
+        if (terrainSolidCache.TryGetValue(cellPosition, out bool cached))
+        {
+            return cached;
+        }
+
+        bool result = IsTerrainSolidAtCellUncached(cellPosition);
+        terrainSolidCache[cellPosition] = result;
+        return result;
+    }
+
+    private bool IsTerrainSolidAtCellUncached(Vector3Int cellPosition)
+    {
+        using var terrainSolidUncachedScope = IsTerrainSolidAtCellUncachedMarker.Auto();
         if (terrainManager == null)
         {
             Debug.LogError("FluidManager: TerrainManager is not assigned.", this);
@@ -1221,34 +1270,32 @@ public class FluidManager : MonoBehaviour
         return new Vector3(down.x, down.y, down.z);
     }
 
+    private static readonly Vector3Int[] LateralDirectionsNegX =
+    {
+        Vector3Int.up, Vector3Int.down,
+        new Vector3Int(0, 0, 1), new Vector3Int(0, 0, -1)
+    };
+    private static readonly Vector3Int[] LateralDirectionsNegZ =
+    {
+        Vector3Int.right, Vector3Int.left,
+        Vector3Int.up, Vector3Int.down
+    };
+    private static readonly Vector3Int[] LateralDirectionsNegY =
+    {
+        Vector3Int.right, Vector3Int.left,
+        new Vector3Int(0, 0, 1), new Vector3Int(0, 0, -1)
+    };
+
     private Vector3Int[] GetLateralDirections()
     {
         switch (gravityAxis)
         {
             case FluidGravityAxis.NegativeX:
-                return new[]
-                {
-                    Vector3Int.up,
-                    Vector3Int.down,
-                    new Vector3Int(0, 0, 1),
-                    new Vector3Int(0, 0, -1)
-                };
+                return LateralDirectionsNegX;
             case FluidGravityAxis.NegativeZ:
-                return new[]
-                {
-                    Vector3Int.right,
-                    Vector3Int.left,
-                    Vector3Int.up,
-                    Vector3Int.down
-                };
+                return LateralDirectionsNegZ;
             default:
-                return new[]
-                {
-                    Vector3Int.right,
-                    Vector3Int.left,
-                    new Vector3Int(0, 0, 1),
-                    new Vector3Int(0, 0, -1)
-                };
+                return LateralDirectionsNegY;
         }
     }
 
@@ -1262,6 +1309,26 @@ public class FluidManager : MonoBehaviour
                 for (int z = -radius; z <= radius; z++)
                 {
                     queuedCells.Add(new Vector3Int(center.x + x, center.y + y, center.z + z));
+                }
+            }
+        }
+    }
+
+    private void InvalidateTerrainSolidCacheNeighborhood(Vector3Int center, int radius)
+    {
+        if (terrainSolidCache.Count == 0)
+        {
+            return;
+        }
+
+        int safeRadius = Mathf.Max(0, radius);
+        for (int x = -safeRadius; x <= safeRadius; x++)
+        {
+            for (int y = -safeRadius; y <= safeRadius; y++)
+            {
+                for (int z = -safeRadius; z <= safeRadius; z++)
+                {
+                    terrainSolidCache.Remove(new Vector3Int(center.x + x, center.y + y, center.z + z));
                 }
             }
         }
@@ -1359,6 +1426,11 @@ public class FluidManager : MonoBehaviour
         public float TargetFill { get; }
     }
 
+    private static int CompareLateralCandidatesByFill(LateralCandidate a, LateralCandidate b)
+    {
+        return a.TargetFill.CompareTo(b.TargetFill);
+    }
+
     private struct FluidImpulse
     {
         public FluidImpulse(Vector3 center, Vector3 halfExtents, float force)
@@ -1373,7 +1445,6 @@ public class FluidManager : MonoBehaviour
         public float Force { get; }
     }
 }
-
 
 
 

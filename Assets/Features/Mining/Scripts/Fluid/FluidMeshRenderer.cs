@@ -8,6 +8,8 @@ using UnityEngine.Rendering;
 public class FluidMeshRenderer : MonoBehaviour
 {
     private const float MinFillRatio = 0.01f;
+    private const int VerticesPerFace = 4;
+    private const int IndicesPerFace = 6;
 
     private static readonly ProfilerMarker LateUpdateMarker =
         new ProfilerMarker("FluidMeshRenderer.LateUpdate");
@@ -42,6 +44,11 @@ public class FluidMeshRenderer : MonoBehaviour
 
     private readonly List<FluidCellSnapshot> snapshots = new List<FluidCellSnapshot>();
     private readonly Dictionary<Vector3Int, RenderCellAggregate> aggregates = new Dictionary<Vector3Int, RenderCellAggregate>();
+    private readonly List<Vector3> vertexBuffer = new List<Vector3>();
+    private readonly List<int> triangleBuffer = new List<int>();
+    private readonly List<Color> colorBuffer = new List<Color>();
+    private readonly Vector3[] faceCornerBuffer = new Vector3[4];
+    private readonly Vector3[] localCornerBuffer = new Vector3[4];
 
     private Mesh mesh;
     private MeshFilter meshFilter;
@@ -117,14 +124,16 @@ public class FluidMeshRenderer : MonoBehaviour
 
         BuildAggregates();
 
-        List<Vector3> vertices;
-        List<int> triangles;
-        List<Color> colors;
         using (AllocateBuffersMarker.Auto())
         {
-            vertices = new List<Vector3>();
-            triangles = new List<int>();
-            colors = new List<Color>();
+            int maxFacesPerRenderCell = GetLateralDirections().Length + 1;
+            int estimatedFaceCount = aggregates.Count * maxFacesPerRenderCell;
+            EnsureListCapacity(vertexBuffer, estimatedFaceCount * VerticesPerFace);
+            EnsureListCapacity(triangleBuffer, estimatedFaceCount * IndicesPerFace);
+            EnsureListCapacity(colorBuffer, estimatedFaceCount * VerticesPerFace);
+            vertexBuffer.Clear();
+            triangleBuffer.Clear();
+            colorBuffer.Clear();
         }
 
         using (AppendRenderCellsMarker.Auto())
@@ -139,16 +148,16 @@ public class FluidMeshRenderer : MonoBehaviour
                     continue;
                 }
 
-                AppendRenderCell(renderCell, fillRatio, aggregate.Definition.tint, vertices, triangles, colors);
+                AppendRenderCell(renderCell, fillRatio, aggregate.Definition.tint, vertexBuffer, triangleBuffer, colorBuffer);
             }
         }
 
         using (MeshApplyMarker.Auto())
         {
             mesh.Clear();
-            mesh.SetVertices(vertices);
-            mesh.SetTriangles(triangles, 0);
-            mesh.SetColors(colors);
+            mesh.SetVertices(vertexBuffer);
+            mesh.SetTriangles(triangleBuffer, 0);
+            mesh.SetColors(colorBuffer);
         }
 
         using (MeshRecalculateMarker.Auto())
@@ -159,7 +168,7 @@ public class FluidMeshRenderer : MonoBehaviour
 
         if (showDebugLogs)
         {
-            Debug.Log($"FluidMeshRenderer: snapshots={snapshots.Count}, renderCells={aggregates.Count}, vertices={vertices.Count}, triangles={triangles.Count / 3}, materialQueue={(meshRenderer.sharedMaterial != null ? meshRenderer.sharedMaterial.renderQueue : -1)}");
+            Debug.Log($"FluidMeshRenderer: snapshots={snapshots.Count}, renderCells={aggregates.Count}, vertices={vertexBuffer.Count}, triangles={triangleBuffer.Count / 3}, materialQueue={(meshRenderer.sharedMaterial != null ? meshRenderer.sharedMaterial.renderQueue : -1)}");
         }
     }
 
@@ -342,112 +351,91 @@ public class FluidMeshRenderer : MonoBehaviour
         }
     }
 
+    private static readonly Vector3Int[] RenderLateralNegX =
+    {
+        Vector3Int.up, Vector3Int.down,
+        new Vector3Int(0, 0, 1), new Vector3Int(0, 0, -1)
+    };
+    private static readonly Vector3Int[] RenderLateralNegZ =
+    {
+        Vector3Int.right, Vector3Int.left,
+        Vector3Int.up, Vector3Int.down
+    };
+    private static readonly Vector3Int[] RenderLateralNegY =
+    {
+        Vector3Int.right, Vector3Int.left,
+        new Vector3Int(0, 0, 1), new Vector3Int(0, 0, -1)
+    };
+
     private Vector3Int[] GetLateralDirections()
     {
         switch (fluidManager.GravityAxis)
         {
             case FluidGravityAxis.NegativeX:
-                return new[]
-                {
-                    Vector3Int.up,
-                    Vector3Int.down,
-                    new Vector3Int(0, 0, 1),
-                    new Vector3Int(0, 0, -1)
-                };
+                return RenderLateralNegX;
             case FluidGravityAxis.NegativeZ:
-                return new[]
-                {
-                    Vector3Int.right,
-                    Vector3Int.left,
-                    Vector3Int.up,
-                    Vector3Int.down
-                };
+                return RenderLateralNegZ;
             default:
-                return new[]
-                {
-                    Vector3Int.right,
-                    Vector3Int.left,
-                    new Vector3Int(0, 0, 1),
-                    new Vector3Int(0, 0, -1)
-                };
+                return RenderLateralNegY;
         }
     }
 
-    private static Vector3[] GetFace(Vector3 min, Vector3 max, Vector3Int direction)
+    private Vector3[] GetFace(Vector3 min, Vector3 max, Vector3Int direction)
     {
         if (direction == Vector3Int.right)
         {
-            return new[]
-            {
-                new Vector3(max.x, min.y, min.z),
-                new Vector3(max.x, max.y, min.z),
-                new Vector3(max.x, max.y, max.z),
-                new Vector3(max.x, min.y, max.z)
-            };
+            faceCornerBuffer[0] = new Vector3(max.x, min.y, min.z);
+            faceCornerBuffer[1] = new Vector3(max.x, max.y, min.z);
+            faceCornerBuffer[2] = new Vector3(max.x, max.y, max.z);
+            faceCornerBuffer[3] = new Vector3(max.x, min.y, max.z);
+        }
+        else if (direction == Vector3Int.left)
+        {
+            faceCornerBuffer[0] = new Vector3(min.x, min.y, max.z);
+            faceCornerBuffer[1] = new Vector3(min.x, max.y, max.z);
+            faceCornerBuffer[2] = new Vector3(min.x, max.y, min.z);
+            faceCornerBuffer[3] = new Vector3(min.x, min.y, min.z);
+        }
+        else if (direction == Vector3Int.up)
+        {
+            faceCornerBuffer[0] = new Vector3(min.x, max.y, min.z);
+            faceCornerBuffer[1] = new Vector3(min.x, max.y, max.z);
+            faceCornerBuffer[2] = new Vector3(max.x, max.y, max.z);
+            faceCornerBuffer[3] = new Vector3(max.x, max.y, min.z);
+        }
+        else if (direction == Vector3Int.down)
+        {
+            faceCornerBuffer[0] = new Vector3(min.x, min.y, max.z);
+            faceCornerBuffer[1] = new Vector3(min.x, min.y, min.z);
+            faceCornerBuffer[2] = new Vector3(max.x, min.y, min.z);
+            faceCornerBuffer[3] = new Vector3(max.x, min.y, max.z);
+        }
+        else if (direction.z > 0)
+        {
+            faceCornerBuffer[0] = new Vector3(min.x, min.y, max.z);
+            faceCornerBuffer[1] = new Vector3(min.x, max.y, max.z);
+            faceCornerBuffer[2] = new Vector3(max.x, max.y, max.z);
+            faceCornerBuffer[3] = new Vector3(max.x, min.y, max.z);
+        }
+        else
+        {
+            faceCornerBuffer[0] = new Vector3(max.x, min.y, min.z);
+            faceCornerBuffer[1] = new Vector3(max.x, max.y, min.z);
+            faceCornerBuffer[2] = new Vector3(min.x, max.y, min.z);
+            faceCornerBuffer[3] = new Vector3(min.x, min.y, min.z);
         }
 
-        if (direction == Vector3Int.left)
-        {
-            return new[]
-            {
-                new Vector3(min.x, min.y, max.z),
-                new Vector3(min.x, max.y, max.z),
-                new Vector3(min.x, max.y, min.z),
-                new Vector3(min.x, min.y, min.z)
-            };
-        }
-
-        if (direction == Vector3Int.up)
-        {
-            return new[]
-            {
-                new Vector3(min.x, max.y, min.z),
-                new Vector3(min.x, max.y, max.z),
-                new Vector3(max.x, max.y, max.z),
-                new Vector3(max.x, max.y, min.z)
-            };
-        }
-
-        if (direction == Vector3Int.down)
-        {
-            return new[]
-            {
-                new Vector3(min.x, min.y, max.z),
-                new Vector3(min.x, min.y, min.z),
-                new Vector3(max.x, min.y, min.z),
-                new Vector3(max.x, min.y, max.z)
-            };
-        }
-
-        if (direction.z > 0)
-        {
-            return new[]
-            {
-                new Vector3(min.x, min.y, max.z),
-                new Vector3(min.x, max.y, max.z),
-                new Vector3(max.x, max.y, max.z),
-                new Vector3(max.x, min.y, max.z)
-            };
-        }
-
-        return new[]
-        {
-            new Vector3(max.x, min.y, min.z),
-            new Vector3(max.x, max.y, min.z),
-            new Vector3(min.x, max.y, min.z),
-            new Vector3(min.x, min.y, min.z)
-        };
+        return faceCornerBuffer;
     }
 
     private Vector3[] ToLocalCorners(Vector3[] worldCorners)
     {
-        Vector3[] localCorners = new Vector3[worldCorners.Length];
         for (int i = 0; i < worldCorners.Length; i++)
         {
-            localCorners[i] = transform.InverseTransformPoint(worldCorners[i]);
+            localCornerBuffer[i] = transform.InverseTransformPoint(worldCorners[i]);
         }
 
-        return localCorners;
+        return localCornerBuffer;
     }
 
     private static void AddFace(
@@ -502,6 +490,14 @@ public class FluidMeshRenderer : MonoBehaviour
             default:
                 value.y = axisValue;
                 break;
+        }
+    }
+
+    private static void EnsureListCapacity<T>(List<T> list, int capacity)
+    {
+        if (list.Capacity < capacity)
+        {
+            list.Capacity = capacity;
         }
     }
 
