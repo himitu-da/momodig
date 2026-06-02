@@ -22,12 +22,26 @@ public class FluidSplash : MonoBehaviour
 
     public void Initialize(FluidManager manager, FluidDefinition definition, float liters, Vector3 initialVelocity)
     {
+        if (manager == null)
+        {
+            Debug.LogError("FluidSplash: FluidManager is not configured.", this);
+            enabled = false;
+            return;
+        }
+
+        if (definition == null)
+        {
+            Debug.LogError("FluidSplash: FluidDefinition is not configured.", this);
+            enabled = false;
+            return;
+        }
+
         fluidManager = manager;
         fluidDefinition = definition;
         volumeLiters = Mathf.Max(0.01f, liters);
 
         // Set physical properties
-        float density = definition != null ? definition.SpecificGravity : 1.0f;
+        float density = definition.SpecificGravity;
         float massKg = volumeLiters * density;
         rb.mass = Mathf.Max(0.1f, massKg); // 水滴が軽すぎて物理演算がバグらないよう最低0.1kg保証
         rb.linearVelocity = initialVelocity;
@@ -54,13 +68,7 @@ public class FluidSplash : MonoBehaviour
             clonedMesh = meshFilter.mesh;
             if (clonedMesh != null)
             {
-                if (definition == null)
-                {
-                    Debug.LogWarning("FluidSplash: FluidDefinition is NULL! Using Magenta as fallback so it's obvious.");
-                }
-                
-                // Use bright magenta as a fallback to make it 100% obvious if the definition is missing
-                Color tintColor = definition != null ? definition.tint : Color.magenta;
+                Color tintColor = definition.tint;
                 Color[] colors = new Color[clonedMesh.vertexCount];
                 for (int i = 0; i < colors.Length; i++)
                 {

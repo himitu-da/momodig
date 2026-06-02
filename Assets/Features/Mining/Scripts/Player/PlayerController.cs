@@ -658,49 +658,13 @@ public class PlayerController : MonoBehaviour
 
         Collider sampleCollider = ResolveFluidResistanceCollider();
         Bounds bounds = sampleCollider != null ? sampleCollider.bounds : new Bounds(transform.position, Vector3.one * 0.5f);
-        Vector3 min = bounds.min + Vector3.one * fluidSampleInset;
-        Vector3 max = bounds.max - Vector3.one * fluidSampleInset;
-
-        if (min.x > max.x)
-        {
-            float centerX = bounds.center.x;
-            min.x = centerX;
-            max.x = centerX;
-        }
-
-        if (min.y > max.y)
-        {
-            float centerY = bounds.center.y;
-            min.y = centerY;
-            max.y = centerY;
-        }
-
-        if (min.z > max.z)
-        {
-            float centerZ = bounds.center.z;
-            min.z = centerZ;
-            max.z = centerZ;
-        }
-
-        float totalFillRatio = 0f;
-        int sampleCount = 0;
-
-        for (int x = 0; x < fluidHorizontalSampleCount; x++)
-        {
-            float sampleX = Mathf.Lerp(min.x, max.x, GetFluidSampleLerp(x, fluidHorizontalSampleCount));
-            for (int y = 0; y < fluidVerticalSampleCount; y++)
-            {
-                float sampleY = Mathf.Lerp(min.y, max.y, GetFluidSampleLerp(y, fluidVerticalSampleCount));
-                for (int z = 0; z < fluidDepthSampleCount; z++)
-                {
-                    float sampleZ = Mathf.Lerp(min.z, max.z, GetFluidSampleLerp(z, fluidDepthSampleCount));
-                    totalFillRatio += fluidManager.GetFluidFillRatioAtWorldPosition(new Vector3(sampleX, sampleY, sampleZ));
-                    sampleCount++;
-                }
-            }
-        }
-
-        return sampleCount > 0 ? Mathf.Clamp01(totalFillRatio / sampleCount) : 0f;
+        return FluidSubmersionSampler.SampleBounds(
+            fluidManager,
+            bounds,
+            fluidHorizontalSampleCount,
+            fluidVerticalSampleCount,
+            fluidDepthSampleCount,
+            fluidSampleInset);
     }
 
     private float GetFluidResistanceFactor(float fluidSubmersion)
@@ -753,16 +717,6 @@ public class PlayerController : MonoBehaviour
         }
 
         return null;
-    }
-
-    private static float GetFluidSampleLerp(int index, int sampleCount)
-    {
-        if (sampleCount <= 1)
-        {
-            return 0.5f;
-        }
-
-        return index / (float)(sampleCount - 1);
     }
 
     private void UpdateConstraints()

@@ -112,6 +112,8 @@ camera snap と scene presentation restore は操作解除より早く実行し�
 
 明るさ計算と表示反映の詳細は `docs/MiningBrightnessSystem.md` にまとめる。
 
+流体システムの責務分割、Prefab 設定、fail-fast 方針は `docs/FluidSystem.md` にまとめる。
+
 ## 現在移動済みの復元責務
 
 Coordinator 配下へ寄せているもの:
