@@ -3107,6 +3107,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   button: {fileID: 1000068202}
+  statusBackground: {fileID: 1523355724}
+  statusText: {fileID: 1096466754}
+  savedVisibleSeconds: 3
 --- !u!1 &1067940501
 GameObject:
   m_ObjectHideFlags: 0
