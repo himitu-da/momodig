@@ -43,9 +43,14 @@
 - facility upgrade progress
 - tool inventory slot bindings
 - torch placements
+- mining lighting cache
 
 `Dictionary` / `HashSet` / `MiningTool` 参照は直接 JSON 化しない。
 保存専用 DTO へ変換してから `JsonUtility` でシリアライズする。
+
+`mining lighting cache` はロード高速化用の派生データであり、ゲーム状態の正規データではない。
+`MiningLightManager` は cache version / terrain state hash / 光源 signature が一致した場合だけ利用し、一致しない場合は通常の光計算に戻る。
+保存対象は恒久光源のみとし、一時光源、burst light、移動する光源は保存しない。
 
 ## ツール参照
 
