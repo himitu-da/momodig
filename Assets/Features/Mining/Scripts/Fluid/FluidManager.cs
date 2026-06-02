@@ -445,25 +445,46 @@ public class FluidManager : MonoBehaviour
         }
 
         processingBuffer.Clear();
-        processingBuffer.AddRange(queuedCells);
-        queuedCells.Clear();
-        processingBuffer.Sort(CompareCellsByGravity);
 
-        int stepBudget = processingBuffer.Count <= fullSolveCellThreshold ? processingBuffer.Count : maxCellsPerStep;
-        int processCount = Mathf.Min(processingBuffer.Count, Mathf.Max(16, stepBudget));
-        for (int i = 0; i < processCount; i++)
+        int stepBudget = queuedCells.Count <= fullSolveCellThreshold ? queuedCells.Count : maxCellsPerStep;
+        int processCount = Mathf.Min(queuedCells.Count, Mathf.Max(16, stepBudget));
+        if (processCount >= queuedCells.Count)
         {
-            changed |= SimulateCell(processingBuffer[i], deltaTime);
+            processingBuffer.AddRange(queuedCells);
+            queuedCells.Clear();
+        }
+        else
+        {
+            CopyQueuedCellsForBudget(processCount);
         }
 
-        for (int i = processCount; i < processingBuffer.Count; i++)
+        processingBuffer.Sort(CompareCellsByGravity);
+
+        for (int i = 0; i < processingBuffer.Count; i++)
         {
-            queuedCells.Add(processingBuffer[i]);
+            changed |= SimulateCell(processingBuffer[i], deltaTime);
         }
 
         if (changed)
         {
             MarkSimulationChanged();
+        }
+    }
+
+    private void CopyQueuedCellsForBudget(int processCount)
+    {
+        foreach (Vector3Int cell in queuedCells)
+        {
+            processingBuffer.Add(cell);
+            if (processingBuffer.Count >= processCount)
+            {
+                break;
+            }
+        }
+
+        for (int i = 0; i < processingBuffer.Count; i++)
+        {
+            queuedCells.Remove(processingBuffer[i]);
         }
     }
 
