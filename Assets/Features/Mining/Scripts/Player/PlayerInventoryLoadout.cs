@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class PlayerInventoryLoadout : MonoBehaviour
 {
+    public const int ToolLoadoutSlotCount = 3;
+
     [SerializeField] private StorageManager storageManager;
     [SerializeField] private GameDataPersistenceManager persistenceManager;
 
@@ -76,6 +78,66 @@ public class PlayerInventoryLoadout : MonoBehaviour
         slot.tool = null;
         slot.toolId = string.Empty;
         return true;
+    }
+
+    public bool TryAssignDraftToolToSlot(MiningTool tool, string targetSlotId)
+    {
+        if (!ValidateDraftSlotTool(targetSlotId, tool))
+        {
+            return false;
+        }
+
+        ToolSlotPersistenceData targetSlot = FindDraftSlot(targetSlotId);
+        if (targetSlot == null)
+        {
+            Debug.LogError($"PlayerInventoryLoadout: slotId '{targetSlotId}' does not exist in the draft.", this);
+            return false;
+        }
+
+        ToolSlotPersistenceData currentSlot = FindDraftSlotContainingTool(tool);
+        if (currentSlot == targetSlot)
+        {
+            return true;
+        }
+
+        if (currentSlot != null)
+        {
+            currentSlot.tool = targetSlot.tool;
+            currentSlot.toolId = targetSlot.toolId;
+        }
+
+        targetSlot.tool = tool;
+        targetSlot.toolId = GameDataPersistenceManager.GetToolId(tool);
+        return true;
+    }
+
+    public bool TrySwapDraftSlotTools(string sourceSlotId, string targetSlotId)
+    {
+        ToolSlotPersistenceData sourceSlot = FindDraftSlot(sourceSlotId);
+        ToolSlotPersistenceData targetSlot = FindDraftSlot(targetSlotId);
+        if (sourceSlot == null || targetSlot == null)
+        {
+            Debug.LogError($"PlayerInventoryLoadout: cannot swap slot '{sourceSlotId}' with '{targetSlotId}'.", this);
+            return false;
+        }
+
+        if (sourceSlot == targetSlot)
+        {
+            return true;
+        }
+
+        MiningTool sourceTool = sourceSlot.tool;
+        string sourceToolId = sourceSlot.toolId;
+        sourceSlot.tool = targetSlot.tool;
+        sourceSlot.toolId = targetSlot.toolId;
+        targetSlot.tool = sourceTool;
+        targetSlot.toolId = sourceToolId;
+        return true;
+    }
+
+    public bool IsDraftToolAssigned(MiningTool tool)
+    {
+        return FindDraftSlotContainingTool(tool) != null;
     }
 
     public bool TryBindDraftSlotToRole(string slotId, ToolActionRole role)
@@ -153,6 +215,7 @@ public class PlayerInventoryLoadout : MonoBehaviour
             });
         }
 
+        NormalizeDraftSlotCount();
         draftMainToolSlotId = persistenceManager.mainToolSlotId;
         draftSubToolSlotId = persistenceManager.subToolSlotId;
         return ValidateDraft();
@@ -167,9 +230,9 @@ public class PlayerInventoryLoadout : MonoBehaviour
             return false;
         }
 
-        for (int i = 0; i < ownedTools.Count; i++)
+        for (int i = 0; i < ToolLoadoutSlotCount; i++)
         {
-            MiningTool tool = ownedTools[i];
+            MiningTool tool = i < ownedTools.Count ? ownedTools[i] : null;
             draftToolSlots.Add(new ToolSlotPersistenceData
             {
                 slotId = BuildDefaultSlotId(i),
@@ -214,6 +277,7 @@ public class PlayerInventoryLoadout : MonoBehaviour
     private bool ValidateDraft()
     {
         HashSet<string> slotIds = new HashSet<string>();
+        HashSet<string> assignedToolIds = new HashSet<string>();
         for (int i = 0; i < draftToolSlots.Count; i++)
         {
             ToolSlotPersistenceData slot = draftToolSlots[i];
@@ -246,7 +310,15 @@ public class PlayerInventoryLoadout : MonoBehaviour
                 return false;
             }
 
+            string toolId = GameDataPersistenceManager.GetToolId(tool);
+            if (!assignedToolIds.Add(toolId))
+            {
+                Debug.LogError($"PlayerInventoryLoadout: toolId '{toolId}' is assigned to multiple draft slots.", this);
+                return false;
+            }
+
             slot.tool = tool;
+            slot.toolId = toolId;
         }
 
         if (!string.IsNullOrEmpty(draftMainToolSlotId) && !slotIds.Contains(draftMainToolSlotId))
@@ -262,6 +334,25 @@ public class PlayerInventoryLoadout : MonoBehaviour
         }
 
         return true;
+    }
+
+    private void NormalizeDraftSlotCount()
+    {
+        if (draftToolSlots.Count > ToolLoadoutSlotCount)
+        {
+            Debug.LogWarning($"PlayerInventoryLoadout: saved tool loadout has {draftToolSlots.Count} slots. Extra slots are ignored by the 3-slot entrance loadout.", this);
+            draftToolSlots.RemoveRange(ToolLoadoutSlotCount, draftToolSlots.Count - ToolLoadoutSlotCount);
+        }
+
+        for (int i = draftToolSlots.Count; i < ToolLoadoutSlotCount; i++)
+        {
+            draftToolSlots.Add(new ToolSlotPersistenceData
+            {
+                slotId = BuildDefaultSlotId(i),
+                toolId = string.Empty,
+                tool = null
+            });
+        }
     }
 
     private MiningTool ResolveOwnedTool(string toolId, MiningTool fallbackTool)
@@ -302,6 +393,34 @@ public class PlayerInventoryLoadout : MonoBehaviour
         {
             ToolSlotPersistenceData slot = draftToolSlots[i];
             if (slot != null && slot.slotId == slotId)
+            {
+                return slot;
+            }
+        }
+
+        return null;
+    }
+
+    private ToolSlotPersistenceData FindDraftSlotContainingTool(MiningTool tool)
+    {
+        string toolId = GameDataPersistenceManager.GetToolId(tool);
+        if (string.IsNullOrWhiteSpace(toolId))
+        {
+            return null;
+        }
+
+        for (int i = 0; i < draftToolSlots.Count; i++)
+        {
+            ToolSlotPersistenceData slot = draftToolSlots[i];
+            if (slot == null)
+            {
+                continue;
+            }
+
+            string assignedToolId = !string.IsNullOrWhiteSpace(slot.toolId)
+                ? slot.toolId
+                : GameDataPersistenceManager.GetToolId(slot.tool);
+            if (assignedToolId == toolId)
             {
                 return slot;
             }
