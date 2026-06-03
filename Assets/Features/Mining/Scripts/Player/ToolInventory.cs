@@ -162,7 +162,7 @@ public class ToolInventory : MonoBehaviour
             slotsChanged = tools.Count > 0;
         }
 
-        if (!slotsWereEmpty && tools != null)
+        if (!loadedFromPersistence && !slotsWereEmpty && tools != null)
         {
             slotsChanged = AppendMissingTools(tools) || slotsChanged;
         }
