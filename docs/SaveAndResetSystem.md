@@ -38,6 +38,7 @@
 - voxel cell overrides
 - solidified voxel history
 - facility upgrade progress
+- owned tool ids
 - tool inventory slot bindings
 - torch placements
 - mining lighting cache
@@ -56,6 +57,10 @@
 
 ロード直後の `GameDataPersistenceManager` では `MiningTool` 参照は null のまま保持し、MiningScene 起動時に `ToolInventory` が Inspector で明示されたツール一覧から `toolId` を解決する。
 解決できない場合は `Debug.LogError` を出す。
+
+`owned tool ids` は `StorageManager` が管理する所有ツールの正本である。
+`tool inventory slot bindings` / `mainToolSlotId` / `subToolSlotId` は、地下へ持ち込むツールと左右クリック割り当ての設定として扱う。
+地下 runtime の `ToolInventory` は保存済み設定を読み込むが、地下での一時的な並べ替えは保存へ書き戻さない。
 
 ## 簡易リセット
 

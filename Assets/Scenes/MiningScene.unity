@@ -1959,6 +1959,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   persistenceManager: {fileID: 0}
+  knownTools:
+  - {fileID: 11400000, guid: 842856062cdb6984b8e8b752700bc636, type: 2}
+  - {fileID: 11400000, guid: 5a96d83544394f4468d129086e7df425, type: 2}
+  - {fileID: 11400000, guid: a67fb8a1ff454ab79655df217f283d8f, type: 2}
+  starterOwnedTools:
+  - {fileID: 11400000, guid: 842856062cdb6984b8e8b752700bc636, type: 2}
+  - {fileID: 11400000, guid: 5a96d83544394f4468d129086e7df425, type: 2}
+  - {fileID: 11400000, guid: a67fb8a1ff454ab79655df217f283d8f, type: 2}
 --- !u!1 &995654917
 GameObject:
   m_ObjectHideFlags: 0
@@ -2471,6 +2479,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5a96d83544394f4468d129086e7df425, type: 2}
   - {fileID: 11400000, guid: a67fb8a1ff454ab79655df217f283d8f, type: 2}
   toolInventory: {fileID: 1227563695}
+  storageManager: {fileID: 930000202}
   facilityUpgradeCatalog: {fileID: 11400000, guid: 0b417d25e2424442af50b15005146422, type: 2}
   _mainMiningTool: {fileID: 11400000, guid: 842856062cdb6984b8e8b752700bc636, type: 2}
   _subMiningTool: {fileID: 11400000, guid: 5a96d83544394f4468d129086e7df425, type: 2}
@@ -2509,6 +2518,7 @@ MonoBehaviour:
   subSlotId: slot_1
   allowSameSlotForRoles: 0
   persistToGameData: 1
+  saveRuntimeChangesToGameData: 0
 --- !u!1 &1244569035
 GameObject:
   m_ObjectHideFlags: 0

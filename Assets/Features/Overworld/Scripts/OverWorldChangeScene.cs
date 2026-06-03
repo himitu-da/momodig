@@ -10,6 +10,7 @@ public class OverWorldChangeScene : MonoBehaviour
     [SerializeField] private string miningSceneName;
 
     [Header("Facilities")]
+    [SerializeField] private FacilityDefinition miningEntranceFacility;
     [SerializeField] private FacilityDefinition workshopFacility;
     [SerializeField] private FacilityDefinition garageFacility;
 
@@ -34,6 +35,11 @@ public class OverWorldChangeScene : MonoBehaviour
         }
 
         changescene.OnClickToChangeScene(miningSceneName);
+    }
+
+    public void SelectMiningEntrance()
+    {
+        OpenFacility(miningEntranceFacility, nameof(miningEntranceFacility));
     }
 
     public void SelectWorkshop()
@@ -95,6 +101,7 @@ public class OverWorldChangeScene : MonoBehaviour
         }
 
         isValid &= ValidateSceneName(miningSceneName, nameof(miningSceneName));
+        isValid &= ValidateFacility(miningEntranceFacility, nameof(miningEntranceFacility));
         isValid &= ValidateFacility(workshopFacility, nameof(workshopFacility));
         isValid &= ValidateFacility(garageFacility, nameof(garageFacility));
 

@@ -10,6 +10,7 @@ public class FacilityUIHost : MonoBehaviour
 
     [Header("Runtime Services")]
     [SerializeField] private FacilityUpgradeService facilityUpgradeService;
+    [SerializeField] private PlayerInventoryLoadout miningEntranceLoadout;
 
     [Header("Behavior")]
     [SerializeField] private bool lockPlayerMovementWhileOpen = true;
@@ -166,6 +167,17 @@ public class FacilityUIHost : MonoBehaviour
             }
 
             return runtimeBinding.BindRuntime(facilityUpgradeService);
+        }
+
+        if (panel is IMiningEntrancePanelRuntimeBinding miningEntranceBinding)
+        {
+            if (miningEntranceLoadout == null)
+            {
+                Debug.LogError($"FacilityUIHost: miningEntranceLoadout is not configured for '{facility.DisplayName}'.", this);
+                return false;
+            }
+
+            return miningEntranceBinding.BindRuntime(miningEntranceLoadout);
         }
 
         return true;

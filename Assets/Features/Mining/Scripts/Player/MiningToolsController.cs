@@ -6,6 +6,7 @@ public class MiningToolsController : MonoBehaviour
     [Header("掘削ツール設定")]
     [SerializeField] private List<MiningTool> usableMiningTools;
     [SerializeField] private ToolInventory toolInventory;
+    [SerializeField] private StorageManager storageManager;
     [SerializeField] private FacilityUpgradeCatalog facilityUpgradeCatalog;
     [SerializeField] private MiningTool _mainMiningTool;
     [SerializeField] private MiningTool _subMiningTool; // サブ用ツール
@@ -72,6 +73,17 @@ public class MiningToolsController : MonoBehaviour
         return false;
     }
 
+    private bool ValidateStorageManager()
+    {
+        if (storageManager != null)
+        {
+            return true;
+        }
+
+        Debug.LogError("MiningToolsController: StorageManager is not assigned. Configure it in the Inspector.", this);
+        return false;
+    }
+
     private void InitializeToolInventoryFromLegacySettings()
     {
         if (toolInventory == null)
@@ -79,12 +91,20 @@ public class MiningToolsController : MonoBehaviour
             return;
         }
 
-        toolInventory.EnsureInitializedFromTools(BuildFallbackToolList(), _mainMiningTool, _subMiningTool);
+        toolInventory.EnsureInitializedFromTools(BuildInitialToolList(), _mainMiningTool, _subMiningTool);
     }
 
-    private List<MiningTool> BuildFallbackToolList()
+    private List<MiningTool> BuildInitialToolList()
     {
         List<MiningTool> tools = new List<MiningTool>();
+
+        if (storageManager != null)
+        {
+            foreach (MiningTool tool in storageManager.GetOwnedTools())
+            {
+                AddToolIfMissing(tools, tool);
+            }
+        }
 
         if (usableMiningTools != null)
         {
@@ -157,6 +177,12 @@ public class MiningToolsController : MonoBehaviour
     private void Awake()
     {
         if (!ValidateToolInventory())
+        {
+            enabled = false;
+            return;
+        }
+
+        if (!ValidateStorageManager())
         {
             enabled = false;
             return;
@@ -507,7 +533,7 @@ public class MiningToolsController : MonoBehaviour
 
     private List<MiningTool> GetEnhancementTargetTools()
     {
-        List<MiningTool> tools = BuildFallbackToolList();
+        List<MiningTool> tools = BuildInitialToolList();
 
         if (toolInventory != null)
         {

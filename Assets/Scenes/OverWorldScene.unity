@@ -1927,12 +1927,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4891d2c1386b4159bb09c275061ef57f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   panelRoot: {fileID: 900000221}
   baseUiGroup: {fileID: 910000003}
   playerController: {fileID: 310000002}
   facilityUpgradeService: {fileID: 930000104}
+  miningEntranceLoadout: {fileID: 930000105}
   lockPlayerMovementWhileOpen: 1
 --- !u!1 &900000220
 GameObject:
@@ -2783,6 +2784,7 @@ GameObject:
   - component: {fileID: 930000101}
   - component: {fileID: 930000103}
   - component: {fileID: 930000104}
+  - component: {fileID: 930000105}
   m_Layer: 0
   m_Name: FacilityUpgradeRuntime
   m_TagString: Untagged
@@ -2818,6 +2820,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   persistenceManager: {fileID: 0}
+  knownTools:
+  - {fileID: 11400000, guid: 842856062cdb6984b8e8b752700bc636, type: 2}
+  - {fileID: 11400000, guid: 5a96d83544394f4468d129086e7df425, type: 2}
+  - {fileID: 11400000, guid: a67fb8a1ff454ab79655df217f283d8f, type: 2}
+  starterOwnedTools:
+  - {fileID: 11400000, guid: 842856062cdb6984b8e8b752700bc636, type: 2}
+  - {fileID: 11400000, guid: 5a96d83544394f4468d129086e7df425, type: 2}
+  - {fileID: 11400000, guid: a67fb8a1ff454ab79655df217f283d8f, type: 2}
 --- !u!114 &930000104
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2831,6 +2841,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   catalog: {fileID: 11400000, guid: 0b417d25e2424442af50b15005146422, type: 2}
+  storageManager: {fileID: 930000103}
+  persistenceManager: {fileID: 0}
+--- !u!114 &930000105
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 930000100}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9bd597d7a4a7487aaa875c764d655ac1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
   storageManager: {fileID: 930000103}
   persistenceManager: {fileID: 0}
 --- !u!1 &940000000
@@ -3167,6 +3191,7 @@ MonoBehaviour:
   changescene: {fileID: 1067940504}
   facilityUIHost: {fileID: 900000202}
   miningSceneName: MiningScene
+  miningEntranceFacility: {fileID: 11400000, guid: f319704d5f0b41b6973c9054f0745e45, type: 2}
   workshopFacility: {fileID: 11400000, guid: e17c652b84ba44d19846990aa0f65e4a, type: 2}
   garageFacility: {fileID: 11400000, guid: 427a7121d9ea4a4f9e969e544c405ae1, type: 2}
 --- !u!114 &1067940504

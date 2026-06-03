@@ -41,6 +41,7 @@ public class ToolInventory : MonoBehaviour
     [SerializeField] private string subSlotId = "slot_1";
     [SerializeField] private bool allowSameSlotForRoles = false;
     [SerializeField] private bool persistToGameData = true;
+    [SerializeField] private bool saveRuntimeChangesToGameData = true;
 
     public event Action OnSlotsChanged;
     public event Action OnRoleBindingsChanged;
@@ -140,6 +141,14 @@ public class ToolInventory : MonoBehaviour
         string oldMainSlotId = mainSlotId;
         string oldSubSlotId = subSlotId;
         bool loadedFromPersistence = TryLoadFromGameData(tools);
+        if (GameDataPersistenceManager.Instance != null &&
+            GameDataPersistenceManager.Instance.hasToolInventoryData &&
+            !loadedFromPersistence)
+        {
+            Debug.LogError("ToolInventory: persisted tool inventory data could not be loaded.", this);
+            return;
+        }
+
         bool slotsChanged = loadedFromPersistence || EnsureSlotIds();
         bool slotsWereEmpty = slots.Count == 0;
 
@@ -334,14 +343,19 @@ public class ToolInventory : MonoBehaviour
 
         if (persistence.toolSlots != null)
         {
+            if (!ValidatePersistedToolSlots(persistence))
+            {
+                return false;
+            }
+
             foreach (ToolSlotPersistenceData savedSlot in persistence.toolSlots)
             {
-                if (savedSlot == null)
+                MiningTool resolvedTool = ResolvePersistedTool(savedSlot, availableTools);
+                if (!string.IsNullOrWhiteSpace(savedSlot.toolId) && resolvedTool == null)
                 {
-                    continue;
+                    return false;
                 }
 
-                MiningTool resolvedTool = ResolvePersistedTool(savedSlot, availableTools);
                 slots.Add(new ToolSlot(savedSlot.slotId, resolvedTool));
             }
         }
@@ -354,7 +368,7 @@ public class ToolInventory : MonoBehaviour
 
     private void SaveToGameData()
     {
-        if (!persistToGameData)
+        if (!persistToGameData || !saveRuntimeChangesToGameData)
         {
             return;
         }
@@ -412,6 +426,46 @@ public class ToolInventory : MonoBehaviour
         }
 
         return resolvedTool;
+    }
+
+    private bool ValidatePersistedToolSlots(GameDataPersistenceManager persistence)
+    {
+        HashSet<string> slotIds = new HashSet<string>();
+        for (int i = 0; i < persistence.toolSlots.Count; i++)
+        {
+            ToolSlotPersistenceData savedSlot = persistence.toolSlots[i];
+            if (savedSlot == null)
+            {
+                Debug.LogError($"ToolInventory: persisted toolSlots contains a null record at index {i}.", this);
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(savedSlot.slotId))
+            {
+                Debug.LogError($"ToolInventory: persisted toolSlots[{i}] has no slotId.", this);
+                return false;
+            }
+
+            if (!slotIds.Add(savedSlot.slotId))
+            {
+                Debug.LogError($"ToolInventory: persisted toolSlots contains duplicate slotId '{savedSlot.slotId}'.", this);
+                return false;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(persistence.mainToolSlotId) && !slotIds.Contains(persistence.mainToolSlotId))
+        {
+            Debug.LogError($"ToolInventory: mainToolSlotId '{persistence.mainToolSlotId}' does not exist in persisted toolSlots.", this);
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(persistence.subToolSlotId) && !slotIds.Contains(persistence.subToolSlotId))
+        {
+            Debug.LogError($"ToolInventory: subToolSlotId '{persistence.subToolSlotId}' does not exist in persisted toolSlots.", this);
+            return false;
+        }
+
+        return true;
     }
 
     private static MiningTool FindToolById(string toolId, IList<MiningTool> availableTools)
