@@ -111,7 +111,7 @@ public class MiningEntranceInventoryPanel : FacilityPanel, IMiningEntrancePanelR
             unassignedIndex++;
         }
 
-        SetStatus("Ready.");
+        SetStatus("変更あり");
     }
 
     public void BeginDrag(DragPayload payload, CanvasGroup canvasGroup)
@@ -189,7 +189,7 @@ public class MiningEntranceInventoryPanel : FacilityPanel, IMiningEntrancePanelR
             return;
         }
 
-        SetStatus("Committed.");
+        SetStatus("保存済み");
     }
 
     private void SetStatus(string message)
