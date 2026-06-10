@@ -6,6 +6,7 @@ public class MiningEntranceAssignedSlotTile : MonoBehaviour, IBeginDragHandler, 
 {
     [SerializeField] private Text slotLabel;
     [SerializeField] private Text toolLabel;
+    [SerializeField] private Image toolIconImage;
     [SerializeField] private Text roleLabel;
     [SerializeField] private Button mainButton;
     [SerializeField] private Button subButton;
@@ -31,6 +32,8 @@ public class MiningEntranceAssignedSlotTile : MonoBehaviour, IBeginDragHandler, 
 
         slotLabel.text = $"Slot {slotIndex + 1}";
         toolLabel.text = tool != null ? tool.ToolName : "Empty";
+        toolIconImage.sprite = tool != null ? tool.ToolIcon : null;
+        toolIconImage.enabled = tool != null && tool.ToolIcon != null;
         roleLabel.text = role;
 
         mainButton.onClick.RemoveAllListeners();
@@ -80,6 +83,7 @@ public class MiningEntranceAssignedSlotTile : MonoBehaviour, IBeginDragHandler, 
     {
         return slotLabel != null &&
                toolLabel != null &&
+               toolIconImage != null &&
                roleLabel != null &&
                mainButton != null &&
                subButton != null &&

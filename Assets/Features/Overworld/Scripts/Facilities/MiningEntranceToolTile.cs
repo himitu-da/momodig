@@ -5,6 +5,7 @@ using UnityEngine.UI;
 public class MiningEntranceToolTile : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     [SerializeField] private Text toolLabel;
+    [SerializeField] private Image toolIconImage;
     [SerializeField] private CanvasGroup canvasGroup;
 
     private MiningEntranceInventoryPanel owner;
@@ -14,7 +15,7 @@ public class MiningEntranceToolTile : MonoBehaviour, IBeginDragHandler, IDragHan
 
     public void Bind(MiningEntranceInventoryPanel owner, MiningTool tool)
     {
-        if (owner == null || tool == null || toolLabel == null || canvasGroup == null)
+        if (owner == null || tool == null || toolLabel == null || toolIconImage == null || canvasGroup == null)
         {
             Debug.LogError($"MiningEntranceToolTile '{name}': cannot bind because required references are missing.", this);
             return;
@@ -23,6 +24,8 @@ public class MiningEntranceToolTile : MonoBehaviour, IBeginDragHandler, IDragHan
         this.owner = owner;
         this.tool = tool;
         toolLabel.text = tool.ToolName;
+        toolIconImage.sprite = tool.ToolIcon;
+        toolIconImage.enabled = tool.ToolIcon != null;
     }
 
     public void OnBeginDrag(PointerEventData eventData)
