@@ -18,10 +18,8 @@ public class MiningEntranceInventoryPanel : FacilityPanel, IMiningEntrancePanelR
     [SerializeField] private Button commitButton;
 
     [Header("Grid Layout")]
-    [SerializeField] private Vector2 assignedGridCellSize = new Vector2(206f, 88f);
     [SerializeField] private Vector2 assignedGridSpacing = new Vector2(14f, 0f);
     [SerializeField] private int assignedGridColumns = 3;
-    [SerializeField] private Vector2 unassignedGridCellSize = new Vector2(154f, 56f);
     [SerializeField] private Vector2 unassignedGridSpacing = new Vector2(10f, 10f);
     [SerializeField] private int unassignedGridColumns = 4;
 
@@ -87,14 +85,16 @@ public class MiningEntranceInventoryPanel : FacilityPanel, IMiningEntrancePanelR
         ClearChildren(assignedGridRoot);
         ClearChildren(unassignedGridRoot);
 
+        Vector2 assignedCellSize = assignedSlotPrefab.RectTransform.rect.size;
         IReadOnlyList<ToolSlotPersistenceData> slots = loadout.DraftToolSlots;
         for (int i = 0; i < slots.Count; i++)
         {
             MiningEntranceAssignedSlotTile tile = Instantiate(assignedSlotPrefab, assignedGridRoot, false);
-            SetGridPosition(tile.RectTransform, i, assignedGridCellSize, assignedGridSpacing, assignedGridColumns);
+            SetGridPosition(tile.RectTransform, i, assignedCellSize, assignedGridSpacing, assignedGridColumns);
             tile.Bind(this, slots[i], i, GetRoleLabel(slots[i].slotId));
         }
 
+        Vector2 unassignedCellSize = unassignedToolPrefab.RectTransform.rect.size;
         int unassignedIndex = 0;
         List<MiningTool> ownedTools = loadout.GetOwnedTools();
         for (int i = 0; i < ownedTools.Count; i++)
@@ -106,7 +106,7 @@ public class MiningEntranceInventoryPanel : FacilityPanel, IMiningEntrancePanelR
             }
 
             MiningEntranceToolTile tile = Instantiate(unassignedToolPrefab, unassignedGridRoot, false);
-            SetGridPosition(tile.RectTransform, unassignedIndex, unassignedGridCellSize, unassignedGridSpacing, unassignedGridColumns);
+            SetGridPosition(tile.RectTransform, unassignedIndex, unassignedCellSize, unassignedGridSpacing, unassignedGridColumns);
             tile.Bind(this, tool);
             unassignedIndex++;
         }
