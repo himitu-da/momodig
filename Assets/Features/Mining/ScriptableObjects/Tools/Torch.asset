@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 31ad7fe1df704220911fc42c3bb99672, type: 3}
   m_Name: Torch
   m_EditorClassIdentifier: 
-  toolName: Torch
+  toolName: "\u305F\u3044\u307E\u3064"
   toolIcon: {fileID: 21300000, guid: 4239a92c94d138441aa604e85adbb2c5, type: 3}
   toolTypeID: 0
   animationTriggerName: Mine

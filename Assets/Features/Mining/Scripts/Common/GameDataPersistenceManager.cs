@@ -82,6 +82,9 @@ public class GameDataPersistenceManager : MonoBehaviour
     [Header("Facility Upgrade Data")]
     public List<FacilityUpgradeProgressRecord> facilityUpgradeProgress = new List<FacilityUpgradeProgressRecord>();
 
+    [Header("Storage Tool Data")]
+    public List<string> ownedToolIds = new List<string>();
+
     [Header("Tool Inventory Data")]
     public bool hasToolInventoryData = false;
     public List<ToolSlotPersistenceData> toolSlots = new List<ToolSlotPersistenceData>();
@@ -252,6 +255,7 @@ public class GameDataPersistenceManager : MonoBehaviour
             ? new List<SolidifiedVoxelRecord>(source.solidifiedVoxelHistory)
             : new List<SolidifiedVoxelRecord>();
         facilityUpgradeProgress = CopyFacilityUpgradeProgress(source.facilityUpgradeProgress);
+        ownedToolIds = CopyStringList(source.ownedToolIds, "ownedToolIds");
         hasToolInventoryData = source.hasToolInventoryData;
         toolSlots = CopyToolSlots(source.toolSlots);
         mainToolSlotId = source.mainToolSlotId;
@@ -389,6 +393,7 @@ public class GameDataPersistenceManager : MonoBehaviour
         voxelCellOverrides = new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>();
         solidifiedVoxelHistory = new List<SolidifiedVoxelRecord>();
         facilityUpgradeProgress = new List<FacilityUpgradeProgressRecord>();
+        ownedToolIds = new List<string>();
         hasToolInventoryData = false;
         toolSlots = new List<ToolSlotPersistenceData>();
         mainToolSlotId = string.Empty;
@@ -447,6 +452,7 @@ public class GameDataPersistenceManager : MonoBehaviour
             voxelCellOverrides.Count > 0 ||
             solidifiedVoxelHistory.Count > 0 ||
             facilityUpgradeProgress.Count > 0 ||
+            ownedToolIds.Count > 0 ||
             hasToolInventoryData ||
             torchPlacements.Count > 0)
         {
@@ -523,6 +529,7 @@ public class GameDataPersistenceManager : MonoBehaviour
 
         saveData.solidifiedVoxelHistory.AddRange(solidifiedVoxelHistory);
         saveData.facilityUpgradeProgress = CopyFacilityUpgradeProgress(facilityUpgradeProgress);
+        saveData.ownedToolIds = CopyStringList(ownedToolIds, "ownedToolIds");
 
         for (int i = 0; i < toolSlots.Count; i++)
         {
@@ -629,6 +636,7 @@ public class GameDataPersistenceManager : MonoBehaviour
             ? new List<SolidifiedVoxelRecord>(saveData.solidifiedVoxelHistory)
             : new List<SolidifiedVoxelRecord>();
         facilityUpgradeProgress = CopyFacilityUpgradeProgress(saveData.facilityUpgradeProgress);
+        ownedToolIds = CopyStringList(saveData.ownedToolIds, "ownedToolIds");
         hasToolInventoryData = saveData.hasToolInventoryData;
         toolSlots = new List<ToolSlotPersistenceData>();
         if (saveData.toolSlots != null)
@@ -683,6 +691,7 @@ public class GameDataPersistenceManager : MonoBehaviour
         voxelCellOverrides ??= new Dictionary<Vector3Int, Dictionary<Vector3Int, VoxelCellData>>();
         solidifiedVoxelHistory ??= new List<SolidifiedVoxelRecord>();
         facilityUpgradeProgress ??= new List<FacilityUpgradeProgressRecord>();
+        ownedToolIds ??= new List<string>();
         toolSlots ??= new List<ToolSlotPersistenceData>();
         torchPlacements ??= new List<TorchPlacementData>();
     }
@@ -858,6 +867,35 @@ public class GameDataPersistenceManager : MonoBehaviour
                 toolId = !string.IsNullOrEmpty(record.toolId) ? record.toolId : GetToolId(record.tool),
                 tool = record.tool
             });
+        }
+
+        return copy;
+    }
+
+    private List<string> CopyStringList(List<string> source, string fieldName)
+    {
+        List<string> copy = new List<string>();
+        if (source == null)
+        {
+            return copy;
+        }
+
+        for (int i = 0; i < source.Count; i++)
+        {
+            string value = source[i];
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                Debug.LogError($"GameDataPersistenceManager: {fieldName} contains an empty value at index {i}.", this);
+                continue;
+            }
+
+            if (copy.Contains(value))
+            {
+                Debug.LogError($"GameDataPersistenceManager: {fieldName} contains duplicate value '{value}'.", this);
+                continue;
+            }
+
+            copy.Add(value);
         }
 
         return copy;

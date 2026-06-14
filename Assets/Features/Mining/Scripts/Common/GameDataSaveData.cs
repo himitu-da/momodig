@@ -25,6 +25,7 @@ public class GameDataSaveData
     public List<SolidifiedVoxelRecord> solidifiedVoxelHistory = new List<SolidifiedVoxelRecord>();
     public List<FacilityUpgradeProgressRecord> facilityUpgradeProgress =
         new List<FacilityUpgradeProgressRecord>();
+    public List<string> ownedToolIds = new List<string>();
     public bool hasToolInventoryData;
     public List<ToolSlotSaveRecord> toolSlots = new List<ToolSlotSaveRecord>();
     public string mainToolSlotId = "";

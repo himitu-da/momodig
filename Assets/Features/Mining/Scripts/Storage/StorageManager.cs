@@ -8,6 +8,8 @@ using System.Collections.Generic;
 public class StorageManager : MonoBehaviour
 {
     [SerializeField] private GameDataPersistenceManager persistenceManager;
+    [SerializeField] private List<MiningTool> knownTools = new List<MiningTool>();
+    [SerializeField] private List<MiningTool> starterOwnedTools = new List<MiningTool>();
 
     // シングルトンインスタンス
     private static StorageManager _instance;
@@ -26,6 +28,7 @@ public class StorageManager : MonoBehaviour
 
     // 貯蔵されているリソース
     private Dictionary<ResourceType, int> storedResources = new Dictionary<ResourceType, int>();
+    private readonly List<string> ownedToolIds = new List<string>();
 
     void Awake()
     {
@@ -48,6 +51,8 @@ public class StorageManager : MonoBehaviour
         }
 
         NormalizeStoredResources();
+        LoadOwnedToolsFromPersistence();
+        SeedStarterOwnedToolsIfNeeded();
     }
 
     void OnDestroy()
@@ -184,6 +189,65 @@ public class StorageManager : MonoBehaviour
         return new Dictionary<ResourceType, int>(storedResources);
     }
 
+    public List<MiningTool> GetOwnedTools()
+    {
+        List<MiningTool> tools = new List<MiningTool>();
+        for (int i = 0; i < ownedToolIds.Count; i++)
+        {
+            MiningTool tool = ResolveKnownTool(ownedToolIds[i]);
+            if (tool == null)
+            {
+                Debug.LogError($"StorageManager: owned toolId '{ownedToolIds[i]}' is not registered in knownTools.", this);
+                continue;
+            }
+
+            tools.Add(tool);
+        }
+
+        return tools;
+    }
+
+    public bool OwnsTool(MiningTool tool)
+    {
+        string toolId = GameDataPersistenceManager.GetToolId(tool);
+        if (string.IsNullOrWhiteSpace(toolId))
+        {
+            Debug.LogError("StorageManager: tool is not configured.", this);
+            return false;
+        }
+
+        return ownedToolIds.Contains(toolId);
+    }
+
+    public bool AddOwnedTool(MiningTool tool)
+    {
+        if (!ValidateKnownTool(tool))
+        {
+            return false;
+        }
+
+        string toolId = GameDataPersistenceManager.GetToolId(tool);
+        if (ownedToolIds.Contains(toolId))
+        {
+            return true;
+        }
+
+        ownedToolIds.Add(toolId);
+        PersistOwnedTools();
+        return true;
+    }
+
+    public void PersistOwnedTools()
+    {
+        GameDataPersistenceManager resolvedPersistenceManager = ResolvePersistenceManager();
+        if (resolvedPersistenceManager == null)
+        {
+            return;
+        }
+
+        resolvedPersistenceManager.ownedToolIds = new List<string>(ownedToolIds);
+    }
+
     private bool ValidateSpendRequest(Dictionary<ResourceType, int> resourcesToSpend)
     {
         if (storedResources == null)
@@ -255,6 +319,140 @@ public class StorageManager : MonoBehaviour
         }
 
         resolvedPersistenceManager.storedResources = new Dictionary<ResourceType, int>(storedResources);
+    }
+
+    private void LoadOwnedToolsFromPersistence()
+    {
+        ownedToolIds.Clear();
+        GameDataPersistenceManager resolvedPersistenceManager = ResolvePersistenceManager();
+        if (resolvedPersistenceManager == null)
+        {
+            return;
+        }
+
+        if (resolvedPersistenceManager.ownedToolIds == null)
+        {
+            resolvedPersistenceManager.ownedToolIds = new List<string>();
+        }
+
+        for (int i = 0; i < resolvedPersistenceManager.ownedToolIds.Count; i++)
+        {
+            string toolId = resolvedPersistenceManager.ownedToolIds[i];
+            if (string.IsNullOrWhiteSpace(toolId))
+            {
+                Debug.LogError($"StorageManager: persisted ownedToolIds contains an empty value at index {i}.", this);
+                continue;
+            }
+
+            if (ownedToolIds.Contains(toolId))
+            {
+                Debug.LogError($"StorageManager: persisted ownedToolIds contains duplicate value '{toolId}'.", this);
+                continue;
+            }
+
+            if (ResolveKnownTool(toolId) == null)
+            {
+                Debug.LogError($"StorageManager: persisted owned toolId '{toolId}' is not registered in knownTools.", this);
+                continue;
+            }
+
+            ownedToolIds.Add(toolId);
+        }
+    }
+
+    private void SeedStarterOwnedToolsIfNeeded()
+    {
+        if (ownedToolIds.Count > 0)
+        {
+            return;
+        }
+
+        if (starterOwnedTools == null || starterOwnedTools.Count == 0)
+        {
+            Debug.LogError("StorageManager: starterOwnedTools is not configured.", this);
+            return;
+        }
+
+        bool changed = false;
+        for (int i = 0; i < starterOwnedTools.Count; i++)
+        {
+            MiningTool tool = starterOwnedTools[i];
+            if (!ValidateKnownTool(tool))
+            {
+                continue;
+            }
+
+            string toolId = GameDataPersistenceManager.GetToolId(tool);
+            if (!ownedToolIds.Contains(toolId))
+            {
+                ownedToolIds.Add(toolId);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            PersistOwnedTools();
+        }
+    }
+
+    private bool ValidateKnownTool(MiningTool tool)
+    {
+        if (tool == null)
+        {
+            Debug.LogError("StorageManager: tool is not configured.", this);
+            return false;
+        }
+
+        string toolId = GameDataPersistenceManager.GetToolId(tool);
+        if (string.IsNullOrWhiteSpace(toolId))
+        {
+            Debug.LogError("StorageManager: toolId is not configured.", tool);
+            return false;
+        }
+
+        if (ResolveKnownTool(toolId) != tool)
+        {
+            Debug.LogError($"StorageManager: tool '{toolId}' is not registered in knownTools.", this);
+            return false;
+        }
+
+        return true;
+    }
+
+    private MiningTool ResolveKnownTool(string toolId)
+    {
+        if (string.IsNullOrWhiteSpace(toolId) || knownTools == null)
+        {
+            return null;
+        }
+
+        MiningTool resolved = null;
+        for (int i = 0; i < knownTools.Count; i++)
+        {
+            MiningTool candidate = knownTools[i];
+            if (candidate == null)
+            {
+                Debug.LogError($"StorageManager: knownTools contains a null tool at index {i}.", this);
+                continue;
+            }
+
+            string candidateId = GameDataPersistenceManager.GetToolId(candidate);
+            if (candidateId != toolId)
+            {
+                continue;
+            }
+
+            if (resolved != null)
+            {
+                Debug.LogError($"StorageManager: knownTools contains duplicate toolId '{toolId}'.", this);
+                return null;
+            }
+
+            resolved = candidate;
+        }
+
+        return resolved;
     }
 
     private bool CanAddResource(ResourceType type, int amount)
