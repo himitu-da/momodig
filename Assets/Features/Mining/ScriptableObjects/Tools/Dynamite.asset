@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c27ed3c853ff2f4aa599d9dfed1d828, type: 3}
   m_Name: Dynamite
   m_EditorClassIdentifier: 
-  toolName: Dynamite
+  toolName: "\u30C0\u30A4\u30CA\u30DE\u30A4\u30C8"
   toolIcon: {fileID: 21300000, guid: ac1bd176a61dafe44bd847d9fe645bd7, type: 3}
   toolTypeID: 0
   animationTriggerName: Mine
