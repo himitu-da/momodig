@@ -4327,10 +4327,12 @@ MonoBehaviour:
   inwardAxis: {x: 1, y: 0, z: 0}
   inwardTargetInset: 0.1
   playerItemTransferSpeed: 80
-  visualMoveSpeed: 5
+  visualMoveSpeed: 0.5
   maxDroppedItemScansPerFrame: 64
   droppedItemScanInterval: 0.05
   maxActiveVisualItems: 96
+  conveyorWidthBlocks: 3
+  voxelsPerBlock: 3
   unlock:
     BaseValue: 0
 --- !u!1 &2071865103
