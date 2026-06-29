@@ -11,7 +11,8 @@ After the upgrade reaches level 1, `ConveyorExportSystem` becomes the single run
 - Player inventory is exported when the player enters any configured player input area.
 - Minecart and fairy carried items are exported through `TryExportExternalItem(s)` after the carrier reaches its configured ground/home point.
 - Dropped voxel items are exported when their bounds enter any configured dropped item input area.
-- Storage is updated immediately when an item is accepted by the conveyor.
+- The conveyor accepts an item only when a moving slot is available at the input edge.
+- Storage is updated immediately after a conveyor slot is reserved for the item.
 - Visual transfer items are temporary animation objects only; storage is already authoritative.
 
 ## Scene Setup
@@ -52,3 +53,16 @@ Default MiningScene placement:
 
 The left and right `BoxCollider` triggers are also used as conveyor input areas.
 Visual items appear at the closest point on the nearest left/right belt, then move toward that belt's inward edge.
+
+## Slot Lane
+
+The conveyor is treated like a moving slot lane.
+Slots continuously move from the outside input edge toward the inward edge.
+
+- `conveyorWidthBlocks` defines the conveyor width in block units.
+- `voxelsPerBlock` defines how many voxel-width slots fit in one block.
+- Total slot capacity per visual lane is `conveyorWidthBlocks * voxelsPerBlock`.
+- A normal voxel item reserves one slot when its width matches one slot.
+- Wider visual items reserve multiple slots based on their scale along the inward axis.
+- If the lane is full, or the next input slot has not reached the input edge yet, the conveyor rejects the item and leaves the source item untouched.
+- A reserved slot is released when the visual item reaches its inward target, and the visual item is destroyed at that point.

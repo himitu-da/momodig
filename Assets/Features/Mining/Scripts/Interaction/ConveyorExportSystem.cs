@@ -35,22 +35,34 @@ public class ConveyorExportSystem : MonoBehaviour
     [Header("Transfer")]
     [SerializeField, Min(0.01f)] private float playerItemTransferSpeed = 50f;
     [SerializeField, Min(0.01f)] private float visualMoveSpeed = 5f;
-    [SerializeField, Min(0f)] private float visualLifetimeSeconds = 1.25f;
     [SerializeField, Min(1)] private int maxDroppedItemScansPerFrame = 64;
     [SerializeField, Min(0f)] private float droppedItemScanInterval = 0.05f;
     [SerializeField, Min(1)] private int maxActiveVisualItems = 96;
+
+    [Header("Slot Lane")]
+    [SerializeField, Min(1)] private int conveyorWidthBlocks = 3;
+    [SerializeField, Min(1)] private int voxelsPerBlock = 3;
 
     [Header("Facility Upgrade")]
     [SerializeField] private Stat unlock = new Stat { BaseValue = 0f };
 
     public bool IsUnlocked => isUnlocked;
 
+    private sealed class ConveyorSlotReservation
+    {
+        public int LaneIndex;
+        public int SlotCount;
+        public bool IsReleased;
+    }
+
     private readonly Queue<GameObject> activeVisualItems = new Queue<GameObject>();
+    private readonly List<ConveyorSlotReservation> activeSlotReservations = new List<ConveyorSlotReservation>();
     private bool isUnlocked;
     private bool isTransferringPlayerItems;
     private float nextDroppedItemScanTime;
     private int nextDroppedItemScanIndex;
     private bool missingPersistenceLogged;
+    private float[] nextSlotEntryTimes = Array.Empty<float>();
 
     private void Awake()
     {
@@ -60,6 +72,7 @@ public class ConveyorExportSystem : MonoBehaviour
             return;
         }
 
+        EnsureSlotLaneState();
         ApplyEnhancements();
     }
 
@@ -82,6 +95,7 @@ public class ConveyorExportSystem : MonoBehaviour
                 return;
             }
 
+            EnsureSlotLaneState();
             StartPlayerTransferIfNeeded();
             ProcessDroppedItemsInArea();
         }
@@ -94,8 +108,8 @@ public class ConveyorExportSystem : MonoBehaviour
             return false;
         }
 
-        ExportItemNow(itemData, sourcePosition, routeViaDepositPoint);
-        return true;
+        Vector3 referencePosition = GetExternalReferencePosition(sourcePosition, routeViaDepositPoint);
+        return TryAcceptItemNow(itemData, referencePosition);
     }
 
     public bool TryExportExternalItems(IList<VoxelItemData> items, Vector3 sourcePosition, bool routeViaDepositPoint)
@@ -119,9 +133,54 @@ public class ConveyorExportSystem : MonoBehaviour
             }
         }
 
+        var reservations = new List<ConveyorSlotReservation>(items.Count);
+        var startPositions = new List<Vector3>(items.Count);
+        var targetPositions = new List<Vector3>(items.Count);
+        var visualItems = new List<GameObject>(items.Count);
+        Vector3 referencePosition = GetExternalReferencePosition(sourcePosition, routeViaDepositPoint);
+        int batchReservedSlots = 0;
+
         for (int i = 0; i < items.Count; i++)
         {
-            ExportItemNow(items[i], sourcePosition, routeViaDepositPoint);
+            if (!TryReserveConveyorSlot(
+                    items[i],
+                    referencePosition,
+                    out Vector3 startPosition,
+                    out Vector3 targetPosition,
+                    out ConveyorSlotReservation reservation,
+                    i == 0,
+                    batchReservedSlots))
+            {
+                ReleaseConveyorSlots(reservations);
+                return false;
+            }
+
+            reservations.Add(reservation);
+            startPositions.Add(startPosition);
+            targetPositions.Add(targetPosition);
+            batchReservedSlots += reservation.SlotCount;
+        }
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (!CreateVisualItem(items[i], startPositions[i], out GameObject visualItem))
+            {
+                DestroyVisualItems(visualItems);
+                ReleaseConveyorSlots(reservations);
+                return false;
+            }
+
+            visualItems.Add(visualItem);
+        }
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            storageManager.AddResource(items[i].resourceType, 1);
+            AnimateVisualItem(
+                visualItems[i],
+                startPositions[i],
+                targetPositions[i],
+                reservations[i]).Forget();
         }
 
         return true;
@@ -164,9 +223,19 @@ public class ConveyorExportSystem : MonoBehaviour
                 }
 
                 Vector3 sourcePosition = playerController.transform.position;
-                GetVisualFlowPositions(sourcePosition, out Vector3 startPosition, out Vector3 targetPosition);
+                if (!TryReserveConveyorSlot(
+                        itemData,
+                        sourcePosition,
+                        out Vector3 startPosition,
+                        out Vector3 targetPosition,
+                        out ConveyorSlotReservation reservation))
+                {
+                    break;
+                }
+
                 if (!CreateVisualItem(itemData, startPosition, out GameObject visualItem))
                 {
+                    ReleaseConveyorSlot(reservation);
                     break;
                 }
 
@@ -174,11 +243,12 @@ public class ConveyorExportSystem : MonoBehaviour
                 {
                     Debug.LogError("ConveyorExportSystem: failed to remove player inventory item.", this);
                     Destroy(visualItem);
+                    ReleaseConveyorSlot(reservation);
                     break;
                 }
 
                 storageManager.AddResource(removedItem.resourceType, 1);
-                AnimateVisualItem(visualItem, startPosition, targetPosition).Forget();
+                AnimateVisualItem(visualItem, startPosition, targetPosition, reservation).Forget();
                 await UniTask.Delay(TimeSpan.FromSeconds(1f / playerItemTransferSpeed));
             }
         }
@@ -190,7 +260,7 @@ public class ConveyorExportSystem : MonoBehaviour
 
     private void ProcessDroppedItemsInArea()
     {
-        if (Time.time < nextDroppedItemScanTime || droppedItemManager == null || droppedItemInputArea == null)
+        if (Time.time < nextDroppedItemScanTime || droppedItemManager == null || !HasDroppedItemInputArea())
         {
             return;
         }
@@ -246,34 +316,49 @@ public class ConveyorExportSystem : MonoBehaviour
         }
 
         Vector3 sourcePosition = item.transform.position;
-        storageManager.AddResource(itemData.resourceType, 1);
-        droppedItemManager.ReturnItem(item.gameObject);
-
-        if (CreateVisualItem(itemData, sourcePosition, out GameObject visualItem))
-        {
-            GetVisualFlowPositions(sourcePosition, out Vector3 startPosition, out Vector3 targetPosition);
-            visualItem.transform.position = startPosition;
-            AnimateVisualItem(visualItem, startPosition, targetPosition).Forget();
-        }
-    }
-
-    private void ExportItemNow(
-        VoxelItemData itemData,
-        Vector3 sourcePosition,
-        bool routeViaDepositPoint)
-    {
-        storageManager.AddResource(itemData.resourceType, 1);
-        Vector3 referencePosition = routeViaDepositPoint && externalDepositPoint != null
-            ? externalDepositPoint.position
-            : sourcePosition;
-        GetVisualFlowPositions(referencePosition, out Vector3 startPosition, out Vector3 targetPosition);
-
-        if (!CreateVisualItem(itemData, startPosition, out GameObject visualItem))
+        if (!TryReserveConveyorSlot(
+                itemData,
+                sourcePosition,
+                out Vector3 startPosition,
+                out Vector3 targetPosition,
+                out ConveyorSlotReservation reservation))
         {
             return;
         }
 
-        AnimateVisualItem(visualItem, startPosition, targetPosition).Forget();
+        storageManager.AddResource(itemData.resourceType, 1);
+        droppedItemManager.ReturnItem(item.gameObject);
+
+        if (!CreateVisualItem(itemData, startPosition, out GameObject visualItem))
+        {
+            ReleaseConveyorSlot(reservation);
+            return;
+        }
+
+        AnimateVisualItem(visualItem, startPosition, targetPosition, reservation).Forget();
+    }
+
+    private bool TryAcceptItemNow(VoxelItemData itemData, Vector3 referencePosition)
+    {
+        if (!TryReserveConveyorSlot(
+                itemData,
+                referencePosition,
+                out Vector3 startPosition,
+                out Vector3 targetPosition,
+                out ConveyorSlotReservation reservation))
+        {
+            return false;
+        }
+
+        if (!CreateVisualItem(itemData, startPosition, out GameObject visualItem))
+        {
+            ReleaseConveyorSlot(reservation);
+            return false;
+        }
+
+        storageManager.AddResource(itemData.resourceType, 1);
+        AnimateVisualItem(visualItem, startPosition, targetPosition, reservation).Forget();
+        return true;
     }
 
     private bool CanExportItem(VoxelItemData itemData, string context)
@@ -328,21 +413,25 @@ public class ConveyorExportSystem : MonoBehaviour
         }
     }
 
-    private async UniTask AnimateVisualItemViaDeposit(
+    private async UniTask AnimateVisualItem(
         GameObject visualItem,
         Vector3 sourcePosition,
-        Vector3 depositPosition,
-        Vector3 targetPosition)
+        Vector3 targetPosition,
+        ConveyorSlotReservation reservation)
     {
-        await MoveVisualItemAsync(visualItem, sourcePosition, depositPosition);
-        await MoveVisualItemAsync(visualItem, depositPosition, targetPosition);
-        await HoldAndDestroyVisualItem(visualItem);
-    }
+        try
+        {
+            await MoveVisualItemAsync(visualItem, sourcePosition, targetPosition);
+        }
+        finally
+        {
+            ReleaseConveyorSlot(reservation);
+        }
 
-    private async UniTask AnimateVisualItem(GameObject visualItem, Vector3 sourcePosition, Vector3 targetPosition)
-    {
-        await MoveVisualItemAsync(visualItem, sourcePosition, targetPosition);
-        await HoldAndDestroyVisualItem(visualItem);
+        if (visualItem != null)
+        {
+            Destroy(visualItem);
+        }
     }
 
     private async UniTask MoveVisualItemAsync(GameObject visualItem, Vector3 sourcePosition, Vector3 targetPosition)
@@ -366,7 +455,6 @@ public class ConveyorExportSystem : MonoBehaviour
             elapsed += Time.deltaTime;
             float progress = Mathf.Clamp01(elapsed / duration);
             visualItem.transform.position = Vector3.Lerp(sourcePosition, targetPosition, progress);
-            visualItem.transform.Rotate(0f, 360f * Time.deltaTime, 0f);
             await UniTask.Yield();
         }
 
@@ -376,24 +464,243 @@ public class ConveyorExportSystem : MonoBehaviour
         }
     }
 
-    private async UniTask HoldAndDestroyVisualItem(GameObject visualItem)
+    private bool TryReserveConveyorSlot(
+        VoxelItemData itemData,
+        Vector3 referencePosition,
+        out Vector3 startPosition,
+        out Vector3 targetPosition,
+        out ConveyorSlotReservation reservation,
+        bool requireEntrySlot = true,
+        int entryOffsetSlots = 0)
     {
-        if (visualLifetimeSeconds > 0f)
+        startPosition = Vector3.zero;
+        targetPosition = Vector3.zero;
+        reservation = null;
+
+        EnsureSlotLaneState();
+        int laneIndex = GetLaneIndexForSource(referencePosition);
+        Vector3 center = GetVisualAreaCenterByLaneIndex(laneIndex);
+        startPosition = GetClosestVisualAreaPosition(referencePosition, center);
+        targetPosition = GetInwardVisualPosition(center, startPosition);
+
+        int slotCapacity = GetSlotCapacity();
+        float slotSpacing = GetSlotSpacing(slotCapacity);
+        int requiredSlots = GetRequiredSlotCount(itemData, slotSpacing);
+        if (GetReservedSlotCount(laneIndex) + requiredSlots > slotCapacity)
         {
-            await UniTask.Delay(TimeSpan.FromSeconds(visualLifetimeSeconds));
+            return false;
         }
 
-        if (visualItem != null)
+        if (requireEntrySlot &&
+            laneIndex >= 0 &&
+            laneIndex < nextSlotEntryTimes.Length &&
+            Time.time < nextSlotEntryTimes[laneIndex])
         {
-            Destroy(visualItem);
+            return false;
+        }
+
+        OffsetFlowPositionsBySlots(ref startPosition, ref targetPosition, slotSpacing, entryOffsetSlots);
+
+        reservation = new ConveyorSlotReservation
+        {
+            LaneIndex = laneIndex,
+            SlotCount = requiredSlots,
+        };
+        activeSlotReservations.Add(reservation);
+
+        if (laneIndex >= 0 && laneIndex < nextSlotEntryTimes.Length)
+        {
+            float entryBaseTime = Mathf.Max(Time.time, nextSlotEntryTimes[laneIndex]);
+            nextSlotEntryTimes[laneIndex] = entryBaseTime + (slotSpacing * requiredSlots / visualMoveSpeed);
+        }
+
+        return true;
+    }
+
+    private void OffsetFlowPositionsBySlots(
+        ref Vector3 startPosition,
+        ref Vector3 targetPosition,
+        float slotSpacing,
+        int entryOffsetSlots)
+    {
+        if (entryOffsetSlots <= 0)
+        {
+            return;
+        }
+
+        Vector3 movement = targetPosition - startPosition;
+        float distance = movement.magnitude;
+        if (distance <= 0.001f)
+        {
+            return;
+        }
+
+        Vector3 offset = movement.normalized * Mathf.Min(distance, slotSpacing * entryOffsetSlots);
+        startPosition += offset;
+    }
+
+    private void ReleaseConveyorSlot(ConveyorSlotReservation reservation)
+    {
+        if (reservation == null || reservation.IsReleased)
+        {
+            return;
+        }
+
+        reservation.IsReleased = true;
+        activeSlotReservations.Remove(reservation);
+    }
+
+    private void ReleaseConveyorSlots(List<ConveyorSlotReservation> reservations)
+    {
+        if (reservations == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < reservations.Count; i++)
+        {
+            ReleaseConveyorSlot(reservations[i]);
         }
     }
 
-    private void GetVisualFlowPositions(Vector3 sourcePosition, out Vector3 startPosition, out Vector3 targetPosition)
+    private void DestroyVisualItems(List<GameObject> visualItems)
     {
-        Vector3 center = GetVisualAreaCenterForSource(sourcePosition);
-        startPosition = GetClosestVisualAreaPosition(sourcePosition, center);
-        targetPosition = GetInwardVisualPosition(center, startPosition);
+        if (visualItems == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < visualItems.Count; i++)
+        {
+            if (visualItems[i] != null)
+            {
+                Destroy(visualItems[i]);
+            }
+        }
+    }
+
+    private int GetReservedSlotCount(int laneIndex)
+    {
+        int count = 0;
+        for (int i = activeSlotReservations.Count - 1; i >= 0; i--)
+        {
+            ConveyorSlotReservation active = activeSlotReservations[i];
+            if (active == null || active.IsReleased)
+            {
+                activeSlotReservations.RemoveAt(i);
+                continue;
+            }
+
+            if (active.LaneIndex == laneIndex)
+            {
+                count += active.SlotCount;
+            }
+        }
+
+        return count;
+    }
+
+    private int GetSlotCapacity()
+    {
+        return Mathf.Max(1, conveyorWidthBlocks) * Mathf.Max(1, voxelsPerBlock);
+    }
+
+    private float GetSlotSpacing(int slotCapacity)
+    {
+        return Mathf.Max(0.001f, visualAreaSize.x / Mathf.Max(1, slotCapacity));
+    }
+
+    private int GetRequiredSlotCount(VoxelItemData itemData, float slotSpacing)
+    {
+        if (itemData == null)
+        {
+            return 1;
+        }
+
+        float itemWidth = GetItemWidthAlongInwardAxis(itemData);
+        return Mathf.Max(1, Mathf.CeilToInt(itemWidth / Mathf.Max(0.001f, slotSpacing)));
+    }
+
+    private float GetItemWidthAlongInwardAxis(VoxelItemData itemData)
+    {
+        Vector3 axis = IsAxisConfigured(inwardAxis) ? inwardAxis.normalized : Vector3.right;
+        Vector3 scale = itemData.scale;
+        return Mathf.Abs(axis.x) * scale.x +
+            Mathf.Abs(axis.y) * scale.y +
+            Mathf.Abs(axis.z) * scale.z;
+    }
+
+    private void EnsureSlotLaneState()
+    {
+        int laneCount = GetLaneCount();
+        if (nextSlotEntryTimes.Length == laneCount)
+        {
+            return;
+        }
+
+        nextSlotEntryTimes = new float[laneCount];
+        activeSlotReservations.Clear();
+    }
+
+    private int GetLaneCount()
+    {
+        return visualAreaCenters != null && visualAreaCenters.Length > 0
+            ? visualAreaCenters.Length
+            : 1;
+    }
+
+    private int GetLaneIndexForSource(Vector3 sourcePosition)
+    {
+        if (visualAreaCenters == null || visualAreaCenters.Length == 0)
+        {
+            return 0;
+        }
+
+        int nearestIndex = 0;
+        float nearestSqrDistance = float.MaxValue;
+        for (int i = 0; i < visualAreaCenters.Length; i++)
+        {
+            Transform candidate = visualAreaCenters[i];
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            Vector3 closestPosition = GetClosestVisualAreaPosition(sourcePosition, candidate.position);
+            float sqrDistance = (closestPosition - sourcePosition).sqrMagnitude;
+            if (sqrDistance < nearestSqrDistance)
+            {
+                nearestIndex = i;
+                nearestSqrDistance = sqrDistance;
+            }
+        }
+
+        return nearestIndex;
+    }
+
+    private Vector3 GetVisualAreaCenterByLaneIndex(int laneIndex)
+    {
+        if (visualAreaCenters != null &&
+            laneIndex >= 0 &&
+            laneIndex < visualAreaCenters.Length &&
+            visualAreaCenters[laneIndex] != null)
+        {
+            return visualAreaCenters[laneIndex].position;
+        }
+
+        if (visualAreaCenter != null)
+        {
+            return visualAreaCenter.position;
+        }
+
+        return transform.position;
+    }
+
+    private Vector3 GetExternalReferencePosition(Vector3 sourcePosition, bool routeViaDepositPoint)
+    {
+        return routeViaDepositPoint && externalDepositPoint != null
+            ? externalDepositPoint.position
+            : sourcePosition;
     }
 
     private Vector3 GetInwardVisualPosition(Vector3 center, Vector3 startPosition)
@@ -422,41 +729,6 @@ public class ConveyorExportSystem : MonoBehaviour
             Mathf.Clamp(offset.z, -halfSize.z, halfSize.z));
     }
 
-    private Vector3 GetVisualAreaCenterForSource(Vector3 sourcePosition)
-    {
-        Transform nearest = GetNearestVisualAreaCenter(sourcePosition);
-        if (nearest != null)
-        {
-            return nearest.position;
-        }
-
-        return GetRandomVisualAreaCenter();
-    }
-
-    private Transform GetNearestVisualAreaCenter(Vector3 sourcePosition)
-    {
-        Transform nearest = null;
-        float nearestSqrDistance = float.MaxValue;
-        for (int i = 0; i < visualAreaCenters.Length; i++)
-        {
-            Transform candidate = visualAreaCenters[i];
-            if (candidate == null)
-            {
-                continue;
-            }
-
-            Vector3 closestPosition = GetClosestVisualAreaPosition(sourcePosition, candidate.position);
-            float sqrDistance = (closestPosition - sourcePosition).sqrMagnitude;
-            if (sqrDistance < nearestSqrDistance)
-            {
-                nearest = candidate;
-                nearestSqrDistance = sqrDistance;
-            }
-        }
-
-        return nearest;
-    }
-
     private float GetInwardXOffset(Vector3 center, float halfWidth)
     {
         float usableHalfWidth = Mathf.Max(0f, halfWidth - inwardTargetInset);
@@ -473,45 +745,6 @@ public class ConveyorExportSystem : MonoBehaviour
         }
 
         return side < 0f ? usableHalfWidth : -usableHalfWidth;
-    }
-
-    private Vector3 GetRandomVisualAreaCenter()
-    {
-        int validCenterCount = 0;
-        for (int i = 0; i < visualAreaCenters.Length; i++)
-        {
-            if (visualAreaCenters[i] != null)
-            {
-                validCenterCount++;
-            }
-        }
-
-        if (validCenterCount > 0)
-        {
-            int selectedIndex = UnityEngine.Random.Range(0, validCenterCount);
-            for (int i = 0; i < visualAreaCenters.Length; i++)
-            {
-                Transform candidate = visualAreaCenters[i];
-                if (candidate == null)
-                {
-                    continue;
-                }
-
-                if (selectedIndex == 0)
-                {
-                    return candidate.position;
-                }
-
-                selectedIndex--;
-            }
-        }
-
-        if (visualAreaCenter != null)
-        {
-            return visualAreaCenter.position;
-        }
-
-        return transform.position;
     }
 
     private bool IsAxisConfigured(Vector3 axis)
@@ -642,6 +875,11 @@ public class ConveyorExportSystem : MonoBehaviour
     private void SetUnlocked(bool unlocked)
     {
         isUnlocked = unlocked;
+        if (!unlocked)
+        {
+            ClearSlotLane();
+        }
+
         if (conveyorRoot != null && conveyorRoot != gameObject)
         {
             conveyorRoot.SetActive(unlocked);
@@ -725,6 +963,18 @@ public class ConveyorExportSystem : MonoBehaviour
             isValid = false;
         }
 
+        if (conveyorWidthBlocks <= 0)
+        {
+            Debug.LogError($"ConveyorExportSystem: conveyorWidthBlocks must be positive. conveyorWidthBlocks={conveyorWidthBlocks}", this);
+            isValid = false;
+        }
+
+        if (voxelsPerBlock <= 0)
+        {
+            Debug.LogError($"ConveyorExportSystem: voxelsPerBlock must be positive. voxelsPerBlock={voxelsPerBlock}", this);
+            isValid = false;
+        }
+
         if (moveVisualItemsInward && !IsAxisConfigured(inwardAxis))
         {
             Debug.LogError("ConveyorExportSystem: inwardAxis is not configured.", this);
@@ -770,12 +1020,25 @@ public class ConveyorExportSystem : MonoBehaviour
         return false;
     }
 
+    private bool HasDroppedItemInputArea()
+    {
+        return droppedItemInputArea != null || HasAnyConfiguredCollider(droppedItemInputAreas);
+    }
+
+    private void ClearSlotLane()
+    {
+        activeSlotReservations.Clear();
+        for (int i = 0; i < nextSlotEntryTimes.Length; i++)
+        {
+            nextSlotEntryTimes[i] = 0f;
+        }
+    }
+
 #if UNITY_EDITOR
     private void OnValidate()
     {
         playerItemTransferSpeed = Mathf.Max(0.01f, playerItemTransferSpeed);
         visualMoveSpeed = Mathf.Max(0.01f, visualMoveSpeed);
-        visualLifetimeSeconds = Mathf.Max(0f, visualLifetimeSeconds);
         maxDroppedItemScansPerFrame = Mathf.Max(1, maxDroppedItemScansPerFrame);
         droppedItemScanInterval = Mathf.Max(0f, droppedItemScanInterval);
         maxActiveVisualItems = Mathf.Max(1, maxActiveVisualItems);
@@ -784,6 +1047,8 @@ public class ConveyorExportSystem : MonoBehaviour
             Mathf.Max(0f, visualAreaSize.y),
             Mathf.Max(0.01f, visualAreaSize.z));
         inwardTargetInset = Mathf.Max(0f, inwardTargetInset);
+        conveyorWidthBlocks = Mathf.Max(1, conveyorWidthBlocks);
+        voxelsPerBlock = Mathf.Max(1, voxelsPerBlock);
     }
 #endif
 }

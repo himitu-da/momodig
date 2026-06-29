@@ -4328,7 +4328,6 @@ MonoBehaviour:
   inwardTargetInset: 0.1
   playerItemTransferSpeed: 80
   visualMoveSpeed: 5
-  visualLifetimeSeconds: 1.25
   maxDroppedItemScansPerFrame: 64
   droppedItemScanInterval: 0.05
   maxActiveVisualItems: 96

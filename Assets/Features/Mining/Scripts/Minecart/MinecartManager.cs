@@ -381,7 +381,7 @@ public class MinecartManager : MonoBehaviour
             return;
         }
 
-        if (!cart.TryDrainItems(out List<VoxelItemData> unloadedItems))
+        if (!cart.TryCopyItems(out List<VoxelItemData> unloadedItems, "MinecartManager.Unload"))
         {
             Debug.LogError("MinecartManager: failed to unload minecart because it contains invalid voxel item data.", this);
             return;
@@ -400,8 +400,10 @@ public class MinecartManager : MonoBehaviour
                     true))
             {
                 Debug.LogError("MinecartManager: failed to unload minecart to conveyor.", this);
+                return;
             }
 
+            cart.ClearItems();
             return;
         }
 
@@ -414,6 +416,7 @@ public class MinecartManager : MonoBehaviour
         if (VoxelItemData.TryAggregateResourceCounts(unloadedItems, out Dictionary<ResourceType, int> resourceCounts, "MinecartManager.Unload"))
         {
             StorageManager.Instance.AddResources(resourceCounts);
+            cart.ClearItems();
         }
         else
         {

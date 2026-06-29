@@ -57,19 +57,29 @@ public class Minecart
 
     public bool TryDrainItems(out List<VoxelItemData> drainedItems)
     {
-        drainedItems = new List<VoxelItemData>();
-        foreach (VoxelItemData item in items)
+        if (!TryCopyItems(out drainedItems, "Minecart.TryDrainItems"))
         {
-            if (item == null || !item.IsValid("Minecart.TryDrainItems"))
-            {
-                drainedItems.Clear();
-                return false;
-            }
-
-            drainedItems.Add(item.Clone());
+            return false;
         }
 
         items.Clear();
+        return true;
+    }
+
+    public bool TryCopyItems(out List<VoxelItemData> copiedItems, string context)
+    {
+        copiedItems = new List<VoxelItemData>();
+        foreach (VoxelItemData item in items)
+        {
+            if (item == null || !item.IsValid(context))
+            {
+                copiedItems.Clear();
+                return false;
+            }
+
+            copiedItems.Add(item.Clone());
+        }
+
         return true;
     }
 
