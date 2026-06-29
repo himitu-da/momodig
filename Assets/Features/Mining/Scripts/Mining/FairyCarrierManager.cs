@@ -53,6 +53,7 @@ public class FairyCarrierManager : MonoBehaviour
     [SerializeField] private GameObject fairyPrefab;
     [SerializeField] private TerrainManager terrainManager;
     [SerializeField] private TerrainDataManager terrainDataManager;
+    [SerializeField] private ConveyorExportSystem conveyorExportSystem;
 
     [Header("Facility Upgrades")]
     [SerializeField] private FacilityUpgradeCatalog facilityUpgradeCatalog;
@@ -595,9 +596,25 @@ public class FairyCarrierManager : MonoBehaviour
 
     private void DepositCarriedItem(FairyCarrier fairy)
     {
-        if (fairy.CarriedItem != null && StorageManager.Instance != null)
+        if (fairy.CarriedItem != null)
         {
-            StorageManager.Instance.AddResource(fairy.CarriedItem.resourceType, 1);
+            if (conveyorExportSystem != null && conveyorExportSystem.IsUnlocked)
+            {
+                if (!conveyorExportSystem.TryExportExternalItem(fairy.CarriedItem, fairy.Instance.transform.position, true))
+                {
+                    Debug.LogError("FairyCarrierManager: failed to deposit carried item to conveyor.", this);
+                    return;
+                }
+            }
+            else if (StorageManager.Instance != null)
+            {
+                StorageManager.Instance.AddResource(fairy.CarriedItem.resourceType, 1);
+            }
+            else
+            {
+                Debug.LogError("FairyCarrierManager: StorageManager is not initialized.", this);
+                return;
+            }
         }
 
         ClearCarriedItem(fairy);

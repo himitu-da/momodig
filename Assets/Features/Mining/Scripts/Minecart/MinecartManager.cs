@@ -28,6 +28,7 @@ public class MinecartManager : MonoBehaviour
     public Stat unloadTime = new Stat { BaseValue = 2.0f }; // 地上での荷降ろし時間
     public Stat cartunit = new Stat { BaseValue = 2 };
     public List<Minecart> minecarts = new List<Minecart>();
+    [SerializeField] private ConveyorExportSystem conveyorExportSystem;
 
     [Header("軌跡追従設定")]
     [Tooltip("軌跡を記録する最小移動距離（格子点の間隔）")]
@@ -257,22 +258,7 @@ public class MinecartManager : MonoBehaviour
                         cart.state = MinecartState.Unloading; // 状態を荷降ろし中に変更
                         cart.time = unloadTime.Value; // 荷降ろしタイマーを設定
 
-                        if (StorageManager.Instance != null)
-                        {
-                            if (!cart.TryDrainItems(out List<VoxelItemData> unloadedItems))
-                            {
-                                Debug.LogError("MinecartManager: failed to unload minecart because it contains invalid voxel item data.");
-                            }
-                            else if (unloadedItems.Count > 0 &&
-                                     VoxelItemData.TryAggregateResourceCounts(unloadedItems, out Dictionary<ResourceType, int> resourceCounts, "MinecartManager.Unload"))
-                            {
-                                StorageManager.Instance.AddResources(resourceCounts);
-                            }
-                            else if (unloadedItems.Count > 0)
-                            {
-                                Debug.LogError("MinecartManager: failed to unload minecart because it contains invalid voxel item data.");
-                            }
-                        }
+                        UnloadCartAtGroundStation(cart);
                     }
                     break;
 
@@ -384,6 +370,57 @@ public class MinecartManager : MonoBehaviour
 
             cart.capacityText.gameObject.SetActive(true);
             cart.capacityText.SetText("{0} / {1}", cart.CurrentLoad, CartCapacity.IntValue);
+        }
+    }
+
+    private void UnloadCartAtGroundStation(Minecart cart)
+    {
+        if (cart == null)
+        {
+            Debug.LogError("MinecartManager: cannot unload a null minecart.", this);
+            return;
+        }
+
+        if (!cart.TryCopyItems(out List<VoxelItemData> unloadedItems, "MinecartManager.Unload"))
+        {
+            Debug.LogError("MinecartManager: failed to unload minecart because it contains invalid voxel item data.", this);
+            return;
+        }
+
+        if (unloadedItems.Count == 0)
+        {
+            return;
+        }
+
+        if (conveyorExportSystem != null && conveyorExportSystem.IsUnlocked)
+        {
+            if (!conveyorExportSystem.TryExportExternalItems(
+                    unloadedItems,
+                    cart.gameObject != null ? cart.gameObject.transform.position : groundStationPosition,
+                    true))
+            {
+                Debug.LogError("MinecartManager: failed to unload minecart to conveyor.", this);
+                return;
+            }
+
+            cart.ClearItems();
+            return;
+        }
+
+        if (StorageManager.Instance == null)
+        {
+            Debug.LogError("MinecartManager: StorageManager is not initialized.", this);
+            return;
+        }
+
+        if (VoxelItemData.TryAggregateResourceCounts(unloadedItems, out Dictionary<ResourceType, int> resourceCounts, "MinecartManager.Unload"))
+        {
+            StorageManager.Instance.AddResources(resourceCounts);
+            cart.ClearItems();
+        }
+        else
+        {
+            Debug.LogError("MinecartManager: failed to unload minecart because it contains invalid voxel item data.", this);
         }
     }
 

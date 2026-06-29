@@ -18,6 +18,7 @@ public class SurfaceInteractionSystem : MonoBehaviour
     [SerializeField] private PlayerController playerController;
     [SerializeField] private StorageManager storageManager;
     [SerializeField] private TerrainDataManager terrainDataManager;
+    [SerializeField] private ConveyorExportSystem conveyorExportSystem;
 
     private bool isTransferringItems;
 
@@ -58,6 +59,11 @@ public class SurfaceInteractionSystem : MonoBehaviour
     private void CheckSurfaceProximity()
     {
         if (isTransferringItems || playerController.Inventory.IsEmpty())
+        {
+            return;
+        }
+
+        if (conveyorExportSystem != null && conveyorExportSystem.IsUnlocked)
         {
             return;
         }
