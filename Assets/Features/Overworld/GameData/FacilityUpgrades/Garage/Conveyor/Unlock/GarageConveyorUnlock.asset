@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 924476b7529a43768f2b4f1846f39563, type: 3}
+  m_Name: GarageConveyorUnlock
+  m_EditorClassIdentifier: 
+  upgradeId: garage.conveyor.unlock
+  facilityType: 1
+  categoryId: conveyor
+  categoryLabel: Conveyor
+  displayName: Conveyor Belt
+  description: Unlocks the conveyor belt near the surface exit.
+  initialLevel: 0
+  maxLevel: 1
+  costScaling: 0
+  resourceCosts:
+  - resourceType: 1
+    baseAmount: 20
+  - resourceType: 5
+    baseAmount: 10
+  - resourceType: 11
+    baseAmount: 5
+  enhancements:
+  - {fileID: 11400000, guid: c4c2d0b8751643d7b3a8d2dc24f89428, type: 2}
