@@ -39,7 +39,6 @@ public class ConveyorExportSystem : MonoBehaviour
     [SerializeField, Min(1)] private int maxDroppedItemScansPerFrame = 64;
     [SerializeField, Min(0f)] private float droppedItemScanInterval = 0.05f;
     [SerializeField, Min(1)] private int maxActiveVisualItems = 96;
-    [SerializeField] private AnimationCurve movementCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
     [Header("Facility Upgrade")]
     [SerializeField] private Stat unlock = new Stat { BaseValue = 0f };
@@ -366,8 +365,7 @@ public class ConveyorExportSystem : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float progress = Mathf.Clamp01(elapsed / duration);
-            float curvedProgress = movementCurve != null ? movementCurve.Evaluate(progress) : progress;
-            visualItem.transform.position = Vector3.Lerp(sourcePosition, targetPosition, curvedProgress);
+            visualItem.transform.position = Vector3.Lerp(sourcePosition, targetPosition, progress);
             visualItem.transform.Rotate(0f, 360f * Time.deltaTime, 0f);
             await UniTask.Yield();
         }
