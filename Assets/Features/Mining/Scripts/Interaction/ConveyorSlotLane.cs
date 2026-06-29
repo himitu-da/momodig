@@ -7,16 +7,18 @@ public sealed class ConveyorSlotLane
 
     public sealed class Reservation
     {
-        internal Reservation(int laneIndex, int minSlotIndex, int slotCount)
+        internal Reservation(int laneIndex, int minSlotIndex, int slotCount, int stackLayer)
         {
             LaneIndex = laneIndex;
             MinSlotIndex = minSlotIndex;
             SlotCount = slotCount;
+            StackLayer = stackLayer;
         }
 
         public int LaneIndex { get; }
         public int MinSlotIndex { get; }
         public int SlotCount { get; }
+        public int StackLayer { get; }
         public int MaxSlotIndex => MinSlotIndex + SlotCount - 1;
         public bool IsReleased { get; internal set; }
     }
@@ -24,6 +26,7 @@ public sealed class ConveyorSlotLane
     private readonly List<Reservation> reservations = new List<Reservation>();
     private int laneCount = 1;
     private int slotCapacity = 1;
+    private int maxStackLayers = 1;
     private float laneLength = 1f;
     private float slotSpacing = 1f;
     private float speed = 1f;
@@ -32,22 +35,32 @@ public sealed class ConveyorSlotLane
     public float LaneLength => laneLength;
     public float SlotSpacing => slotSpacing;
     public int SlotCapacity => slotCapacity;
+    public int MaxStackLayers => maxStackLayers;
+    public int TotalSlotCapacity => slotCapacity * maxStackLayers;
 
-    public bool Configure(int newLaneCount, float newLaneLength, int newSlotCapacity, float newSpeed)
+    public bool Configure(
+        int newLaneCount,
+        float newLaneLength,
+        int newSlotCapacity,
+        int newMaxStackLayers,
+        float newSpeed)
     {
         newLaneCount = Mathf.Max(1, newLaneCount);
         newLaneLength = Mathf.Max(0.001f, newLaneLength);
         newSlotCapacity = Mathf.Max(1, newSlotCapacity);
+        newMaxStackLayers = Mathf.Max(1, newMaxStackLayers);
         newSpeed = Mathf.Max(0.001f, newSpeed);
 
         bool topologyChanged =
             newLaneCount != laneCount ||
             newSlotCapacity != slotCapacity ||
+            newMaxStackLayers != maxStackLayers ||
             !Mathf.Approximately(newLaneLength, laneLength);
 
         laneCount = newLaneCount;
         laneLength = newLaneLength;
         slotCapacity = newSlotCapacity;
+        maxStackLayers = newMaxStackLayers;
         speed = newSpeed;
         slotSpacing = laneLength / slotCapacity;
 
@@ -112,15 +125,22 @@ public sealed class ConveyorSlotLane
             }
 
             int minSlotIndex = slotIndex - requiredSlots + 1;
-            if (!IsSlotRangeVisible(minSlotIndex, requiredSlots) ||
-                !IsSlotRangeFree(laneIndex, minSlotIndex, requiredSlots))
+            if (!IsSlotRangeVisible(minSlotIndex, requiredSlots))
             {
                 continue;
             }
 
-            reservation = new Reservation(laneIndex, minSlotIndex, requiredSlots);
-            reservations.Add(reservation);
-            return true;
+            for (int stackLayer = 0; stackLayer < maxStackLayers; stackLayer++)
+            {
+                if (!IsSlotRangeFree(laneIndex, minSlotIndex, requiredSlots, stackLayer))
+                {
+                    continue;
+                }
+
+                reservation = new Reservation(laneIndex, minSlotIndex, requiredSlots, stackLayer);
+                reservations.Add(reservation);
+                return true;
+            }
         }
 
         return false;
@@ -193,13 +213,16 @@ public sealed class ConveyorSlotLane
         return true;
     }
 
-    private bool IsSlotRangeFree(int laneIndex, int minSlotIndex, int count)
+    private bool IsSlotRangeFree(int laneIndex, int minSlotIndex, int count, int stackLayer)
     {
         int maxSlotIndex = minSlotIndex + count - 1;
         for (int i = 0; i < reservations.Count; i++)
         {
             Reservation active = reservations[i];
-            if (active == null || active.IsReleased || active.LaneIndex != laneIndex)
+            if (active == null ||
+                active.IsReleased ||
+                active.LaneIndex != laneIndex ||
+                active.StackLayer != stackLayer)
             {
                 continue;
             }

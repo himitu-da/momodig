@@ -9,6 +9,7 @@ After the upgrade reaches level 1, `ConveyorExportSystem` becomes the single run
 ## Runtime Rules
 
 - Player inventory is exported when the player enters any configured player input area.
+- `playerItemTransferSpeed` limits how many player inventory items can be consumed per second. Slot and stack search still scans the full swept input range for each credited transfer.
 - Minecart and fairy carried items are exported through `TryExportExternalItem(s)` after the carrier reaches its configured ground/home point.
 - Dropped voxel items are exported when their bounds enter any configured dropped item input area.
 - The conveyor accepts an item only when a moving slot intersects the item's current swept input range.
@@ -62,10 +63,12 @@ Slots continuously move from the outside input edge toward the inward edge, and 
 
 - `conveyorWidthBlocks` defines the conveyor width in block units.
 - `voxelsPerBlock` defines how many voxel-width slots fit in one block.
-- Total slot capacity per visual lane is `conveyorWidthBlocks * voxelsPerBlock`.
+- `maxStackLayers` defines how many vertical layers can share the same moving slot range.
+- `stackLayerHeightMultiplier` defaults to `0.98`, so each stacked layer is offset upward by `item height * 0.98`.
+- Total slot capacity per visual lane is `conveyorWidthBlocks * voxelsPerBlock * maxStackLayers`.
 - A normal voxel item reserves one slot when its width matches one slot.
 - Wider visual items reserve multiple slots based on their scale along the inward axis.
-- Slot reservations are stored as logical slot ranges. The display position is recalculated every frame from the reservation's current continuous lane distance.
+- Slot reservations are stored as logical slot ranges plus a stack layer. The display position is recalculated every frame from the reservation's current continuous lane distance and layer height.
 - The input check uses the source's previous and current lane distance as a swept range, so fast movement across multiple slots can reserve multiple available slots in one pass.
 - Batched external export reserves multiple currently visible free slots; if the whole batch cannot be reserved, no source items are consumed.
 - If the lane is full, or every slot in the swept range is already reserved, the conveyor rejects the item and leaves the source item untouched.

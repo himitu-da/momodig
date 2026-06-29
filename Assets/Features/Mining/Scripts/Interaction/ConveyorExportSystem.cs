@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
 using Unity.Profiling;
 using UnityEngine;
 
@@ -42,6 +40,8 @@ public class ConveyorExportSystem : MonoBehaviour
     [Header("Slot Lane")]
     [SerializeField, Min(1)] private int conveyorWidthBlocks = 3;
     [SerializeField, Min(1)] private int voxelsPerBlock = 3;
+    [SerializeField, Min(1)] private int maxStackLayers = 3;
+    [SerializeField, Min(0.01f)] private float stackLayerHeightMultiplier = 0.98f;
 
     [Header("Facility Upgrade")]
     [SerializeField] private Stat unlock = new Stat { BaseValue = 0f };
@@ -54,13 +54,15 @@ public class ConveyorExportSystem : MonoBehaviour
         public ConveyorSlotLane.Reservation Reservation;
         public int LaneIndex;
         public Vector3 LateralOffset;
+        public float StackLayerHeight;
     }
 
     private readonly ConveyorSlotLane slotLane = new ConveyorSlotLane();
     private readonly List<ConveyorVisualItem> activeVisualItems = new List<ConveyorVisualItem>();
     private readonly Dictionary<int, Vector3> previousDroppedItemPositions = new Dictionary<int, Vector3>();
     private bool isUnlocked;
-    private bool isTransferringPlayerItems;
+    private float playerTransferCredit;
+    private bool wasPlayerTransferEligible;
     private float nextDroppedItemScanTime;
     private int nextDroppedItemScanIndex;
     private bool missingPersistenceLogged;
@@ -95,6 +97,7 @@ public class ConveyorExportSystem : MonoBehaviour
         {
             if (!isUnlocked)
             {
+                ResetPlayerTransferCredit();
                 CapturePlayerPosition();
                 return;
             }
@@ -102,7 +105,7 @@ public class ConveyorExportSystem : MonoBehaviour
             EnsureSlotLaneState();
             slotLane.Advance(Time.deltaTime, CanAdvanceSlotLane());
             UpdateVisualItems();
-            StartPlayerTransferIfNeeded();
+            ProcessPlayerTransferCredit();
             ProcessDroppedItemsInArea();
             CapturePlayerPosition();
         }
@@ -184,85 +187,90 @@ public class ConveyorExportSystem : MonoBehaviour
         return true;
     }
 
-    private void StartPlayerTransferIfNeeded()
+    private void ProcessPlayerTransferCredit()
     {
-        if (isTransferringPlayerItems ||
-            playerController == null ||
-            playerController.Inventory == null ||
-            playerController.Inventory.IsEmpty() ||
-            !IsPlayerInInputArea())
+        if (!CanProcessPlayerTransfer())
+        {
+            ResetPlayerTransferCredit();
+            return;
+        }
+
+        if (!wasPlayerTransferEligible)
+        {
+            playerTransferCredit = Mathf.Max(playerTransferCredit, 1f);
+            wasPlayerTransferEligible = true;
+        }
+        else
+        {
+            playerTransferCredit += playerItemTransferSpeed * Time.deltaTime;
+        }
+
+        int transferBudget = Mathf.FloorToInt(playerTransferCredit);
+        if (transferBudget <= 0)
         {
             return;
         }
 
-        TransferPlayerItemsAsync().Forget();
+        GetPlayerSweepPositions(out Vector3 previousPosition, out Vector3 currentPosition);
+        bool blocked = false;
+        while (transferBudget > 0 && CanProcessPlayerTransfer())
+        {
+            if (!playerController.Inventory.TryPeekNextItem(out VoxelItemData itemData))
+            {
+                Debug.LogError("ConveyorExportSystem: failed to read next player inventory item.", this);
+                blocked = true;
+                break;
+            }
+
+            if (!CanExportItem(itemData, "ConveyorExportSystem.ProcessPlayerTransferCredit"))
+            {
+                blocked = true;
+                break;
+            }
+
+            if (!TryPrepareConveyorItem(
+                    itemData,
+                    previousPosition,
+                    currentPosition,
+                    out ConveyorVisualItem pendingItem))
+            {
+                blocked = true;
+                break;
+            }
+
+            if (!playerController.Inventory.TryRemoveNextItem(out VoxelItemData removedItem))
+            {
+                Debug.LogError("ConveyorExportSystem: failed to remove player inventory item.", this);
+                ReleaseConveyorVisualItem(pendingItem, true);
+                blocked = true;
+                break;
+            }
+
+            storageManager.AddResource(removedItem.resourceType, 1);
+            CommitConveyorVisualItem(pendingItem);
+            playerTransferCredit -= 1f;
+            transferBudget--;
+        }
+
+        if (blocked)
+        {
+            playerTransferCredit = Mathf.Min(playerTransferCredit, 1f);
+        }
     }
 
-    private async UniTask TransferPlayerItemsAsync()
+    private bool CanProcessPlayerTransfer()
     {
-        isTransferringPlayerItems = true;
-        try
-        {
-            while (isUnlocked &&
-                   playerController != null &&
-                   playerController.Inventory != null &&
-                   !playerController.Inventory.IsEmpty() &&
-                   IsPlayerInInputArea())
-            {
-                GetPlayerSweepPositions(out Vector3 previousPosition, out Vector3 currentPosition);
-                int acceptedThisPass = 0;
-                int maxAcceptedThisPass = Mathf.Max(1, slotLane.SlotCapacity);
-                while (acceptedThisPass < maxAcceptedThisPass &&
-                       isUnlocked &&
-                       playerController != null &&
-                       playerController.Inventory != null &&
-                       !playerController.Inventory.IsEmpty() &&
-                       IsPlayerInInputArea())
-                {
-                    if (!playerController.Inventory.TryPeekNextItem(out VoxelItemData itemData))
-                    {
-                        Debug.LogError("ConveyorExportSystem: failed to read next player inventory item.", this);
-                        break;
-                    }
+        return isUnlocked &&
+            playerController != null &&
+            playerController.Inventory != null &&
+            !playerController.Inventory.IsEmpty() &&
+            IsPlayerInInputArea();
+    }
 
-                    if (!CanExportItem(itemData, "ConveyorExportSystem.TransferPlayerItemsAsync"))
-                    {
-                        break;
-                    }
-
-                    if (!TryPrepareConveyorItem(
-                            itemData,
-                            previousPosition,
-                            currentPosition,
-                            out ConveyorVisualItem pendingItem))
-                    {
-                        break;
-                    }
-
-                    if (!playerController.Inventory.TryRemoveNextItem(out VoxelItemData removedItem))
-                    {
-                        Debug.LogError("ConveyorExportSystem: failed to remove player inventory item.", this);
-                        ReleaseConveyorVisualItem(pendingItem, true);
-                        break;
-                    }
-
-                    storageManager.AddResource(removedItem.resourceType, 1);
-                    CommitConveyorVisualItem(pendingItem);
-                    acceptedThisPass++;
-                }
-
-                if (acceptedThisPass == 0)
-                {
-                    break;
-                }
-
-                await UniTask.Delay(TimeSpan.FromSeconds(1f / playerItemTransferSpeed));
-            }
-        }
-        finally
-        {
-            isTransferringPlayerItems = false;
-        }
+    private void ResetPlayerTransferCredit()
+    {
+        playerTransferCredit = 0f;
+        wasPlayerTransferEligible = false;
     }
 
     private void ProcessDroppedItemsInArea()
@@ -412,6 +420,7 @@ public class ConveyorExportSystem : MonoBehaviour
             Reservation = reservation,
             LaneIndex = laneIndex,
             LateralOffset = lateralOffset,
+            StackLayerHeight = GetItemHeight(itemData) * stackLayerHeightMultiplier,
         };
         return true;
     }
@@ -449,6 +458,7 @@ public class ConveyorExportSystem : MonoBehaviour
             Reservation = reservation,
             LaneIndex = laneIndex,
             LateralOffset = lateralOffset,
+            StackLayerHeight = GetItemHeight(itemData) * stackLayerHeightMultiplier,
         };
         return true;
     }
@@ -473,7 +483,10 @@ public class ConveyorExportSystem : MonoBehaviour
 
         if (item.VisualItem != null && item.Reservation != null && !item.Reservation.IsReleased)
         {
-            item.VisualItem.transform.position = GetReservationWorldPosition(item.Reservation, item.LateralOffset);
+            item.VisualItem.transform.position = GetReservationWorldPosition(
+                item.Reservation,
+                item.LateralOffset,
+                item.StackLayerHeight);
         }
 
         activeVisualItems.Add(item);
@@ -496,7 +509,10 @@ public class ConveyorExportSystem : MonoBehaviour
             }
 
             active.VisualItem.transform.position =
-                GetReservationWorldPosition(active.Reservation, active.LateralOffset);
+                GetReservationWorldPosition(
+                    active.Reservation,
+                    active.LateralOffset,
+                    active.StackLayerHeight);
         }
     }
 
@@ -598,7 +614,10 @@ public class ConveyorExportSystem : MonoBehaviour
         }
 
         lateralOffset = GetLateralOffset(currentReferencePosition, center, flowDirection);
-        visualPosition = GetReservationWorldPosition(reservation, lateralOffset);
+        visualPosition = GetReservationWorldPosition(
+            reservation,
+            lateralOffset,
+            GetItemHeight(itemData) * stackLayerHeightMultiplier);
         return true;
     }
 
@@ -628,7 +647,10 @@ public class ConveyorExportSystem : MonoBehaviour
         }
 
         lateralOffset = GetLateralOffset(referencePosition, center, flowDirection);
-        visualPosition = GetReservationWorldPosition(reservation, lateralOffset);
+        visualPosition = GetReservationWorldPosition(
+            reservation,
+            lateralOffset,
+            GetItemHeight(itemData) * stackLayerHeightMultiplier);
         return true;
     }
 
@@ -662,10 +684,20 @@ public class ConveyorExportSystem : MonoBehaviour
             Mathf.Abs(axis.z) * scale.z;
     }
 
+    private float GetItemHeight(VoxelItemData itemData)
+    {
+        return itemData != null ? Mathf.Max(0.001f, itemData.scale.y) : 0.001f;
+    }
+
     private void EnsureSlotLaneState()
     {
         int laneCount = GetLaneCount();
-        if (slotLane.Configure(laneCount, GetLaneLength(), GetSlotCapacity(), visualMoveSpeed))
+        if (slotLane.Configure(
+                laneCount,
+                GetLaneLength(),
+                GetSlotCapacity(),
+                maxStackLayers,
+                visualMoveSpeed))
         {
             DestroyAllActiveVisualItems(false);
         }
@@ -739,7 +771,8 @@ public class ConveyorExportSystem : MonoBehaviour
 
     private Vector3 GetReservationWorldPosition(
         ConveyorSlotLane.Reservation reservation,
-        Vector3 lateralOffset)
+        Vector3 lateralOffset,
+        float stackLayerHeight)
     {
         if (reservation == null)
         {
@@ -749,7 +782,8 @@ public class ConveyorExportSystem : MonoBehaviour
         Vector3 center = GetVisualAreaCenterByLaneIndex(reservation.LaneIndex);
         Vector3 flowDirection = GetFlowDirectionForLane(center);
         float distance = slotLane.GetReservationCenterDistance(reservation);
-        return GetLaneWorldPosition(center, flowDirection, distance, lateralOffset);
+        Vector3 stackOffset = Vector3.up * (reservation.StackLayer * Mathf.Max(0f, stackLayerHeight));
+        return GetLaneWorldPosition(center, flowDirection, distance, lateralOffset) + stackOffset;
     }
 
     private Vector3 GetLaneWorldPosition(
@@ -1096,6 +1130,20 @@ public class ConveyorExportSystem : MonoBehaviour
             isValid = false;
         }
 
+        if (maxStackLayers <= 0)
+        {
+            Debug.LogError($"ConveyorExportSystem: maxStackLayers must be positive. maxStackLayers={maxStackLayers}", this);
+            isValid = false;
+        }
+
+        if (stackLayerHeightMultiplier <= 0f)
+        {
+            Debug.LogError(
+                $"ConveyorExportSystem: stackLayerHeightMultiplier must be positive. stackLayerHeightMultiplier={stackLayerHeightMultiplier}",
+                this);
+            isValid = false;
+        }
+
         if (moveVisualItemsInward && !IsAxisConfigured(inwardAxis))
         {
             Debug.LogError("ConveyorExportSystem: inwardAxis is not configured.", this);
@@ -1151,6 +1199,7 @@ public class ConveyorExportSystem : MonoBehaviour
         DestroyAllActiveVisualItems(true);
         slotLane.Clear();
         previousDroppedItemPositions.Clear();
+        ResetPlayerTransferCredit();
         hasPreviousPlayerPosition = false;
     }
 
@@ -1169,6 +1218,8 @@ public class ConveyorExportSystem : MonoBehaviour
         inwardTargetInset = Mathf.Max(0f, inwardTargetInset);
         conveyorWidthBlocks = Mathf.Max(1, conveyorWidthBlocks);
         voxelsPerBlock = Mathf.Max(1, voxelsPerBlock);
+        maxStackLayers = Mathf.Max(1, maxStackLayers);
+        stackLayerHeightMultiplier = Mathf.Max(0.01f, stackLayerHeightMultiplier);
     }
 #endif
 }
